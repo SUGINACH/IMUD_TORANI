@@ -19,7 +19,6 @@
     --hdr-w-r: 33.33%;
     --hdr-w-c: 33.34%;
     --hdr-w-l: 33.33%;
-    --hdr-divider-color: rgba(0, 0, 0, 0.06);
 
     /* כותרות 0-7 */
     --fn-h0: 'AlphaBlack', 'David Libre', serif;
@@ -82,7 +81,7 @@
     --note-last-line-align: right;
 
     /* רשת העמוד ומרחקים עליונים/תחתונים */
-    --w-margin: 7%;
+    --w-margin: 7.5%;
     --w-gap: 2%;
     --w-col: 40%;
     --w-gutter: 2%;
@@ -629,7 +628,7 @@ body {
 .visual-picker-trigger:hover { border-color: #3b82f6; background: #f8fafc; }
 
 .vp-trig-preview {
-    display: flex align-items: center; justify-content: center; height: 22px;
+    display: flex; align-items: center; justify-content: center; height: 22px;
     min-width: 32px; max-width: 65px; overflow: hidden; flex-shrink: 0;
 }
 .vp-trig-preview svg, .vp-trig-preview img { max-height: 20px; max-width: 100%; object-fit: contain; }
@@ -734,13 +733,6 @@ body {
 .a4-page.page-focused {
     outline: 4px solid #3b82f6 !important;
     box-shadow: 0 0 25px rgba(59, 130, 246, 0.5) !important;
-}
-
-.blank-page {
-    background-color: #ffffff;
-    width: 210mm;
-    height: 297mm;
-    page-break-after: always;
 }
 
 /* לחצן דיבאג צף בכל עמוד */
@@ -1077,7 +1069,7 @@ body {
     grid-template-columns: var(--w-margin) var(--w-gap) var(--w-col) var(--w-gutter) var(--w-col) var(--w-gap) var(--w-margin);
     width: 100%;
     position: relative;
-    align-items: start !important;
+    align-items: start;
 }
 
 /* קו מפריד אנכי בין הטורים */
@@ -1189,14 +1181,6 @@ body {
     font-family: var(--fn-h6); font-size: var(--sz-h6); font-weight: 700;
     text-align: center; margin: 6px 0 3px 0; line-height: 1.22;
 }
-.title-level-7 {
-    font-family: var(--fn-h7);
-    font-size: var(--sz-h7);
-    font-weight: 700;
-    text-align: center;
-    margin: 5px 0 2px 0;
-    line-height: 1.2;
-}
 .title-level-custom { margin: 9px 0 4px 0; line-height: 1.3; }
 
 /* כותרת מובלעת ברצף הפסקה (Run-In) */
@@ -1254,14 +1238,13 @@ body {
 
 p {
     margin-bottom: 7px;
-    text-align: justify !important;
-    text-justify: inter-word !important;
+    text-align: justify;
+    text-justify: inter-word;
     position: relative;
     line-height: var(--line-height-body, 1.34);
-    box-sizing: border-box;
 }
-p.p-end { text-align-last: var(--last-line-align, center) !important; }
-p.p-cut { text-align-last: justify !important; }
+p.p-end { text-align-last: var(--last-line-align, center); }
+p.p-cut { text-align-last: justify; }
 
 /* ============================================================
    מילה ראשונה (Drop Word) ודיבור המתחיל (ד"ה)
@@ -1626,23 +1609,6 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
 .grp-title { font-weight: 600; color: #111; }
 .grp-page { font-weight: 700; color: #4a5568 !important; font-family: 'David Libre', serif; }
 .grp-sep { color: #888; margin: 0 6px; font-weight: bold; white-space: nowrap; }
-
-/* התאמת גופנים וגדלים לתוכן עניינים כללי ומפורט */
-.toc-variant-general .toc-lvl-1 { font-family: var(--fn-gtoc-1, inherit); font-size: var(--sz-gtoc-1, 12pt); }
-.toc-variant-general .toc-lvl-2 { font-family: var(--fn-gtoc-2, inherit); font-size: var(--sz-gtoc-2, 11pt); }
-.toc-variant-general .toc-lvl-3 { font-family: var(--fn-gtoc-3, inherit); font-size: var(--sz-gtoc-3, 10.5pt); }
-.toc-variant-general .toc-lvl-4 { font-family: var(--fn-gtoc-4, inherit); font-size: var(--sz-gtoc-4, 10.5pt); }
-.toc-variant-general .toc-lvl-5 { font-family: var(--fn-gtoc-5, inherit); font-size: var(--sz-gtoc-5, 10.5pt); }
-.toc-variant-general .toc-lvl-6 { font-family: var(--fn-gtoc-6, inherit); font-size: var(--sz-gtoc-6, 10.5pt); }
-.toc-variant-general .toc-lvl-7 { font-family: var(--fn-gtoc-7, inherit); font-size: var(--sz-gtoc-7, 8.8pt); }
-
-.toc-variant-detailed .toc-lvl-1 { font-family: var(--fn-dtoc-1, inherit); font-size: var(--sz-dtoc-1, 12pt); }
-.toc-variant-detailed .toc-lvl-2 { font-family: var(--fn-dtoc-2, inherit); font-size: var(--sz-dtoc-2, 11pt); }
-.toc-variant-detailed .toc-lvl-3 { font-family: var(--fn-dtoc-3, inherit); font-size: var(--sz-dtoc-3, 10.5pt); }
-.toc-variant-detailed .toc-lvl-4 { font-family: var(--fn-dtoc-4, inherit); font-size: var(--sz-dtoc-4, 10.5pt); }
-.toc-variant-detailed .toc-lvl-5 { font-family: var(--fn-dtoc-5, inherit); font-size: var(--sz-dtoc-5, 10.5pt); }
-.toc-variant-detailed .toc-lvl-6 { font-family: var(--fn-dtoc-6, inherit); font-size: var(--sz-dtoc-6, 10.5pt); }
-.toc-variant-detailed .toc-lvl-7 { font-family: var(--fn-dtoc-7, inherit); font-size: var(--sz-dtoc-7, 8.8pt); }
 
 /* ============================================================
    הגדרות הדפסה (Print Setup)

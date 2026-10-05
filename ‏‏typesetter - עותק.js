@@ -13,14 +13,9 @@ let footnoteQueueForPage = [];
 let endnoteQueueForPart = [];
 let lineToTokenMap = [];
 let globalTokens = [];
-let curH1 = '';
-let curH2 = '';
-let currentH3Title = '';
-let currentH4Title = '';
 
 // מאגר גלובלי לאחסון נתוני דיבאג וטרייס לכל עמוד
-window.__pageDebugStore = window.__pageDebugStore || {};
-
+window.__pageDebugStore = {};
 
 /* ==========================================================================
    1. פונקציות יסוד, סינון עריכה ומספור תורני
@@ -253,13 +248,6 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     const fnOpen = document.getElementById('fn-delim-open')?.value?.trim() || '[';
     const fnClose = document.getElementById('fn-delim-close')?.value?.trim() || ']';
     let safeText = text.trim();
-
-    // מניעת מילה בודדת בשורה האחרונה (Runt Prevention)
-    // אם הפסקה מכילה 4 מילים ומעלה ואינה מסתיימת בהערה, נחבר את שתי המילים האחרונות ברווח בלתי-נתיק
-    const rawWords = safeText.split(/\s+/);
-    if (rawWords.length >= 4 && !rawWords[rawWords.length - 1].endsWith(fnClose)) {
-        safeText = rawWords.slice(0, -2).join(' ') + ' ' + rawWords[rawWords.length - 2] + '\u00A0' + rawWords[rawWords.length - 1];
-    }
 
     if (fnOpen && fnClose) {
         const escO = fnOpen.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -837,80 +825,6 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
 }
 
 /* ==========================================================================
-   6.1 פונקציות עזר לבקרה, איפוס סגנונות ומניעת כותרות/פסקאות יתומות
-   ========================================================================== */
-function resetColumnJustificationStyles(col) {
-    if (!col) return;
-    col.querySelectorAll('p').forEach(p => {
-        p.style.marginBottom = '';
-        p.style.lineHeight = '';
-        p.style.wordSpacing = '';
-    });
-    col.querySelectorAll('.title-level-3, .title-level-4, .title-level-5, .title-level-6, .title-level-7, .title-level-custom').forEach(h => {
-        h.style.marginTop = '';
-        h.style.marginBottom = '';
-    });
-}
-
-function isAnyHeadingElement(el) {
-    if (!el || !el.className) return false;
-    const cls = String(el.className);
-    return /title-level-\d+\b/.test(cls) || el.classList.contains('title-level-custom') || el.classList.contains('block-h3-span') || el.classList.contains('title-level-2-standalone');
-}
-
-function rollbackColumnTail(col, colWidth, styleObj, onRollback) {
-    if (!col || col.children.length === 0) return false;
-    let anyChanged = false;
-    let changed = true;
-
-    while (changed && col.children.length > 0) {
-        changed = false;
-        const lastEl = col.lastElementChild;
-        if (!lastEl) break;
-
-        // כלל 1: שום כותרת אינה יכולה להיות האלמנט המסיים של טור!
-        if (isAnyHeadingElement(lastEl)) {
-            const hId = lastEl.getAttribute('data-token-id');
-            col.removeChild(lastEl);
-            if (onRollback) onRollback({ type: 'h', id: hId, elem: lastEl });
-            changed = true;
-            anyChanged = true;
-            continue;
-        }
-
-        // כלל 2: אם האלמנט האחרון הוא פסקה
-        if (lastEl.tagName === 'P') {
-            const prevEl = lastEl.previousElementSibling;
-            const pRaw = lastEl.getAttribute('data-raw-text') || lastEl.textContent || '';
-            const isCont = lastEl.getAttribute('data-is-cont') === 'true';
-            const linesInfo = getLinesFromParagraph(pRaw, colWidth, styleObj, !isCont);
-            const lineCount = linesInfo.lines.length;
-
-            // כלל 2א: אם קדמה לה כותרת באותו טור, הפסקה חייבת להכיל לפחות 2 שורות!
-            if (prevEl && isAnyHeadingElement(prevEl) && lineCount < 2) {
-                const pId = lastEl.getAttribute('data-token-id');
-                col.removeChild(lastEl);
-                if (onRollback) onRollback({ type: 'p', id: pId, elem: lastEl, rawText: pRaw, linesInfo });
-                changed = true;
-                anyChanged = true;
-                continue; // באיטרציה הבאה תוסר גם הכותרת שהתייתמה!
-            }
-
-            // כלל 2ב: אם הפסקה מקוטעת (p-cut), היא חייבת להכיל לפחות 2 שורות!
-            if (lastEl.classList.contains('p-cut') && lineCount < 2) {
-                const pId = lastEl.getAttribute('data-token-id');
-                col.removeChild(lastEl);
-                if (onRollback) onRollback({ type: 'p', id: pId, elem: lastEl, rawText: pRaw, linesInfo });
-                changed = true;
-                anyChanged = true;
-                continue;
-            }
-        }
-    }
-    return anyChanged;
-}
-
-/* ==========================================================================
    7. איזון טורים (balanceColumns)
    ========================================================================== */
 function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = Infinity, traceObj = null) {
@@ -991,9 +905,6 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
                 if (avoidWidows && l === 1) continue;
                 if (avoidOrphans && (lines.length - l) === 1) continue;
                 if (lineBreakCrossesNoteSpan(lines, l)) continue;
-
-                // מניעת שורה בודדת לאחר כותרת בטור ימין
-                if (i > 0 && items[i - 1].type === 'h' && l < 2) continue;
 
                 // פסילת חיתוכים שבהם השורה האחרונה בטור ימין מכילה פחות מ-3 מילים
                 if (l > 0) {
@@ -1106,13 +1017,12 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     if (lMargin) lMargin.innerHTML = '';
     const finalNotes = [];
 
-    function appendItemFinal(col, margin, item, isRight, isPartial, partialText, isCont, isCut) {
+    function appendItemFinal(col, margin, item, isRight, isPartial, partialText, isCont) {
         if (item.type === 'h') {
             col.insertAdjacentHTML('beforeend', item.html);
         } else {
             const p = document.createElement('p');
-            const isTruncated = isCut || (isPartial && isRight);
-            p.className = isTruncated ? 'p-cut' : 'p-end';
+            p.className = isPartial && isRight ? 'p-cut' : 'p-end';
             p.setAttribute('data-token-id', item.id);
 
             let textToRender = isPartial ? partialText : item.rawText;
@@ -1157,21 +1067,19 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     }
 
     for (let i = 0; i < bestSplit.itemIndex; i++) {
-        appendItemFinal(rCol, rMargin, items[i], true, false, null, items[i].isCont, false);
+        appendItemFinal(rCol, rMargin, items[i], true, false, null, items[i].isCont);
     }
     if (bestSplit.lineIndex > 0) {
         let item = items[bestSplit.itemIndex];
         let rightText = bestSplit.lines.slice(0, bestSplit.lineIndex).join(' ');
-        appendItemFinal(rCol, rMargin, item, true, true, rightText, item.isCont, true);
+        appendItemFinal(rCol, rMargin, item, true, true, rightText, item.isCont);
         let leftText = bestSplit.lines.slice(bestSplit.lineIndex).join(' ');
-        appendItemFinal(lCol, lMargin, item, false, true, leftText, true, false);
+        appendItemFinal(lCol, lMargin, item, false, true, leftText, true);
     }
     for (let i = bestSplit.lineIndex > 0 ? bestSplit.itemIndex + 1 : bestSplit.itemIndex; i < items.length; i++) {
-        appendItemFinal(lCol, lMargin, items[i], false, false, null, items[i].isCont, false);
+        appendItemFinal(lCol, lMargin, items[i], false, false, null, items[i].isCont);
     }
 
-    resetColumnJustificationStyles(rCol);
-    resetColumnJustificationStyles(lCol);
     let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
     const justifyCeiling = (availableHeight && availableHeight < Infinity) ? availableHeight : Infinity;
     if (Math.abs(finalDiff) > 2 && Math.abs(finalDiff) <= 140) {
@@ -2254,6 +2162,8 @@ function performTypeset() {
     let pageIndex = 1;
     let currentH1Title = '';
     let currentH2Title = '';
+    let currentH3Title = '';
+    let currentH4Title = '';
 
     const bookTitle = document.getElementById('inp-book-title')?.value || "ספר";
     const showMainShaar = document.getElementById('show-main-shaar')?.checked ?? true;
@@ -2559,8 +2469,8 @@ function performTypeset() {
                     if (currentTok.type === 'p') {
                         let linesInfo = getLinesFromParagraph(currentTok.text, 580, styleObj, true);
                         let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
-                        let isContinuation = pendingWordTokens ? (pendingWordTokens.remainingLines.length < linesInfo.lines.length) : false;
-                        let hasWindow = isContinuation ? false : linesInfo.hasWindow;
+                        let isContinuation = !!pendingWordTokens;
+                        let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
 
                         const pElem = document.createElement('p');
                         pElem.setAttribute('data-token-id', currentTok.id);
@@ -2773,8 +2683,8 @@ function performTypeset() {
                         if (currentTok.type === 'p') {
                             let linesInfo = getLinesFromParagraph(currentTok.text, colWidth, styleObj, true);
                             let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
-                            let isContinuation = pendingWordTokens ? (pendingWordTokens.remainingLines.length < linesInfo.lines.length) : false;
-                            let hasWindow = isContinuation ? false : linesInfo.hasWindow;
+                            let isContinuation = !!pendingWordTokens;
+                            let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
 
                             const pElem = document.createElement('p');
                             pElem.setAttribute('data-token-id', currentTok.id);
@@ -2969,33 +2879,6 @@ function performTypeset() {
                     pageTrace.steps.push(`בוצע PushBack לאלמנט [${pId}] עקב חריגה מגובה התקציב (${actualAvailH}px)`);
                     actualAvailH = getBlockColumnBudget(pageLayout.bodyFlow, pageLayout.page, block2Col);
                     balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, pageTrace);
-                }
-
-                // הפעלת מנגנון נסיגה מפלתי על טור שמאל למניעת כותרות יתומות לאחר PushBack
-                rollbackColumnTail(lCol, colWidth, styleObj, (rb) => {
-                    if (rb.type === 'h') {
-                        tokenIndex--;
-                        pageTrace.steps.push(`הוסגה כותרת יתומה [${rb.id}] מתחתית טור שמאל לעמוד הבא`);
-                    } else if (rb.type === 'p') {
-                        if (pendingWordTokens && pendingWordTokens.token.id === parseInt(rb.id, 10)) {
-                            pendingWordTokens.remainingLines = rb.linesInfo.lines.concat(pendingWordTokens.remainingLines);
-                        } else {
-                            const tokObj = secTokens.find(t => t.id === parseInt(rb.id, 10));
-                            if (tokObj) {
-                                pendingWordTokens = { token: tokObj, remainingLines: rb.linesInfo.lines };
-                            }
-                        }
-                        pageTrace.steps.push(`הוסגה פסקה מקוטעת/יתומה [${rb.id}] מתחתית טור שמאל לעמוד הבא`);
-                    }
-                });
-
-                // אם נותרה פסקה מקוטעת בטור שמאל עם המשך בעמוד הבא, נוודא שהיא מוגדרת כ-p-cut מתוחה
-                if (lCol.lastElementChild && lCol.lastElementChild.tagName === 'P') {
-                    const lastP = lCol.lastElementChild;
-                    const lastPId = lastP.getAttribute('data-token-id');
-                    if (pendingWordTokens && pendingWordTokens.token && String(pendingWordTokens.token.id) === lastPId) {
-                        lastP.className = 'p-cut';
-                    }
                 }
 
                 const blockUsedH = finalizeTwoColumnBlockLayout(

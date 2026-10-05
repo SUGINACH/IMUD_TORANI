@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל</title>
   <link rel="stylesheet" href="style.css">
-  <script id="ext-imports-data" type="application/json"></script>
 </head>
 <body>
   <!-- סרגל צד ראשי המפוצל לשני טורים: אזור טקסט + לוח הגדרות -->
@@ -69,7 +68,6 @@
                   <optgroup id="custom-themes-optgroup" label="ערכות שהוטמעו בקובץ"></optgroup>
                   <optgroup id="json-themes-optgroup" label="ערכות מאוחדות מ-JSON"></optgroup>
                   <optgroup id="themes-folder-optgroup" label="ערכות מתוך תיקיית themes"></optgroup>
-                  <optgroup id="folder-themes-optgroup" label="ערכות מתיקייה"></optgroup>
                 </select>
               </div>
 
@@ -506,7 +504,7 @@
               <div class="panel-sub-header">עיטור סיום פרק</div>
               <div class="inline-cfg-row">
                 <label>סגנון עיטור סיום:</label>
-                <select id="section-divider-style" style="flex:1;" onchange="document.getElementById('row-sec-div-img').style.display = (this.value === 'custom_img') ? 'flex' : 'none';">
+                <select id="section-divider-style" style="flex:1;" onchange="document.getElementById('row-sec-div-img').style.display = this.value === 'custom_img' ? 'flex' : 'none';">
                   <option value="pyramid">1. פירמידת וילנא (❖ ❖ ❖)</option>
                   <option value="spear" selected="selected">2. רומח מחודד עם טבעת (SVG)</option>
                   <option value="swash">3. שושנתא וילנאית (SVG)</option>
@@ -514,7 +512,7 @@
                   <option value="custom_img">5. תמונת עיטור אישית</option>
                   <option value="none">ללא עיטור</option>
                   <optgroup id="sec-div-json-optgroup" label="עיטורי סיום מ-JSON"></optgroup>
-                  <optgroup id="sec-div-folder-optgroup" label="עיטורים מתיקייה"></optgroup>
+                  <optgroup id="sec-div-folder-opt" label="עיטורים מתיקייה"></optgroup>
                 </select>
               </div>
               <div class="inline-cfg-row" id="row-sec-div-img" style="display:none;">
@@ -860,7 +858,7 @@
                 
                 <div style="font-weight:700; font-size:7.5pt; margin-bottom:2px;">1. מעל הטור הימני (זוגי):</div>
                 <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                  <select id="hdr-verso-r-type" style="flex:1;" onchange="document.getElementById('hdr-verso-r-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                  <select id="hdr-verso-r-type" style="flex:1;">
                     <option value="same_as_odd" selected="selected">(= זהה לעמוד אי-זוגי)</option>
                     <option value="book_title">שם הספר</option>
                     <option value="book_title_split_r">שם הספר - חצי ראשון (ימין)</option>
@@ -895,7 +893,7 @@
 
                 <div style="font-weight:700; font-size:7.5pt; margin-bottom:2px;">2. מעל הרווח המרכזי (זוגי):</div>
                 <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                  <select id="hdr-verso-c-type" style="flex:1;" onchange="document.getElementById('hdr-verso-c-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                  <select id="hdr-verso-c-type" style="flex:1;">
                     <option value="same_as_odd" selected="selected">(= זהה לעמוד אי-זוגי)</option>
                     <option value="spear">רומח (SVG)</option>
                     <option value="diamonds">מעויינים (◈ ❖ ◈)</option>
@@ -927,7 +925,7 @@
 
                 <div style="font-weight:700; font-size:7.5pt; margin-bottom:2px;">3. מעל הטור השמאלי (זוגי):</div>
                 <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                  <select id="hdr-verso-l-type" style="flex:1;" onchange="document.getElementById('hdr-verso-l-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                  <select id="hdr-verso-l-type" style="flex:1;">
                     <option value="same_as_odd" selected="selected">(= זהה לעמוד אי-זוגי)</option>
                     <option value="h2_with_siman">כותרת 2 עם מספר סימן</option>
                     <option value="h2_without_siman">כותרת 2 לבדה (ללא סימן)</option>
@@ -995,7 +993,7 @@
               <div class="panel-sub-header" style="color:#1e3a8a; font-weight:800; font-size:8.5pt;">📖 כותרות לעמוד אי-זוגי (ימין / Recto)</div>
               <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">מעל הטור הימני:</div>
               <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                <select id="hdr-r-type" style="flex:1;" onchange="document.getElementById('hdr-r-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                <select id="hdr-r-type" style="flex:1;">
                   <option value="same_as_even">(= זהה לעמוד זוגי)</option>
                   <option value="h1" selected="selected">כותרת 1 (שם החלק)</option>
                   <option value="book_title">שם הספר</option>
@@ -1032,7 +1030,7 @@
 
               <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">מעל הרווח המרכזי:</div>
               <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                <select id="hdr-c-type" style="flex:1;" onchange="document.getElementById('hdr-c-custom').style.display = (this.value === 'custom') ? 'block' : 'none'; document.getElementById('row-hdr-c-img').style.display = (this.value === 'custom_img') ? 'flex' : 'none';">
+                <select id="hdr-c-type" style="flex:1;">
                   <option value="same_as_even">(= זהה לעמוד זוגי)</option>
                   <option value="spear" selected="selected">רומח (SVG)</option>
                   <option value="h1">כותרת 1 (שם החלק)</option>
@@ -1069,7 +1067,7 @@
 
               <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">מעל הטור השמאלי:</div>
               <div class="inline-cfg-row" style="margin-bottom: 6px;">
-                <select id="hdr-l-type" style="flex:1;" onchange="document.getElementById('hdr-l-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                <select id="hdr-l-type" style="flex:1;">
                   <option value="same_as_even">(= זהה לעמוד זוגי)</option>
                   <option value="h2" selected="selected">כותרת 2</option>
                   <option value="h2_with_siman">כותרת 2 עם מספר סימן</option>
