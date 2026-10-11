@@ -164,7 +164,7 @@ function updateStyles() {
 
     root.style.setProperty('--fn-header-r', getFontVal('f-hdr-r', "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-header-r', (document.getElementById('s-hdr-r')?.value || 15) + 'pt');
-    root.style.setProperty('--fn-header-c', getFontVal('f-hdr-c', "'ליבורנה רגיל', 'פרנק רוהל ליברה רגיל', serif"));
+    root.style.setProperty('--fn-header-c', getFontVal('f-hdr-c', "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-header-c', (document.getElementById('s-hdr-c')?.value || 11) + 'pt');
     root.style.setProperty('--fn-header-l', getFontVal('f-hdr-l', "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-header-l', (document.getElementById('s-hdr-l')?.value || 15) + 'pt');
@@ -218,8 +218,8 @@ function updateStyles() {
     root.style.setProperty('--fn-sh-year', document.getElementById('f-sh-year')?.value || "'פרנק רוהל ליברה רגיל', serif");
     root.style.setProperty('--sz-sh-year', (document.getElementById('s-sh-year')?.value || 12) + 'pt');
 
-    root.style.setProperty('--fn-body', getFontVal('font-body', "'גוטמן רש\"י רגיל', 'פרנק רוהל ליברה רגיל', serif"));
-    root.style.setProperty('--sz-body', (document.getElementById('size-body')?.value || 12) + 'pt');
+    root.style.setProperty('--fn-body', getFontVal('font-body', `'גוטמן רש"י רגיל', 'פרנק רוהל ליברה רגיל', serif`));
+    root.style.setProperty('--sz-body', (document.getElementById('size-body')?.value || 12) + "pt");
     root.style.setProperty('--line-height-body', document.getElementById('line-height-body')?.value || '1.34');
     root.style.setProperty('--fn-first-word', getFontVal('font-first-word', "'פרנק ריל מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-first-word', (document.getElementById('size-first-word')?.value || 1.5) + 'em');
@@ -474,8 +474,8 @@ function buildMeasureClone(opts) {
     const box = _getMeasureBoxV2();
     box.innerHTML = '';
     box.style.width = colWidth + 'px';
-    box.style.fontFamily = styleObj.fontFamily || 'inherit';
-    box.style.fontSize = styleObj.fontSize || 'inherit';
+    box.style.fontFamily = styleObj.fontFamily || "'פרנק רוהל ליברה רגיל', serif";
+    box.style.fontSize = styleObj.fontSize || "'פרנק רוהל ליברה רגיל', serif";
     box.style.lineHeight = String(styleObj.lineHeight || 1.34);
     box.style.textAlign = 'justify';
     box.style.textJustify = 'inter-word';
@@ -1030,21 +1030,11 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
             if (colOverCeiling()) {
                 p.style.lineHeight = prev;
             } else {
-                // נקודה 3: Refuse-to-fill-with-runt policy (postext §3.5)
-                // וודא שהשורה האחרונה לא נהפכה ל-runt (1–2 מילים)
-                const afterLines = getLinesFromParagraph(
-                    p.getAttribute('data-raw-text') || p.textContent,
-                    colWidth || shortCol.offsetWidth,
-                    styleObj,
-                    false
-                );
-                const afterLastLine = afterLines.lines[afterLines.lines.length - 1] || '';
-                const afterLastWords = afterLastLine.split(/\s+/).filter(w => w.length > 0).length;
-                if (afterLastWords > 0 && afterLastWords <= 2 && delta > 0.5) {
-                    p.style.lineHeight = prev;  // מסרבים — עדיף טור קצר יותר מ-runt
-                } else {
-                    applied += delta;
-                }
+                // תיקון קריטי: הסרנו את refuse-to-fill-with-runt מ-P4.
+                // line-height לא משנה את שבירת השורות (רק מרווח אנכי),
+                // ולכן הבדיקה תמיד ראתה את אותו מספר מילים בשורה האחרונה וחסמה כל גידול.
+                // ה-refuse-to-fill-with-runt רלוונטי רק ל-P5 (word-spacing) שכן משנה שבירת שורות.
+                applied += delta;
             }
         });
         logDetails.tiersApplied['priority4_lineHeight'] = (logDetails.tiersApplied['priority4_lineHeight'] || 0) + applied;
@@ -1129,6 +1119,7 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
         logDetails.tiersApplied['priority5_wordSpacing'] = (logDetails.tiersApplied['priority5_wordSpacing'] || 0) + applied;
         return applied;
     }
+
     const priorityTiers = [
         { name: 'P1 (רווח לפני כותרת)', fn: applyPriority1_HeadingBefore, weight: 6 },
         { name: 'P2 (רווח אחרי כותרת)', fn: applyPriority2_HeadingAfter, weight: 4 },
@@ -1800,8 +1791,8 @@ function measureHeadingHeight(item, colWidth, styleObj) {
     const box = _getMeasureBoxV2();
     box.innerHTML = '';
     box.style.width = colWidth + 'px';
-    box.style.fontFamily = styleObj.fontFamily || 'inherit';
-    box.style.fontSize = styleObj.fontSize || 'inherit';
+    box.style.fontFamily = styleObj.fontFamily || "'פרנק רוהל ליברה רגיל', serif";
+    box.style.fontSize = styleObj.fontSize || "'פרנק רוהל ליברה רגיל', serif";
     box.style.lineHeight = String(styleObj.lineHeight || 1.34);
     box.style.direction = 'rtl';
     box.style.textAlign = 'right';
@@ -2651,7 +2642,7 @@ class LayoutDecisionsLinter {
 <meta charset="UTF-8">
 <title>דוח החלטות עימוד</title>
 <style>
-body { font-family: 'Assistant', 'David Libre', serif; padding: 20px; max-width: 1000px; margin: 0 auto; }
+body { font-family: 'Assistant', 'פרנק רוהל ליברה רגיל', serif; padding: 20px; max-width: 1000px; margin: 0 auto; }
 h1 { color: #1e3a8a; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
 .summary { background: #f8fafc; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 11pt; }
 .block { border: 1px solid #e2e8f0; padding: 12px; margin-bottom: 12px; border-radius: 6px; }
@@ -3530,9 +3521,9 @@ function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, 
     let oddRAlign = document.getElementById('hdr-r-align')?.value || 'right';
     let oddCAlign = document.getElementById('hdr-c-align')?.value || 'center';
     let oddLAlign = document.getElementById('hdr-l-align')?.value || 'left';
-    let oddRFont = document.getElementById('f-hdr-r')?.value || "'Livorna','David Libre',serif";
+    let oddRFont = document.getElementById('f-hdr-r')?.value || "'ליבורנה מודגש','פרנק רוהל ליברה מודגש',serif";
     let oddRSize = (document.getElementById('s-hdr-r')?.value || 15) + 'pt';
-    let oddLFont = document.getElementById('f-hdr-l')?.value || "'Livorna','David Libre',serif";
+    let oddLFont = document.getElementById('f-hdr-l')?.value || "'ליבורנה מודגש','פרנק רוהל ליברה מודגש',serif";
     let oddLSize = (document.getElementById('s-hdr-l')?.value || 15) + 'pt';
 
     let evenR = document.getElementById('hdr-verso-r-type')?.value || 'same_as_odd';

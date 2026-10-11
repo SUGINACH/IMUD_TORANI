@@ -1157,7 +1157,7 @@ function initFontPickers() {
 }
 
 async function ensureBuiltinFontsLoaded() {
-    const families = ['Assistant', 'Rubik', 'Bellefair', 'David Libre', 'Frank Ruhl Libre', 'Noto Serif Hebrew'];
+    const families = ['Assistant', 'Rubik']; // רק גופני UI מ-Google Fonts — שאר הגופנים נטענים מ-_fonts.css
     const weights = ['400', '700', '900'];
     try {
         const loads = [];
@@ -1928,18 +1928,18 @@ window.addEventListener('load', async function() {
     // שלב א': טען רק את הגופנים הנחוצים לעמודי טקסט רגילים (12 גופנים).
     // שלב ב': שאר הגופנים ייטענו ברקע תוך כדי עבודה.
     const PRIORITY_FONTS = [
-        '12pt "גוטמן רש\"י רגיל"',
-        '12pt "פרנק ריל מודגש"',
-        '12pt "אלפא שחור"',
-        '12pt "אלפא מודגש"',
-        '12pt "ליבורנה רגיל"',
-        '12pt "ליבורנה מודגש"',
-        '12pt "הדסה פרידלנדר מודגש"',
-        '12pt "פרנק רוהל ליברה רגיל"',
-        '12pt "פרנק רוהל ליברה מודגש"',
-        '12pt "פרנק רוהל ליברה שחור"',
-        '12pt "נוטו סריף עברית מודגש"',
-        '12pt "נוטו סריף עברית שחור"',
+        "12pt 'גוטמן רש\"י רגיל'",
+        "12pt 'פרנק ריל מודגש'",
+        "12pt 'אלפא שחור'",
+        "12pt 'אלפא מודגש'",
+        "12pt 'ליבורנה רגיל'",
+        "12pt 'ליבורנה מודגש'",
+        "12pt 'הדסה פרידלנדר מודגש'",
+        "12pt 'פרנק רוהל ליברה רגיל'",
+        "12pt 'פרנק רוהל ליברה מודגש'",
+        "12pt 'פרנק רוהל ליברה שחור'",
+        "12pt 'נוטו סריף עברית מודגש'",
+        "12pt 'נוטו סריף עברית שחור'",
     ];
     try {
         if (document.fonts && document.fonts.load) {
