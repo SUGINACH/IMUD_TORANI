@@ -1021,7 +1021,7 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
                 false
             );
             const n = Math.max(1, linesInfo.lines.length);
-            const extraLh = Math.min((budget - applied) / n / fontSizePx, 0.18);  // הוגדל מ-0.12 ל-0.18 כדי לאפשר איזון טוב יותר
+            const extraLh = Math.min((budget - applied) / n / fontSizePx, 0.18);  // חזר ל-0.18
             if (extraLh <= 0.001) return;
             const prev = p.style.lineHeight;
             const delta = measureColScrollDelta(shortCol, () => {
@@ -1145,6 +1145,42 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
         remaining -= gained;
     }
 
+    // תיקון ישיר: אם עדיין יש פער משמעותי, חשב את ה-line-height המדויק הדרוש
+    // והחל אותו על הפסקה האחרונה בטור הקצר. זה עוקף את מערכת ה-budget המורכבת.
+    if (remaining > 5 && !colOverCeiling()) {
+        const allP = Array.from(shortCol.querySelectorAll('p'));
+        if (allP.length > 0) {
+            const lastP = allP[allP.length - 1];
+            if (!lastP.querySelector('.first-word-window')) {
+                const raw = lastP.getAttribute('data-raw-text') || lastP.textContent || '';
+                const li = getLinesFromParagraph(raw, colWidth || shortCol.offsetWidth, styleObj, false);
+                const n = Math.max(1, li.lines.length);
+                const fp = parseFloat(styleObj.fontSize) * 1.333 || 16;
+                // חשב את ה-extraLh המדויק הדרוש להשלמת הפער
+                const exactExtraLh = remaining / (n * fp);
+                if (exactExtraLh > 0 && exactExtraLh <= 0.40) {
+                    // הגדל את ה-extraLh על ידי עדכון line-height
+                    const baseLh = parseFloat(styleObj.lineHeight) || 1.34;
+                    const currentLh = lastP.style.lineHeight ? parseFloat(lastP.style.lineHeight) : baseLh;
+                    const currentExtraLh = currentLh - baseLh;
+                    const newExtraLh = currentExtraLh + exactExtraLh;
+                    if (newExtraLh <= 0.40) {
+                        const newLh = baseLh + newExtraLh;
+                        const prev = lastP.style.lineHeight;
+                        lastP.style.lineHeight = newLh.toString();
+                        const newH = shortCol.scrollHeight;
+                        if (!colOverCeiling() && newH <= (heightCeiling < Infinity ? heightCeiling : Infinity)) {
+                            remaining = 0;
+                            logDetails.tiersApplied['directFix_lineHeight'] = (logDetails.tiersApplied['directFix_lineHeight'] || 0) + (newH - shortCol.scrollHeight + remaining);
+                        } else {
+                            lastP.style.lineHeight = prev;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (traceObj) {
         traceObj.justificationLog = logDetails;
     }
@@ -1185,7 +1221,7 @@ function justifyColumnsPair(rCol, lCol, styleObj, heightCeiling, colWidth, trace
     // תיקון קריטי: ה-ceiling ל-growing הטור הקצר צריך להיות ה-targetH (גובה הטור הארוך),
     // ולא ה-budget הגלובלי. אחרת, הפונקציה עלולה לגדול PAST הטור הארוך וליצור חוסר איזון הפוך.
     // נקודת חסם: targetH + 1 (טולרנס 1px לעיגול).
-    const growthCeiling = targetH + 1;
+    const growthCeiling = targetH + 1;  // חזר ל-1
     distributeColumnJustification(shortCol, needed, styleObj, growthCeiling, colWidth, traceObj);
 }
 
@@ -1307,7 +1343,7 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
                     // תיקון קריטי: ceiling צריך להיות tallH + 3 (לא tallH + 30).
                     // tallH + 30 איפשר 30px יתרון וגרם ל-OVERSHOOT של 16-21px.
                     // tallH + 3 מאפשר טולרנס קטן (3px) ומונע overshoot.
-                    distributeColumnJustification(shortCol, needed2, styleObj, tallH + 3, colWidth, traceObj);
+                    distributeColumnJustification(shortCol, needed2, styleObj, tallH + 3, colWidth, traceObj);  // חזר ל-3
                 }
             }
         }
