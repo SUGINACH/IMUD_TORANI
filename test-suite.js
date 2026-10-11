@@ -306,7 +306,7 @@ function generateLayoutReport() {
     const pages = document.querySelectorAll('#book-container .a4-page');
     if (pages.length === 0) { alert('אין עמודים מעומדים.'); return; }
 
-    const S = { totalPages: pages.length, totalBlocks: 0, imbalanced: 0, sparse: 0, adjusted: 0, startMismatch: 0, headingsDeferred: 0, tightenRunts: 0 };
+    const S = { totalPages: pages.length, totalBlocks: 0, imbalanced: 0, sparse: 0, sparseCut: 0, adjusted: 0, startMismatch: 0, headingsDeferred: 0, tightenRunts: 0 };
     const pageData = [];
 
     pages.forEach((pg, pIdx) => {
@@ -335,16 +335,29 @@ function generateLayoutReport() {
             const rF = r.firstElementChild, lF = l.firstElementChild;
             let sm = null;
             if (rF && lF && Math.abs(rF.offsetTop - lF.offsetTop) > 2) { sm = Math.abs(rF.offsetTop - lF.offsetTop); S.startMismatch++; }
-            // Sparse last line check
-            const checkSparse = (col) => {
+            // Sparse line check — בודק גם שורה אחרונה של פסקה רגילה (p-end)
+            // וגם שורת חיתוך של פסקה חתוכה (p-cut) — כי זו "שורת אמצע פסקה" שיכולה להיות דלילה
+            const checkSparse = (col, colName) => {
                 const ps = col.querySelectorAll('p'); if (!ps.length) return;
-                const lp = ps[ps.length - 1]; const raw = lp.getAttribute('data-raw-text') || lp.textContent || '';
-                if (!raw.trim() || typeof getLinesFromParagraph !== 'function') return;
                 const so = { fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--fn-body'), fontSize: getComputedStyle(document.documentElement).getPropertyValue('--sz-body'), lineHeight: getComputedStyle(document.documentElement).getPropertyValue('--line-height-body') || '1.34' };
-                const info = getLinesFromParagraph(raw, col.offsetWidth - 40, so, false);
-                if (info.lines?.length) { const w = info.lines[info.lines.length-1].split(/\s+/).filter(x=>x.length>0).length; if (w>0 && w<=4) S.sparse++; }
+                const cw = col.offsetWidth - 40;
+                ps.forEach((p, pi) => {
+                    const raw = p.getAttribute('data-raw-text') || p.textContent || '';
+                    if (!raw.trim() || typeof getLinesFromParagraph !== 'function') return;
+                    const info = getLinesFromParagraph(raw, cw, so, false);
+                    if (!info.lines?.length) return;
+                    const lastLine = info.lines[info.lines.length - 1];
+                    const words = lastLine.split(/\s+/).filter(x => x.length > 0).length;
+                    if (words > 0 && words <= 4) {
+                        S.sparse++;
+                        // סמן אם זו פסקה חתוכה (p-cut) — שורת אמצע פסקה דלילה
+                        if (p.classList.contains('p-cut')) {
+                            S.sparseCut++;
+                        }
+                    }
+                });
             };
-            checkSparse(r); checkSparse(l);
+            checkSparse(r, 'R'); checkSparse(l, 'L');
             bInfo.push({ t: '2c', i: bi, rH, lH, d, ok: d <= 5, rP: rP.length, lP: lP.length, rF: rF ? rF.tagName + '.' + (rF.className.slice(0,20)) : '—', lF: lF ? lF.tagName + '.' + (lF.className.slice(0,20)) : '—', sm });
         });
         pageData.push({ idx: pIdx + 1, pNum, role, availH, blocks: bInfo });
@@ -372,7 +385,8 @@ tr.bad{background:rgba(239,68,68,.08)}
         <div><div class="n">${S.totalPages}</div><div class="l">עמודים</div></div>
         <div><div class="n ${S.imbalanced===0?'ok':'bad'}">${S.imbalanced}</div><div class="l">לא מאוזן</div></div>
         <div><div class="n">${S.totalBlocks}</div><div class="l">בלוקים</div></div>
-        <div><div class="n ${S.sparse<20?'ok':'warn'}">${S.sparse}</div><div class="l">דלילות</div></div>
+        <div><div class="n ${S.sparse<20?'ok':'warn'}">${S.sparse}</div><div class="l">דלילות סה"כ</div></div>
+        <div><div class="n ${S.sparseCut===0?'ok':'bad'}">${S.sparseCut}</div><div class="l">דלילות p-cut (אמצע פסקה)</div></div>
         <div><div class="n">${S.adjusted}</div><div class="l">מותאמות</div></div>
         <div><div class="n">${S.tightenRunts}</div><div class="l">tightenRunts</div></div>
         <div><div class="n ${S.startMismatch===0?'ok':'bad'}">${S.startMismatch}</div><div class="l">חוסר תחילת טור</div></div>
