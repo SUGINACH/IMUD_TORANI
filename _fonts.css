@@ -1,0 +1,611 @@
+/* ==========================================================================
+   גופנים מקומיים — @font-face declarations
+   שמות המשפחה בעברית נלקחו מ-https://github.com/SUGINACH/IMUD_TORANI/blob/main/fonts/fonts.json
+   כולל 101 גופנים שהורדו מתוך 1754 ברשימה.
+   ========================================================================== */
+
+@font-face {
+    font-family: 'אלפא מודגש';
+    src: url('fonts/Alpha-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'אלפא קל';
+    src: url('fonts/Alpha-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'אלפא רגיל';
+    src: url('fonts/Alpha-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'אלפא שחור';
+    src: url('fonts/Alpha-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'גוטמן רש"י רגיל';
+    src: url('fonts/Guttman-Rashi-Normal.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'הדסה פרידלנדר מודגש';
+    src: url('fonts/Hadassah-Friedlaender-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'הדסה פרידלנדר רגיל';
+    src: url('fonts/Hadassah-Friedlaender-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'ליבורנה מודגש';
+    src: url('fonts/Livorna-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'ליבורנה ספר רגיל';
+    src: url('fonts/Livornabook-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'ליבורנה רגיל';
+    src: url('fonts/Livorna-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית בינוני';
+    src: url('fonts/Noto-Sans-Hebrew-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית דק';
+    src: url('fonts/Noto-Sans-Hebrew-Thin.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי מודגש';
+    src: url('fonts/Noto-Sans-Hebrew-Semi-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי צר בינוני';
+    src: url('fonts/Noto-Sans-Hebrew-SemiCondensed-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי צר דק';
+    src: url('fonts/Noto-Sans-Hebrew-SemiCondensed-Thin.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי צר חצי מודגש';
+    src: url('fonts/Noto-Sans-Hebrew-SemiCondensed-Semi-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי צר מודגש';
+    src: url('fonts/Noto-Sans-Hebrew-SemiCondensed-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי צר מודגש מאוד';
+    src: url('fonts/Noto-Sans-Hebrew-SemiCondensed-Extra-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי צר קל';
+    src: url('fonts/Noto-Sans-Hebrew-SemiCondensed-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי צר קל מאוד';
+    src: url('fonts/Noto-Sans-Hebrew-SemiCondensed-Extra-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי צר רגיל';
+    src: url('fonts/Noto-Sans-Hebrew-SemiCondensed-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית חצי צר שחור';
+    src: url('fonts/Noto-Sans-Hebrew-SemiCondensed-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית מודגש';
+    src: url('fonts/Noto-Sans-Hebrew-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית מודגש מאוד';
+    src: url('fonts/Noto-Sans-Hebrew-Extra-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר בינוני';
+    src: url('fonts/Noto-Sans-Hebrew-Condensed-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר דק';
+    src: url('fonts/Noto-Sans-Hebrew-Condensed-Thin.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר חצי מודגש';
+    src: url('fonts/Noto-Sans-Hebrew-Condensed-Semi-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מאוד בינוני';
+    src: url('fonts/Noto-Sans-Hebrew-ExtraCondensed-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מאוד דק';
+    src: url('fonts/Noto-Sans-Hebrew-ExtraCondensed-Thin.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מאוד חצי מודגש';
+    src: url('fonts/Noto-Sans-Hebrew-ExtraCondensed-Semi-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מאוד מודגש';
+    src: url('fonts/Noto-Sans-Hebrew-ExtraCondensed-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מאוד מודגש מאוד';
+    src: url('fonts/Noto-Sans-Hebrew-ExtraCondensed-Extra-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מאוד קל';
+    src: url('fonts/Noto-Sans-Hebrew-ExtraCondensed-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מאוד קל מאוד';
+    src: url('fonts/Noto-Sans-Hebrew-ExtraCondensed-Extra-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מאוד רגיל';
+    src: url('fonts/Noto-Sans-Hebrew-ExtraCondensed-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מאוד שחור';
+    src: url('fonts/Noto-Sans-Hebrew-ExtraCondensed-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מודגש';
+    src: url('fonts/Noto-Sans-Hebrew-Condensed-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר מודגש מאוד';
+    src: url('fonts/Noto-Sans-Hebrew-Condensed-Extra-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר קל';
+    src: url('fonts/Noto-Sans-Hebrew-Condensed-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר קל מאוד';
+    src: url('fonts/Noto-Sans-Hebrew-Condensed-Extra-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר רגיל';
+    src: url('fonts/Noto-Sans-Hebrew-Condensed-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית צר שחור';
+    src: url('fonts/Noto-Sans-Hebrew-Condensed-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית קל';
+    src: url('fonts/Noto-Sans-Hebrew-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית קל מאוד';
+    src: url('fonts/Noto-Sans-Hebrew-Extra-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית רגיל';
+    src: url('fonts/Noto-Sans-Hebrew-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סנס עברית שחור';
+    src: url('fonts/Noto-Sans-Hebrew-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית בינוני';
+    src: url('fonts/Noto-Serif-Hebrew-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית דק';
+    src: url('fonts/Noto-Serif-Hebrew-Thin.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי מודגש';
+    src: url('fonts/Noto-Serif-Hebrew-Semi-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי צר';
+    src: url('fonts/Noto-Serif-Hebrew-SemiCondensed.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי צר בינוני';
+    src: url('fonts/Noto-Serif-Hebrew-SemiCondensed-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי צר דק';
+    src: url('fonts/Noto-Serif-Hebrew-SemiCondensed-Thin.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי צר חצי מודגש';
+    src: url('fonts/Noto-Serif-Hebrew-SemiCondensed-Semi-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי צר מודגש';
+    src: url('fonts/Noto-Serif-Hebrew-SemiCondensed-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי צר מודגש מאוד';
+    src: url('fonts/Noto-Serif-Hebrew-SemiCondensed-Extra-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי צר קל';
+    src: url('fonts/Noto-Serif-Hebrew-SemiCondensed-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי צר קל מאוד';
+    src: url('fonts/Noto-Serif-Hebrew-SemiCondensed-Extra-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית חצי צר שחור';
+    src: url('fonts/Noto-Serif-Hebrew-SemiCondensed-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית מודגש';
+    src: url('fonts/Noto-Serif-Hebrew-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית מודגש מאוד';
+    src: url('fonts/Noto-Serif-Hebrew-Extra-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר';
+    src: url('fonts/Noto-Serif-Hebrew-Condensed.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר בינוני';
+    src: url('fonts/Noto-Serif-Hebrew-Condensed-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר דק';
+    src: url('fonts/Noto-Serif-Hebrew-Condensed-Thin.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר חצי מודגש';
+    src: url('fonts/Noto-Serif-Hebrew-Condensed-Semi-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מאוד';
+    src: url('fonts/Noto-Serif-Hebrew-ExtraCondensed.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מאוד בינוני';
+    src: url('fonts/Noto-Serif-Hebrew-ExtraCondensed-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מאוד דק';
+    src: url('fonts/Noto-Serif-Hebrew-ExtraCondensed-Thin.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מאוד חצי מודגש';
+    src: url('fonts/Noto-Serif-Hebrew-ExtraCondensed-Semi-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מאוד מודגש';
+    src: url('fonts/Noto-Serif-Hebrew-ExtraCondensed-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מאוד מודגש מאוד';
+    src: url('fonts/Noto-Serif-Hebrew-ExtraCondensed-Extra-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מאוד קל';
+    src: url('fonts/Noto-Serif-Hebrew-ExtraCondensed-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מאוד קל מאוד';
+    src: url('fonts/Noto-Serif-Hebrew-ExtraCondensed-Extra-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מאוד שחור';
+    src: url('fonts/Noto-Serif-Hebrew-ExtraCondensed-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מודגש';
+    src: url('fonts/Noto-Serif-Hebrew-Condensed-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר מודגש מאוד';
+    src: url('fonts/Noto-Serif-Hebrew-Condensed-Extra-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר קל';
+    src: url('fonts/Noto-Serif-Hebrew-Condensed-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר קל מאוד';
+    src: url('fonts/Noto-Serif-Hebrew-Condensed-Extra-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית צר שחור';
+    src: url('fonts/Noto-Serif-Hebrew-Condensed-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית קל';
+    src: url('fonts/Noto-Serif-Hebrew-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית קל מאוד';
+    src: url('fonts/Noto-Serif-Hebrew-Extra-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית רגיל';
+    src: url('fonts/Noto-Serif-Hebrew-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'נוטו סריף עברית שחור';
+    src: url('fonts/Noto-Serif-Hebrew-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רה בינוני';
+    src: url('fonts/Frank-Re-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רה בינוני נטוי';
+    src: url('fonts/Frank-Re-Medium-Natui-Italic.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רה מודגש';
+    src: url('fonts/Frank-Re-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רה מודגש נטוי';
+    src: url('fonts/Frank-Re-Bold-Natui-Italic.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רה רגיל';
+    src: url('fonts/Frank-Re-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רה רגיל נטוי';
+    src: url('fonts/Frank-Re-Regular-Natui-Italic.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רוהל דפ מודגש';
+    src: url('fonts/FrankRuehl-Dp-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רוהל דפ רגיל';
+    src: url('fonts/FrankRuehl-Dp-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רוהל ליברה בינוני';
+    src: url('fonts/FrankRuhlLibre-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רוהל ליברה מודגש';
+    src: url('fonts/Frank-Ruhl-Libre-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רוהל ליברה קל';
+    src: url('fonts/FrankRuhlLibre-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רוהל ליברה רגיל';
+    src: url('fonts/FrankRuhlLibre-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רוהל ליברה שחור';
+    src: url('fonts/FrankRuhlLibre-Black.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רוהל מ"פ מודגש א';
+    src: url('fonts/FrankRuhlMF-BoldA.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק רוהל רגיל';
+    src: url('fonts/FrankRuehl-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק ריל בינוני';
+    src: url('fonts/FrankReal-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק ריל מודגש';
+    src: url('fonts/FrankReal-Bold.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק ריל קל';
+    src: url('fonts/FrankReal-Light.woff2') format('woff2');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'פרנק ריל רגיל';
+    src: url('fonts/FrankReal-Regular.woff2') format('woff2');
+    font-display: swap;
+}

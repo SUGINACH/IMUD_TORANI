@@ -1,87 +1,156 @@
+
 /* ==========================================================================
    מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
    קובץ: style.css
    כולל סגנונות לכפתור הדיבאג הצף והתאמות הדפסה
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Rubik:wght@400;500;600;700&family=Bellefair&family=David+Libre:wght@400;500;700&family=Frank+Ruhl+Libre:wght@400;700;900&family=Noto+Serif+Hebrew:wght@400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Rubik:wght@400;500;600;700&display=swap');
+
+/* טעינת כל הגופנים המקומיים מ-GitHub SUGINACH/IMUD_TORANI + Guttman Rashi */
+@import url('_fonts.css');
+
+/* ==========================================================================
+   גופנים מקומיים ייעודיים — Guttman Rashi (גוף הטקסט)
+   קובץ זה הועלה על-ידי המשתמש ואינו ב-GitHub (מסחרי)
+   ========================================================================== */
+@font-face {
+    font-family: 'Guttman Rashi';
+    src: url('Guttman-Rashi-Normal.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
 
 :root {
     --preview-scale: 1;
 
+    /* === Design Tokens לצבעים (P2-2) ===
+       ריכוז כל הצבעים הקשיחים (hex) במקום אחד כדי לאפשר שינוי נושא עתידי
+       ולמנוע סריקת 238 מופעי hex בקובץ. */
+    --color-bg-app: #334155;        /* רקע אפליקציה */
+    --color-bg-sidebar: #1e293b;     /* רקע סרגל צד */
+    --color-bg-panel: #f8fafc;       /* רקע פאנל בהיר */
+    --color-bg-panel-alt: #f1f5f9;   /* רקע פאנל משני */
+    --color-bg-surface-0: #ffffff;   /* רקע לבן */
+    --color-bg-surface-1: #f8fafc;   /* רקע בהיר */
+    --color-bg-surface-2: #f1f5f9;   /* רקע בינוני */
+
+    --color-text-primary: #0f172a;   /* טקסט ראשי כהה */
+    --color-text-secondary: #475569; /* טקסט משני */
+    --color-text-muted: #64748b;     /* טקסט מושתק */
+    --color-text-light: #94a3b8;     /* טקסט בהיר */
+    --color-text-on-dark: #f8fafc;   /* טקסט על רקע כהה */
+
+    --color-border-subtle: #e2e8f0;  /* גבול דק */
+    --color-border-default: #cbd5e1; /* גבול רגיל */
+    --color-border-strong: #94a3b8;   /* גבול חזק */
+
+    --color-accent: #2563eb;         /* כחול עיקרי */
+    --color-accent-hover: #1d4ed8;   /* כחול hover */
+    --color-accent-dark: #1e3a8a;    /* כחול כהה */
+    --color-success: #10b981;        /* ירוק */
+    --color-danger: #dc2626;         /* אדום */
+    --color-warning: #b45309;        /* כתום */
+    --color-info: #0ea5e9;           /* תכלת */
+
+    --color-ink: #000000;            /* שחור דפוס */
+    --color-paper: #f4f1e8;          /* נייר קדמוני */
+    --color-paper-soft: #fdfcf6;    /* נייר רך */
+
+    /* === Z-index היררכיה מופקדרת === */
+    --z-base: 1;
+    --z-overlay: 10;
+    --z-toolbar: 50;
+    --z-sidebar: 100;
+    --z-resizer: 110;
+    --z-dropdown: 250;
+    --z-modal: 1000;
+
+    /* === מידות UI === */
+    --radius-s: 4px;
+    --radius-m: 6px;
+    --radius-l: 8px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+
     /* כותרות עליונות (חלוקת רוחב באחוזים וגופנים) */
-    --fn-header-r: 'Livorna', 'David Libre', serif;
+    --fn-header-r: 'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif;
     --sz-header-r: 15pt;
-    --fn-header-c: 'Livorna', 'David Libre', serif;
+    --fn-header-c: 'ליבורנה רגיל', 'פרנק רוהל ליברה רגיל', serif;
     --sz-header-c: 11pt;
-    --fn-header-l: 'Livorna', 'David Libre', serif;
+    --fn-header-l: 'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif;
     --sz-header-l: 15pt;
     --hdr-w-r: 33.33%;
     --hdr-w-c: 33.34%;
     --hdr-w-l: 33.33%;
+    --hdr-divider-color: rgba(0, 0, 0, 0.06);
 
     /* כותרות 0-7 */
-    --fn-h0: 'AlphaBlack', 'David Libre', serif;
+    --fn-h0: 'אלפא שחור', 'פרנק רוהל ליברה שחור', serif;
     --sz-h0: 26pt;
-    --fn-h0-body: 'Frank Ruhl Libre', serif;
+    --fn-h0-body: 'פרנק רוהל ליברה רגיל', serif;
     --sz-h0-body: 11.5pt;
-    --fn-h1: 'Lia Sgula', 'Bellefair', serif;
+    --fn-h1: 'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif;
     --sz-h1: 50pt;
-    --fn-h1-sub: 'David Libre', serif;
+    --fn-h1-sub: 'פרנק רוהל ליברה רגיל', serif;
     --sz-h1-sub: 28pt;
 
-    --fn-h2: 'AlphaBlack', 'David Libre', serif;
+    --fn-h2: 'אלפא שחור', 'פרנק רוהל ליברה שחור', serif;
     --sz-h2: 17pt;
     --h2-top-distance: 22%;
-    --fn-siman: 'AlphaBlack', 'David Libre', serif;
+    --fn-siman: 'אלפא שחור', 'פרנק רוהל ליברה שחור', serif;
     --sz-siman: 20pt;
 
-    --fn-h3: 'Alpha', 'Noto Serif Hebrew', serif;
+    --fn-h3: 'אלפא שחור', 'נוטו סריף עברית שחור', serif;
     --sz-h3: 13.5pt;
-    --fn-h4: 'Alpha', 'Frank Ruhl Libre', serif;
+    --fn-h4: 'אלפא שחור', 'פרנק רוהל ליברה שחור', serif;
     --sz-h4: 12.5pt;
-    --fn-h5: 'AlphaLight', 'David Libre', serif;
+    --fn-h5: 'אלפא מודגש', 'פרנק רוהל ליברה מודגש', serif;
     --sz-h5: 11.5pt;
-    --fn-h6: 'Noto Serif Hebrew', serif;
+    --fn-h6: 'נוטו סריף עברית מודגש', serif;
     --sz-h6: 10.5pt;
-    --fn-h7: 'Hadassah Friedlaender', 'David Libre', serif;
+    --fn-h7: 'הדסה פרידלנדר מודגש', 'פרנק רוהל ליברה מודגש', serif;
     --sz-h7: 6pt;
 
     /* שערי הספר */
-    --fn-sh-title: 'Lia Sgula', 'Bellefair', serif;
+    --fn-sh-title: 'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif;
     --sz-sh-title: 46pt;
-    --fn-sh-sub: 'Livorna', 'David Libre', serif;
+    --fn-sh-sub: 'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif;
     --sz-sh-sub: 21pt;
-    --fn-sh-desc: 'Livorna', 'Frank Ruhl Libre', serif;
+    --fn-sh-desc: 'ליבורנה רגיל', 'פרנק רוהל ליברה רגיל', serif;
     --sz-sh-desc: 12pt;
-    --fn-sh-sec: 'David Libre', serif;
+    --fn-sh-sec: 'פרנק רוהל ליברה רגיל', serif;
     --sz-sh-sec: 11.5pt;
-    --fn-sh-author: 'David Libre', serif;
+    --fn-sh-author: 'פרנק רוהל ליברה רגיל', serif;
     --sz-sh-author: 15pt;
-    --fn-sh-year: 'David Libre', serif;
+    --fn-sh-year: 'פרנק רוהל ליברה רגיל', serif;
     --sz-sh-year: 12pt;
 
     /* גוף הטקסט ומילה ראשונה */
-    --fn-body: 'Guttman Rashi', 'Frank Ruhl Libre', serif;
+    --fn-body: 'גוטמן רש"י רגיל', 'פרנק רוהל ליברה רגיל', serif;
     --sz-body: 12pt;
     --line-height-body: 1.34;
     --last-line-align: center;
-    --fn-first-word: 'FrankReal', 'Frank Ruhl Libre', serif;
+    --fn-first-word: 'פרנק ריל מודגש', 'פרנק רוהל ליברה מודגש', serif;
     --sz-first-word: 1.5em;
 
     /* דיבור המתחיל (ד"ה) */
-    --fn-dh: 'AlphaBlack', 'David Libre', serif;
+    --fn-dh: 'אלפא שחור', 'פרנק רוהל ליברה שחור', serif;
     --sz-dh: 1em;
 
     /* הערות שוליים וסיום */
-    --fn-note-title: 'David Libre', serif;
+    --fn-note-title: 'פרנק רוהל ליברה מודגש', serif;
     --sz-note-title: 9pt;
-    --fn-note-body: 'Frank Ruhl Libre', serif;
+    --fn-note-body: 'פרנק רוהל ליברה רגיל', serif;
     --sz-note-body: 8.5pt;
     --note-last-line-align: right;
 
     /* רשת העמוד ומרחקים עליונים/תחתונים */
-    --w-margin: 7.5%;
+    --w-margin: 7%;
     --w-gap: 2%;
     --w-col: 40%;
     --w-gutter: 2%;
@@ -347,11 +416,17 @@ body {
     cursor: pointer;
     background: #1e293b;
     color: #94a3b8;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
     user-select: none;
     gap: 16px;
+    border: none;
+    font: inherit;
 }
 .collapse-strip:hover { background: #334155; color: #f8fafc; }
+.collapse-strip:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: -2px;
+}
 #settings-pane.collapsed .collapse-strip { display: flex; }
 
 .collapse-icon { font-size: 11pt; font-weight: bold; }
@@ -445,8 +520,20 @@ body {
     justify-content: space-between;
     align-items: center;
     transition: background-color 0.15s ease;
+    /* כעת button (לא div), לכן יש לאפס סגנונות ברירת מחדל של button */
+    border: none;
+    border-bottom: 1px solid #e2e8f0;
+    width: 100%;
+    text-align: right;
+    font: inherit;
+    color: inherit;
+    background: #f1f5f9;
 }
 .panel-header.clickable-header:hover { background: #e2e8f0; }
+.panel-header.clickable-header:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: -2px;
+}
 
 .panel-header .panel-toggle-indicator {
     font-size: 7.5pt;
@@ -628,8 +715,14 @@ body {
 .visual-picker-trigger:hover { border-color: #3b82f6; background: #f8fafc; }
 
 .vp-trig-preview {
-    display: flex; align-items: center; justify-content: center; height: 22px;
-    min-width: 32px; max-width: 65px; overflow: hidden; flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    min-width: 32px;
+    max-width: 65px;
+    overflow: hidden;
+    flex-shrink: 0;
 }
 .vp-trig-preview svg, .vp-trig-preview img { max-height: 20px; max-width: 100%; object-fit: contain; }
 
@@ -735,6 +828,13 @@ body {
     box-shadow: 0 0 25px rgba(59, 130, 246, 0.5) !important;
 }
 
+.blank-page {
+    background-color: #ffffff;
+    width: 210mm;
+    height: 297mm;
+    page-break-after: always;
+}
+
 /* לחצן דיבאג צף בכל עמוד */
 .page-debug-btn {
     position: absolute;
@@ -752,6 +852,7 @@ body {
     cursor: pointer;
     transition: all 0.15s ease;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
     direction: rtl;
     user-select: none;
@@ -1069,7 +1170,7 @@ body {
     grid-template-columns: var(--w-margin) var(--w-gap) var(--w-col) var(--w-gutter) var(--w-col) var(--w-gap) var(--w-margin);
     width: 100%;
     position: relative;
-    align-items: start;
+    align-items: start !important;
 }
 
 /* קו מפריד אנכי בין הטורים */
@@ -1181,7 +1282,29 @@ body {
     font-family: var(--fn-h6); font-size: var(--sz-h6); font-weight: 700;
     text-align: center; margin: 6px 0 3px 0; line-height: 1.22;
 }
+.title-level-7 {
+    font-family: var(--fn-h7);
+    font-size: var(--sz-h7);
+    font-weight: 700;
+    text-align: center;
+    margin: 5px 0 2px 0;
+    line-height: 1.2;
+}
 .title-level-custom { margin: 9px 0 4px 0; line-height: 1.3; }
+
+/* תיקון 1: כותרת 4/5/6 בתחילת טור — ביטול הרווח העליון כדי להשוות את גובה
+   תחילת הטור לטור השני (שלא תמיד מתחיל בכותרת).
+   הרווח העליון נשמר רק כשהכותרת באמצע טור. */
+.right-col > .title-level-4:first-child,
+.right-col > .title-level-5:first-child,
+.right-col > .title-level-6:first-child,
+.left-col > .title-level-4:first-child,
+.left-col > .title-level-5:first-child,
+.left-col > .title-level-6:first-child,
+.right-col > .title-level-custom:first-child,
+.left-col > .title-level-custom:first-child {
+    margin-top: 0 !important;
+}
 
 /* כותרת מובלעת ברצף הפסקה (Run-In) */
 .heading-run-in {
@@ -1238,13 +1361,14 @@ body {
 
 p {
     margin-bottom: 7px;
-    text-align: justify;
-    text-justify: inter-word;
+    text-align: justify !important;
+    text-justify: inter-word !important;
     position: relative;
     line-height: var(--line-height-body, 1.34);
+    box-sizing: border-box;
 }
-p.p-end { text-align-last: var(--last-line-align, center); }
-p.p-cut { text-align-last: justify; }
+p.p-end { text-align-last: var(--last-line-align, center) !important; }
+p.p-cut { text-align-last: justify !important; }
 
 /* ============================================================
    מילה ראשונה (Drop Word) ודיבור המתחיל (ד"ה)
@@ -1610,6 +1734,23 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
 .grp-page { font-weight: 700; color: #4a5568 !important; font-family: 'David Libre', serif; }
 .grp-sep { color: #888; margin: 0 6px; font-weight: bold; white-space: nowrap; }
 
+/* התאמת גופנים וגדלים לתוכן עניינים כללי ומפורט */
+.toc-variant-general .toc-lvl-1 { font-family: var(--fn-gtoc-1, inherit); font-size: var(--sz-gtoc-1, 12pt); }
+.toc-variant-general .toc-lvl-2 { font-family: var(--fn-gtoc-2, inherit); font-size: var(--sz-gtoc-2, 11pt); }
+.toc-variant-general .toc-lvl-3 { font-family: var(--fn-gtoc-3, inherit); font-size: var(--sz-gtoc-3, 10.5pt); }
+.toc-variant-general .toc-lvl-4 { font-family: var(--fn-gtoc-4, inherit); font-size: var(--sz-gtoc-4, 10.5pt); }
+.toc-variant-general .toc-lvl-5 { font-family: var(--fn-gtoc-5, inherit); font-size: var(--sz-gtoc-5, 10.5pt); }
+.toc-variant-general .toc-lvl-6 { font-family: var(--fn-gtoc-6, inherit); font-size: var(--sz-gtoc-6, 10.5pt); }
+.toc-variant-general .toc-lvl-7 { font-family: var(--fn-gtoc-7, inherit); font-size: var(--sz-gtoc-7, 8.8pt); }
+
+.toc-variant-detailed .toc-lvl-1 { font-family: var(--fn-dtoc-1, inherit); font-size: var(--sz-dtoc-1, 12pt); }
+.toc-variant-detailed .toc-lvl-2 { font-family: var(--fn-dtoc-2, inherit); font-size: var(--sz-dtoc-2, 11pt); }
+.toc-variant-detailed .toc-lvl-3 { font-family: var(--fn-dtoc-3, inherit); font-size: var(--sz-dtoc-3, 10.5pt); }
+.toc-variant-detailed .toc-lvl-4 { font-family: var(--fn-dtoc-4, inherit); font-size: var(--sz-dtoc-4, 10.5pt); }
+.toc-variant-detailed .toc-lvl-5 { font-family: var(--fn-dtoc-5, inherit); font-size: var(--sz-dtoc-5, 10.5pt); }
+.toc-variant-detailed .toc-lvl-6 { font-family: var(--fn-dtoc-6, inherit); font-size: var(--sz-dtoc-6, 10.5pt); }
+.toc-variant-detailed .toc-lvl-7 { font-family: var(--fn-dtoc-7, inherit); font-size: var(--sz-dtoc-7, 8.8pt); }
+
 /* ============================================================
    הגדרות הדפסה (Print Setup)
    ============================================================ */
@@ -1636,4 +1777,123 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
     }
     .shaar-drag-bar, .shaar-resize-handle { display: none !important; }
     .theme-bounded-content { border: none !important; box-shadow: none !important; }
+}
+
+
+/* ==========================================================================
+   P2-3: Breakpoints רספונסיביים (מתחת 1024px)
+   האפליקציה מתוכננת לשולחן עבודה, אך נהפוך את ה-sidebar ל-drawer נשלף
+   במסכים קטנים יותר, כדי שאפשר יהיה לפחות לצפות בתצוגה המקדימה.
+   ========================================================================== */
+@media (max-width: 1024px) {
+    /* ה-sidebar הופך ל-drawer נשלף מימין (RTL — ימין הוא תחילת הטקסט). */
+    #sidebar {
+        position: fixed !important;
+        inset-block: 0 0;
+        inset-inline-end: 0;
+        width: min(450px, 90vw) !important;
+        transform: translateX(100%); /* RTL: 100% מכסה את הטור הימני */
+        transition: transform 0.25s ease;
+        z-index: var(--z-sidebar, 100);
+        box-shadow: -4px 0 12px rgba(0,0,0,0.3);
+    }
+    #sidebar.open {
+        transform: translateX(0);
+    }
+    /* כפתור הבורגר לפתיחת ה-drawer */
+    .sidebar-toggle-btn {
+        position: fixed;
+        top: 12px;
+        inset-inline-end: 12px;
+        z-index: var(--z-toolbar, 50);
+        background: var(--color-bg-sidebar, #1e293b);
+        color: var(--color-text-on-dark, #f8fafc);
+        border: none;
+        border-radius: var(--radius-m, 6px);
+        padding: 8px 12px;
+        font-size: 16pt;
+        cursor: pointer;
+        display: block;
+    }
+    /* ברירת מחדל — מסתיר את כפתור הבורגר במסכים גדולים */
+    .sidebar-toggle-btn { display: none; }
+    @media (max-width: 1024px) {
+        .sidebar-toggle-btn { display: block; }
+    }
+    #preview-pane {
+        padding-block: 12px;
+    }
+    #resizer { display: none !important; }
+}
+
+@media (max-width: 640px) {
+    /* במובייל: מקטינים את התצוגה המקדימה */
+    .a4-page {
+        transform: scale(0.5);
+        transform-origin: top center;
+    }
+    .sidebar-toggle-btn {
+        font-size: 14pt;
+        padding: 6px 10px;
+    }
+}
+
+/* ==========================================================================
+   P2-3b: prefers-reduced-motion — כיבוי אנימציות למשתמשים שביקשו זאת.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ==========================================================================
+   P2-3c: focus-visible גלובלי לכל הכפתורים והפקדים האינטראקטיביים.
+   מונע בעיות נגישות מקלדת (קודם היה outline:none בלי תחליף).
+   ========================================================================== */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--color-accent, #2563eb);
+    outline-offset: 2px;
+}
+
+/* כיתת עזר "sr-only" — מסתיר אלמנט ויזואלית אך שומר עליו לקורא מסך. */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+/* Skip-link — ניווט מקלדת מהיר לתוכן הראשי. */
+.skip-link {
+    position: absolute;
+    inset-inline-start: -9999px;
+    top: 8px;
+    z-index: var(--z-modal, 1000);
+    background: var(--color-bg-surface-0, #fff);
+    color: var(--color-text-primary, #0f172a);
+    padding: 8px 16px;
+    border-radius: var(--radius-m, 6px);
+    text-decoration: none;
+    font-weight: 700;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+    inset-inline-start: 8px;
+    outline: 2px solid var(--color-accent, #2563eb);
+    outline-offset: 2px;
 }

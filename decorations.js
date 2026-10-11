@@ -1,9 +1,68 @@
+
 /* ==========================================================================
    מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
    קובץ: decorations.js
    ========================================================================== */
 
 const CBG_TEXTURE_SVG = "data:image/svg+xml,%3Csvg width='32' height='55' viewBox='0 0 32 55' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M16,27 C10,22 5,14 5,5 C5,0 10,0 16,5 C22,0 27,0 27,5 C27,14 22,22 16,27 Z M16,27 C10,32 5,40 5,49 C5,55 10,55 16,49 C22,55 27,55 27,49 C27,40 22,32 16,27 Z M16,14 A3.5,3.5 0 1,0 16,21 A3.5,3.5 0 1,0 16,14 Z' fill='%239e9e9e' fill-opacity='0.18'/%3E%3C/svg%3E";
+
+/* ---------------------------------------------------------------------------
+   escapeHTML — הופך תווי HTML מיוחדים לישויות על מנת למנוע הזרקת סקריפט (XSS).
+   משמש בכל מקום שבו טקסט משתמש מוזרק לתוך innerHTML.
+   נטען ראשון ולכן זמין לכל שאר המודולים (typesetter.js, app.js).
+   --------------------------------------------------------------------------- */
+function escapeHTML(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/[&<>"']/g, function (ch) {
+        switch (ch) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return ch;
+        }
+    });
+}
+
+/* ---------------------------------------------------------------------------
+   sanitizeStyleValue — מוודא שערך המוזרק לתוך style="..." אינו מכיל
+   תווים שיכולים "לשבור" את התכונה (", ;, }).
+   משמש להגנה מפני CSS-injection / attribute breakout.
+   --------------------------------------------------------------------------- */
+function sanitizeStyleValue(value) {
+    if (value === null || value === undefined) return '';
+    // מתיר רק תווים תקינים של CSS: אותיות, ספרות, יחידות, נקודה, פסיק, רווח, תווים מתמטיים
+    return String(value).replace(/[^a-zA-Z0-9%.,\-_+\s()*\/:;'"#]/g, '');
+}
+
+/* ---------------------------------------------------------------------------
+   sanitizeURL — מוודא שכתובת URL בטוחה להזרקה לתוך src="..." או url("...").
+   מתיר: http(s), data:, blob:, /, ., -, _, :, ;, ,.
+   חוסם: javascript:, vbscript:, file:, תווי עקיפה.
+   --------------------------------------------------------------------------- */
+function sanitizeURL(value) {
+    if (value === null || value === undefined) return '';
+    const s = String(value).trim();
+    // חסימת פרוטוקולים מסוכנים
+    if (/^\s*(javascript|vbscript|file|data:text\/html)/i.test(s)) return '';
+    // אם מתחיל ב-data:image/ — מתיר (תמונות מוטמעות)
+    if (/^data:image\//i.test(s)) return s;
+    // אחרת — מתיר רק תווים בטוחים של URL
+    return s.replace(/["'<>\\^\x00-\x1f]/g, '');
+}
+
+/* ---------------------------------------------------------------------------
+   isSafeIntegerLike — בודק שערך הוא מספר תקין (לא NaN) לפני הזרקה.
+   --------------------------------------------------------------------------- */
+function safeNumber(value, fallback) {
+    // טיפול מפורש ב-null/undefined — Number(null)===0 ו-Number(undefined)===NaN.
+    if (value === null || value === undefined || value === '') {
+        return fallback !== undefined ? fallback : 0;
+    }
+    const n = Number(value);
+    return Number.isFinite(n) ? n : (fallback !== undefined ? fallback : 0);
+}
 
 /* ==========================================================================
    1. מאגרי רישום דינמי עבור קובצי JSON חיצוניים ותיקיות
@@ -30,29 +89,65 @@ const ORNAMENTS_UD = {
 
 const EXTERNAL_ALL_ORNAMENTS = {};
 
+/* ---------------------------------------------------------------------------
+   sanitizeSVG — מנקה מחרוזת SVG/HTML מתגיות מסוכנות (<script>, <iframe>,
+   <object>, <embed>, on* handlers, javascript: URLs). מופעל בעת רישום
+   נכסים חיצוניים (JSON / העלאת משתמש) ומונע הזרקת סקריפט דרך SVG.
+   אינו תחליף מלא ל-DOMPurify, אך חוסם את הוקטורים הנפוצים.
+   --------------------------------------------------------------------------- */
+function sanitizeSVG(svgString) {
+    if (typeof svgString !== 'string' || !svgString) return '';
+    return svgString
+        // תגיות מלאות עם סגירה מפורשת
+        .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
+        .replace(/<\s*iframe[\s\S]*?<\s*\/\s*iframe\s*>/gi, '')
+        .replace(/<\s*object[\s\S]*?<\s*\/\s*object\s*>/gi, '')
+        // תגיות self-closing (XHTML/SVG style): <embed src="..." /> או <object data="..." />
+        .replace(/<\s*embed\b[^>]*\/?\s*>/gi, '')
+        .replace(/<\s*object\b[^>]*\/?\s*>/gi, '')
+        .replace(/<\s*iframe\b[^>]*\/?\s*>/gi, '')
+        .replace(/<\s*script\b[^>]*\/?\s*>/gi, '')
+        // on* handlers
+        .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, ' ')
+        // פרוטוקולים מסוכנים
+        .replace(/javascript:/gi, '');
+}
+
 function registerExternalShaarAsset(typeKey, id, name, svgContent) {
     if (EXTERNAL_SHAAR_ASSETS[typeKey]) {
-        EXTERNAL_SHAAR_ASSETS[typeKey][id] = svgContent;
+        EXTERNAL_SHAAR_ASSETS[typeKey][id] = (typeof svgContent === 'string' && svgContent.trim().startsWith('<'))
+            ? sanitizeSVG(svgContent)
+            : svgContent;
     }
 }
 
 function registerOrnamentsLR(id, name, svgContent) {
-    ORNAMENTS_LR[id] = { id, name, svg: svgContent };
+    ORNAMENTS_LR[id] = { id, name, svg: (typeof svgContent === 'string' && svgContent.trim().startsWith('<')) ? sanitizeSVG(svgContent) : svgContent };
 }
 
 function registerOrnamentsUD(id, name, svgContent) {
-    ORNAMENTS_UD[id] = { id, name, svg: svgContent };
+    ORNAMENTS_UD[id] = { id, name, svg: (typeof svgContent === 'string' && svgContent.trim().startsWith('<')) ? sanitizeSVG(svgContent) : svgContent };
 }
 
 function registerExternalAllOrnament(id, svgContent) {
-    EXTERNAL_ALL_ORNAMENTS[id] = svgContent;
+    EXTERNAL_ALL_ORNAMENTS[id] = (typeof svgContent === 'string' && svgContent.trim().startsWith('<'))
+        ? sanitizeSVG(svgContent)
+        : svgContent;
 }
 
 function wrapShaarMedia(contentStr) {
     if (!contentStr) return '';
-    const trimmed = contentStr.trim();
-    if (trimmed.startsWith('<svg') || trimmed.startsWith('<div')) return trimmed;
-    return `<img class="custom-bg-img" src="${trimmed}" alt="שער" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill;" />`;
+    const trimmed = String(contentStr).trim();
+    if (trimmed.startsWith('<svg') || trimmed.startsWith('<div')) {
+        // SVG/HTML גולמי מתקבל ממקור חיצוני — כבר עבר סניטציה בעת הרישום
+        // (ראה registerExternalShaarAsset / registerExternalAllOrnament), אך נבצע
+        // סניטציה גם כאן ליתר ביטחון (defense-in-depth).
+        return sanitizeSVG(trimmed);
+    }
+    // אחרת — מדובר ב-URL של תמונה; לסנן לפני הזרקה ל-src="..."
+    const safeURL = sanitizeURL(trimmed);
+    if (!safeURL) return '';
+    return `<img class="custom-bg-img" src="${safeURL}" alt="שער" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill;" />`;
 }
 
 function resolveShaarBoxStyle(shaarType, shaarId, uTop, uBottom, uRight, uLeft, fallbackStyle) {
@@ -105,14 +200,15 @@ function renderHeaderSectionHTML(type, customText, h1Title, h2Title, h3Title, bo
     if (EXTERNAL_ALL_ORNAMENTS[type]) return EXTERNAL_ALL_ORNAMENTS[type];
     if (type === 'custom_img') {
         const imgSrc = document.getElementById('data-hdr-c-img') ? document.getElementById('data-hdr-c-img').value : '';
-        return imgSrc ? `<img src="${imgSrc}" style="max-height: 18px; max-width: 100%; object-fit: contain; vertical-align: middle;" />` : '';
+        const safe = sanitizeURL(imgSrc);
+        return safe ? `<img src="${safe}" style="max-height: 18px; max-width: 100%; object-fit: contain; vertical-align: middle;" />` : '';
     }
     return '';
 }
 
 /* ==========================================================================
    3. עיטורי סיום פרק, כותרות וקווים מפרידים
-   ========================================================================= */
+   ========================================================================== */
 const SECTION_DIVIDERS = {
     pyramid: '<div class="divider-pyramid" style="text-align: center; line-height: 0.9;"><div style="font-size: 10pt; letter-spacing: 6px;">❖ ❖ ❖</div><div style="font-size: 9pt; letter-spacing: 5px; margin-top: 3px;">❖ ❖</div><div style="font-size: 8pt; margin-top: 3px;">❖</div></div>',
     spear: '<svg style="width: 200px; height: 22px; margin: auto; display: block;" viewBox="0 0 400 40"><circle cx="200" cy="20" r="10" fill="none" stroke="#000" stroke-width="4.5"/><circle cx="200" cy="20" r="4.5" fill="#000"/><path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#000"/><path d="M165,20 C165,22 150,24 130,24 C95,24 55,21 30,20 C55,19 95,16 130,16 C150,16 165,18 165,20 Z" fill="#fff"/><path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#000"/><path d="M235,20 C235,22 250,24 270,24 C305,24 345,21 370,20 C345,19 305,16 270,16 C250,16 235,18 235,20 Z" fill="#fff"/></svg>',
@@ -133,12 +229,13 @@ function getSectionDividerHTML(type) {
         content = EXTERNAL_ALL_ORNAMENTS[type];
     } else if (type === 'custom_img') {
         const imgSrc = document.getElementById('data-sec-div-img')?.value || '';
-        if (imgSrc) {
-            content = `<img src="${imgSrc}" style="max-width: 100%; max-height: 45px; margin: auto; display: block; object-fit: contain; ${dimStyle}" />`;
+        const safe = sanitizeURL(imgSrc);
+        if (safe) {
+            content = `<img src="${safe}" style="max-width: 100%; max-height: 45px; margin: auto; display: block; object-fit: contain; ${sanitizeStyleValue(dimStyle)}" />`;
         }
     }
     if (!content) return '';
-    return `<div class="sec-divider-wrap" style="grid-column: 3 / 6; text-align: center; margin: 16px auto 6px auto; display:flex; justify-content:center; align-items:center; ${dimStyle}">${content}</div>`;
+    return `<div class="sec-divider-wrap" style="grid-column: 3 / 6; text-align: center; margin: 16px auto 6px auto; display:flex; justify-content:center; align-items:center; ${sanitizeStyleValue(dimStyle)}">${content}</div>`;
 }
 
 function getHeadingOrnamentHTML(type, isTop = false, isH2 = true) {
@@ -160,8 +257,9 @@ function getHeadingOrnamentHTML(type, isTop = false, isH2 = true) {
         inner = `<div class="ornament-svg-inner" style="display:inline-flex; align-items:center; justify-content:center; ${flipStyle} ${sizeStyle}">${ORNAMENTS_UD[type].svg}</div>`;
     } else if (type === 'custom_img') {
         const imgSrc = document.getElementById('data-sec-div-img')?.value || '';
-        if (imgSrc) {
-            inner = `<img src="${imgSrc}" style="max-width: 200px; max-height: 35px; margin: auto; display: block; object-fit: contain; ${flipStyle} ${sizeStyle}" />`;
+        const safe = sanitizeURL(imgSrc);
+        if (safe) {
+            inner = `<img src="${safe}" style="max-width: 200px; max-height: 35px; margin: auto; display: block; object-fit: contain; ${sanitizeStyleValue(flipStyle + ' ' + sizeStyle)}" />`;
         }
     }
     if (!inner) return '';
@@ -192,7 +290,8 @@ function renderSideOrnamentHTML(styleKey, isLeft = false, context = 'h3') {
         return `<span class="side-ornament-wrap" style="display:inline-flex; align-items:center; justify-content:center; ${flipStyle} ${sizeStyle}">${svgContent}</span>`;
     } else if (styleKey === 'custom_img') {
         const imgSrc = document.getElementById('data-hdr-c-img')?.value || document.getElementById('data-sec-div-img')?.value || '';
-        return imgSrc ? `<img src="${imgSrc}" style="max-height: 100%; max-width: 100%; object-fit: contain; vertical-align: middle; ${flipStyle} ${sizeStyle}" />` : '';
+        const safe = sanitizeURL(imgSrc);
+        return safe ? `<img src="${safe}" style="max-height: 100%; max-width: 100%; object-fit: contain; vertical-align: middle; ${sanitizeStyleValue(flipStyle + ' ' + sizeStyle)}" />` : '';
     }
     return '';
 }
@@ -273,9 +372,9 @@ const BUILTIN_SHAAR_THEMES = {
       <div class="m3-wavy-band"></div>
       <div class="m3-panel">
         <svg class="m3-corner tr" viewBox="0 0 100 100"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></svg>
-        <svg class="m3-corner tl" viewBox="0 0 100 100"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></svg>
-        <svg class="m3-corner br" viewBox="0 0 100 100"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></svg>
-        <svg class="m3-corner bl" viewBox="0 0 100 100"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></svg>
+        <svg class="m3-corner tl" viewBox="0 0 100 100"><g transform="scale(-1,1) translate(-100,0)"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></g></svg>
+        <svg class="m3-corner br" viewBox="0 0 100 100"><g transform="scale(1,-1) translate(0,-100)"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></g></svg>
+        <svg class="m3-corner bl" viewBox="0 0 100 100"><g transform="scale(-1,-1) translate(-100,-100)"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></g></svg>
       </div>
     `,
         backHTML: `<div class="back-shaar-bg-left"></div>`,
@@ -302,6 +401,67 @@ function getShaarBoxEditorHTML(shaarType) {
 /* ==========================================================================
    5. פונקציות יצירת דפי השער
    ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   P3-1: פונקציות עזר משותפות ל-3 פונקציות render*Shaar.
+   מקטיןות כפילות קוד בלי לשנות את ה-API החיצוני.
+   --------------------------------------------------------------------------- */
+
+/**
+ * buildShaarFooterHTML — יוצרת את רכיב העמוד התחתון (page number) לכל סוגי השערים.
+ * @param {string} showCheckboxId - ID של ה-checkbox שמציין אם להציג מספר עמוד
+ * @param {number} pageIndex - מספר העמוד (עבר דרך formatPageNumberDisplay)
+ * @returns {string} HTML של ה-footer (או מחרוזת ריקה)
+ */
+function buildShaarFooterHTML(showCheckboxId, pageIndex) {
+    if (!document.getElementById(showCheckboxId)?.checked) return '';
+    if (typeof formatPageNumberDisplay !== 'function') return '';
+    if (typeof pageIndex !== 'number') return '';
+    const { framedPageNum, pageNumPos } = formatPageNumberDisplay(pageIndex);
+    const footerClass = (pageNumPos === 'bottom_outer') ? 'pos-outer' : 'pos-center';
+    const showFooter = (pageNumPos === 'bottom_center' || pageNumPos === 'bottom_outer') && framedPageNum;
+    if (!showFooter) return '';
+    return `<div class="page-number-footer ${footerClass}">${escapeHTML(String(framedPageNum))}</div>`;
+}
+
+/**
+ * resolveShaarBackground — מחזירה את ה-HTML של רקע השער לפי הגדרות המשתמש
+ * והתמה הנוכחית. מחליפה את הלוגיקה הכפולה ב-renderMainShaar/renderBackShaar/renderSubShaar.
+ * @param {string} typeKey - 'main' | 'back' | 'sub'
+ * @param {string} selectId - ID של ה-select לבחירת רקע עבור סוג זה
+ * @param {string} themeId - ID של הערכת נושא הנוכחית
+ * @param {object|null} customTheme - אובייקט הערכה מותאמת אישית (אם קיים)
+ * @param {string} builtinKey - 'mainHTML' | 'backHTML' | 'subHTML'
+ * @param {string} fallbackHTML - HTML ברירת מחדל אם שום דבר לא נמצא
+ * @param {string} altText - טקסט חלופי ל-img
+ * @returns {string} HTML של הרקע
+ */
+function resolveShaarBackground(typeKey, selectId, themeId, customTheme, builtinKey, fallbackHTML, altText) {
+    const selVal = document.getElementById(selectId)?.value || 'theme_default';
+    
+    if (selVal !== 'theme_default') {
+        if (EXTERNAL_SHAAR_ASSETS[typeKey] && EXTERNAL_SHAAR_ASSETS[typeKey][selVal]) {
+            return wrapShaarMedia(EXTERNAL_SHAAR_ASSETS[typeKey][selVal]);
+        }
+        if (BUILTIN_SHAAR_THEMES[selVal]) {
+            return BUILTIN_SHAAR_THEMES[selVal][builtinKey] || '';
+        }
+    }
+    
+    // בדיקת customTheme — אם יש svgData, נטפל בו באופן מאובטח.
+    const shaarKey = typeKey + 'Shaar';  // 'mainShaar' | 'backShaar' | 'subShaar'
+    if (customTheme && customTheme[shaarKey] && customTheme[shaarKey].svgData) {
+        const safeURL = sanitizeURL(customTheme[shaarKey].svgData);
+        return safeURL ? `<img class="custom-bg-img" src="${safeURL}" alt="${escapeHTML(altText)}">` : '';
+    }
+    
+    if (BUILTIN_SHAAR_THEMES[themeId]) {
+        return BUILTIN_SHAAR_THEMES[themeId][builtinKey] || '';
+    }
+    
+    return fallbackHTML;
+}
+
 function renderMainShaar(container, themeId, pageIndex) {
     const page = document.createElement('div');
     page.className = `a4-page main-shaar-page`;
@@ -314,22 +474,14 @@ function renderMainShaar(container, themeId, pageIndex) {
     const author = document.getElementById('inp-book-author')?.value || "";
     const year = document.getElementById('inp-book-year')?.value || "";
 
-    let frameHTML = '';
-    let boxStyle = '';
     const customTheme = (typeof customThemes !== 'undefined') ? customThemes.find(t => t.id === themeId) : null;
     const selMain = document.getElementById('select-shaar-main')?.value || 'theme_default';
 
-    if (selMain !== 'theme_default') {
-        if (EXTERNAL_SHAAR_ASSETS.main[selMain]) {
-            frameHTML = wrapShaarMedia(EXTERNAL_SHAAR_ASSETS.main[selMain]);
-        } else if (BUILTIN_SHAAR_THEMES[selMain]) {
-            frameHTML = BUILTIN_SHAAR_THEMES[selMain].mainHTML;
-        }
-    } else if (customTheme && customTheme.mainShaar && customTheme.mainShaar.svgData) {
-        frameHTML = `<img class="custom-bg-img" src="${customTheme.mainShaar.svgData}" alt="שער ראשי">`;
-    } else if (BUILTIN_SHAAR_THEMES[themeId]) {
-        frameHTML = BUILTIN_SHAAR_THEMES[themeId].mainHTML;
-    }
+    // P3-1: שימוש ב-resolveShaarBackground במקום הלוגיקה הכפולה.
+    const frameHTML = resolveShaarBackground(
+        'main', 'select-shaar-main', themeId, customTheme,
+        'mainHTML', '', 'שער ראשי'
+    );
 
     const uTop = document.getElementById('builder-main-top')?.value;
     const uBottom = document.getElementById('builder-main-bottom')?.value;
@@ -337,7 +489,7 @@ function renderMainShaar(container, themeId, pageIndex) {
     const uLeft = document.getElementById('builder-main-left')?.value;
     const shaarBoxId = selMain !== 'theme_default' ? selMain : ('theme_default:' + themeId);
 
-    boxStyle = resolveShaarBoxStyle('main', shaarBoxId, uTop, uBottom, uRight, uLeft, { top: 20, bottom: 16, right: 15, left: 15 });
+    let boxStyle = resolveShaarBoxStyle('main', shaarBoxId, uTop, uBottom, uRight, uLeft, { top: 20, bottom: 16, right: 15, left: 15 });
     if (!boxStyle) {
         if (customTheme && customTheme.mainShaar) {
             const m = customTheme.mainShaar;
@@ -347,36 +499,29 @@ function renderMainShaar(container, themeId, pageIndex) {
         }
     }
 
-    let mainShaarFooterHTML = '';
-    if (document.getElementById('main-shaar-show-number')?.checked && typeof formatPageNumberDisplay === 'function' && typeof pageIndex === 'number') {
-        const { framedPageNum, pageNumPos } = formatPageNumberDisplay(pageIndex);
-        const footerClass = (pageNumPos === 'bottom_outer') ? 'pos-outer' : 'pos-center';
-        const showFooter = (pageNumPos === 'bottom_center' || pageNumPos === 'bottom_outer') && framedPageNum;
-        if (showFooter) {
-            mainShaarFooterHTML = `<div class="page-number-footer ${footerClass}">${framedPageNum}</div>`;
-        }
-    }
+    // P3-1: שימוש ב-buildShaarFooterHTML במקום הלוגיקה הכפולה.
+    const mainShaarFooterHTML = buildShaarFooterHTML('main-shaar-show-number', pageIndex);
 
     page.innerHTML = `
     ${frameHTML}
     ${mainShaarFooterHTML}
-    <div class="shaar-main-content theme-bounded-content" data-shaar-type="main" data-shaar-id="${shaarBoxId}" style="${boxStyle}">
+    <div class="shaar-main-content theme-bounded-content" data-shaar-type="main" data-shaar-id="${escapeHTML(shaarBoxId)}" style="${sanitizeStyleValue(boxStyle)}">
       ${getShaarBoxEditorHTML('main')}
       <div>
         <div class="bsd-header">בס"ד</div>
         <div class="sefer-label"></div>
-        <div class="book-title-main">${title}</div>
-        <div class="book-subtitle">${subtitle}</div>
+        <div class="book-title-main">${escapeHTML(title)}</div>
+        <div class="book-subtitle">${escapeHTML(subtitle)}</div>
         <svg style="width: 180px; height: 24px; margin: 12px auto;" viewBox="0 0 400 40">
           <circle cx="200" cy="20" r="10" fill="none" stroke="#000" stroke-width="4.5"/><circle cx="200" cy="20" r="4.5" fill="#000"/>
           <path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#000"/>
           <path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#000"/>
         </svg>
       </div>
-      <div class="book-description">${desc}</div>
-      <div class="book-sections-summary">${sections}</div>
-      <div class="author-block"><br><span class="author-name">${author}</span></div>
-      <div class="publication-footer">${year}</div>
+      <div class="book-description">${escapeHTML(desc)}</div>
+      <div class="book-sections-summary">${escapeHTML(sections)}</div>
+      <div class="author-block"><br><span class="author-name">${escapeHTML(author)}</span></div>
+      <div class="publication-footer">${escapeHTML(year)}</div>
     </div>
   `;
     container.appendChild(page);
@@ -392,24 +537,14 @@ function renderBackShaar(container, themeId, pageIndex) {
     const contactText = document.getElementById('inp-book-back-contact')?.value || "";
     const extraText = document.getElementById('inp-book-back-extra')?.value || "";
 
-    let bgHTML = '';
-    let boxStyle = '';
     const customTheme = (typeof customThemes !== 'undefined') ? customThemes.find(t => t.id === themeId) : null;
     const selBack = document.getElementById('select-shaar-back')?.value || 'theme_default';
 
-    if (selBack !== 'theme_default') {
-        if (EXTERNAL_SHAAR_ASSETS.back[selBack]) {
-            bgHTML = wrapShaarMedia(EXTERNAL_SHAAR_ASSETS.back[selBack]);
-        } else if (BUILTIN_SHAAR_THEMES[selBack]) {
-            bgHTML = BUILTIN_SHAAR_THEMES[selBack].backHTML;
-        }
-    } else if (customTheme && customTheme.backShaar && customTheme.backShaar.svgData) {
-        bgHTML = `<img class="custom-bg-img" src="${customTheme.backShaar.svgData}" alt="שער אחורי">`;
-    } else if (BUILTIN_SHAAR_THEMES[themeId]) {
-        bgHTML = BUILTIN_SHAAR_THEMES[themeId].backHTML;
-    } else {
-        bgHTML = `<div class="back-shaar-bg-left"></div>`;
-    }
+    // P3-1: שימוש ב-resolveShaarBackground.
+    const bgHTML = resolveShaarBackground(
+        'back', 'select-shaar-back', themeId, customTheme,
+        'backHTML', `<div class="back-shaar-bg-left"></div>`, 'שער אחורי'
+    );
 
     const uTop = document.getElementById('builder-back-top')?.value;
     const uBottom = document.getElementById('builder-back-bottom')?.value;
@@ -417,34 +552,27 @@ function renderBackShaar(container, themeId, pageIndex) {
     const uLeft = document.getElementById('builder-back-left')?.value;
     const shaarBoxId = selBack !== 'theme_default' ? selBack : ('theme_default:' + themeId);
 
-    boxStyle = resolveShaarBoxStyle('back', shaarBoxId, uTop, uBottom, uRight, uLeft, { top: 25, bottom: 25, right: 20, left: 95 });
+    let boxStyle = resolveShaarBoxStyle('back', shaarBoxId, uTop, uBottom, uRight, uLeft, { top: 25, bottom: 25, right: 20, left: 95 });
     if (!boxStyle) {
         boxStyle = `position:absolute; top:25mm; bottom:25mm; right:20mm; left:95mm;`;
     }
 
-    let backShaarFooterHTML = '';
-    if (document.getElementById('back-shaar-show-number')?.checked && typeof formatPageNumberDisplay === 'function' && typeof pageIndex === 'number') {
-        const { framedPageNum, pageNumPos } = formatPageNumberDisplay(pageIndex);
-        const footerClass = (pageNumPos === 'bottom_outer') ? 'pos-outer' : 'pos-center';
-        const showFooter = (pageNumPos === 'bottom_center' || pageNumPos === 'bottom_outer') && framedPageNum;
-        if (showFooter) {
-            backShaarFooterHTML = `<div class="page-number-footer ${footerClass}">${framedPageNum}</div>`;
-        }
-    }
+    // P3-1: שימוש ב-buildShaarFooterHTML.
+    const backShaarFooterHTML = buildShaarFooterHTML('back-shaar-show-number', pageIndex);
 
     page.innerHTML = `
     ${bgHTML}
     ${backShaarFooterHTML}
-    <div class="theme-bounded-content" data-shaar-type="back" data-shaar-id="${shaarBoxId}" style="${boxStyle} display:flex; flex-direction:column; justify-content:space-evenly; align-items:center; text-align:center;">
+    <div class="theme-bounded-content" data-shaar-type="back" data-shaar-id="${escapeHTML(shaarBoxId)}" style="${sanitizeStyleValue(boxStyle)} display:flex; flex-direction:column; justify-content:space-evenly; align-items:center; text-align:center;">
       ${getShaarBoxEditorHTML('back')}
       <div style="width:100%; display:flex; flex-direction:column; justify-content:space-evenly; height:100%; padding: 10px 0;">
         <div class="back-shaar-block">
           <div style="font-size: 13.5pt; font-weight: 800; margin-bottom: 6px; color:#111;">כל הזכויות שמורות</div>
-          <div style="font-size: 10pt; line-height: 1.6; max-width: 92%; margin: 0 auto; color: #222; white-space: pre-wrap;">${copyrightText}</div>
+          <div style="font-size: 10pt; line-height: 1.6; max-width: 92%; margin: 0 auto; color: #222; white-space: pre-wrap;">${escapeHTML(copyrightText)}</div>
         </div>
-        ${publishingText ? `<div class="back-shaar-block" style="font-size: 11pt; font-weight:700; line-height: 1.5; color: #1e3a8a; white-space: pre-wrap;">${publishingText}</div>` : ''}
-        ${contactText ? `<div class="back-shaar-block" style="font-size: 10pt; line-height: 1.5; color: #334155; white-space: pre-wrap;">${contactText}</div>` : ''}
-        ${extraText ? `<div class="back-shaar-block" style="font-size: 9.5pt; line-height: 1.45; color: #64748b; white-space: pre-wrap;">${extraText}</div>` : ''}
+        ${publishingText ? `<div class="back-shaar-block" style="font-size: 11pt; font-weight:700; line-height: 1.5; color: #1e3a8a; white-space: pre-wrap;">${escapeHTML(publishingText)}</div>` : ''}
+        ${contactText ? `<div class="back-shaar-block" style="font-size: 10pt; line-height: 1.5; color: #334155; white-space: pre-wrap;">${escapeHTML(contactText)}</div>` : ''}
+        ${extraText ? `<div class="back-shaar-block" style="font-size: 9.5pt; line-height: 1.45; color: #64748b; white-space: pre-wrap;">${escapeHTML(extraText)}</div>` : ''}
       </div>
     </div>
   `;
@@ -454,36 +582,35 @@ function renderBackShaar(container, themeId, pageIndex) {
 function renderSubShaar(container, token, themeId, pageIndex) {
     const page = document.createElement('div');
     page.className = 'a4-page sub-shaar-page';
-    page.setAttribute('data-token-id', token.id);
-    page.id = `heading-tok-${token.id}`;
+    // FIX: guard בסיסי נגד null/undefined — אבל לא נגד token.id חסר,
+    // כי ייתכן ש-token אינו כולל id בכל המקרים (למשל בכותרות מותאמות).
+    if (!token) {
+        console.warn('renderSubShaar: token is null/undefined');
+        return;
+    }
+    // שימוש בודק nullish כדי למנוע קריסה אם id חסר.
+    const tokenId = token.id != null ? token.id : ('sub-shaar-' + Date.now());
+    page.setAttribute('data-token-id', tokenId);
+    page.id = `heading-tok-${tokenId}`;
 
-    let titleMain = token.text;
+    let titleMain = token.text || '';
     let titleSub = '';
 
-    if (token.text.includes('-') || token.text.includes('–') || token.text.includes('—')) {
+    if (token.text && (token.text.includes('-') || token.text.includes('–') || token.text.includes('—'))) {
         const parts = token.text.split(/[-–—]/);
         titleMain = parts[0].trim();
         titleSub = parts.slice(1).join(' - ').trim();
     }
 
-    let bgHTML = '';
     let boxStyle = '';
     const customTheme = (typeof customThemes !== 'undefined') ? customThemes.find(t => t.id === themeId) : null;
     const selSub = document.getElementById('select-shaar-sub')?.value || 'theme_default';
 
-    if (selSub !== 'theme_default') {
-        if (EXTERNAL_SHAAR_ASSETS.sub[selSub]) {
-            bgHTML = wrapShaarMedia(EXTERNAL_SHAAR_ASSETS.sub[selSub]);
-        } else if (BUILTIN_SHAAR_THEMES[selSub]) {
-            bgHTML = BUILTIN_SHAAR_THEMES[selSub].subHTML;
-        }
-    } else if (customTheme && customTheme.subShaar && customTheme.subShaar.svgData) {
-        bgHTML = `<img class="custom-bg-img" src="${customTheme.subShaar.svgData}" alt="שער משנה">`;
-    } else if (BUILTIN_SHAAR_THEMES[themeId]) {
-        bgHTML = BUILTIN_SHAAR_THEMES[themeId].subHTML;
-    } else {
-        bgHTML = `<div class="sub-shaar-bg-right"></div>`;
-    }
+    // P3-1: שימוש ב-resolveShaarBackground.
+    const bgHTML = resolveShaarBackground(
+        'sub', 'select-shaar-sub', themeId, customTheme,
+        'subHTML', `<div class="sub-shaar-bg-right"></div>`, 'שער משנה'
+    );
 
     const uTop = document.getElementById('builder-sub-top')?.value;
     const uBottom = document.getElementById('builder-sub-bottom')?.value;
@@ -503,28 +630,21 @@ function renderSubShaar(container, token, themeId, pageIndex) {
         }
     }
 
-    let subShaarFooterHTML = '';
-    if (document.getElementById('sub-shaar-show-number')?.checked && typeof formatPageNumberDisplay === 'function' && typeof pageIndex === 'number') {
-        const { framedPageNum, pageNumPos } = formatPageNumberDisplay(pageIndex);
-        const footerClass = (pageNumPos === 'bottom_outer') ? 'pos-outer' : 'pos-center';
-        const showFooter = (pageNumPos === 'bottom_center' || pageNumPos === 'bottom_outer') && framedPageNum;
-        if (showFooter) {
-            subShaarFooterHTML = `<div class="page-number-footer ${footerClass}">${framedPageNum}</div>`;
-        }
-    }
+    // P3-1: שימוש ב-buildShaarFooterHTML.
+    const subShaarFooterHTML = buildShaarFooterHTML('sub-shaar-show-number', pageIndex);
 
     page.innerHTML = `
     ${bgHTML}
     ${subShaarFooterHTML}
-    <div class="theme-bounded-content" data-shaar-type="sub" data-shaar-id="${shaarBoxId}" style="${boxStyle} justify-content:center;">
+    <div class="theme-bounded-content" data-shaar-type="sub" data-shaar-id="${escapeHTML(shaarBoxId)}" style="${sanitizeStyleValue(boxStyle)} justify-content:center;">
       ${getShaarBoxEditorHTML('sub')}
       <div class="sefer-label"></div>
-      <div class="book-title-main" style="font-size: 36pt;">${titleMain}</div>
+      <div class="book-title-main" style="font-size: 36pt;">${escapeHTML(titleMain)}</div>
       ${titleSub ? `
         <svg style="width: 140px; height: 25px; margin: 15px auto;" viewBox="0 0 300 30">
           <path d="M10,15 Q75,5 140,15 Q145,10 150,5 Q155,10 160,15 Q225,5 290,15 Q225,25 160,15 Q155,20 150,25 Q145,20 140,15 Q75,25 10,15 Z" fill="#222"/>
         </svg>
-        <div class="book-subtitle" style="font-size: 21pt;">${titleSub}</div>` : ''}
+        <div class="book-subtitle" style="font-size: 21pt;">${escapeHTML(titleSub)}</div>` : ''}
     </div>
   `;
     container.appendChild(page);
@@ -549,9 +669,11 @@ function getContentBgCSS(roleKey) {
         const opEl = document.getElementById('cbg-' + roleKey + '-opacity');
         const img = imgEl ? imgEl.value : '';
         if (!img) return '';
+        const safeImg = sanitizeURL(img);
+        if (!safeImg) return '';
         const op = opEl ? (parseInt(opEl.value, 10) / 100) : 0.15;
-        const fade = 1 - op;
-        return `background-image:linear-gradient(rgba(244,241,232,${fade}),rgba(244,241,232,${fade})),url("${img}");background-size:cover;background-position:center;background-repeat:no-repeat;`;
+        const fade = (1 - safeNumber(op, 0.15)).toFixed(3);
+        return `background-image:linear-gradient(rgba(244,241,232,${fade}),rgba(244,241,232,${fade})),url("${safeImg}");background-size:cover;background-position:center;background-repeat:no-repeat;`;
     }
     return '';
 }
@@ -593,3 +715,4 @@ function registerExternalDivider(id, svgContent) {
 function registerExternalNoteRule(id, svgContent) {
     NOTE_RULE_GLYPHS[id] = svgContent;
 }
+

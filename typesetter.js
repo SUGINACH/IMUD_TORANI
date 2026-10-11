@@ -1,3 +1,4 @@
+
 /* ==========================================================================
    מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
    קובץ: typesetter.js
@@ -13,9 +14,14 @@ let footnoteQueueForPage = [];
 let endnoteQueueForPart = [];
 let lineToTokenMap = [];
 let globalTokens = [];
+let curH1 = '';
+let curH2 = '';
+let currentH3Title = '';
+let currentH4Title = '';
 
 // מאגר גלובלי לאחסון נתוני דיבאג וטרייס לכל עמוד
-window.__pageDebugStore = {};
+window.__pageDebugStore = window.__pageDebugStore || {};
+
 
 /* ==========================================================================
    1. פונקציות יסוד, סינון עריכה ומספור תורני
@@ -28,33 +34,73 @@ function stripEditorialNotes(text) {
 function toGematria(num) {
     num = parseInt(num, 10);
     if (isNaN(num) || num <= 0) return "";
-    if (num === 15) return "טו";
-    if (num === 16) return "טז";
+    
     const hundreds = ["", "ק", "ר", "ש", "ת", "תק", "תר", "תש", "תת", "תתק"];
     const tens = ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"];
     const ones = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"];
-    let str = "";
-    let h = Math.floor(num / 100);
+    const thousandsLetters = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י"];
+    
+    // טיפול באלפים (ומעלה): כל אלף מסומן באות יחידה + גרש.
+    // 1000 → א', 2000 → ב', 3000 → ג', 10000 → י'.
+    // ערכים מעל 9999 (10,000+) אינם נפוצים בספרים תורניים; אנו מטפלים רק באלפים 1-10.
+    let thousandsPart = '';
+    let remaining = num;
+    if (num >= 1000) {
+        const thousands = Math.floor(num / 1000);
+        if (thousands >= 1 && thousands < thousandsLetters.length) {
+            thousandsPart = thousandsLetters[thousands] + '\u05F3'; // גרש (U+05F3)
+            remaining = num % 1000;
+            if (remaining === 0) return thousandsPart;
+        } else {
+            // ערכים מעל 9999: נחזיר כל הערך כמחרוזת ספרות (fallback)
+            return String(num);
+        }
+    }
+    
+    // טיפול במאות, עשרות ואחדות על היתרה (0-999)
+    let str = '';
+    let h = Math.floor(remaining / 100);
     if (h > 0) {
         if (h <= 4) str += ["", "ק", "ר", "ש", "ת"][h];
         else if (h < hundreds.length) str += hundreds[h];
-        num %= 100;
+        // אם h >= hundreds.length (10000+), איננו יכולים לייצג זאת — נחזיר מחרוזת ריקה יחסית.
     }
-    let t = Math.floor(num / 10);
-    let o = num % 10;
+    let afterHundreds = remaining % 100;
+    let t = Math.floor(afterHundreds / 10);
+    let o = afterHundreds % 10;
     if (t === 1 && (o === 5 || o === 6)) {
+        // איסור שמות קודש: 15 → טו, 16 → טז
         str += (o === 5) ? "טו" : "טז";
     } else {
         str += tens[t] + ones[o];
     }
-    return str;
+    
+    // אם יש אלפים, נפריד אותם מהחלק התחתון ברווח (נהוג בדפוס תורני).
+    return thousandsPart ? (thousandsPart + ' ' + str) : str;
 }
 
 function toGematriaWithGeresh(num) {
     const raw = toGematria(num);
     if (!raw) return "";
-    if (raw.length === 1) return raw + "'";
-    return raw.slice(0, -1) + '"' + raw.slice(-1);
+    // גרש (U+05F3) לאות בודדת, גרשיים (U+05F4) לפני האות האחרונה בשתי אותיות ומעלה.
+    
+    // אם יש אלפים (מופרדים ברווח מהחלק התחתון), נטפל בכל חלק בנפרד.
+    if (raw.includes(' ')) {
+        const parts = raw.split(' ');
+        // החלק הראשון הוא האלפים — כבר מכיל גרש.
+        const thousandsPart = parts[0];  // למשל: "א'"
+        const lowerPart = parts.slice(1).join(' ');  // למשל: "תשפה"
+        if (!lowerPart) return thousandsPart;
+        // עיבוד החלק התחתון כאילו היה יחידה נפרדת.
+        if (lowerPart.includes('\u05F3') || lowerPart.includes('\u05F4')) return raw;
+        if (lowerPart.length === 1) return thousandsPart + ' ' + lowerPart + '\u05F3';
+        return thousandsPart + ' ' + lowerPart.slice(0, -1) + '\u05F4' + lowerPart.slice(-1);
+    }
+    
+    // מקרה רגיל (ללא אלפים).
+    if (raw.includes('\u05F3') || raw.includes('\u05F4')) return raw; // כבר מכיל גרש/גרשיים
+    if (raw.length === 1) return raw + '\u05F3';
+    return raw.slice(0, -1) + '\u05F4' + raw.slice(-1);
 }
 
 function formatPageNumberDisplay(pNum) {
@@ -195,17 +241,26 @@ function applyDibburHamatchil(text) {
     if (!isDhEnabled || !text) return text;
     const match = text.match(/^([^.\-–—]{1,80}[.\-–—])\s*(.*)$/s);
     if (match) {
-        return `<span class="dibbur-hamatchil">${match[1]}</span> ${match[2]}`;
+        // אסקייפ מונע הזרקת HTML זדוני דרך תוכן הפסקה (XSS).
+        // אם הקלט מכיל כבר HTML (למשל כשנקרא מתוך createDropWord עם span עוטף),
+        // האסקייפ יהפוך את התגיות לישויות — מה שיקלקל את התצוגה.
+        // לכן, אם הקלט מכיל < או > (סימן שזה HTML), אנו מדלגים על אסקייפ.
+        const isHTML = /[<>]/.test(text);
+        const m1 = isHTML ? match[1] : escapeHTML(match[1]);
+        const m2 = isHTML ? match[2] : escapeHTML(match[2]);
+        return `<span class="dibbur-hamatchil">${m1}</span> ${m2}`;
     }
     return text;
 }
 
 function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
-    if (isContinuation) return text;
+    // אם פסקת המשך — החזר את הטקסט כשהוא מאוסקייפ, כי הוא יוזרק ל-innerHTML.
+    if (isContinuation) return escapeHTML(text);
     text = text.trim();
     if (!text) return '';
 
     const mode = document.getElementById('drop-word-mode')?.value || 'window';
+    // במצב 'none' הטקסט עובר דרך applyDibburHamatchil המבצע אסקייפ פנימי.
     if (mode === 'none') return applyDibburHamatchil(text);
 
     const wordCount = parseInt(document.getElementById('drop-word-count')?.value, 10) || 1;
@@ -214,8 +269,10 @@ function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
 
     const words = text.split(/\s+/);
     if (words.length === 0) return '';
-    const dropWords = words.slice(0, Math.min(wordCount, words.length)).join(' ');
-    const restOfText = words.slice(Math.min(wordCount, words.length)).join(' ');
+    
+    // FIX: אסקייפ טקסט משתמש לפני הזרקה ל-HTML — מונע XSS.
+    const dropWords = escapeHTML(words.slice(0, Math.min(wordCount, words.length)).join(' '));
+    const restOfText = escapeHTML(words.slice(Math.min(wordCount, words.length)).join(' '));
 
     let className = 'first-word-inline';
     if (mode === 'window') {
@@ -228,7 +285,10 @@ function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
 
     const styledWords = `<span class="${className}">${dropWords}</span>`;
     const fullText = restOfText ? `${styledWords} ${restOfText}` : styledWords;
-    return applyDibburHamatchil(fullText);
+    // הערה: בעבר כאן הייתה קריאה ל-applyDibburHamatchil(fullText), אך זה היה באג:
+    // הרגקס של דיבור המתחיל רץ על HTML שכבר כולל תגיות span, ומייצר תוצאה שבורה.
+    // כעת, דיבור המתחיל מופעל רק במצב 'none' (מעלה), שבו הקלט הוא טקסט גולמי.
+    return fullText;
 }
 
 /* ==========================================================================
@@ -249,6 +309,13 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     const fnClose = document.getElementById('fn-delim-close')?.value?.trim() || ']';
     let safeText = text.trim();
 
+    // מניעת מילה בודדת בשורה האחרונה (Runt Prevention)
+    // אם הפסקה מכילה 4 מילים ומעלה ואינה מסתיימת בהערה, נחבר את שתי המילים האחרונות ברווח בלתי-נתיק
+    const rawWords = safeText.split(/\s+/);
+    if (rawWords.length >= 4 && !rawWords[rawWords.length - 1].endsWith(fnClose)) {
+        safeText = rawWords.slice(0, -2).join(' ') + ' ' + rawWords[rawWords.length - 2] + '\u00A0' + rawWords[rawWords.length - 1];
+    }
+
     if (fnOpen && fnClose) {
         const escO = fnOpen.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
         const escC = fnClose.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -267,40 +334,47 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     pMeasure.style.padding = '0';
     pMeasure.style.lineHeight = styleObj.lineHeight;
 
+    // FIX: מדידה ראשונית בלי drop word — אומדן גס
     pMeasure.textContent = text;
     measureContainer.appendChild(pMeasure);
     const singleLineHeight = pMeasure.offsetHeight;
     pMeasure.textContent = "א";
     const oneLineH = pMeasure.offsetHeight;
-    const numLinesEstimated = Math.max(1, Math.round(singleLineHeight / oneLineH));
+    let numLinesEstimated = Math.max(1, Math.round(singleLineHeight / oneLineH));
 
     const minLines = parseInt(document.getElementById('drop-word-min-lines')?.value, 10) || 2;
     const mode = document.getElementById('drop-word-mode')?.value || 'window';
-    const shouldApplyWindow = useWindowIfMultipleLines && (numLinesEstimated >= minLines) && (mode === 'window');
+    let shouldApplyWindow = useWindowIfMultipleLines && (numLinesEstimated >= minLines) && (mode === 'window');
 
     const wordCount = parseInt(document.getElementById('drop-word-count')?.value, 10) || 1;
     const dropWords = words.slice(0, Math.min(wordCount, words.length)).join(' ').replace(/\uE000/g, ' ');
 
+    // FIX: אם נראה שצריך drop word — בונים את ה-HTML עם ה-float, מודדים מחדש,
+    // ומעדכנים numLinesEstimated לערך האמיתי שכולל את השפעת ה-float.
+    // זה מונע מצב שבו ה-drop word דוחף שורה נוספת שלא חושבה.
     let html = '';
     if (shouldApplyWindow) {
-        html += `<span class="first-word-window" id="mw-0">${dropWords}</span> `;
+        html += `<span class="first-word-window" id="mw-0">${escapeHTML(dropWords)}</span> `;
         for (let i = wordCount; i < words.length; i++) {
             const w = words[i];
             const isNote = w.startsWith(fnOpen) && w.endsWith(fnClose);
-            const displayW = isNote ? ' א ' : w.replace(/\uE000/g, ' ');
+            const displayW = isNote ? ' א ' : escapeHTML(w.replace(/\uE000/g, ' '));
             html += `<span id="mw-${i}">${displayW}</span> `;
         }
     } else {
         for (let i = 0; i < words.length; i++) {
             const w = words[i];
             const isNote = w.startsWith(fnOpen) && w.endsWith(fnClose);
-            const displayW = isNote ? ' א ' : w.replace(/\uE000/g, ' ');
+            const displayW = isNote ? ' א ' : escapeHTML(w.replace(/\uE000/g, ' '));
             html += `<span id="mw-${i}">${displayW}</span> `;
         }
     }
 
     pMeasure.innerHTML = html;
 
+    // FIX: מדידה מחדש של numLines עם ה-drop word בפועל.
+    // אם ה-drop word דחף שורה נוספת, numLines יהיה גבוה יותר מ-numLinesEstimated.
+    // כעת נשתמש בערך המדויק לכל החישובים הבאים.
     const lines = [];
     let currentLine = [];
     let currentTop = -1;
@@ -332,6 +406,305 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
         lines,
         hasWindow: shouldApplyWindow,
         numLines: lines.length
+    };
+}
+
+/* ==========================================================================
+   4א. תשתית מדידה מבודדת ומלאה (V2) — שלב א' מהרפאקטורינג הארכיטקטוני
+   ==========================================================================
+   הבעיה שפותר מודול זה:
+   ה-`getLinesFromParagraph` הישן מודד ב-`#measuring-box` עם סט בסיסי של
+   textAlign/textJustify/direction, אבל אינו משכפל את הסגנונות האמיתיים
+   של הפסקה ב-DOM החי — class, font, font-size, line-height, margins,
+   spans פנימיים (drop-word, dibbur-hamatchil), הערות שוליים, המשך פסקה.
+   
+   התוצאה: חישוב ≠ דפדפן, ואז `distributeColumnJustification` מנסה "לתקן"
+   בעזרת word-spacing/margin-bottom, אבל חלוקת המילים כבר שגויה.
+   
+   הפתרון: בניית עותק DOM מלא של הפסקה כפי שתיראה בפועל, ומדידתו.
+   ========================================================================== */
+
+/**
+ * _measureBoxV2 — מכולת מדידה מבודדת ייעודית ל-V2.
+ * מופעלת רק דרך measureCandidateLines; אינה חולקת מצב עם הישן.
+ */
+let _measureBoxV2 = null;
+
+function _getMeasureBoxV2() {
+    if (!_measureBoxV2) {
+        _measureBoxV2 = document.createElement('div');
+        _measureBoxV2.id = 'measuring-box-v2';
+        _measureBoxV2.setAttribute('aria-hidden', 'true');
+        // מיקום מחוץ למסך; נשאר ב-flow הרגיל כדי שה-CSS הגלובלי יחול.
+        _measureBoxV2.style.cssText = 'position:absolute; top:-99999px; left:-99999px; visibility:hidden; pointer-events:none; z-index:-1;';
+        document.body.appendChild(_measureBoxV2);
+    }
+    return _measureBoxV2;
+}
+
+/**
+ * buildMeasureClone — בונה עותק DOM מלא של פסקה כפי שתיראה בפועל.
+ * 
+ * @param {object} opts
+ * @param {string} opts.rawText — טקסט הפסקה הגולמי (עם תוחמי הערות)
+ * @param {number} opts.colWidth — רוחב הטור בפיקסלים
+ * @param {object} opts.styleObj — { fontFamily, fontSize, lineHeight }
+ * @param {boolean} opts.isContinuation — האם פסקת המשך (אין drop-word / dibbur)
+ * @param {boolean} opts.isSingleLine — האם ידוע שפסקה בת שורה אחת
+ * @param {number} opts.numLines — אומדן מספר שורות (להחלטת drop-word)
+ * @param {string} opts.contextClass — class נוסף לפסקה ('p-cut' | 'p-end' | '')
+ * @param {boolean} opts.applyDelimiters — הא להפעיל applyDelimiterStyles
+ * @param {string[]} opts.noteSpans — מערך תוחמי הערות שזוהו (למדידה מדויקת גובה)
+ * @returns {HTMLElement} אלמנט p שניתן למדידה (offsetHeight, scrollHeight)
+ */
+function buildMeasureClone(opts) {
+    const {
+        rawText = '',
+        colWidth,
+        styleObj = {},
+        isContinuation = false,
+        isSingleLine = false,
+        numLines = 0,
+        contextClass = '',
+        applyDelimiters = true,
+    } = opts;
+    
+    if (!rawText) return null;
+    
+    const box = _getMeasureBoxV2();
+    box.innerHTML = '';
+    box.style.width = colWidth + 'px';
+    box.style.fontFamily = styleObj.fontFamily || 'inherit';
+    box.style.fontSize = styleObj.fontSize || 'inherit';
+    box.style.lineHeight = String(styleObj.lineHeight || 1.34);
+    box.style.textAlign = 'justify';
+    box.style.textJustify = 'inter-word';
+    box.style.direction = 'rtl';
+    
+    // בונים את אלמנט ה-<p> עם כל ה-classים שיחולו בפועל
+    const p = document.createElement('p');
+    const classes = ['main-paragraph'];
+    if (isContinuation) classes.push('p-cut');
+    else classes.push('p-end');
+    if (contextClass && !classes.includes(contextClass)) classes.push(contextClass);
+    p.className = classes.join(' ');
+    p.style.margin = '0';
+    p.style.padding = '0';
+    
+    // עטיפת הטקסט ב-drop-word + dibbur-hamatchil באופן זהה לפונקציות האמיתיות
+    // אבל בלי לעבוד על HTML גולמי — משתמשים ב-createDropWord שכבר מבצע escapeHTML
+    let html;
+    if (isContinuation) {
+        // פסקת המשך: אין drop-word, אין dibbur-hamatchil; רק טקסט מאוסקייפ
+        html = escapeHTML(rawText);
+    } else {
+        html = createDropWord(rawText, isContinuation, isSingleLine, numLines || 2);
+    }
+    p.innerHTML = html;
+    
+    box.appendChild(p);
+    
+    // אם יש הערות שוליים שיוזרמו לתחתית העמוד, הן לא משפיעות על גובה הפסקה —
+    // אבל כן משפיעות על "החלפת תוכן הערה בתו דמה" שצריך להתבצע.
+    if (applyDelimiters && typeof applyDelimiterStyles === 'function') {
+        // דגל isDryRun=true מונע שינוי state גלובלי (הוספת הערה לתור).
+        try {
+            applyDelimiterStyles(p, 'body', getBodySizePt ? getBodySizePt() : 11, true);
+        } catch (e) {
+            console.warn('buildMeasureClone: applyDelimiterStyles failed', e);
+        }
+    }
+    
+    return p;
+}
+
+/**
+ * measureCandidateLines — מודד פסקה בעותק מבודד ומחזיר נתוני שורות מדויקים.
+ * 
+ * @param {object} opts — אותם אפשרויות כמו buildMeasureClone
+ * @returns {{ lines: string[], numLines: number, height: number, lastLineWidth: number,
+ *            lastLineCharCount: number, hasWindow: boolean }}
+ */
+function measureCandidateLines(opts) {
+    const p = buildMeasureClone(opts);
+    if (!p) {
+        return { lines: [], numLines: 0, height: 0, lastLineWidth: 0, lastLineCharCount: 0, hasWindow: false };
+    }
+    
+    // עטיפת כל מילה ב-<span> למדידת offsetTop
+    const fnOpen = document.getElementById('fn-delim-open')?.value?.trim() || '[';
+    const fnClose = document.getElementById('fn-delim-close')?.value?.trim() || ']';
+    let safeText = (opts.rawText || '').trim();
+    
+    // Atomic Lock: נעילת רווחים בתוך תוחמי הערות
+    if (fnOpen && fnClose) {
+        const escO = fnOpen.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const escC = fnClose.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        safeText = safeText.replace(new RegExp(escO + '([\\s\\S]*?)' + escC, 'g'), (m, inner) => {
+            return fnOpen + inner.replace(/\s+/g, '\uE000') + fnClose;
+        });
+    }
+    
+    const words = safeText.split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) {
+        return { lines: [], numLines: 0, height: 0, lastLineWidth: 0, lastLineCharCount: 0, hasWindow: false };
+    }
+    
+    // עטיפת כל מילה ב-span עם id ייחודי לכדי מדידת offsetTop
+    // ה-id כולל prefix ייחודי כדי לא להתנגש עם mw-* של הישן
+    const measureId = 'mc-' + Math.random().toString(36).slice(2, 8);
+    const dropMode = document.getElementById('drop-word-mode')?.value || 'window';
+    const wordCount = parseInt(document.getElementById('drop-word-count')?.value, 10) || 1;
+    const minLines = parseInt(document.getElementById('drop-word-min-lines')?.value, 10) || 2;
+    const meetsThreshold = (opts.numLines >= minLines) && !opts.isSingleLine && !opts.isContinuation;
+    const shouldApplyWindow = (dropMode === 'window') && meetsThreshold;
+    
+    let html = '';
+    if (shouldApplyWindow) {
+        const dropWords = escapeHTML(words.slice(0, Math.min(wordCount, words.length)).join(' ').replace(/\uE000/g, ' '));
+        html += `<span class="first-word-window" id="${measureId}-0">${dropWords}</span> `;
+        for (let i = wordCount; i < words.length; i++) {
+            const w = words[i];
+            const isNote = w.startsWith(fnOpen) && w.endsWith(fnClose);
+            const displayW = isNote ? ' א ' : escapeHTML(w.replace(/\uE000/g, ' '));
+            html += `<span id="${measureId}-${i}">${displayW}</span> `;
+        }
+    } else {
+        for (let i = 0; i < words.length; i++) {
+            const w = words[i];
+            const isNote = w.startsWith(fnOpen) && w.endsWith(fnClose);
+            const displayW = isNote ? ' א ' : escapeHTML(w.replace(/\uE000/g, ' '));
+            html += `<span id="${measureId}-${i}">${displayW}</span> `;
+        }
+    }
+    
+    p.innerHTML = html;
+    
+    // דגימת offsetTop של כל מילה כדי לחלק שורות
+    const lines = [];
+    let currentLine = [];
+    let currentTop = -1;
+    const startIndex = shouldApplyWindow ? wordCount : 0;
+    if (shouldApplyWindow) {
+        currentLine.push(words.slice(0, wordCount).join(' ').replace(/\uE000/g, ' '));
+    }
+    
+    const TOL = 8; // tolerance px לזיהוי מעבר שורה
+    for (let i = startIndex; i < words.length; i++) {
+        const span = document.getElementById(`${measureId}-${i}`);
+        if (!span) continue;
+        const top = span.offsetTop;
+        if (currentTop === -1) currentTop = top;
+        const realWord = words[i].replace(/\uE000/g, ' ');
+        if (Math.abs(top - currentTop) > TOL && currentLine.length > 0) {
+            lines.push(currentLine.join(' '));
+            currentLine = [realWord];
+            currentTop = top;
+        } else {
+            currentLine.push(realWord);
+        }
+    }
+    if (currentLine.length > 0) {
+        lines.push(currentLine.join(' '));
+    }
+    
+    // ניקוי ה-ids הזמניים
+    for (let i = 0; i < words.length; i++) {
+        const span = document.getElementById(`${measureId}-${i}`);
+        if (span) span.removeAttribute('id');
+    }
+    
+    const height = p.offsetHeight;
+    const lastLine = lines[lines.length - 1] || '';
+    
+    // מדידת רוחב השורה האחרונה: נעטוף אותה ב-span זמני
+    let lastLineWidth = 0;
+    if (lastLine) {
+        const measureSpan = document.createElement('span');
+        measureSpan.style.cssText = 'display:inline-block; visibility:hidden;';
+        measureSpan.textContent = lastLine;
+        p.appendChild(measureSpan);
+        lastLineWidth = measureSpan.offsetWidth;
+        p.removeChild(measureSpan);
+    }
+    
+    // ניקוי
+    _getMeasureBoxV2().innerHTML = '';
+    
+    return {
+        lines,
+        numLines: lines.length,
+        height,
+        lastLineWidth,
+        lastLineCharCount: lastLine.length,
+        lastLineWordCount: lastLine.split(/\s+/).filter(w => w.length > 0).length,
+        hasWindow: shouldApplyWindow,
+    };
+}
+
+/**
+ * measureParagraphHeight — פונקציית עזר פשוטה שמחזירה רק גובה מדויק של פסקה.
+ * משמש ל-balanceColumns החדש כדי להשוות מועמדים בעלות נמוכה.
+ */
+function measureParagraphHeight(rawText, colWidth, styleObj, opts = {}) {
+    const result = measureCandidateLines({
+        rawText,
+        colWidth,
+        styleObj,
+        isContinuation: opts.isContinuation || false,
+        isSingleLine: opts.isSingleLine || false,
+        numLines: opts.numLines || 0,
+        contextClass: opts.contextClass || '',
+        applyDelimiters: opts.applyDelimiters !== false,
+    });
+    return result.height;
+}
+
+/**
+ * measurePartialLines — מודד רק N השורות הראשונות של פסקה.
+ * משמש לחישוב "כמה מקום תופסות K שורות מתוך פסקה באורך M".
+ * 
+ * @returns {{ lines: string[], height: number, lastLineWidth: number, allLines: string[] }}
+ */
+function measurePartialLines(rawText, colWidth, styleObj, lineCount, opts = {}) {
+    const full = measureCandidateLines({
+        rawText,
+        colWidth,
+        styleObj,
+        isContinuation: opts.isContinuation || false,
+        isSingleLine: false,
+        numLines: 0,
+        contextClass: opts.contextClass || '',
+        applyDelimiters: opts.applyDelimiters !== false,
+    });
+    
+    if (lineCount >= full.lines.length) {
+        return {
+            lines: full.lines,
+            height: full.height,
+            lastLineWidth: full.lastLineWidth,
+            allLines: full.lines,
+        };
+    }
+    
+    // נמדוד מחדש את K השורות הראשונות בלבד
+    const partialText = full.lines.slice(0, lineCount).join(' ');
+    const partial = measureCandidateLines({
+        rawText: partialText,
+        colWidth,
+        styleObj,
+        isContinuation: opts.isContinuation || false,
+        isSingleLine: (lineCount === 1),
+        numLines: lineCount,
+        contextClass: opts.contextClass || 'p-cut',
+        applyDelimiters: false,  // הערות כבר טופלו ב-measureCandidateLines הראשון
+    });
+    
+    return {
+        lines: partial.lines,
+        height: partial.height,
+        lastLineWidth: partial.lastLineWidth,
+        allLines: full.lines,
     };
 }
 
@@ -648,7 +1021,7 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
                 false
             );
             const n = Math.max(1, linesInfo.lines.length);
-            const extraLh = Math.min((budget - applied) / n / fontSizePx, 0.12);
+            const extraLh = Math.min((budget - applied) / n / fontSizePx, 0.18);  // הוגדל מ-0.12 ל-0.18 כדי לאפשר איזון טוב יותר
             if (extraLh <= 0.001) return;
             const prev = p.style.lineHeight;
             const delta = measureColScrollDelta(shortCol, () => {
@@ -657,7 +1030,21 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
             if (colOverCeiling()) {
                 p.style.lineHeight = prev;
             } else {
-                applied += delta;
+                // נקודה 3: Refuse-to-fill-with-runt policy (postext §3.5)
+                // וודא שהשורה האחרונה לא נהפכה ל-runt (1–2 מילים)
+                const afterLines = getLinesFromParagraph(
+                    p.getAttribute('data-raw-text') || p.textContent,
+                    colWidth || shortCol.offsetWidth,
+                    styleObj,
+                    false
+                );
+                const afterLastLine = afterLines.lines[afterLines.lines.length - 1] || '';
+                const afterLastWords = afterLastLine.split(/\s+/).filter(w => w.length > 0).length;
+                if (afterLastWords > 0 && afterLastWords <= 2 && delta > 0.5) {
+                    p.style.lineHeight = prev;  // מסרבים — עדיף טור קצר יותר מ-runt
+                } else {
+                    applied += delta;
+                }
             }
         });
         logDetails.tiersApplied['priority4_lineHeight'] = (logDetails.tiersApplied['priority4_lineHeight'] || 0) + applied;
@@ -684,7 +1071,22 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
                 break;
             }
             if (delta > 0.5) {
-                applied = delta;
+                // נקודה 3: Refuse-to-fill-with-runt policy — אסור ליצור runt חדש
+                // תיקון: נבדוק רק אם השינוי החמיר את המצב (מ-3+ מילים ל-1-2 מילים).
+                // אם כבר היה runt לפני השינוי, אין טעם לסרב — המצב לא החמיר.
+                const beforeLines = getLinesFromParagraph(raw, colWidth || shortCol.offsetWidth, { ...styleObj, wordSpacing: prev }, false);
+                const beforeLastWords = beforeLines.lines.length > 0
+                    ? beforeLines.lines[beforeLines.lines.length - 1].split(/\s+/).filter(w => w.length > 0).length
+                    : 99;
+                const afterLines = getLinesFromParagraph(raw, colWidth || shortCol.offsetWidth, styleObj, false);
+                const afterLastLine = afterLines.lines[afterLines.lines.length - 1] || '';
+                const afterLastWords = afterLastLine.split(/\s+/).filter(w => w.length > 0).length;
+                // סרק רק אם היה מצב טוב (≥3 מילים) והפך ל-runt (≤2 מילים)
+                if (beforeLastWords >= 3 && afterLastWords > 0 && afterLastWords <= 2) {
+                    p.style.wordSpacing = lastGood || prev;
+                    break;
+                }
+                applied += delta;
                 lastGood = ws + 'px';
             } else {
                 p.style.wordSpacing = prev;
@@ -723,7 +1125,19 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
         traceObj.justificationLog = logDetails;
     }
 
-    return neededGrowth - remaining;
+    const appliedTotal = neededGrowth - remaining;
+    
+    // תיקון: ביטול layoutInvalidator — הוא מפעיל re-balance עם balanceColumnsV2
+    // שמבצע פחות טוב מ-V1 ודורס את התיקונים שלנו. ה-rebalance הסינכרוני
+    // ב-finalizeTwoColumnBlockLayout מטפל בכל שינוי גובה.
+    // if (appliedTotal > 2 && typeof layoutInvalidator !== 'undefined') {
+    //     const block = shortCol.closest('.block-2col');
+    //     if (block) {
+    //         layoutInvalidator.invalidateBlock(block);
+    //     }
+    // }
+    
+    return appliedTotal;
 }
 
 function justifyColumnsPair(rCol, lCol, styleObj, heightCeiling, colWidth, traceObj = null) {
@@ -744,7 +1158,11 @@ function justifyColumnsPair(rCol, lCol, styleObj, heightCeiling, colWidth, trace
     const needed = targetH - shortCol.scrollHeight;
     if (needed <= 2) return;
 
-    distributeColumnJustification(shortCol, needed, styleObj, heightCeiling, colWidth, traceObj);
+    // תיקון קריטי: ה-ceiling ל-growing הטור הקצר צריך להיות ה-targetH (גובה הטור הארוך),
+    // ולא ה-budget הגלובלי. אחרת, הפונקציה עלולה לגדול PAST הטור הארוך וליצור חוסר איזון הפוך.
+    // נקודת חסם: targetH + 1 (טולרנס 1px לעיגול).
+    const growthCeiling = targetH + 1;
+    distributeColumnJustification(shortCol, needed, styleObj, growthCeiling, colWidth, traceObj);
 }
 
 function stripOneColumnJustifyLayer(block) {
@@ -821,12 +1239,1474 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
             justifyColumnsPair(rCol, lCol, styleObj, budget, colWidth, traceObj);
         }
     }
+    
+    // נקודה 2: tightenRunts curative pass — מבוסס על postext §3.2.
+    // פועל אחרי איזון הטורים. אם נותרה שורה אחרונה דלילה (runt), ננסה להדוף tracking
+    // כדי למשוך מילה נוספת לשורה הקודמת. עברית אינה שפה מחברת ולכן מותר להשתמש ב-tracking.
+    try {
+        const improved = tightenRuntsInBlock(block, colWidth, styleObj);
+        // תיקון: אל נא לקרוא ל-layoutInvalidator.invalidateBlock — הוא מפעיל re-balance
+        // עם balanceColumnsV2 שמבצע פחות טוב מ-V1 ודורס את התיקונים שלנו.
+        // ה-rebalance הסינכרוני למטה מטפל בכל שינוי גובה.
+        // if (improved > 0 && typeof layoutInvalidator !== 'undefined') {
+        //     layoutInvalidator.invalidateBlock(block);
+        // }
+    } catch (e) {
+        console.warn('tightenRunts failed:', e);
+    }
+
+    // תיקון: rebalance אחרי tightenRunts.
+    // tightenRunts עלול לכווץ פסקה בטור אחד וליצור חוסר איזון הפוך.
+    // לכן נריץ שוב justifyColumnsPair כדי להשוות את הטורים.
+    // נשתמש ב-growth ceiling של targetH+1 כדי למנוע overshoot.
+    try {
+        const rH = rCol.scrollHeight;
+        const lH = lCol.scrollHeight;
+        const newDiff = rH - lH;
+        if (Math.abs(newDiff) > 2 && Math.abs(newDiff) <= 140 && Math.max(rH, lH) <= budget + 1) {
+            const beforeShortH = Math.min(rH, lH);
+            justifyColumnsPair(rCol, lCol, styleObj, budget, colWidth, traceObj);
+            const afterRH = rCol.scrollHeight;
+            const afterLH = lCol.scrollHeight;
+            const afterDiff = afterRH - afterLH;
+            if (Math.abs(afterDiff) > 5) {
+                // עדיין חוסר איזון — נסה עם reset ו-ceiling רחב יותר
+                const shortCol = afterDiff > 0 ? lCol : rCol;
+                const tallH = afterDiff > 0 ? afterRH : afterLH;
+                const needed2 = tallH - shortCol.scrollHeight;
+                if (needed2 > 2) {
+                    // נקה סגנונות ישנים — distributeColumnJustification לא יכול לגדול טור
+                    // שכבר מכיל word-spacing/line-height קודם
+                    if (typeof resetColumnJustificationStyles === 'function') {
+                        resetColumnJustificationStyles(shortCol);
+                    }
+                    distributeColumnJustification(shortCol, needed2, styleObj, tallH + 30, colWidth, traceObj);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('rebalance after tightenRunts failed:', e);
+    }
+    
+    // נקודה 5: tryLookAheadWordPull מנוטרל — מבוסס על postext §Q + recommendation #9:
+    // "Don't pull words from the next column. Religious/semantic text units must not
+    //  be silently rebalanced for visual fit. A sparse last line is preferable to a
+    //  word pulled across a column boundary."
+    // tryLookAheadWordPull(block, rCol, lCol, styleObj, colWidth, budget);
+    
     return enforceBlockColumnsWithinCeiling(block, budget);
+}
+
+/**
+ * tryLookAheadWordPull — מזהה שורה אחרונה דלילה בטור ימין ומנסה למשוך מילה
+ * מתחילת טור שמאל (המשך הפסקה) כדי למלא את השורה האחרונה.
+ * 
+ * זהו "look-ahead line breaking" — הרבה יותר נכון מ-word-spacing מלאכותי.
+ */
+function tryLookAheadWordPull(block, rCol, lCol, styleObj, colWidth, budget) {
+    if (!rCol || !lCol) return;
+    if (rCol.children.length === 0 || lCol.children.length === 0) return;
+    
+    const rLast = rCol.lastElementChild;
+    const lFirst = lCol.firstElementChild;
+    if (!rLast || !lFirst) return;
+    
+    // בודק שהאחרון בימין הוא p-cut (פסקה חתוכה) והראשון בשמאל הוא המשך של אותה פסקה
+    if (rLast.tagName !== 'P' || !rLast.classList.contains('p-cut')) return;
+    if (lFirst.tagName !== 'P') return;
+    
+    // משיגת טקסט הפסקה האחרונה בימין
+    const rText = rLast.textContent || '';
+    const rWords = rText.split(/\s+/).filter(w => w.length > 0);
+    if (rWords.length < 4) return; // פסקה קצרה מדי — לא ניתן לנתח
+    
+    // מקבל את מספר השורות בפועל
+    // FIX: אם הפסקה מכילה first-word-window — יש למדוד עם ה-drop word!
+    const hasWindow = rLast.querySelector('.first-word-window') !== null;
+    const rLines = getLinesFromParagraph(rText, colWidth, styleObj, hasWindow);
+    if (!rLines.lines || rLines.lines.length < 2) return;
+    
+    // בודק את השורה האחרונה
+    const lastLine = rLines.lines[rLines.lines.length - 1];
+    const lastLineWords = lastLine.split(/\s+/).filter(w => w.length > 0);
+    
+    // FIX: בודק יחס מילוי של השורה האחרונה.
+    // אם השורה ממלאת פחות מ-60% מרוחב הטור — היא דלילה ומצריכה העברת מילה.
+    // הערכה: יחס מילוי = אורך השורה / אורך שורה מלאה ממוצע.
+    const avgLineLength = rLines.lines.reduce(function(s, l) { return s + l.length; }, 0) / rLines.lines.length;
+    const lastLineRatio = avgLineLength > 0 ? lastLine.length / avgLineLength : 1;
+    const isSparse = lastLineWords.length < 3 || lastLineRatio < 0.6;
+    
+    if (!isSparse) return;
+    
+    // משיגת המילה הראשונה מטור שמאל
+    const lText = lFirst.textContent || '';
+    const lWords = lText.split(/\s+/).filter(w => w.length > 0);
+    if (lWords.length < 2) return; // אם שמאל מכיל רק מילה אחת — לא נוכל לקחת
+    
+    // FIX: מדידת מספר שורות בשמאל לפני השינוי
+    const lHasWindow = lFirst.querySelector('.first-word-window') !== null;
+    const lLinesInfo = getLinesFromParagraph(lText, colWidth, styleObj, lHasWindow);
+    
+    // ננסה להעביר 1-3 מילים משמאל לימין
+    for (let pullCount = 1; pullCount <= 3 && pullCount < lWords.length; pullCount++) {
+        const pulledWords = lWords.slice(0, pullCount).join(' ');
+        const newRText = rText + ' ' + pulledWords;
+        const newLText = lWords.slice(pullCount).join(' ');
+        
+        if (!newLText.trim()) break; // לא נשאר כלום בשמאל
+        
+        // מודד את התוצאה — עם הדגל הנכון
+        const newRLines = getLinesFromParagraph(newRText, colWidth, styleObj, hasWindow);
+        const newLLines = getLinesFromParagraph(newLText, colWidth, styleObj, lHasWindow);
+        
+        // מחשב גבהים
+        const rHBefore = rCol.scrollHeight;
+        const lHBefore = lCol.scrollHeight;
+        const oldDiff = Math.abs(rHBefore - lHBefore);
+        
+        // מעריך גבהים חדשים
+        const rLineH = rHBefore / Math.max(1, rLines.numLines);
+        const lLineH = lHBefore / Math.max(1, lLinesInfo.numLines);
+        
+        const rLinesDelta = newRLines.numLines - rLines.numLines;
+        const lLinesDelta = lLinesInfo.numLines - newLLines.numLines;
+        const estNewRH = rHBefore + rLinesDelta * rLineH;
+        const estNewLH = lHBefore - lLinesDelta * lLineH;
+        
+        const newDiff = Math.abs(estNewRH - estNewLH);
+        
+        // רק אם האיזון משתפר ואין חריגה — מבצע
+        if (newDiff < oldDiff && estNewRH <= budget + 2 && estNewLH <= budget + 2) {
+            // FIX: שומר class ו-data-token-id.
+            // אם הפסקה הייתה עם drop word — יוצר מחדש עם createDropWord.
+            // אם הייתה המשך (p-cut continuation) — משתמש ב-escapeHTML.
+            const rClass = rLast.className;
+            const rId = rLast.getAttribute('data-token-id');
+            const rIsContinuation = rClass.includes('p-cut') && !hasWindow;
+            rLast.innerHTML = hasWindow 
+                ? createDropWord(newRText, false, rLines.numLines <= 1, rLines.numLines || 2)
+                : escapeHTML(newRText);
+            rLast.className = rClass;
+            if (rId) rLast.setAttribute('data-token-id', rId);
+            
+            const lClass = lFirst.className;
+            const lId = lFirst.getAttribute('data-token-id');
+            lFirst.innerHTML = lHasWindow
+                ? createDropWord(newLText, false, newLLines.numLines <= 1, newLLines.numLines || 2)
+                : escapeHTML(newLText);
+            lFirst.className = lClass;
+            if (lId) lFirst.setAttribute('data-token-id', lId);
+            
+            // מחשיב מחדש את השורה האחרונה של ימין
+            const finalLastLine = newRLines.lines[newRLines.lines.length - 1] || '';
+            const finalLastWords = finalLastLine.split(/\s+/).filter(w => w.length > 0);
+            
+            // אם השורה האחרונה עדיין דלילה — נסה למשוך עוד מילה
+            if (finalLastWords.length < 3 && pullCount < 3) continue;
+            
+            // הצלחה — יוצא
+            break;
+        }
+    }
+}
+
+/* ==========================================================================
+   6.1 פונקציות עזר לבקרה, איפוס סגנונות ומניעת כותרות/פסקאות יתומות
+   ========================================================================== */
+function resetColumnJustificationStyles(col) {
+    if (!col) return;
+    col.querySelectorAll('p').forEach(p => {
+        p.style.marginBottom = '';
+        p.style.lineHeight = '';
+        p.style.wordSpacing = '';
+        p.style.letterSpacing = '';  // reset tracking ladder
+    });
+    col.querySelectorAll('.title-level-3, .title-level-4, .title-level-5, .title-level-6, .title-level-7, .title-level-custom').forEach(h => {
+        h.style.marginTop = '';
+        h.style.marginBottom = '';
+    });
+}
+
+/**
+ * tightenRunts — טיפול יזום בשורות אחרונות דלילות (runt last lines).
+ *
+ * פוסט-מודן: מבוסס על postext §3.2 "tightenRunts curative pass".
+ * כשפסקה מסתיימת בשורה אחרונה עם 1–3 מילים בלבד (runt), ננסה להדוף מעט
+ * את הריווח בין אותיות (letter-spacing / tracking) במטרה להכניס מילה נוספת
+ * לשורה הקודמת ולצמצם את הריק בשורה האחרונה.
+ *
+ * סולם ה-tracking (על-פי postext, מותאם לעברית שאינה שפה מחברת):
+ *   [0, 0.04em, 0.08em, 0.12em]  — מינימלי, כמעט בלתי-נראה לעין.
+ *
+ * הפונקציה פועלת בשני מצבים:
+ *   1. tighten — מנסה למשוך מילה מהשורה האחרונה לקודמת (כיווץ)
+ *   2. accept-only-if-better — מקבלת שינוי רק אם השורה האחרונה אכן התמלאה
+ *
+ * @param {HTMLElement} col — הטור שמכיל את הפסקה לבדיקה
+ * @param {number} colWidth — רוחב הטור בפיקסלים
+ * @param {object} styleObj — סגנון גוף הטקסט
+ * @returns {number} — מספר הפסקאות ששופרו
+ */
+function tightenRunts(col, colWidth, styleObj) {
+    if (!col || colWidth <= 0) return 0;
+
+    // סולם tracking — חיובי מרחיב, שלילי מכווץ.
+    // ל-runt (שורה אחרונה עם מעט מילים) רוצים לכווץ כדי למשוך מילה למעלה.
+    const TRACKING_LADDER = [0, -0.01, -0.02, -0.03, -0.04, -0.05, -0.06]; // em (שלילי = מכווץ)
+    const MIN_RUNT_WORDS = 1;
+    const MAX_RUNT_WORDS = 3;
+    const MIN_RUNT_FILL_RATIO = 0.55;
+
+    let improved = 0;
+    let candidates = 0;
+
+    const paragraphs = Array.from(col.querySelectorAll('p'));
+    for (const p of paragraphs) {
+        // דלג על פסקאות עם first-word-window (drop word) — אסור לשנות את המידה
+        if (p.querySelector('.first-word-window')) continue;
+
+        const rawText = p.getAttribute('data-raw-text') || p.textContent || '';
+        if (!rawText.trim()) continue;
+
+        // דלג על פסקאות חד-שוריות
+        const baseline = getLinesFromParagraph(rawText, colWidth, styleObj, false);
+        if (!baseline.lines || baseline.lines.length < 2) continue;
+
+        const lastLine = baseline.lines[baseline.lines.length - 1] || '';
+        const lastLineWords = lastLine.split(/\s+/).filter(w => w.length > 0);
+
+        const isRunt = (lastLineWords.length >= MIN_RUNT_WORDS && lastLineWords.length <= MAX_RUNT_WORDS)
+            || (baseline.lastLineWidth > 0 && (baseline.lastLineWidth / colWidth) < MIN_RUNT_FILL_RATIO && lastLineWords.length <= MAX_RUNT_WORDS + 2);
+
+        if (!isRunt) continue;
+        candidates++;
+
+        // שמירת מצב מקורי
+        const prevLetterSpacing = p.style.letterSpacing;
+        const prevHeight = p.offsetHeight;
+        // קוד השורה של הפסקה = offsetHeight / single-line-height
+        const oneLineH = parseFloat(styleObj.fontSize) * 1.333 * parseFloat(styleObj.lineHeight) || 18;
+        const baselineLines = Math.max(1, Math.round(prevHeight / oneLineH));
+
+        let bestLadder = null;
+
+        // ניסיון לכווץ tracking כדי למשוך מילה מהשורה האחרונה לקודמת
+        for (const lsEm of TRACKING_LADDER) {
+            if (lsEm === 0) continue;
+            p.style.letterSpacing = lsEm + 'em';
+            // מדידה ישירה ב-DOM — מבוססת על offsetHeight
+            const newHeight = p.offsetHeight;
+            const newLines = Math.max(1, Math.round(newHeight / oneLineH));
+
+            // הצלחה א' — מספר השורות ירד (מילה נבלעה בשורה הקודמת)
+            if (newLines < baselineLines) {
+                bestLadder = lsEm;
+                break;  // יציאה מיידית
+            }
+            // הצלחה ב' — הגובה ירד משמעותית (≥0.7 שורה) בלי ירידה במספר השורות המלא
+            if (newHeight < prevHeight - 5 && newLines === baselineLines) {
+                if (bestLadder === null || Math.abs(lsEm) < Math.abs(bestLadder)) {
+                    bestLadder = lsEm;
+                }
+            }
+        }
+
+        if (bestLadder !== null) {
+            p.style.letterSpacing = bestLadder + 'em';
+            improved++;
+        } else {
+            p.style.letterSpacing = prevLetterSpacing;  // שחזור
+        }
+    }
+
+    if (candidates > 0) {
+        console.log(`tightenRunts: ${candidates} candidates, ${improved} improved (col w=${colWidth})`);
+    }
+    return improved;
+}
+
+/**
+ * tightenRuntsInBlock — עובר על שני הטורים בבלוק ומפעיל tightenRunts.
+ * תיקון: אם טור אחד קצר משמעותית מהשני (>10px), לא מכווצים אותו עוד יותר —
+ * אחרת tightenRunts יחמיר את חוסר האיזון.
+ * @param {HTMLElement} block — בלוק דו-טורי
+ * @param {number} colWidth — רוחב טור
+ * @param {object} styleObj — סגנון
+ * @returns {number} — סה"כ פסקאות ששופרו
+ */
+function tightenRuntsInBlock(block, colWidth, styleObj) {
+    if (!block) return 0;
+    let total = 0;
+    const rCol = block.querySelector('.right-col');
+    const lCol = block.querySelector('.left-col');
+    if (!rCol || !lCol) return 0;
+
+    // השוואת גבהים — אם הפרש גדול, לא מכווצים את הטור הקצר
+    const rH = rCol.scrollHeight;
+    const lH = lCol.scrollHeight;
+    const IMBALANCE_THRESHOLD = 10;  // אם הפרש > 10px, לא מכווצים את הקצר
+    const canTightenR = !(lH > rH + IMBALANCE_THRESHOLD);  // R כבר קצר — לא לכווץ
+    const canTightenL = !(rH > lH + IMBALANCE_THRESHOLD);  // L כבר קצר — לא לכווץ
+
+    if (canTightenR) total += tightenRunts(rCol, colWidth, styleObj);
+    if (canTightenL) total += tightenRunts(lCol, colWidth, styleObj);
+    return total;
+}
+
+// שמירה על הפונקציה הישנה לתאימות לאחור (אם יש קריאות ישירות)
+function tightenRuntsInBlock_legacy(block, colWidth, styleObj) {
+    if (!block) return 0;
+    let total = 0;
+    const rCol = block.querySelector('.right-col');
+    const lCol = block.querySelector('.left-col');
+    if (rCol) total += tightenRunts(rCol, colWidth, styleObj);
+    if (lCol) total += tightenRunts(lCol, colWidth, styleObj);
+    return total;
+}
+
+function isAnyHeadingElement(el) {
+    if (!el || !el.className) return false;
+    const cls = String(el.className);
+    return /title-level-\d+\b/.test(cls) || el.classList.contains('title-level-custom') || el.classList.contains('block-h3-span') || el.classList.contains('title-level-2-standalone');
+}
+
+function rollbackColumnTail(col, colWidth, styleObj, onRollback) {
+    if (!col || col.children.length === 0) return false;
+    let anyChanged = false;
+    let changed = true;
+
+    while (changed && col.children.length > 0) {
+        changed = false;
+        const lastEl = col.lastElementChild;
+        if (!lastEl) break;
+
+        // כלל 1: שום כותרת אינה יכולה להיות האלמנט המסיים של טור!
+        if (isAnyHeadingElement(lastEl)) {
+            const hId = lastEl.getAttribute('data-token-id');
+            col.removeChild(lastEl);
+            if (onRollback) onRollback({ type: 'h', id: hId, elem: lastEl });
+            changed = true;
+            anyChanged = true;
+            continue;
+        }
+
+        // כלל 2: אם האלמנט האחרון הוא פסקה
+        if (lastEl.tagName === 'P') {
+            const prevEl = lastEl.previousElementSibling;
+            const pRaw = lastEl.getAttribute('data-raw-text') || lastEl.textContent || '';
+            const isCont = lastEl.getAttribute('data-is-cont') === 'true';
+            const linesInfo = getLinesFromParagraph(pRaw, colWidth, styleObj, !isCont);
+            const lineCount = linesInfo.lines.length;
+
+            // כלל 2א: אם קדמה לה כותרת באותו טור, הפסקה חייבת להכיל לפחות 2 שורות!
+            if (prevEl && isAnyHeadingElement(prevEl) && lineCount < 2) {
+                const pId = lastEl.getAttribute('data-token-id');
+                col.removeChild(lastEl);
+                if (onRollback) onRollback({ type: 'p', id: pId, elem: lastEl, rawText: pRaw, linesInfo });
+                changed = true;
+                anyChanged = true;
+                continue; // באיטרציה הבאה תוסר גם הכותרת שהתייתמה!
+            }
+
+            // כלל 2ב: אם הפסקה מקוטעת (p-cut), היא חייבת להכיל לפחות 2 שורות!
+            if (lastEl.classList.contains('p-cut') && lineCount < 2) {
+                const pId = lastEl.getAttribute('data-token-id');
+                col.removeChild(lastEl);
+                if (onRollback) onRollback({ type: 'p', id: pId, elem: lastEl, rawText: pRaw, linesInfo });
+                changed = true;
+                anyChanged = true;
+                continue;
+            }
+        }
+    }
+    return anyChanged;
 }
 
 /* ==========================================================================
    7. איזון טורים (balanceColumns)
    ========================================================================== */
+
+/* ==========================================================================
+   7א. ארכיטקטורה חדשה: calculateCandidateLayout (שלב ב' מהרפאקטורינג)
+   ==========================================================================
+   פונקציה טהורה שמייצרת מועמד פריסה לבלוק דו-טורי בלי לגעת ב-DOM הקבוע.
+   מקבלת רשימת פריטים (tokens או פסקאות חלקיות) ונקודת פיצול מועמדת,
+   ומחזירה אובייקט עם תוכן טור ימין, תוכן טור שמאל, גבהים מדויקים,
+   וסטטיסטיקות איכות (lastLineWordCount, overflow, orphans).
+   ========================================================================== */
+
+/**
+ * LayoutCandidate — מבנה נתונים מתאר מועמד פריסה.
+ * כל השדות נגזרים מחישוב טהור; אין תלות ב-DOM החי.
+ */
+class LayoutCandidate {
+    constructor() {
+        this.rightCol = [];   // [{ itemId, type: 'heading'|'paragraph'|'continuation', text, lines: int, partialLines: [] }]
+        this.leftCol = [];
+        this.pendingWordTokens = null;  // טוקן חלקי שנשאר לעמוד הבא
+        this.heights = { right: 0, left: 0 };
+        this.overflow = { right: 0, left: 0 };  // px חריגה מ-availHeight
+        this.quality = {
+            rightLastLineWordCount: 0,
+            leftFirstLineWordCount: 0,
+            rightHasOrphan: false,
+            leftHasOrphan: false,
+            rightHasWidow: false,
+            leftHasWidow: false,
+            headingAtEndOfRight: false,
+            headingAtEndOfLeft: false,
+        };
+        this.score = Infinity;  // נקבע על-ידי scoreCandidate
+        this.splitPoint = null;  // { itemId, lineIdx } — נקודת החיתוך שנבחרה
+        this.candidateBreakpoints = [];  // היסטוריה של נקודות שנבדקו
+    }
+}
+
+/**
+ * buildLayoutItems — בונה רשימת פריטים מתוך טוקנים של בלוק.
+ * הפריטים כוללים כותרות ופסקאות. פסקה חלקית מיוצגת כ-{ type: 'paragraph',
+ * text, totalLines, partialLineIdx: null }.
+ * 
+ * @param {Array} tokens — מערך טוקנים של הבלוק
+ * @param {object} styleObj — { fontFamily, fontSize, lineHeight }
+ * @param {number} colWidth — רוחב טור בפיקסלים
+ * @param {number} availHeight — גובה זמין בפיקסלים
+ * @param {object} pendingWordTokens — טוקן חלקי שנכנס מבלוק קודם
+ * @returns {{ items: Array, error: string|null }}
+ */
+function buildLayoutItems(tokens, styleObj, colWidth, pendingWordTokens) {
+    const items = [];
+    
+    // הוספת pendingWordTokens כפריט ראשון אם קיים
+    if (pendingWordTokens && pendingWordTokens.token) {
+        const tok = pendingWordTokens.token;
+        if (tok.type === 'p') {
+            // פסקת המשך — יש לה רק שורות שנותרו מהבלוק הקודם
+            items.push({
+                id: tok.id + '-cont',
+                type: 'paragraph',
+                subType: 'continuation',
+                text: tok.text,
+                totalLines: pendingWordTokens.remainingLines.length,
+                remainingLines: pendingWordTokens.remainingLines.slice(),
+                isContinuation: true,
+                measured: false,
+                lines: [],
+                height: 0,
+            });
+        } else if (tok.type.startsWith('h')) {
+            items.push({
+                id: tok.id,
+                type: 'heading',
+                level: tok.level,
+                text: tok.text,
+                customStyleId: tok.customStyleId || null,
+                isContinuation: false,
+                measured: false,
+                height: 0,
+            });
+        }
+    }
+    
+    // הוספת טוקנים רגילים
+    for (const tok of tokens) {
+        if (tok.type === 'p') {
+            // מדידת פסקה מלאה כדי לדעת כמה שורות יש
+            const measure = measureCandidateLines({
+                rawText: tok.text,
+                colWidth,
+                styleObj,
+                isContinuation: false,
+                isSingleLine: false,
+                numLines: 0,
+                contextClass: '',
+                applyDelimiters: true,
+            });
+            items.push({
+                id: tok.id,
+                type: 'paragraph',
+                subType: 'full',
+                text: tok.text,
+                totalLines: measure.numLines,
+                allLines: measure.lines.slice(),
+                measuredHeight: measure.height,
+                lastLineWidth: measure.lastLineWidth,
+                lastLineWordCount: measure.lastLineWordCount,
+                isContinuation: false,
+                measured: true,
+                lines: measure.lines.slice(),
+                height: measure.height,
+            });
+        } else if (tok.type.startsWith('h')) {
+            items.push({
+                id: tok.id,
+                type: 'heading',
+                level: tok.level,
+                text: tok.text,
+                customStyleId: tok.customStyleId || null,
+                isContinuation: false,
+                measured: false,
+                height: 0,  // יחושב ב-onDemand
+            });
+        }
+    }
+    
+    return { items, error: null };
+}
+
+/**
+ * measureHeadingHeight — מודד גובה כותרת ברוחב טור.
+ * כותרות משתמשות ב-class title-level-N עם סגנונות משלהן.
+ */
+function measureHeadingHeight(item, colWidth, styleObj) {
+    if (item.type !== 'heading') return 0;
+    const box = _getMeasureBoxV2();
+    box.innerHTML = '';
+    box.style.width = colWidth + 'px';
+    box.style.fontFamily = styleObj.fontFamily || 'inherit';
+    box.style.fontSize = styleObj.fontSize || 'inherit';
+    box.style.lineHeight = String(styleObj.lineHeight || 1.34);
+    box.style.direction = 'rtl';
+    box.style.textAlign = 'right';
+    
+    const h = document.createElement('div');
+    h.className = item.customStyleId ? 'title-level-custom' : `title-level-${item.level}`;
+    h.setAttribute('data-token-id', item.id);
+    h.textContent = item.text;
+    box.appendChild(h);
+    
+    const height = h.offsetHeight;
+    box.innerHTML = '';
+    return height;
+}
+
+/**
+ * calculateCandidateLayout — מייצר מועמד פריסה לבלוק דו-טורי.
+ * 
+ * @param {object} opts
+ * @param {Array} opts.items — רשימת פריטים מ-buildLayoutItems
+ * @param {number} opts.colWidth — רוחב טור
+ * @param {object} opts.styleObj
+ * @param {number} opts.availHeight — גובה פנוי ב-balance block
+ * @param {object} opts.splitAt — { itemIdx, lineIdx }: פסקה באינדקס itemIdx תחותך אחרי שורה lineIdx
+ * @param {number} opts.footnoteReserve — גובה שמור להערות שוליים
+ * @returns {LayoutCandidate}
+ */
+function calculateCandidateLayout(opts) {
+    const { items, colWidth, styleObj, availHeight, splitAt, footnoteReserve = 0 } = opts;
+    const candidate = new LayoutCandidate();
+    candidate.splitPoint = splitAt;
+    
+    const effectiveAvailH = availHeight - footnoteReserve;
+    let heightRight = 0;
+    let heightLeft = 0;
+    let pendingItem = null;  // לטוקן חלקי שעובר לעמוד הבא
+    
+    // שלב 1: מילוי טור ימין
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        
+        // האם זו נקודת הפיצול?
+        const isSplitItem = (i === splitAt.itemIdx);
+        
+        if (item.type === 'heading') {
+            const h = measureHeadingHeight(item, colWidth, styleObj);
+            item.height = h;
+            
+            // Keep-With-Next: כותרת לא יכולה להישאר בודדת בסוף טור
+            if (heightRight + h > effectiveAvailH - 30) {
+                // אין מקום — דחיפה לטור שמאל או לעמוד הבא
+                if (heightRight === 0) {
+                    // הכותרת הראשונה בבלוק — חובה לשים בימין; נמשיך בכל זאת
+                    candidate.rightCol.push({ ...item });
+                    heightRight += h;
+                } else {
+                    pendingItem = { ...item, type: 'heading' };
+                    break;
+                }
+            } else {
+                candidate.rightCol.push({ ...item });
+                heightRight += h;
+            }
+        } else if (item.type === 'paragraph') {
+            if (isSplitItem && splitAt.lineIdx < item.totalLines) {
+                // פסקה חלקית: לוקחים רק splitAt.lineIdx שורות
+                const partial = measurePartialLines(
+                    item.text, colWidth, styleObj,
+                    splitAt.lineIdx,
+                    { isContinuation: item.isContinuation }
+                );
+                candidate.rightCol.push({
+                    ...item,
+                    subType: 'partialHead',
+                    lines: partial.lines.slice(),
+                    height: partial.height,
+                    partialLineIdx: splitAt.lineIdx,
+                });
+                heightRight += partial.height;
+                
+                // השארית הולכת לטור שמאל
+                const remainingLines = item.allLines.slice(splitAt.lineIdx);
+                if (remainingLines.length > 0) {
+                    // FIX: מדידת גובה ה-partialTail כדי ש-heightLeft יהיה מדויק.
+                    const tailMeasure = measureCandidateLines({
+                        rawText: remainingLines.join(' '),
+                        colWidth,
+                        styleObj,
+                        isContinuation: true,
+                        isSingleLine: false,
+                        numLines: 0,
+                        contextClass: 'p-cut',
+                        applyDelimiters: false,
+                    });
+                    candidate.leftCol.push({
+                        ...item,
+                        id: item.id + '-cont',
+                        subType: 'partialTail',
+                        lines: remainingLines.slice(),
+                        isContinuation: true,
+                        text: remainingLines.join(' '),
+                        height: tailMeasure.height,
+                    });
+                    heightLeft += tailMeasure.height;
+                }
+                // FIX: אחרי פריט הפיצול החלקי, עוצרים את מילוי ימין — השאר הולך לשמאל.
+                break;
+            } else if (isSplitItem && splitAt.lineIdx >= item.totalLines) {
+                // הפיצול נופל אחרי הפסקה — הפסקה שלמה בימין
+                candidate.rightCol.push({ ...item });
+                heightRight += item.height;
+                // FIX: אחרי פריט הפיצול, עוצרים את מילוי ימין — השאר הולך לשמאל.
+                break;
+            } else {
+                // פסקה שלמה — בודקים אם נכנסת בימין
+                if (heightRight + item.height <= effectiveAvailH) {
+                    candidate.rightCol.push({ ...item });
+                    heightRight += item.height;
+                } else {
+                    // לא נכנסת — הולכת לשמאל (או לעמוד הבא אם גם שמאל מלא)
+                    pendingItem = item;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // שלב 2: מילוי טור שמאל — ממשיך מאיפה שימין עצר
+    let startIdxLeft = 0;
+    if (pendingItem && candidate.leftCol.length === 0) {
+        // הפריט הראשון של שמאל הוא ה-pendingItem — פריט שלא נכנס בימין
+        if (pendingItem.type === 'paragraph') {
+            candidate.leftCol.push({ ...pendingItem, subType: 'full' });
+            heightLeft += pendingItem.height || 0;
+        } else if (pendingItem.type === 'heading') {
+            const h = measureHeadingHeight(pendingItem, colWidth, styleObj);
+            pendingItem.height = h;
+            candidate.leftCol.push({ ...pendingItem });
+            heightLeft += h;
+        }
+        startIdxLeft = (items.indexOf(pendingItem) !== -1) ? items.indexOf(pendingItem) + 1 : 0;
+    } else if (candidate.leftCol.length > 0) {
+        // כבר יש פסקת המשך בשמאל (מ-splitAt חלקי) — נמשיך מאחריה
+        startIdxLeft = splitAt.itemIdx + 1;
+    } else {
+        // FIX: כשהפיצול הוא "full" (פסקה שלמה בימין, ללא pendingItem וללא partialTail בשמאל),
+        // טור שמאל חייב להתחיל מ- splitAt.itemIdx + 1 — אחרת הוא מכפיל את כל הפריטים!
+        startIdxLeft = splitAt.itemIdx + 1;
+    }
+    
+    for (let i = startIdxLeft; i < items.length; i++) {
+        const item = items[i];
+        if (item.type === 'heading') {
+            const h = measureHeadingHeight(item, colWidth, styleObj);
+            item.height = h;
+            if (heightLeft + h <= effectiveAvailH) {
+                candidate.leftCol.push({ ...item });
+                heightLeft += h;
+            } else {
+                // לא נכנס בשמאל — יעבור לעמוד הבא כ-pending
+                candidate.pendingWordTokens = { token: item, remainingLines: [] };
+                break;
+            }
+        } else if (item.type === 'paragraph') {
+            if (heightLeft + item.height <= effectiveAvailH) {
+                candidate.leftCol.push({ ...item });
+                heightLeft += item.height;
+            } else {
+                // פסקה לא נכנסת — ננסה חלוקה חלקית של שמאל
+                // נמצא את K השורות המקסימליות שנכנסות
+                let bestK = 0;
+                let bestHeight = 0;
+                for (let k = 1; k <= item.totalLines; k++) {
+                    const partial = measurePartialLines(
+                        item.text, colWidth, styleObj, k,
+                        { isContinuation: false }
+                    );
+                    if (heightLeft + partial.height <= effectiveAvailH) {
+                        bestK = k;
+                        bestHeight = partial.height;
+                    } else break;
+                }
+                if (bestK > 0) {
+                    const partial = measurePartialLines(
+                        item.text, colWidth, styleObj, bestK,
+                        { isContinuation: false }
+                    );
+                    candidate.leftCol.push({
+                        ...item,
+                        subType: 'partialHead',
+                        lines: partial.lines.slice(),
+                        height: partial.height,
+                        partialLineIdx: bestK,
+                    });
+                    heightLeft += bestHeight;
+                    
+                    // שארית הולכת לעמוד הבא
+                    const remainingLines = item.allLines.slice(bestK);
+                    if (remainingLines.length > 0) {
+                        candidate.pendingWordTokens = {
+                            token: { id: item.id, type: 'p', text: item.text },
+                            remainingLines: remainingLines.slice(),
+                        };
+                    }
+                } else {
+                    // אפילו שורה אחת לא נכנסת — כל הפסקה לעמוד הבא
+                    candidate.pendingWordTokens = {
+                        token: { id: item.id, type: 'p', text: item.text },
+                        remainingLines: item.allLines.slice(),
+                    };
+                }
+                break;
+            }
+        }
+    }
+    
+    // שלב 3: חישוב overflow ו-quality
+    candidate.heights.right = heightRight;
+    candidate.heights.left = heightLeft;
+    candidate.overflow.right = Math.max(0, heightRight - effectiveAvailH);
+    candidate.overflow.left = Math.max(0, heightLeft - effectiveAvailH);
+    
+    // נתוני איכות
+    if (candidate.rightCol.length > 0) {
+        const last = candidate.rightCol[candidate.rightCol.length - 1];
+        if (last.type === 'heading') {
+            candidate.quality.headingAtEndOfRight = true;
+        } else if (last.subType === 'partialHead') {
+            candidate.quality.rightLastLineWordCount = last.lines[last.lines.length - 1]
+                ? last.lines[last.lines.length - 1].split(/\s+/).filter(w => w.length > 0).length
+                : 0;
+        }
+    }
+    if (candidate.leftCol.length > 0) {
+        const first = candidate.leftCol[0];
+        if (first.subType === 'partialTail') {
+            candidate.quality.leftFirstLineWordCount = first.lines[0]
+                ? first.lines[0].split(/\s+/).filter(w => w.length > 0).length
+                : 0;
+        }
+    }
+    
+    return candidate;
+}
+
+/**
+ * scoreCandidate — מחשב ציון איכות למועמד. נמוך יותר = טוב יותר.
+ * 
+ * @param {LayoutCandidate} candidate
+ * @param {number} availHeight
+ * @returns {number} score
+ */
+function scoreCandidate(candidate, availHeight) {
+    const heights = candidate.heights;
+    const overflow = candidate.overflow;
+    const quality = candidate.quality;
+    
+    // 1. Height Penalty — חריגה אסורה (כפי שהוגדר ב-EC-01)
+    let score = 0;
+    score += overflow.right * 5000;  // ימין חורג — קריטי
+    score += overflow.left * 5000;   // שמאל חורג — קריטי
+    
+    if (overflow.right > 0 || overflow.left > 0) {
+        candidate.score = score;
+        return score;  // אין טעם להמשיך — חריגה פוסלת
+    }
+    
+    // 2. Base score: |ΔH| עם עדיפות עברית (ימין ארוך מעט יותר משמאל)
+    const deltaH = heights.right - heights.left;
+    if (deltaH >= 0 && deltaH <= 24) {
+        score += deltaH * 0.6;  // בונוס — מבנה עברי טבעי
+    } else if (deltaH < 0) {
+        score += Math.abs(deltaH) * 1.3;  // קנס — שמאל ארוך מימין
+    } else {
+        score += deltaH;  // ניטרלי
+    }
+    
+    // 3. Quality penalties
+    if (quality.headingAtEndOfRight) score += 200;  // כותרת יתוממה
+    // Runt penalty עם graded cost (מבוסס על postext §3.1)
+    // 1-word runt (single word stranded on last line) — קנס חמור ביותר
+    // 2-word runt — קנס בינוני-חזק
+    // 3-word runt — קנס קל
+    if (quality.rightLastLineWordCount === 1) {
+        score += 1000;  // runt במילה בודדת — המצב הגרוע ביותר
+    } else if (quality.rightLastLineWordCount === 2) {
+        score += 500;   // runt בשתי מילים
+    } else if (quality.rightLastLineWordCount === 3) {
+        score += 200;   // runt בשלוש מילים
+    }
+    if (quality.leftFirstLineWordCount > 0 && quality.leftFirstLineWordCount < 2) {
+        score += 50;  // שורה ראשונה קצרה מדי בשמאל
+    }
+    
+    candidate.score = score;
+    return score;
+}
+
+/**
+ * findBestSplitPoint — בוחן כל נקודות הפיצול החוקיות ומחזיר את המועמד הטוב ביותר.
+ * זהו הלב של איזון הטורים החדש: במקום "לתקן" אחרי רינדור, בוחרים breakpoint מראש.
+ * 
+ * @param {object} opts — אותם אפשרויות כמו calculateCandidateLayout, בלי splitAt
+ * @returns {{ best: LayoutCandidate, candidates: LayoutCandidate[] }}
+ */
+function findBestSplitPoint(opts) {
+    const { items } = opts;
+    const candidates = [];
+    let best = null;
+    let bestScore = Infinity;
+    
+    // יצירת נקודות פיצול מועמדות
+    // לכל פסקה באינדקס i, נסה חיתוך אחרי שוראות 1, 2, ..., totalLines-1, totalLines (שלם)
+    const splitPoints = [];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type === 'paragraph' && item.totalLines > 1) {
+            // חיתוך חלקי אחרי שורה K (1 ≤ K < totalLines)
+            for (let k = 1; k < item.totalLines; k++) {
+                splitPoints.push({ itemIdx: i, lineIdx: k, type: 'partial' });
+            }
+        }
+        // חיתוך "שלם" — אחרי הפריט כולו
+        splitPoints.push({ itemIdx: i, lineIdx: item.totalLines || 0, type: 'full' });
+    }
+    
+    // אם אין נקודות פיצול (בלוק בן פריט אחד בלבד) — נסה חלוקה חלקית
+    if (splitPoints.length === 0 && items.length === 1 && items[0].type === 'paragraph') {
+        for (let k = 1; k < items[0].totalLines; k++) {
+            splitPoints.push({ itemIdx: 0, lineIdx: k, type: 'partial' });
+        }
+    }
+    
+    for (const sp of splitPoints) {
+        try {
+            const candidate = calculateCandidateLayout({
+                ...opts,
+                splitAt: sp,
+            });
+            scoreCandidate(candidate, opts.availHeight);
+            candidate.candidateBreakpoints = splitPoints.slice();  // שמירת היסטוריה
+            candidates.push({ splitPoint: sp, score: candidate.score, candidate });
+            
+            if (candidate.score < bestScore) {
+                bestScore = candidate.score;
+                best = candidate;
+            }
+        } catch (e) {
+            console.warn('findBestSplitPoint: candidate failed at', sp, e);
+        }
+    }
+    
+    return { best, candidates };
+}
+
+/* ==========================================================================
+   שלב ד' — continuationLineQuality + Look-ahead Line Breaking
+   ==========================================================================
+   הבעיה שפותר שלב זה:
+   אם השורה האחרונה בטור ימין מכילה מילה בודדת או שני מילים עם רווח עצום
+   ביניהן, ננסה להעביר 1–3 מילים מתחילת טור שמאל חזרה לסוף ימין.
+   
+   זהו look-ahead line breaking — הרבה יותר נכון מאשר word-spacing מלאכותי.
+   ========================================================================== */
+
+/**
+ * continuationLineQuality — מחשב את איכות השורה האחרונה בטור ימין והראשונה בשמאל.
+ * @returns {{ lastLineWordCount: number, lastLineFillRatio: number,
+ *            firstLineWordCount: number, needsLookAhead: boolean }}
+ */
+function continuationLineQuality(candidate, colWidth) {
+    if (candidate.rightCol.length === 0 || candidate.leftCol.length === 0) {
+        return { lastLineWordCount: 0, lastLineFillRatio: 0, firstLineWordCount: 0, needsLookAhead: false };
+    }
+    
+    const lastRight = candidate.rightCol[candidate.rightCol.length - 1];
+    const firstLeft = candidate.leftCol[0];
+    
+    if (lastRight.type !== 'paragraph' || lastRight.subType !== 'partialHead') {
+        return { lastLineWordCount: 0, lastLineFillRatio: 0, firstLineWordCount: 0, needsLookAhead: false };
+    }
+    
+    const lastLine = lastRight.lines[lastRight.lines.length - 1] || '';
+    const lastLineWords = lastLine.split(/\s+/).filter(w => w.length > 0);
+    const lastLineWidth = lastRight.lastLineWidth || 0;
+    
+    // יחס מילוי: רוחב השורה האחרונה חלקי רוחב הטור
+    const fillRatio = colWidth > 0 ? lastLineWidth / colWidth : 0;
+    
+    // האם צריך look-ahead?
+    // נכון אם: שורה אחרונה בעלת פחות מ-3 מילים, או יחס מילוי נמוך (< 50%)
+    const needsLookAhead = (lastLineWords.length < 3) || (fillRatio < 0.5 && lastLineWords.length < 5);
+    
+    let firstLineWordCount = 0;
+    if (firstLeft.subType === 'partialTail' && firstLeft.lines && firstLeft.lines.length > 0) {
+        firstLineWordCount = firstLeft.lines[0].split(/\s+/).filter(w => w.length > 0).length;
+    }
+    
+    return {
+        lastLineWordCount: lastLineWords.length,
+        lastLineFillRatio: fillRatio,
+        firstLineWordCount,
+        needsLookAhead,
+    };
+}
+
+/**
+ * lookAheadLineBreak — מנסה להעביר 1–3 מילים מתחילת טור שמאל לסוף טור ימין
+ * ובודק אם התוצאה טובה יותר.
+ * 
+ * @param {LayoutCandidate} candidate — המועמד הנוכחי
+ * @param {object} opts — אפשרויות calculateCandidateLayout
+ * @returns {LayoutCandidate} — המועמד המשופר או המקורי
+ */
+function lookAheadLineBreak(candidate, opts) {
+    const quality = continuationLineQuality(candidate, opts.colWidth);
+    if (!quality.needsLookAhead) return candidate;
+    
+    const sp = candidate.splitPoint;
+    if (!sp) return candidate;
+    
+    // נסה להזיז את נקודת החיתוך ב-1, 2, 3 שורות קדימה
+    // (כלומר: לקחת שורה אחת נוספת משמאל לתוך ימין)
+    let bestCandidate = candidate;
+    let bestScore = candidate.score;
+    
+    for (let delta = 1; delta <= 3; delta++) {
+        const newLineIdx = sp.lineIdx + delta;
+        const item = opts.items[sp.itemIdx];
+        if (!item || newLineIdx >= item.totalLines) break;
+        
+        try {
+            const altCandidate = calculateCandidateLayout({
+                ...opts,
+                splitAt: { itemIdx: sp.itemIdx, lineIdx: newLineIdx, type: 'partial' },
+            });
+            scoreCandidate(altCandidate, opts.availHeight);
+            
+            // אם יש חריגה — לא טוב יותר
+            if (altCandidate.overflow.right > 0 || altCandidate.overflow.left > 0) continue;
+            
+            // נשווה ציון + נתוני איכות
+            const altQuality = continuationLineQuality(altCandidate, opts.colWidth);
+            
+            // שיפור אם: הציון טוב יותר, או שהשורה האחרונה בימין מלאה יותר
+            if (altCandidate.score < bestScore ||
+                (altQuality.lastLineWordCount > quality.lastLineWordCount && altCandidate.score <= bestScore + 20)) {
+                bestScore = altCandidate.score;
+                bestCandidate = altCandidate;
+            }
+        } catch (e) {
+            // דילוג בשקט
+        }
+    }
+    
+    return bestCandidate;
+}
+
+/**
+ * applyCandidateLayoutToDOM — מצייר LayoutCandidate אל DOM חי.
+ * זהו השלב הסופי: לוקחים את המועמד הזוכה ומכניסים אותו לעמוד.
+ * 
+ * @param {HTMLElement} block — אלמנט .block-2col
+ * @param {LayoutCandidate} candidate
+ * @param {object} styleObj
+ * @param {number} colWidth
+ */
+function applyCandidateLayoutToDOM(block, candidate, styleObj, colWidth) {
+    const rCol = block.querySelector('.right-col');
+    const lCol = block.querySelector('.left-col');
+    if (!rCol || !lCol) return;
+    
+    // ניקוי טורים
+    rCol.innerHTML = '';
+    lCol.innerHTML = '';
+    
+    // נטרול שכבות יישור ישנות
+    if (typeof resetColumnJustificationStyles === 'function') {
+        resetColumnJustificationStyles(rCol);
+        resetColumnJustificationStyles(lCol);
+    }
+    
+    function renderItem(target, item) {
+        if (item.type === 'heading') {
+            const h = document.createElement('div');
+            h.className = item.customStyleId ? 'title-level-custom' : `title-level-${item.level}`;
+            h.setAttribute('data-token-id', item.id);
+            h.textContent = item.text;
+            target.appendChild(h);
+        } else if (item.type === 'paragraph') {
+            const p = document.createElement('p');
+            const isPartialHead = item.subType === 'partialHead';
+            const isPartialTail = item.subType === 'partialTail';
+            const isCont = item.isContinuation || isPartialTail;
+            
+            p.className = isCont ? 'p-cut' : (isPartialHead ? 'p-cut' : 'p-end');
+            p.setAttribute('data-token-id', item.id);
+            
+            // יצירת HTML משורות
+            let text = item.text;
+            if (item.lines && item.lines.length > 0) {
+                text = item.lines.join(' ');
+            }
+            
+            // יישום drop-word/dibbur-hamatchil
+            if (isCont) {
+                p.innerHTML = escapeHTML(text);
+            } else {
+                p.innerHTML = createDropWord(text, false, item.totalLines === 1, item.totalLines || 2);
+            }
+            
+            target.appendChild(p);
+            
+            // יישום delimiters
+            if (typeof applyDelimiterStyles === 'function') {
+                applyDelimiterStyles(p, 'body', getBodySizePt ? getBodySizePt() : 11, false);
+            }
+        }
+    }
+    
+    // רינדור ימין
+    for (const item of candidate.rightCol) {
+        renderItem(rCol, item);
+    }
+    // רינדור שמאל
+    for (const item of candidate.leftCol) {
+        renderItem(lCol, item);
+    }
+    
+    // עדכון קו מפריד אנכי
+    const divider = block.querySelector('.col-gutter-divider');
+    if (divider && rCol && lCol) {
+        const minH = Math.min(rCol.scrollHeight, lCol.scrollHeight);
+        divider.style.alignSelf = 'start';
+        divider.style.height = minH + 'px';
+    }
+}
+
+/**
+ * balanceColumnsV2 — הפונקציה החדשה שמחליפה את הישנה בארכיטקטורה.
+ * בונה items, מוצא breakpoint אופטימלי, מפעיל look-ahead, ומצייר ל-DOM.
+ * 
+ * @param {HTMLElement} block — אלמנט .block-2col
+ * @param {number} colWidth
+ * @param {object} styleObj
+ * @param {Array} tokens — טוקנים של הבלוק
+ * @param {object} pendingWordTokensIn — טוקן חלקי מבלוק קודם
+ * @param {number} availHeight
+ * @param {number} footnoteReserve
+ * @returns {{ pendingWordTokens: object|null, didBalance: boolean, candidate: LayoutCandidate }}
+ */
+function balanceColumnsV2(block, colWidth, styleObj, tokens, pendingWordTokensIn, availHeight, footnoteReserve = 0) {
+    // 1. בניית רשימת פריטים מטוקנים
+    const { items } = buildLayoutItems(tokens, styleObj, colWidth, pendingWordTokensIn);
+    
+    if (items.length === 0) {
+        return { pendingWordTokens: null, didBalance: false, candidate: null };
+    }
+    
+    // 2. חיפוש נקודת הפיצול הטובה ביותר
+    const { best, candidates } = findBestSplitPoint({
+        items,
+        colWidth,
+        styleObj,
+        availHeight,
+        footnoteReserve,
+    });
+    
+    if (!best) {
+        console.warn('balanceColumnsV2: no valid candidate found');
+        return { pendingWordTokens: null, didBalance: false, candidate: null };
+    }
+    
+    // 3. Look-ahead line breaking
+    const improved = lookAheadLineBreak(best, {
+        items,
+        colWidth,
+        styleObj,
+        availHeight,
+        footnoteReserve,
+    });
+    
+    // 4. רישום החלטה ל-debug
+    if (window.__layoutDecisionsLog) {
+        window.__layoutDecisionsLog.push({
+            blockId: block.id || 'unknown',
+            chosenSplitPoint: improved.splitPoint,
+            candidateCount: candidates.length,
+            score: improved.score,
+            heights: improved.heights,
+            quality: continuationLineQuality(improved, colWidth),
+            lookedAhead: (improved !== best),
+            alternatives: candidates.slice(0, 5).map(c => ({
+                splitPoint: c.splitPoint,
+                score: c.score,
+            })),
+        });
+    }
+    
+    // 5. רינדור ל-DOM
+    applyCandidateLayoutToDOM(block, improved, styleObj, colWidth);
+    
+    // 6. עדכון _lastLayoutPerBlock למנגנון ה-reflow
+    if (typeof _lastLayoutPerBlock !== 'undefined' && _lastLayoutPerBlock) {
+        _lastLayoutPerBlock.set(block, {
+            candidate: improved,
+            tokens,
+            pendingWordTokensIn,
+            colWidth,
+            styleObj,
+            availHeight,
+            footnoteReserve,
+            timestamp: Date.now(),
+        });
+    }
+    
+    return {
+        pendingWordTokens: improved.pendingWordTokens,
+        didBalance: true,
+        candidate: improved,
+    };
+}
+
+/* ==========================================================================
+   שלב ה' — Reflow Invalidation
+   ==========================================================================
+   הבעיה שפותר שלב זה:
+   כל שינוי שמאוחר יותר משפיע על גובה (line-height, margin-bottom, heading margin,
+   font-size, word-spacing) אסור להמשיך כאילו חלוקת המילים הקודמת עדיין תקפה.
+   
+   צריך: mutation → invalidate → remeasure → reflow affected block → 
+   reflow following pages if necessary.
+   ========================================================================== */
+
+// מפה של פריסות אחרונות לכל בלוק, לשימוש ב-reflow
+const _lastLayoutPerBlock = new Map();
+// מערך גלובלי של "עמודים מושפעים" שדורשים reflow
+const _reflowQueue = { pending: new Set(), processing: false };
+
+/**
+ * layoutInvalidator — מנגנון שינוי שמשדרג את העמודים המושפעים.
+ */
+const layoutInvalidator = {
+    /**
+     * invalidateBlock — מסמן בלוק כ-"dirty" ומפעיל reflow ב-rAF הבא.
+     * @param {HTMLElement} block — אלמנט .block-2col
+     */
+    invalidateBlock(block) {
+        if (!block) return;
+        _reflowQueue.pending.add(block);
+        this._scheduleReflow();
+    },
+    
+    /**
+     * invalidateFromTokenIdx — מסמן את כל העמודים מ-idx זה ואילך כ-dirty.
+     * משמש כאשר שינוי גלובלי (font-size, line-height) משפיע על הכל.
+     * @param {number} fromTokenIdx
+     */
+    invalidateFromTokenIdx(fromTokenIdx) {
+        // נסרוק את כל הבלוקים בעמודים מ-tokenIdx ואילך
+        const blocks = document.querySelectorAll('.a4-page .block-2col');
+        let started = false;
+        for (const block of blocks) {
+            const layout = _lastLayoutPerBlock.get(block);
+            if (!layout) continue;
+            // בדיקה: האם הבלוק הזה מכיל טוקן מ-fromTokenIdx ואילך?
+            const tokenIds = layout.tokens.map(t => parseInt(t.id, 10)).filter(n => !isNaN(n));
+            const minTokenId = tokenIds.length > 0 ? Math.min(...tokenIds) : 0;
+            if (minTokenId >= fromTokenIdx || started) {
+                started = true;
+                _reflowQueue.pending.add(block);
+            }
+        }
+        this._scheduleReflow();
+    },
+    
+    /**
+     * _scheduleReflow — מתזמן טיפול בתור ה-reflow ב-rAF הבא.
+     */
+    _scheduleReflow() {
+        if (_reflowQueue.processing) return;  // כבר מתוזמן
+        _reflowQueue.processing = true;
+        requestAnimationFrame(() => {
+            this._processReflowQueue();
+        });
+    },
+    
+    /**
+     * _processReflowQueue — מעבד את הבלוקים שבתור.
+     * קורא מחדש ל-balanceColumnsV2 עבור כל בלוק dirty, עם הפרמטרים המקוריים.
+     */
+    _processReflowQueue() {
+        _reflowQueue.processing = false;
+        if (_reflowQueue.pending.size === 0) return;
+        
+        const toProcess = Array.from(_reflowQueue.pending);
+        _reflowQueue.pending.clear();
+        
+        for (const block of toProcess) {
+            if (!document.body.contains(block)) continue;  // הוסר מ-DOM
+            const layout = _lastLayoutPerBlock.get(block);
+            if (!layout) continue;
+            
+            try {
+                const result = balanceColumnsV2(
+                    block,
+                    layout.colWidth,
+                    layout.styleObj,
+                    layout.tokens,
+                    layout.pendingWordTokensIn,
+                    layout.availHeight,
+                    layout.footnoteReserve
+                );
+                
+                // אם ה-pendingWordTokens השתנה — ייתכן שהעמוד הבא צריך reflow
+                if (result.pendingWordTokens && 
+                    JSON.stringify(result.pendingWordTokens) !== JSON.stringify(layout.pendingWordTokensIn || null)) {
+                    // נסמן את הבלוק הבא כ-dirty גם כן (cascade reflow)
+                    const nextPage = block.closest('.a4-page')?.nextElementSibling;
+                    if (nextPage) {
+                        const nextBlock = nextPage.querySelector('.block-2col');
+                        if (nextBlock) this.invalidateBlock(nextBlock);
+                    }
+                }
+            } catch (e) {
+                console.error('Reflow failed for block', block.id, e);
+            }
+        }
+        
+        // אם התווספו בלוקים חדשים בינתיים — נקלוט אותם ב-rAF הבא
+        if (_reflowQueue.pending.size > 0) {
+            this._scheduleReflow();
+        }
+    },
+};
+
+/**
+ * triggerReflowFromMutation — מופעל כאשר distributeColumnJustification או פונקציה
+ * אחרת משנה גובה. בודק אם השינוי משמעותי ומפעיל reflow.
+ */
+function triggerReflowFromMutation(block, beforeHeight, afterHeight) {
+    if (!block) return;
+    const delta = Math.abs(afterHeight - beforeHeight);
+    if (delta <= 2) return;  // שינוי זניח — אין צורך ב-reflow
+    layoutInvalidator.invalidateBlock(block);
+}
+
+/* ==========================================================================
+   שלב ו' — לינטר חכם שמתעד החלטות
+   ========================================================================== */
+
+/**
+ * LayoutDecisionsLinter — לינטר שמתעד החלטות עימוד ובודק את איכותן.
+ * בניגוד ללינטר הישן שבדק תוצאות (height diff, overflow), לינטר זה בודק
+ * החלטות: האם האלגוריתם בחר breakpoint גרוע למרות שקיימת חלופה טובה יותר?
+ */
+class LayoutDecisionsLinter {
+    constructor() {
+        this.reports = [];  // דוחות לכל בלוק
+    }
+    
+    /**
+     * lintBlock — בודק בלוק בודד ומייצר דוח.
+     */
+    lintBlock(blockId, candidate, candidates, block) {
+        const report = {
+            blockId,
+            timestamp: Date.now(),
+            chosen: candidate ? {
+                splitPoint: candidate.splitPoint,
+                score: candidate.score,
+                heights: candidate.heights,
+                overflow: candidate.overflow,
+                quality: continuationLineQuality(candidate, 
+                    block ? (block.offsetWidth || 272) : 272),
+            } : null,
+            alternatives: candidates.slice(0, 10).map(c => ({
+                splitPoint: c.splitPoint,
+                score: c.score,
+            })),
+            issues: [],
+            recommendations: [],
+        };
+        
+        if (!candidate) {
+            report.issues.push('NO_VALID_CANDIDATE: אף מועמד לא נמצא');
+            this.reports.push(report);
+            return report;
+        }
+        
+        // בדיקה 1: האם יש חלופה טובה יותר מהנבחרת?
+        const sorted = [...candidates].sort((a, b) => a.score - b.score);
+        if (sorted.length > 1 && sorted[0].splitPoint !== candidate.splitPoint) {
+            report.issues.push(`BETTER_ALTERNATIVE_REJECTED: נבחר ${JSON.stringify(candidate.splitPoint)} (score ${candidate.score}) אך קיימת חלופה ${JSON.stringify(sorted[0].splitPoint)} (score ${sorted[0].score})`);
+        }
+        
+        // בדיקה 2: חריגת גובה
+        if (candidate.overflow.right > 0) {
+            report.issues.push(`RIGHT_OVERFLOW: טור ימין חורג ב-${candidate.overflow.right.toFixed(1)}px`);
+        }
+        if (candidate.overflow.left > 0) {
+            report.issues.push(`LEFT_OVERFLOW: טור שמאל חורג ב-${candidate.overflow.left.toFixed(1)}px`);
+        }
+        
+        // בדיקה 3: כותרת יתוממה בסוף טור
+        if (candidate.quality.headingAtEndOfRight) {
+            report.issues.push('HEADING_ORPHAN: כותרת נותרה בודדת בסוף טור ימין');
+            report.recommendations.push('יש להעביר את הכותרת לטור שמאל או לעמוד הבא');
+        }
+        
+        // בדיקה 4: שורה אחרונה דלילה
+        const quality = continuationLineQuality(candidate, block ? (block.offsetWidth || 272) : 272);
+        if (quality.lastLineWordCount > 0 && quality.lastLineWordCount < 3) {
+            report.issues.push(`SPARSE_LAST_LINE: השורה האחרונה בימין מכילה ${quality.lastLineWordCount} מילים בלבד (יחס מילוי ${(quality.lastLineFillRatio * 100).toFixed(0)}%)`);
+            report.recommendations.push('יש לבצע look-ahead line breaking כדי להעביר מילים נוספות משמאל');
+        }
+        
+        // בדיקה 5: פער גובה גדול בין טורים
+        const deltaH = Math.abs(candidate.heights.right - candidate.heights.left);
+        if (deltaH > 60) {
+            report.issues.push(`LARGE_HEIGHT_DIFFERENCE: פער של ${deltaH.toFixed(1)}px בין הטורים`);
+        }
+        
+        // בדיקה 6: לא נמצא מועמד עם score נמוך מ-50 (כל המועמדים גרועים)
+        const bestScore = sorted.length > 0 ? sorted[0].score : Infinity;
+        if (bestScore > 50) {
+            report.issues.push(`NO_GOOD_CANDIDATE: הציון הטוב ביותר הוא ${bestScore.toFixed(1)} — אין מועמד איכותי`);
+            report.recommendations.push('ייתכן שהבלוק גדול מדי או שסך התוכן אינו מתאים לשני טורים');
+        }
+        
+        this.reports.push(report);
+        return report;
+    }
+    
+    /**
+     * getReportHTML — מייצר דוח HTML מכל ה-reports.
+     */
+    getReportHTML() {
+        const issues = this.reports.filter(r => r.issues.length > 0);
+        const totalBlocks = this.reports.length;
+        const totalIssues = issues.reduce((sum, r) => sum + r.issues.length, 0);
+        
+        let html = `
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>דוח החלטות עימוד</title>
+<style>
+body { font-family: 'Assistant', 'David Libre', serif; padding: 20px; max-width: 1000px; margin: 0 auto; }
+h1 { color: #1e3a8a; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
+.summary { background: #f8fafc; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 11pt; }
+.block { border: 1px solid #e2e8f0; padding: 12px; margin-bottom: 12px; border-radius: 6px; }
+.block-ok { background: #f0fdf4; border-color: #86efac; }
+.block-warn { background: #fefce8; border-color: #fde047; }
+.block-error { background: #fef2f2; border-color: #fca5a5; }
+.issue { color: #dc2626; font-size: 10pt; margin: 4px 0; }
+.recommendation { color: #2563eb; font-size: 10pt; margin: 4px 0; font-style: italic; }
+.candidate-table { font-size: 9pt; width: 100%; border-collapse: collapse; margin-top: 8px; }
+.candidate-table th, .candidate-table td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+.candidate-table th { background: #f1f5f9; }
+.chosen { background: #fef9c3; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>📊 דוח החלטות עימוד — Layout Decisions Linter</h1>
+<div class="summary">
+<strong>סיכום:</strong> ${totalBlocks} בלוקים נבדקו | ${issues.length} עם בעיות | סך ${totalIssues} בעיות
+</div>
+`;
+        
+        for (const report of this.reports) {
+            const cls = report.issues.length === 0 ? 'block-ok' : 
+                       (report.issues.length <= 2 ? 'block-warn' : 'block-error');
+            html += `<div class="block ${cls}">`;
+            html += `<strong>בלוק ${escapeHTML(report.blockId)}</strong>`;
+            if (report.chosen) {
+                html += ` — נקודת חיתוך: <code>${JSON.stringify(report.chosen.splitPoint)}</code>`;
+                html += ` | ציון: ${report.chosen.score.toFixed(1)}`;
+                html += ` | גובה ימין: ${report.chosen.heights.right.toFixed(0)}px`;
+                html += ` | גובה שמאל: ${report.chosen.heights.left.toFixed(0)}px`;
+            }
+            
+            for (const issue of report.issues) {
+                html += `<div class="issue">⚠️ ${escapeHTML(issue)}</div>`;
+            }
+            for (const rec of report.recommendations) {
+                html += `<div class="recommendation">💡 ${escapeHTML(rec)}</div>`;
+            }
+            
+            if (report.alternatives.length > 1) {
+                html += '<table class="candidate-table"><thead><tr><th>נקודת חיתוך</th><th>ציון</th><th>סטטוס</th></tr></thead><tbody>';
+                const sorted = [...report.alternatives].sort((a, b) => a.score - b.score);
+                for (const alt of sorted.slice(0, 5)) {
+                    const isChosen = report.chosen && JSON.stringify(alt.splitPoint) === JSON.stringify(report.chosen.splitPoint);
+                    html += `<tr class="${isChosen ? 'chosen' : ''}"><td>${escapeHTML(JSON.stringify(alt.splitPoint))}</td><td>${alt.score.toFixed(1)}</td><td>${isChosen ? '✓ נבחר' : ''}</td></tr>`;
+                }
+                html += '</tbody></table>';
+            }
+            
+            html += '</div>';
+        }
+        
+        html += '</body></html>';
+        return html;
+    }
+    
+    /**
+     * clear — מנקה את כל ה-reports.
+     */
+    clear() {
+        this.reports = [];
+    }
+}
+
+// גלובלי: לינטר יחיד לכל המסמך
+const layoutLinter = new LayoutDecisionsLinter();
+// גלובלי: יומן החלטות (משמש גם את exportPageDebugReport)
+window.__layoutDecisionsLog = window.__layoutDecisionsLog || [];
+
+// ייצוא מפורש של מחלקות/אובייקטים ל-window — חיוני כדי שיהיו זמינים לסקריפטים חיצוניים
+// (במצב רגיל, const ו-class אינם מצורפים ל-window אוטומטית).
+window.LayoutCandidate = LayoutCandidate;
+window.LayoutDecisionsLinter = LayoutDecisionsLinter;
+window.layoutLinter = layoutLinter;
+window.layoutInvalidator = layoutInvalidator;
+window.buildMeasureClone = buildMeasureClone;
+window.measureCandidateLines = measureCandidateLines;
+window.measureParagraphHeight = measureParagraphHeight;
+window.measurePartialLines = measurePartialLines;
+window.buildLayoutItems = buildLayoutItems;
+window.measureHeadingHeight = measureHeadingHeight;
+window.calculateCandidateLayout = calculateCandidateLayout;
+window.scoreCandidate = scoreCandidate;
+window.findBestSplitPoint = findBestSplitPoint;
+window.continuationLineQuality = continuationLineQuality;
+window.lookAheadLineBreak = lookAheadLineBreak;
+window.applyCandidateLayoutToDOM = applyCandidateLayoutToDOM;
+window.balanceColumnsV2 = balanceColumnsV2;
+window.triggerReflowFromMutation = triggerReflowFromMutation;
+
 function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = Infinity, traceObj = null) {
     if (snapshot) {
         footnoteQueueForPage.length = snapshot.footnoteQueueLen;
@@ -905,6 +2785,9 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
                 if (avoidWidows && l === 1) continue;
                 if (avoidOrphans && (lines.length - l) === 1) continue;
                 if (lineBreakCrossesNoteSpan(lines, l)) continue;
+
+                // מניעת שורה בודדת לאחר כותרת בטור ימין
+                if (i > 0 && items[i - 1].type === 'h' && l < 2) continue;
 
                 // פסילת חיתוכים שבהם השורה האחרונה בטור ימין מכילה פחות מ-3 מילים
                 if (l > 0) {
@@ -1017,12 +2900,13 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     if (lMargin) lMargin.innerHTML = '';
     const finalNotes = [];
 
-    function appendItemFinal(col, margin, item, isRight, isPartial, partialText, isCont) {
+    function appendItemFinal(col, margin, item, isRight, isPartial, partialText, isCont, isCut) {
         if (item.type === 'h') {
             col.insertAdjacentHTML('beforeend', item.html);
         } else {
             const p = document.createElement('p');
-            p.className = isPartial && isRight ? 'p-cut' : 'p-end';
+            const isTruncated = isCut || (isPartial && isRight);
+            p.className = isTruncated ? 'p-cut' : 'p-end';
             p.setAttribute('data-token-id', item.id);
 
             let textToRender = isPartial ? partialText : item.rawText;
@@ -1067,19 +2951,21 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     }
 
     for (let i = 0; i < bestSplit.itemIndex; i++) {
-        appendItemFinal(rCol, rMargin, items[i], true, false, null, items[i].isCont);
+        appendItemFinal(rCol, rMargin, items[i], true, false, null, items[i].isCont, false);
     }
     if (bestSplit.lineIndex > 0) {
         let item = items[bestSplit.itemIndex];
         let rightText = bestSplit.lines.slice(0, bestSplit.lineIndex).join(' ');
-        appendItemFinal(rCol, rMargin, item, true, true, rightText, item.isCont);
+        appendItemFinal(rCol, rMargin, item, true, true, rightText, item.isCont, true);
         let leftText = bestSplit.lines.slice(bestSplit.lineIndex).join(' ');
-        appendItemFinal(lCol, lMargin, item, false, true, leftText, true);
+        appendItemFinal(lCol, lMargin, item, false, true, leftText, true, false);
     }
     for (let i = bestSplit.lineIndex > 0 ? bestSplit.itemIndex + 1 : bestSplit.itemIndex; i < items.length; i++) {
-        appendItemFinal(lCol, lMargin, items[i], false, false, null, items[i].isCont);
+        appendItemFinal(lCol, lMargin, items[i], false, false, null, items[i].isCont, false);
     }
 
+    resetColumnJustificationStyles(rCol);
+    resetColumnJustificationStyles(lCol);
     let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
     const justifyCeiling = (availableHeight && availableHeight < Infinity) ? availableHeight : Infinity;
     if (Math.abs(finalDiff) > 2 && Math.abs(finalDiff) <= 140) {
@@ -1102,6 +2988,9 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 }
 
 function finalizeNotePositions(notesList, columnBoundaryHeight) {
+    // תיקון 2: כותרת 7 (צד) — הנמכה מעט מתחילת הפסקה שלה.
+    // מיקום ברירת מחדל: תחילת הפסקה + 4px (כדי שהכותרת תהיה נמוכה מעט מהפסקה).
+    const SIDE_NOTE_OFFSET_TOP = 4;
     const byMargin = new Map();
     notesList.forEach(item => {
         if (!item.elem || !item.pElem) return;
@@ -1114,7 +3003,7 @@ function finalizeNotePositions(notesList, columnBoundaryHeight) {
         group.sort((a, b) => a.pElem.offsetTop - b.pElem.offsetTop);
         group.forEach((item, idx) => {
             const noteHeight = item.elem.getBoundingClientRect().height || item.elem.offsetHeight || 0;
-            let top = item.pElem.offsetTop;
+            let top = item.pElem.offsetTop + SIDE_NOTE_OFFSET_TOP;
             if (top + noteHeight > columnBoundaryHeight) {
                 const prev = idx > 0 ? group[idx - 1] : null;
                 const prevBottom = prev ? (parseFloat(prev.elem.style.top || 0) + (prev.elem.getBoundingClientRect().height || 0)) : 0;
@@ -1669,17 +3558,17 @@ function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, 
     const showFooter = (pageNumPos === 'bottom_center' || pageNumPos === 'bottom_outer') && displayPageNum;
 
     page.innerHTML = `
-    <button type="button" class="page-debug-btn" onclick="event.stopPropagation(); window.exportPageDebugReport(${pNum})" title="הורד דוח דיבאג מקיף לעמוד זה">🐛 דיבאג עמוד ${toGematria(pNum) || pNum}</button>
+    <button type="button" class="page-debug-btn" data-debug-page="${pNum}" title="הורד דוח דיבאג מקיף לעמוד זה">🐛 דיבאג עמוד ${escapeHTML(toGematria(pNum) || String(pNum))}</button>
     <div class="page-content-wrapper">
       <div class="top-header-grid">
-        <div class="header-col-r" style="text-align:${hdrRAlign}; justify-content:${hdrRAlign}; font-family:${hdrRFont}; font-size:${hdrRSize};">${hdrRHTML}</div>
-        <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign};">${hdrCHTML}</div>
-        <div class="header-col-l" style="text-align:${hdrLAlign}; justify-content:${hdrLAlign}; font-family:${hdrLFont}; font-size:${hdrLSize};">${hdrLHTML}</div>
+        <div class="header-col-r" style="text-align:${escapeHTML(hdrRAlign)}; justify-content:${escapeHTML(hdrRAlign)}; font-family:${escapeHTML(hdrRFont)}; font-size:${escapeHTML(hdrRSize)};">${hdrRHTML}</div>
+        <div class="header-col-c" style="text-align:${escapeHTML(hdrCAlign)}; justify-content:${escapeHTML(hdrCAlign)};">${hdrCHTML}</div>
+        <div class="header-col-l" style="text-align:${escapeHTML(hdrLAlign)}; justify-content:${escapeHTML(hdrLAlign)}; font-family:${escapeHTML(hdrLFont)}; font-size:${escapeHTML(hdrLSize)};">${hdrLHTML}</div>
       </div>
       <div class="page-body-flow ${h2Text ? 'h2-flow-page' : ''}">
-        ${h2Text ? `<div class="h2-spacer"></div><div class="title-level-2-standalone" ${h2TokenId !== undefined ? `data-token-id="${h2TokenId}" id="heading-tok-${h2TokenId}"` : ''}>${h2Text}</div>` : ''}
+        ${h2Text ? `<div class="h2-spacer"></div><div class="title-level-2-standalone" ${h2TokenId !== undefined ? `data-token-id="${escapeHTML(String(h2TokenId))}" id="heading-tok-${escapeHTML(String(h2TokenId))}"` : ''}>${h2Text}</div>` : ''}
       </div>
-      <div class="page-number-footer ${footerClass}">${showFooter ? framedPageNum : ''}</div>
+      <div class="page-number-footer ${footerClass}">${showFooter ? escapeHTML(String(framedPageNum)) : ''}</div>
     </div>
   `;
 
@@ -1825,18 +3714,18 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
         lastRenderedPage = page;
 
         page.innerHTML = `
-      <button type="button" class="page-debug-btn" onclick="event.stopPropagation(); window.exportPageDebugReport(${tocPNum})" title="הורד דוח דיבאג מקיף לעמוד זה">🐛 דיבאג עמוד ${toGematria(tocPNum) || tocPNum}</button>
+      <button type="button" class="page-debug-btn" data-debug-page="${tocPNum}" title="הורד דוח דיבאג מקיף לעמוד זה">🐛 דיבאג עמוד ${escapeHTML(toGematria(tocPNum) || String(tocPNum))}</button>
       <div class="page-content-wrapper">
         <div class="top-header-grid">
-          <div class="header-col-r" style="text-align:${hdrRAlign}; justify-content:${hdrRAlign};">${hdrRHTML}</div>
-          <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign};">${hdrCHTML}</div>
-          <div class="header-col-l" style="text-align:${hdrLAlign}; justify-content:${hdrLAlign};">${hdrLHTML}</div>
+          <div class="header-col-r" style="text-align:${escapeHTML(hdrRAlign)}; justify-content:${escapeHTML(hdrRAlign)};">${hdrRHTML}</div>
+          <div class="header-col-c" style="text-align:${escapeHTML(hdrCAlign)}; justify-content:${escapeHTML(hdrCAlign)};">${hdrCHTML}</div>
+          <div class="header-col-l" style="text-align:${escapeHTML(hdrLAlign)}; justify-content:${escapeHTML(hdrLAlign)};">${hdrLHTML}</div>
         </div>
         <div class="page-body-flow">
-          ${isFirstTOCPage ? `<div class="h2-spacer"></div><div class="title-level-2-standalone" style="margin-top: 0; margin-bottom: 25px;">${titleText}</div>` : ''}
+          ${isFirstTOCPage ? `<div class="h2-spacer"></div><div class="title-level-2-standalone" style="margin-top: 0; margin-bottom: 25px;">${escapeHTML(titleText)}</div>` : ''}
           <div class="toc-grid-full"></div>
         </div>
-        <div class="page-number-footer">${showNum ? tocFramedNum : ''}</div>
+        <div class="page-number-footer">${showNum ? escapeHTML(String(tocFramedNum)) : ''}</div>
       </div>
     `;
         container.appendChild(page);
@@ -1858,15 +3747,15 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
 
             let itemHTML = '';
             if (it.isGroup) {
-                const inlineSpans = it.items.map(grp => `<span class="grp-item grp-lvl-${grp.level}" style="${getTocStyle(grp.level)}"><a href="#heading-tok-${grp.id}" style="text-decoration: none; color: inherit; outline: none;"><span class="grp-title">${grp.text}</span> - <span class="grp-page" data-target-id="${grp.id}"></span></a></span>`).join('<span class="grp-sep">|</span>');
+                const inlineSpans = it.items.map(grp => `<span class="grp-item grp-lvl-${grp.level}" style="${getTocStyle(grp.level)}"><a href="#heading-tok-${escapeHTML(String(grp.id))}" style="text-decoration: none; color: inherit; outline: none;"><span class="grp-title">${escapeHTML(grp.text)}</span> - <span class="grp-page" data-target-id="${escapeHTML(String(grp.id))}"></span></a></span>`).join('<span class="grp-sep">|</span>');
                 itemHTML = `<div class="toc-entry-group"><div class="toc-grouped-block">${inlineSpans}</div></div>`;
             } else {
                 itemHTML = `
           <div class="toc-entry-group" style="${getTocStyle(it.level)}">
-            <a href="#heading-tok-${it.id}" class="toc-item toc-lvl-${it.level}" style="text-decoration: none; color: inherit; outline: none;">
-              <span class="toc-title">${it.text}</span>
+            <a href="#heading-tok-${escapeHTML(String(it.id))}" class="toc-item toc-lvl-${it.level}" style="text-decoration: none; color: inherit; outline: none;">
+              <span class="toc-title">${escapeHTML(it.text)}</span>
               <span class="toc-dots"></span>
-              <span class="toc-page-num" data-target-id="${it.id}"></span>
+              <span class="toc-page-num" data-target-id="${escapeHTML(String(it.id))}"></span>
             </a>
           </div>
         `;
@@ -1910,6 +3799,7 @@ function typesetDocument() {
 }
 
 function performTypeset() {
+    // איפוס מצב גלובלי לפני תחילת כל מחזור עימוד (מונע דליפת state בין רינדורים).
     if (typeof clearPendingChanges === 'function') clearPendingChanges();
     updateGrid();
     updateStyles();
@@ -1922,6 +3812,29 @@ function performTypeset() {
     footnoteQueueForPage = [];
     endnoteQueueForPart = [];
     window.__pageDebugStore = {};
+
+    // עטיפת הלולאה הראשית ב-try/catch — מונעת קריסה חלקית של התצוגה במקרה של
+    // טוקן יחיד שזורק (למשל def.parseRegex שגוי, או מבנה טקסט לא צפוי).
+    // במקרה של שגיאה: מציג הודעת toast לא חוסמת, ולא משאיר את התצוגה ריקה.
+    try {
+        performTypesetInner();
+    } catch (err) {
+        console.error('typeset failed:', err);
+        const stats = document.getElementById('editor-stats');
+        if (stats) {
+            stats.textContent = '⚠️ שגיאת עימוד: ' + (err && err.message ? err.message : String(err));
+            stats.style.color = '#dc2626';
+        }
+        // הצגת הודעת alert לא חוסמת דרך setTimeout כדי לא להקפיא את ה-Main Thread.
+        setTimeout(() => {
+            if (typeof window.showToast === 'function') {
+                window.showToast('שגיאת עימוד: ' + (err && err.message ? err.message : String(err)));
+            }
+        }, 0);
+    }
+}
+
+function performTypesetInner() {
 
     const pageBreaks = [];
     const recordedBreakLines = new Set();
@@ -2162,8 +4075,6 @@ function performTypeset() {
     let pageIndex = 1;
     let currentH1Title = '';
     let currentH2Title = '';
-    let currentH3Title = '';
-    let currentH4Title = '';
 
     const bookTitle = document.getElementById('inp-book-title')?.value || "ספר";
     const showMainShaar = document.getElementById('show-main-shaar')?.checked ?? true;
@@ -2469,8 +4380,8 @@ function performTypeset() {
                     if (currentTok.type === 'p') {
                         let linesInfo = getLinesFromParagraph(currentTok.text, 580, styleObj, true);
                         let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
-                        let isContinuation = !!pendingWordTokens;
-                        let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
+                        let isContinuation = pendingWordTokens ? (pendingWordTokens.remainingLines.length < linesInfo.lines.length) : false;
+                        let hasWindow = isContinuation ? false : linesInfo.hasWindow;
 
                         const pElem = document.createElement('p');
                         pElem.setAttribute('data-token-id', currentTok.id);
@@ -2683,8 +4594,8 @@ function performTypeset() {
                         if (currentTok.type === 'p') {
                             let linesInfo = getLinesFromParagraph(currentTok.text, colWidth, styleObj, true);
                             let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
-                            let isContinuation = !!pendingWordTokens;
-                            let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
+                            let isContinuation = pendingWordTokens ? (pendingWordTokens.remainingLines.length < linesInfo.lines.length) : false;
+                            let hasWindow = isContinuation ? false : linesInfo.hasWindow;
 
                             const pElem = document.createElement('p');
                             pElem.setAttribute('data-token-id', currentTok.id);
@@ -2834,14 +4745,76 @@ function performTypeset() {
                 let didBalance = false;
                 const sectionEnd = tokenIndex >= secTokens.length && !pendingWordTokens;
 
-                if (sectionEnd) {
+                // Feature flag: אם מופעל, נשתמש ב-balanceColumnsV2 החדש שמבוסס על
+                // חישוב מועמדים לפני רינדור. הדגל נשלט ע"י המשתמש דרך:
+                //   window.__useBalanceV2 = true
+                // ומופעל אוטומטית כשמופעל layoutLinter.
+                const useV2 = (typeof window.__useBalanceV2 === 'boolean' && window.__useBalanceV2) ||
+                              (typeof window.__enableLayoutLinter === 'boolean' && window.__enableLayoutLinter);
+                
+                // FIX: הגדרת nextPeekTok לפני כל ה-branches — V2 וגם V1 משתמשים בו.
+                const nextPeekTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
+                const nextPeekMode = nextPeekTok && nextPeekTok.type.startsWith('h')
+                    ? headingModes[nextPeekTok.level]
+                    : 'inline_2col';
+                const isNextSpan1Col = (nextPeekMode === 'span_1col') && !pendingWordTokens;
+                
+                if (useV2) {
+                    // איסוף הטוקנים של הבלוק הנוכחי — כל מה שכבר עבר לטורים + הטוקן הנוכחי
+                    // הערה: זוהי אינטגרציה זהירה — נקרא ל-V2 רק עבור sectionEnd ו-span_1col,
+                    // לא עבור כל בלוק (כי ה-V2 דורש רשימת טוקנים מלאה).
+                    if (sectionEnd || isNextSpan1Col) {
+                        try {
+                            // איסוף טוקנים: מה שכבר נכנס ל-block + הטוקן הנוכחי והלאה
+                            // למעשה, נבנה רשימת tokens מתוך מה שכבר ב-DOM (ע"י data-token-id)
+                            const collectedTokens = [];
+                            const allPElems = block2Col.querySelectorAll('p[data-token-id]');
+                            const allHElems = block2Col.querySelectorAll('[data-token-id]:not(p)');
+                            for (const p of allPElems) {
+                                const id = parseInt(p.getAttribute('data-token-id'), 10);
+                                const rawText = p.getAttribute('data-raw-text') || p.textContent;
+                                const tok = secTokens.find(t => t.id === id);
+                                if (tok) collectedTokens.push(tok);
+                            }
+                            for (const h of allHElems) {
+                                const id = parseInt(h.getAttribute('data-token-id'), 10);
+                                const tok = secTokens.find(t => t.id === id);
+                                if (tok) collectedTokens.push(tok);
+                            }
+                            
+                            const footnoteReserve = (typeof measureFootnoteAreaReserve === 'function') 
+                                ? measureFootnoteAreaReserve(footnoteQueueForPage, pageLayout.page)
+                                : 0;
+                            
+                            const result = balanceColumnsV2(
+                                block2Col, colWidth, styleObj, collectedTokens, pendingWordTokens,
+                                actualAvailH, footnoteReserve
+                            );
+                            didBalance = result.didBalance;
+                            if (result.pendingWordTokens) {
+                                pendingWordTokens = result.pendingWordTokens;
+                            }
+                            // FIX: אחרי ש-V2 רינדר את הבלוק, הלולאה הפנימית חייבת לצאת.
+                            // אחרת, הלולאה תמשיך להוסיף פריטים לבלוק שכבר רונדר — וזה יוצר כפילות.
+                            if (didBalance) {
+                                break;
+                            }
+                        } catch (e) {
+                            console.warn('balanceColumnsV2 failed, falling back to V1:', e);
+                            balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, pageTrace);
+                            didBalance = true;
+                        }
+                    } else if (rCol.scrollHeight > actualAvailH || Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 50) {
+                        // מצב שוטף — V1 בינתיים (V2 דורש רשימת טוקנים מלאה)
+                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, pageTrace);
+                        didBalance = true;
+                    }
+                } else if (sectionEnd) {
                     balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, pageTrace);
                     didBalance = true;
                 } else {
-                    let nextPeekTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
-                    const nextPeekMode = nextPeekTok && nextPeekTok.type.startsWith('h') ? headingModes[nextPeekTok.level] : 'inline_2col';
-
-                    if (nextPeekMode === 'span_1col' && !pendingWordTokens) {
+                    // FIX: nextPeekTok ו-nextPeekMode כבר הוגדרו למעלה — נשתמש בהם.
+                    if (isNextSpan1Col) {
                         balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, pageTrace);
                         didBalance = true;
                     } else if (rCol.scrollHeight > actualAvailH || Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 50) {
@@ -2879,6 +4852,33 @@ function performTypeset() {
                     pageTrace.steps.push(`בוצע PushBack לאלמנט [${pId}] עקב חריגה מגובה התקציב (${actualAvailH}px)`);
                     actualAvailH = getBlockColumnBudget(pageLayout.bodyFlow, pageLayout.page, block2Col);
                     balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, pageTrace);
+                }
+
+                // הפעלת מנגנון נסיגה מפלתי על טור שמאל למניעת כותרות יתומות לאחר PushBack
+                rollbackColumnTail(lCol, colWidth, styleObj, (rb) => {
+                    if (rb.type === 'h') {
+                        tokenIndex--;
+                        pageTrace.steps.push(`הוסגה כותרת יתומה [${rb.id}] מתחתית טור שמאל לעמוד הבא`);
+                    } else if (rb.type === 'p') {
+                        if (pendingWordTokens && pendingWordTokens.token.id === parseInt(rb.id, 10)) {
+                            pendingWordTokens.remainingLines = rb.linesInfo.lines.concat(pendingWordTokens.remainingLines);
+                        } else {
+                            const tokObj = secTokens.find(t => t.id === parseInt(rb.id, 10));
+                            if (tokObj) {
+                                pendingWordTokens = { token: tokObj, remainingLines: rb.linesInfo.lines };
+                            }
+                        }
+                        pageTrace.steps.push(`הוסגה פסקה מקוטעת/יתומה [${rb.id}] מתחתית טור שמאל לעמוד הבא`);
+                    }
+                });
+
+                // אם נותרה פסקה מקוטעת בטור שמאל עם המשך בעמוד הבא, נוודא שהיא מוגדרת כ-p-cut מתוחה
+                if (lCol.lastElementChild && lCol.lastElementChild.tagName === 'P') {
+                    const lastP = lCol.lastElementChild;
+                    const lastPId = lastP.getAttribute('data-token-id');
+                    if (pendingWordTokens && pendingWordTokens.token && String(pendingWordTokens.token.id) === lastPId) {
+                        lastP.className = 'p-cut';
+                    }
                 }
 
                 const blockUsedH = finalizeTwoColumnBlockLayout(
@@ -3099,9 +5099,9 @@ window.exportPageDebugReport = function(pageIndex) {
   <script>
     const fullDebugPayload = {
       pageIndex: ${pageIndex},
-      trace: ${JSON.stringify(trace)},
-      domInspection: ${JSON.stringify(domInspection)},
-      warnings: ${JSON.stringify(warnings)}
+      trace: ${JSON.stringify(trace).replace(/<\//g, '<\\/')},
+      domInspection: ${JSON.stringify(domInspection).replace(/<\//g, '<\\/')},
+      warnings: ${JSON.stringify(warnings).replace(/<\//g, '<\\/')}
     };
 
     function copyFullJSON() {
@@ -3121,3 +5121,92 @@ window.exportPageDebugReport = function(pageIndex) {
     a.click();
     URL.revokeObjectURL(url);
 };
+
+/* ==========================================================================
+   API גלובלי לשליטה במערכת החדשה (שלבים א'-ו')
+   ========================================================================== */
+
+// הפעלת מנוע האיזון החדש (V2)
+window.__useBalanceV2 = false;
+
+// הפעלת לינטר החלטות העימוד
+window.__enableLayoutLinter = false;
+
+// איפוס יומן ההחלטות
+window.__resetLayoutDecisionsLog = function() {
+    if (window.__layoutDecisionsLog) window.__layoutDecisionsLog.length = 0;
+    if (typeof layoutLinter !== 'undefined') layoutLinter.clear();
+};
+
+// הפקת דוח HTML מלא של החלטות העימוד
+window.exportLayoutDecisionsReport = function() {
+    if (typeof layoutLinter === 'undefined') {
+        alert('לינטר החלטות העימוד אינו זמין.');
+        return;
+    }
+    
+    // מילוי ה-linter מתוך __layoutDecisionsLog
+    if (window.__layoutDecisionsLog && window.__layoutDecisionsLog.length > 0) {
+        layoutLinter.clear();
+        for (const entry of window.__layoutDecisionsLog) {
+            layoutLinter.reports.push({
+                blockId: entry.blockId,
+                timestamp: Date.now(),
+                chosen: {
+                    splitPoint: entry.chosenSplitPoint,
+                    score: entry.score || 0,
+                    heights: entry.heights || { right: 0, left: 0 },
+                    overflow: { right: 0, left: 0 },
+                    quality: entry.quality || {},
+                },
+                alternatives: entry.alternatives || [],
+                issues: [],
+                recommendations: [],
+            });
+        }
+    }
+    
+    const html = layoutLinter.getReportHTML();
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `layout-decisions-${Date.now()}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
+// הפעלה מהירה של כל המערכת החדשה
+window.enableNewLayoutEngine = function() {
+    window.__useBalanceV2 = true;
+    window.__enableLayoutLinter = true;
+    window.__resetLayoutDecisionsLog();
+    console.log('✓ מנוע העימוד החדש הופעל. יש ללחוץ על "עדכן ועמד מחדש" כדי לראות את התוצאות.');
+    console.log('  • window.__useBalanceV2 =', window.__useBalanceV2);
+    console.log('  • window.__enableLayoutLinter =', window.__enableLayoutLinter);
+    console.log('  • אחרי העימוד: window.exportLayoutDecisionsReport() להפקת דוח');
+};
+
+// כיבוי המערכת החדשה (חזרה ל-V1)
+window.disableNewLayoutEngine = function() {
+    window.__useBalanceV2 = false;
+    window.__enableLayoutLinter = false;
+    console.log('✗ מנוע העימוד החדש כבוי. משתמש ב-V1.');
+};
+
+// הפעלת reflow יזום על כל העמודים
+window.triggerGlobalReflow = function() {
+    if (typeof layoutInvalidator === 'undefined') {
+        alert('מנגנון ה-reflow אינו זמין.');
+        return;
+    }
+    layoutInvalidator.invalidateFromTokenIdx(0);
+    console.log('✓ reflow גלובלי הופעל.');
+};
+
+console.log('📊 מערכת העימוד החדשה נטענה. פקודות זמינות:');
+console.log('  • window.enableNewLayoutEngine() — הפעלת V2 + linter');
+console.log('  • window.disableNewLayoutEngine() — חזרה ל-V1');
+console.log('  • window.exportLayoutDecisionsReport() — הפקת דוח החלטות');
+console.log('  • window.triggerGlobalReflow() — reflow יזום');
+
