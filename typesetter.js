@@ -1052,58 +1052,83 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
     }
 
     // 5. הגדלת רווח בין מילים בפיסקה שבטור הקצר (ליצירת תוספת של שורה)
+    // תיקון v12: שימוש בצעדים עדינים (0.1px) עם חיפוש בינארי לדיוק מקסימלי.
+    // לפני זה, הצעדים היו 0.5px — כל צעד יכול היה להוסיף ~21px, מה שגרם ל-overshoot.
     function applyPriority5_WordSpacing(budget) {
         const pElements = Array.from(shortCol.querySelectorAll('p'));
         const p = pElements[pElements.length - 1];
         if (!p || budget <= 0.5) return 0;
         const raw = p.getAttribute('data-raw-text') || p.textContent || '';
         if (!raw.trim()) return 0;
+
+        const colWidthLocal = colWidth || shortCol.offsetWidth;
+        const beforeHeight = shortCol.scrollHeight;
         let applied = 0;
         let lastGood = '';
-        for (let ws = 0.5; ws <= 8; ws += 0.5) {
-            if (applied >= budget - 0.5) break;
+
+        // שלב א': חיפוש לינארי עם צעדים עדינים (0.1px)
+        for (let ws = 0.1; ws <= 8; ws += 0.1) {
+            if (applied >= budget - 0.3) break;
             const prev = p.style.wordSpacing;
             const delta = measureColScrollDelta(shortCol, () => {
-                p.style.wordSpacing = ws + 'px';
+                p.style.wordSpacing = ws.toFixed(1) + 'px';
             });
             if (colOverCeiling()) {
                 p.style.wordSpacing = lastGood;
                 break;
             }
-            if (delta > 0.5) {
-                // נקודה 3: Refuse-to-fill-with-runt policy — אסור ליצור runt חדש
-                // תיקון: נבדוק רק אם השינוי החמיר את המצב (מ-3+ מילים ל-1-2 מילים).
-                // אם כבר היה runt לפני השינוי, אין טעם לסרב — המצב לא החמיר.
-                const beforeLines = getLinesFromParagraph(raw, colWidth || shortCol.offsetWidth, { ...styleObj, wordSpacing: prev }, false);
+            if (delta > 0.3) {
+                // refuse-to-fill-with-runt: בדוק רק אם המצב החמיר
+                const beforeLines = getLinesFromParagraph(raw, colWidthLocal, { ...styleObj, wordSpacing: prev }, false);
                 const beforeLastWords = beforeLines.lines.length > 0
                     ? beforeLines.lines[beforeLines.lines.length - 1].split(/\s+/).filter(w => w.length > 0).length
                     : 99;
-                const afterLines = getLinesFromParagraph(raw, colWidth || shortCol.offsetWidth, styleObj, false);
+                const afterLines = getLinesFromParagraph(raw, colWidthLocal, styleObj, false);
                 const afterLastLine = afterLines.lines[afterLines.lines.length - 1] || '';
                 const afterLastWords = afterLastLine.split(/\s+/).filter(w => w.length > 0).length;
-                // סרק רק אם היה מצב טוב (≥3 מילים) והפך ל-runt (≤2 מילים)
                 if (beforeLastWords >= 3 && afterLastWords > 0 && afterLastWords <= 2) {
                     p.style.wordSpacing = lastGood || prev;
                     break;
                 }
                 applied += delta;
-                lastGood = ws + 'px';
-                // תיקון קריטי: אם עברנו את ה-budget, חזור אחורה ל-lastGood הקודם.
-                // הלולאה הזו יכולה להוסיף 21px בצעד אחד כשרק 5px נדרשים.
+                lastGood = ws.toFixed(1) + 'px';
+                // אם חרגנו ב-2px+ מה-budget, חזור אחורה
                 if (applied > budget + 2) {
-                    // חרגנו ב-2px+ מה-budget — אפס ל-lastGood הקודם וצא
                     p.style.wordSpacing = lastGood;
-                    applied -= delta;  // נטרל את ההוספה האחרונה
+                    applied -= delta;
                     break;
                 }
             } else {
                 p.style.wordSpacing = prev;
             }
         }
-        logDetails.tiersApplied['priority5_wordSpacing'] = (logDetails.tiersApplied['priority5_wordSpacing'] || 0) + applied;
-        return applied;  // תיקון: החזר את הערך האמיתי, לא Math.min(applied, budget)
-    }
 
+        // שלב ב': אם עדיין חסר (applied < budget - 2), נסה חיפוש בינארי עדין יותר
+        if (applied < budget - 2 && lastGood) {
+            // נסה להגדיל את ws בעדינות של 0.01px
+            const lastWsVal = parseFloat(lastGood);
+            for (let ws = lastWsVal + 0.01; ws <= lastWsVal + 1 && ws <= 8; ws += 0.01) {
+                const prev = p.style.wordSpacing;
+                const delta = measureColScrollDelta(shortCol, () => {
+                    p.style.wordSpacing = ws.toFixed(2) + 'px';
+                });
+                if (colOverCeiling()) {
+                    p.style.wordSpacing = lastGood;
+                    break;
+                }
+                if (delta > 0.1 && applied + delta <= budget + 1) {
+                    applied += delta;
+                    lastGood = ws.toFixed(2) + 'px';
+                    if (applied >= budget - 0.5) break;
+                } else {
+                    p.style.wordSpacing = lastGood;
+                }
+            }
+        }
+
+        logDetails.tiersApplied['priority5_wordSpacing'] = (logDetails.tiersApplied['priority5_wordSpacing'] || 0) + applied;
+        return applied;
+    }
     const priorityTiers = [
         { name: 'P1 (רווח לפני כותרת)', fn: applyPriority1_HeadingBefore, weight: 6 },
         { name: 'P2 (רווח אחרי כותרת)', fn: applyPriority2_HeadingAfter, weight: 4 },
