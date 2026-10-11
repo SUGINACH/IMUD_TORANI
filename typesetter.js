@@ -162,14 +162,14 @@ function updateStyles() {
     root.style.setProperty('--hdr-w-c', document.getElementById('hdr-w-c')?.value || '33.34%');
     root.style.setProperty('--hdr-w-l', document.getElementById('hdr-w-l')?.value || '33.33%');
 
-    root.style.setProperty('--fn-header-r', getFontVal('f-hdr-r', "'Livorna', 'David Libre', serif"));
+    root.style.setProperty('--fn-header-r', getFontVal('f-hdr-r', "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-header-r', (document.getElementById('s-hdr-r')?.value || 15) + 'pt');
-    root.style.setProperty('--fn-header-c', getFontVal('f-hdr-c', "'Livorna', 'David Libre', serif"));
+    root.style.setProperty('--fn-header-c', getFontVal('f-hdr-c', "'ליבורנה רגיל', 'פרנק רוהל ליברה רגיל', serif"));
     root.style.setProperty('--sz-header-c', (document.getElementById('s-hdr-c')?.value || 11) + 'pt');
-    root.style.setProperty('--fn-header-l', getFontVal('f-hdr-l', "'Livorna', 'David Libre', serif"));
+    root.style.setProperty('--fn-header-l', getFontVal('f-hdr-l', "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-header-l', (document.getElementById('s-hdr-l')?.value || 15) + 'pt');
 
-    root.style.setProperty('--fn-note-body', document.getElementById('f-note-body')?.value || 'inherit');
+    root.style.setProperty('--fn-note-body', document.getElementById('f-note-body')?.value || "'פרנק רוהל ליברה רגיל', serif");
     root.style.setProperty('--sz-note-body', (document.getElementById('s-note-body')?.value || '') ? document.getElementById('s-note-body').value + 'pt' : 'inherit');
     root.style.setProperty('--last-line-align', document.getElementById('body-last-line-align')?.value || 'center');
 
@@ -177,15 +177,15 @@ function updateStyles() {
     const hdrDividerColorMap = { none: 'transparent', gray: 'rgba(0,0,0,0.06)', black: '#000' };
     root.style.setProperty('--hdr-divider-color', hdrDividerColorMap[hdrDividerMode] || hdrDividerColorMap.gray);
 
-    root.style.setProperty('--fn-h0', getFontVal('f-h0', "'AlphaBlack', 'David Libre', serif"));
+    root.style.setProperty('--fn-h0', getFontVal('f-h0', "'אלפא שחור', 'פרנק רוהל ליברה שחור', serif"));
     root.style.setProperty('--sz-h0', (document.getElementById('s-h0')?.value || 26) + 'pt');
-    root.style.setProperty('--fn-h0-body', getFontVal('f-h0-body', "'Frank Ruhl Libre', serif"));
+    root.style.setProperty('--fn-h0-body', getFontVal('f-h0-body', "'פרנק רוהל ליברה רגיל', serif"));
     root.style.setProperty('--sz-h0-body', (document.getElementById('s-h0-body')?.value || 11.5) + 'pt');
 
-    root.style.setProperty('--fn-h1', getFontVal('f-h1', "'Lia Sgula', 'Bellefair', serif"));
+    root.style.setProperty('--fn-h1', getFontVal('f-h1', "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-h1', (document.getElementById('s-h1')?.value || 50) + 'pt');
 
-    root.style.setProperty('--fn-h2', getFontVal('f-h2', "'AlphaBlack', 'David Libre', serif"));
+    root.style.setProperty('--fn-h2', getFontVal('f-h2', "'אלפא שחור', 'פרנק רוהל ליברה שחור', serif"));
     root.style.setProperty('--sz-h2', (document.getElementById('s-h2')?.value || 17) + 'pt');
     root.style.setProperty('--h2-top-distance', document.getElementById('h2-top-distance')?.value || '22%');
 
@@ -194,34 +194,34 @@ function updateStyles() {
     if (fSiman) root.style.setProperty('--fn-siman', fSiman);
     if (sSiman) root.style.setProperty('--sz-siman', sSiman + 'pt');
 
-    root.style.setProperty('--fn-h3', getFontVal('f-h3', "'Alpha', 'Noto Serif Hebrew', serif"));
+    root.style.setProperty('--fn-h3', getFontVal('f-h3', "'אלפא שחור', 'נוטו סריף עברית שחור', serif"));
     root.style.setProperty('--sz-h3', (document.getElementById('s-h3')?.value || 13.5) + 'pt');
-    root.style.setProperty('--fn-h4', getFontVal('f-h4', "'Alpha', 'Frank Ruhl Libre', serif"));
+    root.style.setProperty('--fn-h4', getFontVal('f-h4', "'אלפא שחור', 'פרנק רוהל ליברה שחור', serif"));
     root.style.setProperty('--sz-h4', (document.getElementById('s-h4')?.value || 12.5) + 'pt');
-    root.style.setProperty('--fn-h5', getFontVal('f-h5', "'AlphaLight', 'David Libre', serif"));
+    root.style.setProperty('--fn-h5', getFontVal('f-h5', "'אלפא מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-h5', (document.getElementById('s-h5')?.value || 11.5) + 'pt');
-    root.style.setProperty('--fn-h6', getFontVal('f-h6', "'Noto Serif Hebrew', serif"));
+    root.style.setProperty('--fn-h6', getFontVal('f-h6', "'נוטו סריף עברית מודגש', serif"));
     root.style.setProperty('--sz-h6', (document.getElementById('s-h6')?.value || 10.5) + 'pt');
-    root.style.setProperty('--fn-h7', getFontVal('f-h7', "'Hadassah Friedlaender', 'David Libre', serif"));
+    root.style.setProperty('--fn-h7', getFontVal('f-h7', "'הדסה פרידלנדר מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-h7', (document.getElementById('s-h7')?.value || 6) + 'pt');
 
-    root.style.setProperty('--fn-sh-title', getFontVal('f-sh-title', "'Lia Sgula', 'Bellefair', serif"));
+    root.style.setProperty('--fn-sh-title', getFontVal('f-sh-title', "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-sh-title', (document.getElementById('s-sh-title')?.value || 46) + 'pt');
-    root.style.setProperty('--fn-sh-sub', getFontVal('f-sh-sub', "'Livorna', 'David Libre', serif"));
+    root.style.setProperty('--fn-sh-sub', getFontVal('f-sh-sub', "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-sh-sub', (document.getElementById('s-sh-sub')?.value || 21) + 'pt');
-    root.style.setProperty('--fn-sh-desc', getFontVal('f-sh-desc', "'Livorna', 'Frank Ruhl Libre', serif"));
+    root.style.setProperty('--fn-sh-desc', getFontVal('f-sh-desc', "'ליבורנה רגיל', 'פרנק רוהל ליברה רגיל', serif"));
     root.style.setProperty('--sz-sh-desc', (document.getElementById('s-sh-desc')?.value || 12) + 'pt');
-    root.style.setProperty('--fn-sh-sec', document.getElementById('f-sh-sec')?.value || 'serif');
+    root.style.setProperty('--fn-sh-sec', document.getElementById('f-sh-sec')?.value || "'פרנק רוהל ליברה רגיל', serif");
     root.style.setProperty('--sz-sh-sec', (document.getElementById('s-sh-sec')?.value || 11.5) + 'pt');
-    root.style.setProperty('--fn-sh-author', document.getElementById('f-sh-author')?.value || 'serif');
+    root.style.setProperty('--fn-sh-author', document.getElementById('f-sh-author')?.value || "'פרנק רוהל ליברה רגיל', serif");
     root.style.setProperty('--sz-sh-author', (document.getElementById('s-sh-author')?.value || 15) + 'pt');
-    root.style.setProperty('--fn-sh-year', document.getElementById('f-sh-year')?.value || 'serif');
+    root.style.setProperty('--fn-sh-year', document.getElementById('f-sh-year')?.value || "'פרנק רוהל ליברה רגיל', serif");
     root.style.setProperty('--sz-sh-year', (document.getElementById('s-sh-year')?.value || 12) + 'pt');
 
-    root.style.setProperty('--fn-body', getFontVal('font-body', "'Guttman Rashi', 'Frank Ruhl Libre', serif"));
-    root.style.setProperty('--sz-body', (document.getElementById('size-body')?.value || 11.2) + 'pt');
+    root.style.setProperty('--fn-body', getFontVal('font-body', "'גוטמן רש\"י רגיל', 'פרנק רוהל ליברה רגיל', serif"));
+    root.style.setProperty('--sz-body', (document.getElementById('size-body')?.value || 12) + 'pt');
     root.style.setProperty('--line-height-body', document.getElementById('line-height-body')?.value || '1.34');
-    root.style.setProperty('--fn-first-word', getFontVal('font-first-word', "'FrankReal', 'Frank Ruhl Libre', serif"));
+    root.style.setProperty('--fn-first-word', getFontVal('font-first-word', "'פרנק ריל מודגש', 'פרנק רוהל ליברה מודגש', serif"));
     root.style.setProperty('--sz-first-word', (document.getElementById('size-first-word')?.value || 1.5) + 'em');
 
     const fDh = document.getElementById('f-dh')?.value;
