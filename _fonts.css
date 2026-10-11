@@ -29,7 +29,7 @@
 }
 
 @font-face {
-    font-family: 'גוטמן רש"י רגיל';
+    font-family: 'גוטמן רש\"י רגיל';
     src: url('fonts/Guttman-Rashi-Normal.woff2') format('woff2');
     font-display: swap;
 }
@@ -575,7 +575,7 @@
 }
 
 @font-face {
-    font-family: 'פרנק רוהל מ"פ מודגש א';
+    font-family: 'פרנק רוהל מ\"פ מודגש א';
     src: url('fonts/FrankRuhlMF-BoldA.woff2') format('woff2');
     font-display: swap;
 }
