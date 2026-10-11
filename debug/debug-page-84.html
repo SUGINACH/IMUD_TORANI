@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>דוח דיאגנוסטיקה ודיבאג — עמוד פד</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background: #1e293b; color: #f8fafc; font-family: 'Assistant', sans-serif; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+    .diag-header { background: #0f172a; border: 1px solid #334155; padding: 15px 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .diag-title { font-size: 16pt; font-weight: 800; color: #38bdf8; }
+    .diag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .diag-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 15px; overflow: hidden; display: flex; flex-direction: column; }
+    .diag-card h3 { color: #94a3b8; font-size: 11pt; border-bottom: 1px solid #334155; padding-bottom: 6px; margin-bottom: 10px; }
+    .page-preview-box { background: #475569; padding: 20px; border-radius: 6px; display: flex; justify-content: center; overflow: auto; max-height: 800px; }
+    .page-preview-box .a4-page { transform: scale(0.8); transform-origin: top center; margin-bottom: 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    pre { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 8.5pt; color: #38bdf8; overflow-x: auto; max-height: 400px; }
+    .warn-badge { background: #7f1d1d; border: 1px solid #ef4444; color: #fecaca; padding: 6px 12px; border-radius: 6px; font-size: 9pt; margin-bottom: 6px; font-weight: bold; }
+    .ok-badge { background: #064e3b; border: 1px solid #10b981; color: #a7f3d0; padding: 6px 12px; border-radius: 6px; font-size: 9pt; margin-bottom: 6px; }
+    .step-log-item { font-size: 8pt; padding: 4px 6px; border-bottom: 1px dashed #334155; color: #cbd5e1; }
+    .btn-copy { background: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+    .btn-copy:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="diag-header">
+    <div>
+      <div class="diag-title">🐛 דוח דיאגנוסטיקה לעימוד — עמוד פד (84)</div>
+      <div style="font-size:9pt; color:#94a3b8; margin-top:3px;">הופק אוטומטית ע"י מנוע העימוד | תפקיד: regular</div>
+    </div>
+    <button class="btn-copy" onclick="copyFullJSON()">📋 העתק JSON מלא</button>
+  </div>
+
+  <div class="ok-badge">✅ לא זוהו חריגות גובה או שגיאות קריטיות בעמוד זה</div>
+
+  <div class="diag-grid">
+    <div class="diag-card">
+      <h3>🖼️ תצוגה חיה של העמוד</h3>
+      <div class="page-preview-box">
+        <div class="a4-page page-focused" data-page-index="84" data-first-line-idx="852">
+    
+    <div class="page-content-wrapper">
+      <div class="top-header-grid">
+        <div class="header-col-r" style="text-align:right; justify-content:right; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;">הקדמות וכללים</div>
+        <div class="header-col-c" style="text-align:center; justify-content:center;"><svg style="height:9px; width:48px;" viewBox="0 0 400 40"><circle cx="200" cy="20" r="10" fill="none" stroke="#444" stroke-width="4.5"></circle><circle cx="200" cy="20" r="4.5" fill="#444"></circle><path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#444"></path><path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#444"></path></svg></div>
+        <div class="header-col-l" style="text-align:left; justify-content:left; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;">סימן ד - רשויות</div>
+      </div>
+      <div class="page-body-flow ">
+        
+      <div class="block-2col">
+          <div class="margin-notes-column right-margin"><div class="side-note-anchor" style="top: 382px;">רשויות – 7, 640) - חילוק גדר קרקע רה"ר מקרקע רה"י - חפץ המונח ברה"ר אינו נחשב כמונח בכלל הרשות</div></div>
+          <div></div>
+          <div class="main-column right-col"><p data-token-id="595" data-is-cont="true" class="p-end" data-raw-text="יהיה בהם משמעות ביחס לשימוש, היינו, שלא יהיה בהגבלה הנ&quot;ל, משמעות ביחס לשימוש, לא יהיה זה חסרון בהיות הקרקע רה&quot;ר, ואי איך שלא יהיה הרי שגדר רשות התורה הוא בקרקע המקום כי הם ביחס למקום חפץ, ואין מקום חפץ בכל הרשות אלא בקרקעה, וכל הדינים הנוגעים למה שהוא לא גדר בקרקע, הם בהכרח לא דינים עצמיים אלא ביחס לקרקע.">יהיה בהם משמעות ביחס לשימוש, היינו, שלא יהיה בהגבלה הנ"ל, משמעות ביחס לשימוש, לא יהיה זה חסרון בהיות הקרקע רה"ר, ואי איך שלא יהיה הרי שגדר רשות התורה הוא בקרקע המקום כי הם ביחס למקום חפץ, ואין מקום חפץ בכל הרשות אלא בקרקעה, וכל הדינים הנוגעים למה שהוא לא גדר בקרקע, הם בהכרח לא דינים עצמיים אלא ביחס לקרקע.</p><p data-token-id="596" data-is-cont="false" class="p-end" data-raw-text="וע&quot;כ לא יהיה גדר מחיצות דרה&quot;י אלא גדר בקרקע, והיינו, שאף שיש ברה&quot;י מה שאין ברה&quot;ר שיש בו משמעות שהוא תופס חלל, שהרי עולה עד הרקיע, אין זה חלק מהגדרת הרשות, שאין הגדרת הרשות אלא בקרקעה, והיא אינה אלא ביחס לגובה עשרה. וגם אין יועיל בה גדרים שאינם נוגעים לקרקעה באופן חיובי, ואם נמצא בדיניה גדרים הנוגעים לזה, הרי בהכרח שהם גדרים שליליים כמניעה וכו'.[אך כאמור לעיל גדר מה שתקנו חכ' הוא ביחס הפוך, דאין הם דינים ביחס לקרקע, אלא ביחס לרשות עצמה, היינו, חללה. והיינו, שראו חכ' שאף שקרקע רה&quot;י מוגדרת היטיב כדינה מן התורה, הרי שהתייחסות האנשים לחלל הרשויות כזהות הרשות יביא להחליף את משמעות זהות הרשויות ממשמעות הקרקע למשמעות החלל. והרי אין דיני רשויות מן התורה מיועדים ומועילים להגדיר את החלל. וע&quot;כ תקנו דינים הנוגעים לחלל הרשות, והיינו, שאם היה ברור גדר זה דאין רשות אלא ביחס למקום חפץ, ואין רשות אלא בקרקעה, היה הבדל הרשויות ברור לאנשים. אך כיון דאין זה ברור, הרי שאנו נצרכים להגדיר אף את חלל הרשות, וזה משמעות מה שתיקוני מבוי שווים, בלי שייכות לדין מחיצות התורה, ובין אם יהיה הדין ב' או ג' מחיצות דאורייתא, יהיה דין להכשיר את המבוי מארבעה צדדים.]"><span class="first-word-window">וע"כ</span> לא יהיה גדר מחיצות דרה"י אלא גדר בקרקע, והיינו, שאף שיש ברה"י מה שאין ברה"ר שיש בו משמעות שהוא תופס חלל, שהרי עולה עד הרקיע, אין זה חלק מהגדרת הרשות, שאין הגדרת הרשות אלא בקרקעה, והיא אינה אלא ביחס לגובה עשרה. וגם אין יועיל בה גדרים שאינם נוגעים לקרקעה באופן חיובי, ואם נמצא בדיניה גדרים הנוגעים לזה, הרי בהכרח שהם גדרים שליליים כמניעה וכו'.<a class="note-marker" href="#note-n7" id="noteref-n7" style="font-size: 8pt; font-weight: 700; text-decoration: none; color: inherit; cursor: pointer; vertical-align: super; line-height: 0;">א</a></p><p data-token-id="597" data-is-cont="false" class="p-end" data-raw-text="ועכ&quot;פ מצאנו דגדר קרקע הנצרך לרה&quot;י הינו ביחס לשימוש אדם להנחת חפץ. אך אין זה הגדר בקרקע דרה&quot;ר, והיינו, דאף שצריך שיהיה מקום דרה&quot;ר ראוי להנחת חפץ, אין זה משמעות רה&quot;ר עצמה. כי אין משמעות חפץ המונח ברה&quot;ר (היינו, תוספת המשמעות האמורה לעיל המוגדרת כהוצאה) גדר רה&quot;ר עצמה." data-side-note="רשויות – 7, 640) - חילוק גדר קרקע רה&quot;ר מקרקע רה&quot;י - חפץ המונח ברה&quot;ר אינו נחשב כמונח בכלל הרשות"><span class="first-word-window">ועכ"פ</span> מצאנו דגדר קרקע הנצרך לרה"י הינו ביחס לשימוש אדם להנחת חפץ. אך אין זה הגדר בקרקע דרה"ר, והיינו, דאף שצריך שיהיה מקום דרה"ר ראוי להנחת חפץ, אין זה משמעות רה"ר עצמה. כי אין משמעות חפץ המונח ברה"ר (היינו, תוספת המשמעות האמורה לעיל המוגדרת כהוצאה) גדר רה"ר עצמה.</p><p data-token-id="598" data-is-cont="false" class="p-end" data-raw-text="ודבר זה מוכח מזה שחפץ המונח ברה&quot;ר אינו נחשב שמקומו בכלל הרשות שנמצא בה, דא&quot;כ לא הוי ביה דין העברה, ובהכרח שמשמעות הרשות שלעצמה אינה בהיותה מקום חפץ. ויותר מזה דכיון שהיותה רה&quot;ר הוא גדר בדין העברה, בהכרח שביחס למקום חפץ דין רה&quot;ר הוא דין שלילי, ושלא יהיה חפץ הנמצא במקום הרשות כנמצא בכל הרשות (ויותר מזה מצאנו לדעת ר' יוסי דאף שתי רשויות הרבים נפרדות הוי אחד לגבי הוצאה)."><span class="first-word-window">ודבר</span> זה מוכח מזה שחפץ המונח ברה"ר אינו נחשב שמקומו בכלל הרשות שנמצא בה, דא"כ לא הוי ביה דין העברה, ובהכרח שמשמעות הרשות שלעצמה אינה בהיותה מקום חפץ. ויותר מזה דכיון שהיותה רה"ר הוא גדר בדין העברה, בהכרח שביחס למקום חפץ דין רה"ר הוא דין שלילי, ושלא יהיה חפץ הנמצא במקום הרשות כנמצא בכל הרשות (ויותר מזה מצאנו לדעת ר' יוסי דאף שתי רשויות הרבים נפרדות הוי אחד לגבי הוצאה).</p></div>
+          <div class="col-gutter-divider col-rule-none" style="align-self: start; height: 778px;"></div>
+          <div class="main-column left-col"><p data-token-id="599" data-is-cont="false" class="p-end" data-raw-text="וא&quot;כ הוא שאין רה&quot;ר גדר מקום חפץ, וא&quot;כ הוא שביארנו שדין רשות דהוצאה הוא דין במקום חפץ, הרי שביחס להגדרת שינוי שיש בדין הוצאה יהיה זה גדר שלילי, והיינו, שמה שמותר להעביר ד&quot;א בכרמלית זה משום שאין לנו לומר שיש הבדל ביחס למקום חפץ בין מקום זה שבכרמלית למקום אחר. וזה משום שכמו שאמרנו יש כאן שני גדרים, האחד, הוא מקום חפץ מונח, היינו, עצם מה שחפץ תופס מקומו, וזה משום חשיבות חפץ מונח ביחס למקום חפץ לעומת שאינו מונח. והגדר השני, הוא משמעות שיש בהיותו במקום, וכיון שמשמעות זו היא מוקדמת לעצם מקום חפץ והיא המגדירה שטח שמקום חפץ יהיה חלק ממנו, הרי שמשמעות רשות היא הגדרת מקום שאינו חלק מהגדרת מקום חפץ מונח מסוים, וכיון שזה אמור ביחס לקרקע לעומת אוויר, וכיון שאין ברה&quot;י אלא הגדרה זו, בהכרח שגם רה&quot;ר הוא בהגדרה זו. שאם אין הם באותו גדר לא יתכן לקרותו שינוי, אלא תוספת, וזה ברור." data-side-note="רשויות – 7, 641) - שיתוף גדר רה&quot;ר ורה&quot;י בהוצאה - שני גדרים במקום חפץ מונח ומשמעות היותו ברשות" style="margin-bottom: 9.625px; line-height: 1.34899;"><span class="first-word-window">וא"כ</span> הוא שאין רה"ר גדר מקום חפץ, וא"כ הוא שביארנו שדין רשות דהוצאה הוא דין במקום חפץ, הרי שביחס להגדרת שינוי שיש בדין הוצאה יהיה זה גדר שלילי, והיינו, שמה שמותר להעביר ד"א בכרמלית זה משום שאין לנו לומר שיש הבדל ביחס למקום חפץ בין מקום זה שבכרמלית למקום אחר. וזה משום שכמו שאמרנו יש כאן שני גדרים, האחד, הוא מקום חפץ מונח, היינו, עצם מה שחפץ תופס מקומו, וזה משום חשיבות חפץ מונח ביחס למקום חפץ לעומת שאינו מונח. והגדר השני, הוא משמעות שיש בהיותו במקום, וכיון שמשמעות זו היא מוקדמת לעצם מקום חפץ והיא המגדירה שטח שמקום חפץ יהיה חלק ממנו, הרי שמשמעות רשות היא הגדרת מקום שאינו חלק מהגדרת מקום חפץ מונח מסוים, וכיון שזה אמור ביחס לקרקע לעומת אוויר, וכיון שאין ברה"י אלא הגדרה זו, בהכרח שגם רה"ר הוא בהגדרה זו. שאם אין הם באותו גדר לא יתכן לקרותו שינוי, אלא תוספת, וזה ברור.</p><p data-token-id="600" data-is-cont="false" class="p-end" data-raw-text="ונקדים להוציא מדעת מה שהיה לומר דדין העברה כשינוי מקום חפץ נובע מגדר רשות שבה נאסרה, היינו, רה&quot;ר, שאף שיש למצוא בדין העברה מכלל איסור הוצאה מרשות לרשות אנו למדים שהעברה חשיב שינוי במקום חפץ, אין זה משום חסרון אחידות משמעות היות חפץ ברה&quot;ר ומה שהיא אותה הרשות, שנאמר דלכן הוה כשני רשויות." data-side-note="הוצאה – 7, 170) - שלילת חסרון אחידות ברה&quot;ר בהעברה ד' - מעשה העברה נחשב שינוי חשוב אף באותה רשות" style="margin-bottom: 9.25px;"><span class="first-word-window">ונקדים</span> להוציא מדעת מה שהיה לומר דדין העברה כשינוי מקום חפץ נובע מגדר רשות שבה נאסרה, היינו, רה"ר, שאף שיש למצוא בדין העברה מכלל איסור הוצאה מרשות לרשות אנו למדים שהעברה חשיב שינוי במקום חפץ, אין זה משום חסרון אחידות משמעות היות חפץ ברה"ר ומה שהיא אותה הרשות, שנאמר דלכן הוה כשני רשויות.</p><p data-token-id="601" data-is-cont="false" class="p-cut" data-raw-text="וזה אינו, שהרי אף ברה&quot;ר מצאנו שהיא רשות אחת, וכמו לענין הצטרפות הוצאת שני חצאי שיעור לשני רה&quot;ר דבגמ' בב&quot;ב (ואף לפר&quot;ח שם לא חלק רק שאין חסרון דמחוסר קירבה כמו בכתיבה. וע&quot;ש. ומש&quot;כ בזה), אלא ודאי דגדר העברה הוא באעפ&quot;כ, היינו, שאף" style="word-spacing: 2.5px;"><span class="first-word-window">וזה</span> אינו, שהרי אף ברה"ר מצאנו שהיא רשות אחת, וכמו לענין הצטרפות הוצאת שני חצאי שיעור לשני רה"ר דבגמ' בב"ב (ואף לפר"ח שם לא חלק רק שאין חסרון דמחוסר קירבה כמו בכתיבה. וע"ש. ומש"כ בזה), אלא ודאי דגדר העברה הוא באעפ"כ, היינו, שאף</p></div>
+          <div></div>
+          <div class="margin-notes-column left-margin"><div class="side-note-anchor" style="top: 4px;">רשויות – 7, 641) - שיתוף גדר רה"ר ורה"י בהוצאה - שני גדרים במקום חפץ מונח ומשמעות היותו ברשות</div><div class="side-note-anchor" style="top: 445px;">הוצאה – 7, 170) - שלילת חסרון אחידות ברה"ר בהעברה ד' - מעשה העברה נחשב שינוי חשוב אף באותה רשות</div></div>
+        </div></div>
+      <div class="footnote-area"><div class="note-rule-plain"></div><div class="note-block cols-1"><div class="note-line" id="note-n7"><a class="note-line-num" href="#noteref-n7" style="font-size: 8pt; font-weight: 700; text-decoration: none; color: inherit; cursor: pointer; vertical-align: baseline;">א. </a><span class="note-body-text">אך כאמור לעיל גדר מה שתקנו חכ' הוא ביחס הפוך, דאין הם דינים ביחס לקרקע, אלא ביחס לרשות עצמה, היינו, חללה. והיינו, שראו חכ' שאף שקרקע רה"י מוגדרת היטיב כדינה מן התורה, הרי שהתייחסות האנשים לחלל הרשויות כזהות הרשות יביא להחליף את משמעות זהות הרשויות ממשמעות הקרקע למשמעות החלל. והרי אין דיני רשויות מן התורה מיועדים ומועילים להגדיר את החלל. וע"כ תקנו דינים הנוגעים לחלל הרשות, והיינו, שאם היה ברור גדר זה דאין רשות אלא ביחס למקום חפץ, ואין רשות אלא בקרקעה, היה הבדל הרשויות ברור לאנשים. אך כיון דאין זה ברור, הרי שאנו נצרכים להגדיר אף את חלל הרשות, וזה משמעות מה שתיקוני מבוי שווים, בלי שייכות לדין מחיצות התורה, ובין אם יהיה הדין ב' או ג' מחיצות דאורייתא, יהיה דין להכשיר את המבוי מארבעה צדדים.</span></div></div></div><div class="page-number-footer pos-center">פד</div>
+    </div>
+  </div>
+      </div>
+    </div>
+
+    <div class="diag-card">
+      <h3>📊 מדדי DOM ונתוני גובה מדויקים</h3>
+      <pre id="json-dom">{
+  "rightCol": {
+    "scrollHeight": 778,
+    "offsetHeight": 778,
+    "childrenCount": 4,
+    "children": [
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "יהיה בהם משמעות ביחס לשימוש, היינו, שלא יהיה בהגבל",
+        "offsetHeight": 172,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      },
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "וע\"כ לא יהיה גדר מחיצות דרה\"י אלא גדר בקרקע, והיינ",
+        "offsetHeight": 193,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      },
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "ועכ\"פ מצאנו דגדר קרקע הנצרך לרה\"י הינו ביחס לשימוש",
+        "offsetHeight": 172,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      },
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "ודבר זה מוכח מזה שחפץ המונח ברה\"ר אינו נחשב שמקומו",
+        "offsetHeight": 214,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      }
+    ]
+  },
+  "leftCol": {
+    "scrollHeight": 779,
+    "offsetHeight": 779,
+    "childrenCount": 3,
+    "children": [
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "וא\"כ הוא שאין רה\"ר גדר מקום חפץ, וא\"כ הוא שביארנו ",
+        "offsetHeight": 432,
+        "marginTop": "0px",
+        "marginBottom": "9.625px",
+        "lineHeight": "21.5838px"
+      },
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "ונקדים להוציא מדעת מה שהיה לומר דדין העברה כשינוי ",
+        "offsetHeight": 172,
+        "marginTop": "0px",
+        "marginBottom": "9.25px",
+        "lineHeight": "21.44px"
+      },
+      {
+        "tag": "P",
+        "className": "p-cut",
+        "textSnippet": "וזה אינו, שהרי אף ברה\"ר מצאנו שהיא רשות אחת, וכמו ",
+        "offsetHeight": 150,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      }
+    ]
+  },
+  "footnoteArea": {
+    "offsetHeight": 114,
+    "scrollHeight": 114,
+    "notesCount": 1
+  },
+  "bodyFlow": {
+    "clientHeight": 788,
+    "scrollHeight": 788
+  }
+}</pre>
+
+      <h3 style="margin-top:15px;">📜 יומן שלבי עימוד (Trace Log)</h3>
+      <div style="max-height:220px; overflow-y:auto; background:#020617; border-radius:6px; padding:6px;">
+        <div class="step-log-item">אין שלבים מיוחדים מתועדים</div>
+      </div>
+
+      <h3 style="margin-top:15px;">⚖️ פירוט יישור ואיזון טורים (Justification & Balancing)</h3>
+      <pre>{
+  "balanceLog": null,
+  "justificationLog": {
+    "neededGrowth": 28,
+    "heightCeiling": 779,
+    "tiersApplied": {
+      "priority3_paragraphSpacing": 5,
+      "priority4_lineHeight": 3,
+      "priority5_wordSpacing": 21
+    }
+  }
+}</pre>
+    </div>
+  </div>
+
+  <div class="diag-card">
+    <h3>📄 קוד ה-HTML של העמוד (OuterHTML)</h3>
+    <pre>&lt;div class="a4-page page-focused" data-page-index="84" data-first-line-idx="852"&gt;
+    
+    &lt;div class="page-content-wrapper"&gt;
+      &lt;div class="top-header-grid"&gt;
+        &lt;div class="header-col-r" style="text-align:right; justify-content:right; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;"&gt;הקדמות וכללים&lt;/div&gt;
+        &lt;div class="header-col-c" style="text-align:center; justify-content:center;"&gt;&lt;svg style="height:9px; width:48px;" viewBox="0 0 400 40"&gt;&lt;circle cx="200" cy="20" r="10" fill="none" stroke="#444" stroke-width="4.5"&gt;&lt;/circle&gt;&lt;circle cx="200" cy="20" r="4.5" fill="#444"&gt;&lt;/circle&gt;&lt;path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#444"&gt;&lt;/path&gt;&lt;path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#444"&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/div&gt;
+        &lt;div class="header-col-l" style="text-align:left; justify-content:left; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;"&gt;סימן ד - רשויות&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class="page-body-flow "&gt;
+        
+      &lt;div class="block-2col"&gt;
+          &lt;div class="margin-notes-column right-margin"&gt;&lt;div class="side-note-anchor" style="top: 382px;"&gt;רשויות – 7, 640) - חילוק גדר קרקע רה"ר מקרקע רה"י - חפץ המונח ברה"ר אינו נחשב כמונח בכלל הרשות&lt;/div&gt;&lt;/div&gt;
+          &lt;div&gt;&lt;/div&gt;
+          &lt;div class="main-column right-col"&gt;&lt;p data-token-id="595" data-is-cont="true" class="p-end" data-raw-text="יהיה בהם משמעות ביחס לשימוש, היינו, שלא יהיה בהגבלה הנ&quot;ל, משמעות ביחס לשימוש, לא יהיה זה חסרון בהיות הקרקע רה&quot;ר, ואי איך שלא יהיה הרי שגדר רשות התורה הוא בקרקע המקום כי הם ביחס למקום חפץ, ואין מקום חפץ בכל הרשות אלא בקרקעה, וכל הדינים הנוגעים למה שהוא לא גדר בקרקע, הם בהכרח לא דינים עצמיים אלא ביחס לקרקע."&gt;יהיה בהם משמעות ביחס לשימוש, היינו, שלא יהיה בהגבלה הנ"ל, משמעות ביחס לשימוש, לא יהיה זה חסרון בהיות הקרקע רה"ר, ואי איך שלא יהיה הרי שגדר רשות התורה הוא בקרקע המקום כי הם ביחס למקום חפץ, ואין מקום חפץ בכל הרשות אלא בקרקעה, וכל הדינים הנוגעים למה שהוא לא גדר בקרקע, הם בהכרח לא דינים עצמיים אלא ביחס לקרקע.&lt;/p&gt;&lt;p data-token-id="596" data-is-cont="false" class="p-end" data-raw-text="וע&quot;כ לא יהיה גדר מחיצות דרה&quot;י אלא גדר בקרקע, והיינו, שאף שיש ברה&quot;י מה שאין ברה&quot;ר שיש בו משמעות שהוא תופס חלל, שהרי עולה עד הרקיע, אין זה חלק מהגדרת הרשות, שאין הגדרת הרשות אלא בקרקעה, והיא אינה אלא ביחס לגובה עשרה. וגם אין יועיל בה גדרים שאינם נוגעים לקרקעה באופן חיובי, ואם נמצא בדיניה גדרים הנוגעים לזה, הרי בהכרח שהם גדרים שליליים כמניעה וכו'.[אך כאמור לעיל גדר מה שתקנו חכ' הוא ביחס הפוך, דאין הם דינים ביחס לקרקע, אלא ביחס לרשות עצמה, היינו, חללה. והיינו, שראו חכ' שאף שקרקע רה&quot;י מוגדרת היטיב כדינה מן התורה, הרי שהתייחסות האנשים לחלל הרשויות כזהות הרשות יביא להחליף את משמעות זהות הרשויות ממשמעות הקרקע למשמעות החלל. והרי אין דיני רשויות מן התורה מיועדים ומועילים להגדיר את החלל. וע&quot;כ תקנו דינים הנוגעים לחלל הרשות, והיינו, שאם היה ברור גדר זה דאין רשות אלא ביחס למקום חפץ, ואין רשות אלא בקרקעה, היה הבדל הרשויות ברור לאנשים. אך כיון דאין זה ברור, הרי שאנו נצרכים להגדיר אף את חלל הרשות, וזה משמעות מה שתיקוני מבוי שווים, בלי שייכות לדין מחיצות התורה, ובין אם יהיה הדין ב' או ג' מחיצות דאורייתא, יהיה דין להכשיר את המבוי מארבעה צדדים.]"&gt;&lt;span class="first-word-window"&gt;וע"כ&lt;/span&gt; לא יהיה גדר מחיצות דרה"י אלא גדר בקרקע, והיינו, שאף שיש ברה"י מה שאין ברה"ר שיש בו משמעות שהוא תופס חלל, שהרי עולה עד הרקיע, אין זה חלק מהגדרת הרשות, שאין הגדרת הרשות אלא בקרקעה, והיא אינה אלא ביחס לגובה עשרה. וגם אין יועיל בה גדרים שאינם נוגעים לקרקעה באופן חיובי, ואם נמצא בדיניה גדרים הנוגעים לזה, הרי בהכרח שהם גדרים שליליים כמניעה וכו'.&lt;a class="note-marker" href="#note-n7" id="noteref-n7" style="font-size: 8pt; font-weight: 700; text-decoration: none; color: inherit; cursor: pointer; vertical-align: super; line-height: 0;"&gt;א&lt;/a&gt;&lt;/p&gt;&lt;p data-token-id="597" data-is-cont="false" class="p-end" data-raw-text="ועכ&quot;פ מצאנו דגדר קרקע הנצרך לרה&quot;י הינו ביחס לשימוש אדם להנחת חפץ. אך אין זה הגדר בקרקע דרה&quot;ר, והיינו, דאף שצריך שיהיה מקום דרה&quot;ר ראוי להנחת חפץ, אין זה משמעות רה&quot;ר עצמה. כי אין משמעות חפץ המונח ברה&quot;ר (היינו, תוספת המשמעות האמורה לעיל המוגדרת כהוצאה) גדר רה&quot;ר עצמה." data-side-note="רשויות – 7, 640) - חילוק גדר קרקע רה&quot;ר מקרקע רה&quot;י - חפץ המונח ברה&quot;ר אינו נחשב כמונח בכלל הרשות"&gt;&lt;span class="first-word-window"&gt;ועכ"פ&lt;/span&gt; מצאנו דגדר קרקע הנצרך לרה"י הינו ביחס לשימוש אדם להנחת חפץ. אך אין זה הגדר בקרקע דרה"ר, והיינו, דאף שצריך שיהיה מקום דרה"ר ראוי להנחת חפץ, אין זה משמעות רה"ר עצמה. כי אין משמעות חפץ המונח ברה"ר (היינו, תוספת המשמעות האמורה לעיל המוגדרת כהוצאה) גדר רה"ר עצמה.&lt;/p&gt;&lt;p data-token-id="598" data-is-cont="false" class="p-end" data-raw-text="ודבר זה מוכח מזה שחפץ המונח ברה&quot;ר אינו נחשב שמקומו בכלל הרשות שנמצא בה, דא&quot;כ לא הוי ביה דין העברה, ובהכרח שמשמעות הרשות שלעצמה אינה בהיותה מקום חפץ. ויותר מזה דכיון שהיותה רה&quot;ר הוא גדר בדין העברה, בהכרח שביחס למקום חפץ דין רה&quot;ר הוא דין שלילי, ושלא יהיה חפץ הנמצא במקום הרשות כנמצא בכל הרשות (ויותר מזה מצאנו לדעת ר' יוסי דאף שתי רשויות הרבים נפרדות הוי אחד לגבי הוצאה)."&gt;&lt;span class="first-word-window"&gt;ודבר&lt;/span&gt; זה מוכח מזה שחפץ המונח ברה"ר אינו נחשב שמקומו בכלל הרשות שנמצא בה, דא"כ לא הוי ביה דין העברה, ובהכרח שמשמעות הרשות שלעצמה אינה בהיותה מקום חפץ. ויותר מזה דכיון שהיותה רה"ר הוא גדר בדין העברה, בהכרח שביחס למקום חפץ דין רה"ר הוא דין שלילי, ושלא יהיה חפץ הנמצא במקום הרשות כנמצא בכל הרשות (ויותר מזה מצאנו לדעת ר' יוסי דאף שתי רשויות הרבים נפרדות הוי אחד לגבי הוצאה).&lt;/p&gt;&lt;/div&gt;
+          &lt;div class="col-gutter-divider col-rule-none" style="align-self: start; height: 778px;"&gt;&lt;/div&gt;
+          &lt;div class="main-column left-col"&gt;&lt;p data-token-id="599" data-is-cont="false" class="p-end" data-raw-text="וא&quot;כ הוא שאין רה&quot;ר גדר מקום חפץ, וא&quot;כ הוא שביארנו שדין רשות דהוצאה הוא דין במקום חפץ, הרי שביחס להגדרת שינוי שיש בדין הוצאה יהיה זה גדר שלילי, והיינו, שמה שמותר להעביר ד&quot;א בכרמלית זה משום שאין לנו לומר שיש הבדל ביחס למקום חפץ בין מקום זה שבכרמלית למקום אחר. וזה משום שכמו שאמרנו יש כאן שני גדרים, האחד, הוא מקום חפץ מונח, היינו, עצם מה שחפץ תופס מקומו, וזה משום חשיבות חפץ מונח ביחס למקום חפץ לעומת שאינו מונח. והגדר השני, הוא משמעות שיש בהיותו במקום, וכיון שמשמעות זו היא מוקדמת לעצם מקום חפץ והיא המגדירה שטח שמקום חפץ יהיה חלק ממנו, הרי שמשמעות רשות היא הגדרת מקום שאינו חלק מהגדרת מקום חפץ מונח מסוים, וכיון שזה אמור ביחס לקרקע לעומת אוויר, וכיון שאין ברה&quot;י אלא הגדרה זו, בהכרח שגם רה&quot;ר הוא בהגדרה זו. שאם אין הם באותו גדר לא יתכן לקרותו שינוי, אלא תוספת, וזה ברור." data-side-note="רשויות – 7, 641) - שיתוף גדר רה&quot;ר ורה&quot;י בהוצאה - שני גדרים במקום חפץ מונח ומשמעות היותו ברשות" style="margin-bottom: 9.625px; line-height: 1.34899;"&gt;&lt;span class="first-word-window"&gt;וא"כ&lt;/span&gt; הוא שאין רה"ר גדר מקום חפץ, וא"כ הוא שביארנו שדין רשות דהוצאה הוא דין במקום חפץ, הרי שביחס להגדרת שינוי שיש בדין הוצאה יהיה זה גדר שלילי, והיינו, שמה שמותר להעביר ד"א בכרמלית זה משום שאין לנו לומר שיש הבדל ביחס למקום חפץ בין מקום זה שבכרמלית למקום אחר. וזה משום שכמו שאמרנו יש כאן שני גדרים, האחד, הוא מקום חפץ מונח, היינו, עצם מה שחפץ תופס מקומו, וזה משום חשיבות חפץ מונח ביחס למקום חפץ לעומת שאינו מונח. והגדר השני, הוא משמעות שיש בהיותו במקום, וכיון שמשמעות זו היא מוקדמת לעצם מקום חפץ והיא המגדירה שטח שמקום חפץ יהיה חלק ממנו, הרי שמשמעות רשות היא הגדרת מקום שאינו חלק מהגדרת מקום חפץ מונח מסוים, וכיון שזה אמור ביחס לקרקע לעומת אוויר, וכיון שאין ברה"י אלא הגדרה זו, בהכרח שגם רה"ר הוא בהגדרה זו. שאם אין הם באותו גדר לא יתכן לקרותו שינוי, אלא תוספת, וזה ברור.&lt;/p&gt;&lt;p data-token-id="600" data-is-cont="false" class="p-end" data-raw-text="ונקדים להוציא מדעת מה שהיה לומר דדין העברה כשינוי מקום חפץ נובע מגדר רשות שבה נאסרה, היינו, רה&quot;ר, שאף שיש למצוא בדין העברה מכלל איסור הוצאה מרשות לרשות אנו למדים שהעברה חשיב שינוי במקום חפץ, אין זה משום חסרון אחידות משמעות היות חפץ ברה&quot;ר ומה שהיא אותה הרשות, שנאמר דלכן הוה כשני רשויות." data-side-note="הוצאה – 7, 170) - שלילת חסרון אחידות ברה&quot;ר בהעברה ד' - מעשה העברה נחשב שינוי חשוב אף באותה רשות" style="margin-bottom: 9.25px;"&gt;&lt;span class="first-word-window"&gt;ונקדים&lt;/span&gt; להוציא מדעת מה שהיה לומר דדין העברה כשינוי מקום חפץ נובע מגדר רשות שבה נאסרה, היינו, רה"ר, שאף שיש למצוא בדין העברה מכלל איסור הוצאה מרשות לרשות אנו למדים שהעברה חשיב שינוי במקום חפץ, אין זה משום חסרון אחידות משמעות היות חפץ ברה"ר ומה שהיא אותה הרשות, שנאמר דלכן הוה כשני רשויות.&lt;/p&gt;&lt;p data-token-id="601" data-is-cont="false" class="p-cut" data-raw-text="וזה אינו, שהרי אף ברה&quot;ר מצאנו שהיא רשות אחת, וכמו לענין הצטרפות הוצאת שני חצאי שיעור לשני רה&quot;ר דבגמ' בב&quot;ב (ואף לפר&quot;ח שם לא חלק רק שאין חסרון דמחוסר קירבה כמו בכתיבה. וע&quot;ש. ומש&quot;כ בזה), אלא ודאי דגדר העברה הוא באעפ&quot;כ, היינו, שאף" style="word-spacing: 2.5px;"&gt;&lt;span class="first-word-window"&gt;וזה&lt;/span&gt; אינו, שהרי אף ברה"ר מצאנו שהיא רשות אחת, וכמו לענין הצטרפות הוצאת שני חצאי שיעור לשני רה"ר דבגמ' בב"ב (ואף לפר"ח שם לא חלק רק שאין חסרון דמחוסר קירבה כמו בכתיבה. וע"ש. ומש"כ בזה), אלא ודאי דגדר העברה הוא באעפ"כ, היינו, שאף&lt;/p&gt;&lt;/div&gt;
+          &lt;div&gt;&lt;/div&gt;
+          &lt;div class="margin-notes-column left-margin"&gt;&lt;div class="side-note-anchor" style="top: 4px;"&gt;רשויות – 7, 641) - שיתוף גדר רה"ר ורה"י בהוצאה - שני גדרים במקום חפץ מונח ומשמעות היותו ברשות&lt;/div&gt;&lt;div class="side-note-anchor" style="top: 445px;"&gt;הוצאה – 7, 170) - שלילת חסרון אחידות ברה"ר בהעברה ד' - מעשה העברה נחשב שינוי חשוב אף באותה רשות&lt;/div&gt;&lt;/div&gt;
+        &lt;/div&gt;&lt;/div&gt;
+      &lt;div class="footnote-area"&gt;&lt;div class="note-rule-plain"&gt;&lt;/div&gt;&lt;div class="note-block cols-1"&gt;&lt;div class="note-line" id="note-n7"&gt;&lt;a class="note-line-num" href="#noteref-n7" style="font-size: 8pt; font-weight: 700; text-decoration: none; color: inherit; cursor: pointer; vertical-align: baseline;"&gt;א. &lt;/a&gt;&lt;span class="note-body-text"&gt;אך כאמור לעיל גדר מה שתקנו חכ' הוא ביחס הפוך, דאין הם דינים ביחס לקרקע, אלא ביחס לרשות עצמה, היינו, חללה. והיינו, שראו חכ' שאף שקרקע רה"י מוגדרת היטיב כדינה מן התורה, הרי שהתייחסות האנשים לחלל הרשויות כזהות הרשות יביא להחליף את משמעות זהות הרשויות ממשמעות הקרקע למשמעות החלל. והרי אין דיני רשויות מן התורה מיועדים ומועילים להגדיר את החלל. וע"כ תקנו דינים הנוגעים לחלל הרשות, והיינו, שאם היה ברור גדר זה דאין רשות אלא ביחס למקום חפץ, ואין רשות אלא בקרקעה, היה הבדל הרשויות ברור לאנשים. אך כיון דאין זה ברור, הרי שאנו נצרכים להגדיר אף את חלל הרשות, וזה משמעות מה שתיקוני מבוי שווים, בלי שייכות לדין מחיצות התורה, ובין אם יהיה הדין ב' או ג' מחיצות דאורייתא, יהיה דין להכשיר את המבוי מארבעה צדדים.&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="page-number-footer pos-center"&gt;פד&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;</pre>
+  </div>
+
+  <script>
+    const fullDebugPayload = {
+      pageIndex: 84,
+      trace: {"pageIndex":84,"gematria":"פד","pageRole":"regular","pageContext":{"simanBadge":"סימן ד","rawH2WithoutSiman":"רשויות","h4Title":"רשות הרבים"},"h2Text":"","initialBudget":915,"tokensPlaced":[{"id":595,"type":"p","col":"right","linesPlaced":8,"totalLines":8,"isEndOfP":true},{"id":596,"type":"p","col":"right","linesPlaced":9,"totalLines":9,"isEndOfP":true},{"id":597,"type":"p","col":"right","linesPlaced":8,"totalLines":8,"isEndOfP":true},{"id":598,"type":"p","col":"right","linesPlaced":10,"totalLines":10,"isEndOfP":true},{"id":599,"type":"p","col":"left","linesPlaced":20,"totalLines":20,"isEndOfP":true},{"id":600,"type":"p","col":"left","linesPlaced":8,"totalLines":8,"isEndOfP":true},{"id":601,"type":"p","col":"left","linesPlaced":6,"totalLines":8,"isEndOfP":false}],"steps":[],"justificationLog":{"neededGrowth":28,"heightCeiling":779,"tiersApplied":{"priority3_paragraphSpacing":5,"priority4_lineHeight":3,"priority5_wordSpacing":21}},"balanceLog":null,"domMetrics":{"bodyFlowClientHeight":915,"bodyFlowScrollHeight":915,"finalBudget":2,"footnotesQueuedCount":1,"footnotesHeightMeasured":132}},
+      domInspection: {"rightCol":{"scrollHeight":778,"offsetHeight":778,"childrenCount":4,"children":[{"tag":"P","className":"p-end","textSnippet":"יהיה בהם משמעות ביחס לשימוש, היינו, שלא יהיה בהגבל","offsetHeight":172,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"},{"tag":"P","className":"p-end","textSnippet":"וע\"כ לא יהיה גדר מחיצות דרה\"י אלא גדר בקרקע, והיינ","offsetHeight":193,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"},{"tag":"P","className":"p-end","textSnippet":"ועכ\"פ מצאנו דגדר קרקע הנצרך לרה\"י הינו ביחס לשימוש","offsetHeight":172,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"},{"tag":"P","className":"p-end","textSnippet":"ודבר זה מוכח מזה שחפץ המונח ברה\"ר אינו נחשב שמקומו","offsetHeight":214,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"}]},"leftCol":{"scrollHeight":779,"offsetHeight":779,"childrenCount":3,"children":[{"tag":"P","className":"p-end","textSnippet":"וא\"כ הוא שאין רה\"ר גדר מקום חפץ, וא\"כ הוא שביארנו ","offsetHeight":432,"marginTop":"0px","marginBottom":"9.625px","lineHeight":"21.5838px"},{"tag":"P","className":"p-end","textSnippet":"ונקדים להוציא מדעת מה שהיה לומר דדין העברה כשינוי ","offsetHeight":172,"marginTop":"0px","marginBottom":"9.25px","lineHeight":"21.44px"},{"tag":"P","className":"p-cut","textSnippet":"וזה אינו, שהרי אף ברה\"ר מצאנו שהיא רשות אחת, וכמו ","offsetHeight":150,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"}]},"footnoteArea":{"offsetHeight":114,"scrollHeight":114,"notesCount":1},"bodyFlow":{"clientHeight":788,"scrollHeight":788}},
+      warnings: []
+    };
+
+    function copyFullJSON() {
+      navigator.clipboard.writeText(JSON.stringify(fullDebugPayload, null, 2)).then(() => {
+        alert('נתוני הדיבאג הועתקו ללוח בהצלחה!');
+      });
+    }
+  </script>
+</body>
+</html>

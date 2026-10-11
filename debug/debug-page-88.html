@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>דוח דיאגנוסטיקה ודיבאג — עמוד פח</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background: #1e293b; color: #f8fafc; font-family: 'Assistant', sans-serif; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+    .diag-header { background: #0f172a; border: 1px solid #334155; padding: 15px 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .diag-title { font-size: 16pt; font-weight: 800; color: #38bdf8; }
+    .diag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .diag-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 15px; overflow: hidden; display: flex; flex-direction: column; }
+    .diag-card h3 { color: #94a3b8; font-size: 11pt; border-bottom: 1px solid #334155; padding-bottom: 6px; margin-bottom: 10px; }
+    .page-preview-box { background: #475569; padding: 20px; border-radius: 6px; display: flex; justify-content: center; overflow: auto; max-height: 800px; }
+    .page-preview-box .a4-page { transform: scale(0.8); transform-origin: top center; margin-bottom: 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    pre { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 8.5pt; color: #38bdf8; overflow-x: auto; max-height: 400px; }
+    .warn-badge { background: #7f1d1d; border: 1px solid #ef4444; color: #fecaca; padding: 6px 12px; border-radius: 6px; font-size: 9pt; margin-bottom: 6px; font-weight: bold; }
+    .ok-badge { background: #064e3b; border: 1px solid #10b981; color: #a7f3d0; padding: 6px 12px; border-radius: 6px; font-size: 9pt; margin-bottom: 6px; }
+    .step-log-item { font-size: 8pt; padding: 4px 6px; border-bottom: 1px dashed #334155; color: #cbd5e1; }
+    .btn-copy { background: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+    .btn-copy:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="diag-header">
+    <div>
+      <div class="diag-title">🐛 דוח דיאגנוסטיקה לעימוד — עמוד פח (88)</div>
+      <div style="font-size:9pt; color:#94a3b8; margin-top:3px;">הופק אוטומטית ע"י מנוע העימוד | תפקיד: regular</div>
+    </div>
+    <button class="btn-copy" onclick="copyFullJSON()">📋 העתק JSON מלא</button>
+  </div>
+
+  <div class="ok-badge">✅ לא זוהו חריגות גובה או שגיאות קריטיות בעמוד זה</div>
+
+  <div class="diag-grid">
+    <div class="diag-card">
+      <h3>🖼️ תצוגה חיה של העמוד</h3>
+      <div class="page-preview-box">
+        <div class="a4-page page-focused" data-page-index="88" data-first-line-idx="884">
+    
+    <div class="page-content-wrapper">
+      <div class="top-header-grid">
+        <div class="header-col-r" style="text-align:right; justify-content:right; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;">הקדמות וכללים</div>
+        <div class="header-col-c" style="text-align:center; justify-content:center;"><svg style="height:9px; width:48px;" viewBox="0 0 400 40"><circle cx="200" cy="20" r="10" fill="none" stroke="#444" stroke-width="4.5"></circle><circle cx="200" cy="20" r="4.5" fill="#444"></circle><path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#444"></path><path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#444"></path></svg></div>
+        <div class="header-col-l" style="text-align:left; justify-content:left; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;">סימן ד - רשויות</div>
+      </div>
+      <div class="page-body-flow ">
+        
+      <div class="block-2col">
+          <div class="margin-notes-column right-margin"><div class="side-note-anchor" style="top: 161px;">שתי מחיצות דר' יהודה ברה"ר – דעת תוס' בגדר הנ"ל מה דעביד לרה"י הוה ביטול רה"ר</div></div>
+          <div></div>
+          <div class="main-column right-col"><p data-token-id="615" data-is-cont="true" class="p-end" data-raw-text="מצאנו לו דין דאתי רבים ומבטלי מחיצתא. ולתירוץ שני העניינים הראשונים, כתבו בתוס' לתרץ דרשות הרבים האמור מתקצרת פחות מיג' אמה ושליש בין שני רשות הרבים רחבים טז' אמה, שיש בזה דין רשות הרבים משום שהוא המשך של רשות הרבים שיש בו שיעור, ומאידך שייך בו לחי או קורה מכאן וכו'." style="margin-bottom: 7.1875px;">מצאנו לו דין דאתי רבים ומבטלי מחיצתא. ולתירוץ שני העניינים הראשונים, כתבו בתוס' לתרץ דרשות הרבים האמור מתקצרת פחות מיג' אמה ושליש בין שני רשות הרבים רחבים טז' אמה, שיש בזה דין רשות הרבים משום שהוא המשך של רשות הרבים שיש בו שיעור, ומאידך שייך בו לחי או קורה מכאן וכו'.</p><p data-token-id="616" data-is-cont="false" class="p-end" data-raw-text="עכ&quot;פ מצאנו דדין ב' מחיצות אינו עניין לדין רשות הרבים, דאפילו תוס' לא נחתי אלא לעניין עשיית לחי או קורה לעשותו רשות היחיד, אבל משום טעם דב' מחיצות הוו סתירה לרשות הרבים לא אתו. והנה בתוס' פ&quot;ב בעניין ירושלים הקשו דלר&quot;י עדיין כיון דהוי ב' מחיצות דאורייתא, אם כן אין זה רשות הרבים אפילו אינם ננעלות, וכתבו לתרץ שיש מקום בירושלים דאין לו מחיצות כלל, כגון שהעיר חצויה לארכה ולרחבה, ויש באמצע מקום פרוץ לכל הרוחות (וקשה שהרי אין דין ארבע מחיצות לארבע רוחות ואם כן הרי במקרה זה אפשר לראות המקום הפרוץ באמצע כגדור משאר רוחות וא&quot;ת כיון שהם עשויים כקרן זווית ואין פנים מחיתה לקרנות הרי אמרינן בפסים חוקקין להשלים ולא יגרע וצ&quot;ע)." data-side-note="שתי מחיצות דר' יהודה ברה&quot;ר – דעת תוס' בגדר הנ&quot;ל מה דעביד לרה&quot;י הוה ביטול רה&quot;ר" style="margin-bottom: 7.1875px;"><span class="first-word-window">עכ"פ</span> מצאנו דדין ב' מחיצות אינו עניין לדין רשות הרבים, דאפילו תוס' לא נחתי אלא לעניין עשיית לחי או קורה לעשותו רשות היחיד, אבל משום טעם דב' מחיצות הוו סתירה לרשות הרבים לא אתו. והנה בתוס' פ"ב בעניין ירושלים הקשו דלר"י עדיין כיון דהוי ב' מחיצות דאורייתא, אם כן אין זה רשות הרבים אפילו אינם ננעלות, וכתבו לתרץ שיש מקום בירושלים דאין לו מחיצות כלל, כגון שהעיר חצויה לארכה ולרחבה, ויש באמצע מקום פרוץ לכל הרוחות (וקשה שהרי אין דין ארבע מחיצות לארבע רוחות ואם כן הרי במקרה זה אפשר לראות המקום הפרוץ באמצע כגדור משאר רוחות וא"ת כיון שהם עשויים כקרן זווית ואין פנים מחיתה לקרנות הרי אמרינן בפסים חוקקין להשלים ולא יגרע וצ"ע).</p><p data-token-id="617" data-is-cont="false" class="p-end" data-raw-text="ועכ&quot;פ משמע בתוס' שאף שאין מתירים רה&quot;י לר&quot;י יותר מיג' אמה ושליש, עכ&quot;פ גם דין רשות הרבים לא נחתה ליה, כיון שיש לו מחיצות. וכן משמע מגמ' ותירוצי הראשונים למה לא יהיה גבולות הארץ ואוקיינוס לעולם כארבע מחיצות, ואין לחלק בין ארבע מחיצות לרבנן לדין ב' מחיצות דר&quot;י, ואין מרחק טז' אמה בין מחיצות מספיק להיות המחיצות לא משפיעות על מקום רה&quot;ר. וברשב&quot;א התקשה בתירוץ התוס' דירושלים. ותימה שלא הזכיר שיטתו (בעה&quot;ק) בעניין פלטיא דודאי לא שנא אף לר&quot;י, וגם הקשה שם מגמרא (ו:) למה לא אמרו דאיירי באין פרוץ מד' רוחות." style="margin-bottom: 7.1875px;"><span class="first-word-window">ועכ"פ</span> משמע בתוס' שאף שאין מתירים רה"י לר"י יותר מיג' אמה ושליש, עכ"פ גם דין רשות הרבים לא נחתה ליה, כיון שיש לו מחיצות. וכן משמע מגמ' ותירוצי הראשונים למה לא יהיה גבולות הארץ ואוקיינוס לעולם כארבע מחיצות, ואין לחלק בין ארבע מחיצות לרבנן לדין ב' מחיצות דר"י, ואין מרחק טז' אמה בין מחיצות מספיק להיות המחיצות לא משפיעות על מקום רה"ר. וברשב"א התקשה בתירוץ התוס' דירושלים. ותימה שלא הזכיר שיטתו (בעה"ק) בעניין פלטיא דודאי לא שנא אף לר"י, וגם הקשה שם מגמרא (ו:) למה לא אמרו דאיירי באין פרוץ מד' רוחות.</p><div class="title-level-5" data-token-id="618" id="heading-tok-618" style="margin-top: 12.625px; margin-bottom: 4.25px;">הגדרות השימושיות של רשות הרבים</div><p data-token-id="619" data-is-cont="false" class="p-end" data-raw-text="הנה כמשנ&quot;ת דיני רשות הרבים בכל מקום, שורשם שיהיה מקום זה מיועד לשימוש הרבים כל אחד שירצה."><span class="first-word-window">הנה</span> כמשנ"ת דיני רשות הרבים בכל מקום, שורשם שיהיה מקום זה מיועד לשימוש הרבים כל אחד שירצה.</p></div>
+          <div class="col-gutter-divider col-rule-none" style="align-self: start; height: 893px;"></div>
+          <div class="main-column left-col"><p data-token-id="620" data-is-cont="false" class="p-end" data-raw-text="והביאור בזה בהקדם מה דצ&quot;ב איך בכלל יגדיר שימוש הרבים גדר בקרקע, אחר שהקרקע אינה מושפעת ע&quot;י שימוש בה. ובהכרח שאין זה דין בקרקע עצמה, אלא במה שיש בה אפשרות שימוש, ובזה יש לרבים להגדיר את משמעות שימוש הקרקע, והיותה מוכנה לשימוש, שהרי גדרה הנ&quot;ל הוא מכוחם (שאין משמעות שימוש בקרקע בלי משתמשים). וע&quot;כ עצם גדר הקרקע אין הוא מוגדר ע&quot;י הרבים, וההפך שהוא מגדיר את השימוש (והרי זה ההבדל בין רשות לסתם אוויר מקום שאין שייך רשות באוויר אלא בקרקע)." data-side-note="רשויות – 7, 627) - משמעות שימוש הרבים לגבי קרקע - הרבים מגדירים משמעות שימוש הקרקע ולא הקרקע עצמה"><span class="first-word-window">והביאור</span> בזה בהקדם מה דצ"ב איך בכלל יגדיר שימוש הרבים גדר בקרקע, אחר שהקרקע אינה מושפעת ע"י שימוש בה. ובהכרח שאין זה דין בקרקע עצמה, אלא במה שיש בה אפשרות שימוש, ובזה יש לרבים להגדיר את משמעות שימוש הקרקע, והיותה מוכנה לשימוש, שהרי גדרה הנ"ל הוא מכוחם (שאין משמעות שימוש בקרקע בלי משתמשים). וע"כ עצם גדר הקרקע אין הוא מוגדר ע"י הרבים, וההפך שהוא מגדיר את השימוש (והרי זה ההבדל בין רשות לסתם אוויר מקום שאין שייך רשות באוויר אלא בקרקע).</p><p data-token-id="621" data-is-cont="false" class="p-cut" data-raw-text="ולפ&quot;ז יש למצוא גדר במה דזה תלוי במסירת יהושע ובכוחו להנחיל את הארץ, כי דין התורה במה נחשב רה&quot;ר הוא בקרקע שאין לה משמעות שימושית בעצמה, שבזה אמרה תורה ששימוש הרבים בה יחשיבה כרה&quot;ר, ובאמת בזה אין ליהושע לחדש דין (יותר ממה שאין לחכ' בכל דור), דבהגדרת שימוש הרבים עצמם ודאי שאין ליהושע כח, שלא ניתן לו כח באנשים, ואף בקרקע הרי לא ניתן לו כח אלא לחלוקתה, ואין לו בה קניין, ואין לו כח להגבילה בגדרים קניניים, וגם אין גדר רה&quot;ר תלוי בקניין (דא&quot;כ לא אתי מה דאמר ר' יוחנן בירושלים אלא למ&quot;ד דלא נתחלקה לשבטים, ואף אי נימא דאין קנין השבט כמו קנין יחיד לגבי זה, הרי שהיה לברר בכל מקום מה הונחל ליחיד ומה לא. וגם אין אפשרות לברר זה בקרקע שאין נוחות תשמישה קבוע, וגם ברור דאין זה גדר תפיסת שבט או תפיסת יחיד דשבט, דזה שייך לגדרי אחוזת אבות ולא לגדרי קנין, דלמי חוזרת ביובל. ואכמ&quot;ל). אלא שכיון שניתן לו להנחיל ולחלקה לכל ישראל, היה לו גם כח להגדיר מקום לכל ישראל, היינו, מה שזה צורכם, וגם זה בגדר חלוקה, שזה שיהיה מקום שהוא לשימוש הרבים אין זה גדר של זכות וחובה הסותר לזכות היחיד, וכולם צריכים לזה, וע&quot;כ גם זה הוא מדין חלוקה. וחלוקת הארץ לשימושיה אכן היה בכוחו, ובזה שחילק סוג הקרקע ביחס לשימוש הרבים והיחיד, הרי שהגדיר שבארץ ישראל יש משמעות בסוג" data-side-note="רשויות – 7, 628) - גדר כח יהושע בהנחלת הארץ - כח הנ&quot;ל להיות מגדיר מסירת קרקע לשימוש הרבים והיחיד"><span class="first-word-window">ולפ"ז</span> יש למצוא גדר במה דזה תלוי במסירת יהושע ובכוחו להנחיל את הארץ, כי דין התורה במה נחשב רה"ר הוא בקרקע שאין לה משמעות שימושית בעצמה, שבזה אמרה תורה ששימוש הרבים בה יחשיבה כרה"ר, ובאמת בזה אין ליהושע לחדש דין (יותר ממה שאין לחכ' בכל דור), דבהגדרת שימוש הרבים עצמם ודאי שאין ליהושע כח, שלא ניתן לו כח באנשים, ואף בקרקע הרי לא ניתן לו כח אלא לחלוקתה, ואין לו בה קניין, ואין לו כח להגבילה בגדרים קניניים, וגם אין גדר רה"ר תלוי בקניין (דא"כ לא אתי מה דאמר ר' יוחנן בירושלים אלא למ"ד דלא נתחלקה לשבטים, ואף אי נימא דאין קנין השבט כמו קנין יחיד לגבי זה, הרי שהיה לברר בכל מקום מה הונחל ליחיד ומה לא. וגם אין אפשרות לברר זה בקרקע שאין נוחות תשמישה קבוע, וגם ברור דאין זה גדר תפיסת שבט או תפיסת יחיד דשבט, דזה שייך לגדרי אחוזת אבות ולא לגדרי קנין, דלמי חוזרת ביובל. ואכמ"ל). אלא שכיון שניתן לו להנחיל ולחלקה לכל ישראל, היה לו גם כח להגדיר מקום לכל ישראל, היינו, מה שזה צורכם, וגם זה בגדר חלוקה, שזה שיהיה מקום שהוא לשימוש הרבים אין זה גדר של זכות וחובה הסותר לזכות היחיד, וכולם צריכים לזה, וע"כ גם זה הוא מדין חלוקה. וחלוקת הארץ לשימושיה אכן היה בכוחו, ובזה שחילק סוג הקרקע ביחס לשימוש הרבים והיחיד, הרי שהגדיר שבארץ ישראל יש משמעות בסוג</p></div>
+          <div></div>
+          <div class="margin-notes-column left-margin"><div class="side-note-anchor" style="top: 4px;">רשויות – 7, 627) - משמעות שימוש הרבים לגבי קרקע - הרבים מגדירים משמעות שימוש הקרקע ולא הקרקע עצמה</div><div class="side-note-anchor" style="top: 268px;">רשויות – 7, 628) - גדר כח יהושע בהנחלת הארץ - כח הנ"ל להיות מגדיר מסירת קרקע לשימוש הרבים והיחיד</div></div>
+        </div></div>
+      <div class="page-number-footer pos-center">פח</div>
+    </div>
+  </div>
+      </div>
+    </div>
+
+    <div class="diag-card">
+      <h3>📊 מדדי DOM ונתוני גובה מדויקים</h3>
+      <pre id="json-dom">{
+  "rightCol": {
+    "scrollHeight": 893,
+    "offsetHeight": 893,
+    "childrenCount": 5,
+    "children": [
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "מצאנו לו דין דאתי רבים ומבטלי מחיצתא. ולתירוץ שני ",
+        "offsetHeight": 150,
+        "marginTop": "0px",
+        "marginBottom": "7.1875px",
+        "lineHeight": "21.44px"
+      },
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "עכ\"פ מצאנו דדין ב' מחיצות אינו עניין לדין רשות הרב",
+        "offsetHeight": 343,
+        "marginTop": "0px",
+        "marginBottom": "7.1875px",
+        "lineHeight": "21.44px"
+      },
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "ועכ\"פ משמע בתוס' שאף שאין מתירים רה\"י לר\"י יותר מי",
+        "offsetHeight": 279,
+        "marginTop": "0px",
+        "marginBottom": "7.1875px",
+        "lineHeight": "21.44px"
+      },
+      {
+        "tag": "DIV",
+        "className": "title-level-5",
+        "textSnippet": "הגדרות השימושיות של רשות הרבים",
+        "offsetHeight": 19,
+        "marginTop": "12.625px",
+        "marginBottom": "4.25px",
+        "lineHeight": "18.7067px"
+      },
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "הנה כמשנ\"ת דיני רשות הרבים בכל מקום, שורשם שיהיה מ",
+        "offsetHeight": 64,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      }
+    ]
+  },
+  "leftCol": {
+    "scrollHeight": 893,
+    "offsetHeight": 893,
+    "childrenCount": 2,
+    "children": [
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "והביאור בזה בהקדם מה דצ\"ב איך בכלל יגדיר שימוש הרב",
+        "offsetHeight": 257,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      },
+      {
+        "tag": "P",
+        "className": "p-cut",
+        "textSnippet": "ולפ\"ז יש למצוא גדר במה דזה תלוי במסירת יהושע ובכוח",
+        "offsetHeight": 622,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      }
+    ]
+  },
+  "footnoteArea": null,
+  "bodyFlow": {
+    "clientHeight": 915,
+    "scrollHeight": 915
+  }
+}</pre>
+
+      <h3 style="margin-top:15px;">📜 יומן שלבי עימוד (Trace Log)</h3>
+      <div style="max-height:220px; overflow-y:auto; background:#020617; border-radius:6px; padding:6px;">
+        <div class="step-log-item">אין שלבים מיוחדים מתועדים</div>
+      </div>
+
+      <h3 style="margin-top:15px;">⚖️ פירוט יישור ואיזון טורים (Justification & Balancing)</h3>
+      <pre>{
+  "balanceLog": null,
+  "justificationLog": {
+    "neededGrowth": 7,
+    "heightCeiling": 894,
+    "tiersApplied": {
+      "priority1_headingBefore": 5,
+      "priority2_headingAfter": 2,
+      "priority3_paragraphSpacing": 0
+    }
+  }
+}</pre>
+    </div>
+  </div>
+
+  <div class="diag-card">
+    <h3>📄 קוד ה-HTML של העמוד (OuterHTML)</h3>
+    <pre>&lt;div class="a4-page page-focused" data-page-index="88" data-first-line-idx="884"&gt;
+    
+    &lt;div class="page-content-wrapper"&gt;
+      &lt;div class="top-header-grid"&gt;
+        &lt;div class="header-col-r" style="text-align:right; justify-content:right; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;"&gt;הקדמות וכללים&lt;/div&gt;
+        &lt;div class="header-col-c" style="text-align:center; justify-content:center;"&gt;&lt;svg style="height:9px; width:48px;" viewBox="0 0 400 40"&gt;&lt;circle cx="200" cy="20" r="10" fill="none" stroke="#444" stroke-width="4.5"&gt;&lt;/circle&gt;&lt;circle cx="200" cy="20" r="4.5" fill="#444"&gt;&lt;/circle&gt;&lt;path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#444"&gt;&lt;/path&gt;&lt;path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#444"&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/div&gt;
+        &lt;div class="header-col-l" style="text-align:left; justify-content:left; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;"&gt;סימן ד - רשויות&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class="page-body-flow "&gt;
+        
+      &lt;div class="block-2col"&gt;
+          &lt;div class="margin-notes-column right-margin"&gt;&lt;div class="side-note-anchor" style="top: 161px;"&gt;שתי מחיצות דר' יהודה ברה"ר – דעת תוס' בגדר הנ"ל מה דעביד לרה"י הוה ביטול רה"ר&lt;/div&gt;&lt;/div&gt;
+          &lt;div&gt;&lt;/div&gt;
+          &lt;div class="main-column right-col"&gt;&lt;p data-token-id="615" data-is-cont="true" class="p-end" data-raw-text="מצאנו לו דין דאתי רבים ומבטלי מחיצתא. ולתירוץ שני העניינים הראשונים, כתבו בתוס' לתרץ דרשות הרבים האמור מתקצרת פחות מיג' אמה ושליש בין שני רשות הרבים רחבים טז' אמה, שיש בזה דין רשות הרבים משום שהוא המשך של רשות הרבים שיש בו שיעור, ומאידך שייך בו לחי או קורה מכאן וכו'." style="margin-bottom: 7.1875px;"&gt;מצאנו לו דין דאתי רבים ומבטלי מחיצתא. ולתירוץ שני העניינים הראשונים, כתבו בתוס' לתרץ דרשות הרבים האמור מתקצרת פחות מיג' אמה ושליש בין שני רשות הרבים רחבים טז' אמה, שיש בזה דין רשות הרבים משום שהוא המשך של רשות הרבים שיש בו שיעור, ומאידך שייך בו לחי או קורה מכאן וכו'.&lt;/p&gt;&lt;p data-token-id="616" data-is-cont="false" class="p-end" data-raw-text="עכ&quot;פ מצאנו דדין ב' מחיצות אינו עניין לדין רשות הרבים, דאפילו תוס' לא נחתי אלא לעניין עשיית לחי או קורה לעשותו רשות היחיד, אבל משום טעם דב' מחיצות הוו סתירה לרשות הרבים לא אתו. והנה בתוס' פ&quot;ב בעניין ירושלים הקשו דלר&quot;י עדיין כיון דהוי ב' מחיצות דאורייתא, אם כן אין זה רשות הרבים אפילו אינם ננעלות, וכתבו לתרץ שיש מקום בירושלים דאין לו מחיצות כלל, כגון שהעיר חצויה לארכה ולרחבה, ויש באמצע מקום פרוץ לכל הרוחות (וקשה שהרי אין דין ארבע מחיצות לארבע רוחות ואם כן הרי במקרה זה אפשר לראות המקום הפרוץ באמצע כגדור משאר רוחות וא&quot;ת כיון שהם עשויים כקרן זווית ואין פנים מחיתה לקרנות הרי אמרינן בפסים חוקקין להשלים ולא יגרע וצ&quot;ע)." data-side-note="שתי מחיצות דר' יהודה ברה&quot;ר – דעת תוס' בגדר הנ&quot;ל מה דעביד לרה&quot;י הוה ביטול רה&quot;ר" style="margin-bottom: 7.1875px;"&gt;&lt;span class="first-word-window"&gt;עכ"פ&lt;/span&gt; מצאנו דדין ב' מחיצות אינו עניין לדין רשות הרבים, דאפילו תוס' לא נחתי אלא לעניין עשיית לחי או קורה לעשותו רשות היחיד, אבל משום טעם דב' מחיצות הוו סתירה לרשות הרבים לא אתו. והנה בתוס' פ"ב בעניין ירושלים הקשו דלר"י עדיין כיון דהוי ב' מחיצות דאורייתא, אם כן אין זה רשות הרבים אפילו אינם ננעלות, וכתבו לתרץ שיש מקום בירושלים דאין לו מחיצות כלל, כגון שהעיר חצויה לארכה ולרחבה, ויש באמצע מקום פרוץ לכל הרוחות (וקשה שהרי אין דין ארבע מחיצות לארבע רוחות ואם כן הרי במקרה זה אפשר לראות המקום הפרוץ באמצע כגדור משאר רוחות וא"ת כיון שהם עשויים כקרן זווית ואין פנים מחיתה לקרנות הרי אמרינן בפסים חוקקין להשלים ולא יגרע וצ"ע).&lt;/p&gt;&lt;p data-token-id="617" data-is-cont="false" class="p-end" data-raw-text="ועכ&quot;פ משמע בתוס' שאף שאין מתירים רה&quot;י לר&quot;י יותר מיג' אמה ושליש, עכ&quot;פ גם דין רשות הרבים לא נחתה ליה, כיון שיש לו מחיצות. וכן משמע מגמ' ותירוצי הראשונים למה לא יהיה גבולות הארץ ואוקיינוס לעולם כארבע מחיצות, ואין לחלק בין ארבע מחיצות לרבנן לדין ב' מחיצות דר&quot;י, ואין מרחק טז' אמה בין מחיצות מספיק להיות המחיצות לא משפיעות על מקום רה&quot;ר. וברשב&quot;א התקשה בתירוץ התוס' דירושלים. ותימה שלא הזכיר שיטתו (בעה&quot;ק) בעניין פלטיא דודאי לא שנא אף לר&quot;י, וגם הקשה שם מגמרא (ו:) למה לא אמרו דאיירי באין פרוץ מד' רוחות." style="margin-bottom: 7.1875px;"&gt;&lt;span class="first-word-window"&gt;ועכ"פ&lt;/span&gt; משמע בתוס' שאף שאין מתירים רה"י לר"י יותר מיג' אמה ושליש, עכ"פ גם דין רשות הרבים לא נחתה ליה, כיון שיש לו מחיצות. וכן משמע מגמ' ותירוצי הראשונים למה לא יהיה גבולות הארץ ואוקיינוס לעולם כארבע מחיצות, ואין לחלק בין ארבע מחיצות לרבנן לדין ב' מחיצות דר"י, ואין מרחק טז' אמה בין מחיצות מספיק להיות המחיצות לא משפיעות על מקום רה"ר. וברשב"א התקשה בתירוץ התוס' דירושלים. ותימה שלא הזכיר שיטתו (בעה"ק) בעניין פלטיא דודאי לא שנא אף לר"י, וגם הקשה שם מגמרא (ו:) למה לא אמרו דאיירי באין פרוץ מד' רוחות.&lt;/p&gt;&lt;div class="title-level-5" data-token-id="618" id="heading-tok-618" style="margin-top: 12.625px; margin-bottom: 4.25px;"&gt;הגדרות השימושיות של רשות הרבים&lt;/div&gt;&lt;p data-token-id="619" data-is-cont="false" class="p-end" data-raw-text="הנה כמשנ&quot;ת דיני רשות הרבים בכל מקום, שורשם שיהיה מקום זה מיועד לשימוש הרבים כל אחד שירצה."&gt;&lt;span class="first-word-window"&gt;הנה&lt;/span&gt; כמשנ"ת דיני רשות הרבים בכל מקום, שורשם שיהיה מקום זה מיועד לשימוש הרבים כל אחד שירצה.&lt;/p&gt;&lt;/div&gt;
+          &lt;div class="col-gutter-divider col-rule-none" style="align-self: start; height: 893px;"&gt;&lt;/div&gt;
+          &lt;div class="main-column left-col"&gt;&lt;p data-token-id="620" data-is-cont="false" class="p-end" data-raw-text="והביאור בזה בהקדם מה דצ&quot;ב איך בכלל יגדיר שימוש הרבים גדר בקרקע, אחר שהקרקע אינה מושפעת ע&quot;י שימוש בה. ובהכרח שאין זה דין בקרקע עצמה, אלא במה שיש בה אפשרות שימוש, ובזה יש לרבים להגדיר את משמעות שימוש הקרקע, והיותה מוכנה לשימוש, שהרי גדרה הנ&quot;ל הוא מכוחם (שאין משמעות שימוש בקרקע בלי משתמשים). וע&quot;כ עצם גדר הקרקע אין הוא מוגדר ע&quot;י הרבים, וההפך שהוא מגדיר את השימוש (והרי זה ההבדל בין רשות לסתם אוויר מקום שאין שייך רשות באוויר אלא בקרקע)." data-side-note="רשויות – 7, 627) - משמעות שימוש הרבים לגבי קרקע - הרבים מגדירים משמעות שימוש הקרקע ולא הקרקע עצמה"&gt;&lt;span class="first-word-window"&gt;והביאור&lt;/span&gt; בזה בהקדם מה דצ"ב איך בכלל יגדיר שימוש הרבים גדר בקרקע, אחר שהקרקע אינה מושפעת ע"י שימוש בה. ובהכרח שאין זה דין בקרקע עצמה, אלא במה שיש בה אפשרות שימוש, ובזה יש לרבים להגדיר את משמעות שימוש הקרקע, והיותה מוכנה לשימוש, שהרי גדרה הנ"ל הוא מכוחם (שאין משמעות שימוש בקרקע בלי משתמשים). וע"כ עצם גדר הקרקע אין הוא מוגדר ע"י הרבים, וההפך שהוא מגדיר את השימוש (והרי זה ההבדל בין רשות לסתם אוויר מקום שאין שייך רשות באוויר אלא בקרקע).&lt;/p&gt;&lt;p data-token-id="621" data-is-cont="false" class="p-cut" data-raw-text="ולפ&quot;ז יש למצוא גדר במה דזה תלוי במסירת יהושע ובכוחו להנחיל את הארץ, כי דין התורה במה נחשב רה&quot;ר הוא בקרקע שאין לה משמעות שימושית בעצמה, שבזה אמרה תורה ששימוש הרבים בה יחשיבה כרה&quot;ר, ובאמת בזה אין ליהושע לחדש דין (יותר ממה שאין לחכ' בכל דור), דבהגדרת שימוש הרבים עצמם ודאי שאין ליהושע כח, שלא ניתן לו כח באנשים, ואף בקרקע הרי לא ניתן לו כח אלא לחלוקתה, ואין לו בה קניין, ואין לו כח להגבילה בגדרים קניניים, וגם אין גדר רה&quot;ר תלוי בקניין (דא&quot;כ לא אתי מה דאמר ר' יוחנן בירושלים אלא למ&quot;ד דלא נתחלקה לשבטים, ואף אי נימא דאין קנין השבט כמו קנין יחיד לגבי זה, הרי שהיה לברר בכל מקום מה הונחל ליחיד ומה לא. וגם אין אפשרות לברר זה בקרקע שאין נוחות תשמישה קבוע, וגם ברור דאין זה גדר תפיסת שבט או תפיסת יחיד דשבט, דזה שייך לגדרי אחוזת אבות ולא לגדרי קנין, דלמי חוזרת ביובל. ואכמ&quot;ל). אלא שכיון שניתן לו להנחיל ולחלקה לכל ישראל, היה לו גם כח להגדיר מקום לכל ישראל, היינו, מה שזה צורכם, וגם זה בגדר חלוקה, שזה שיהיה מקום שהוא לשימוש הרבים אין זה גדר של זכות וחובה הסותר לזכות היחיד, וכולם צריכים לזה, וע&quot;כ גם זה הוא מדין חלוקה. וחלוקת הארץ לשימושיה אכן היה בכוחו, ובזה שחילק סוג הקרקע ביחס לשימוש הרבים והיחיד, הרי שהגדיר שבארץ ישראל יש משמעות בסוג" data-side-note="רשויות – 7, 628) - גדר כח יהושע בהנחלת הארץ - כח הנ&quot;ל להיות מגדיר מסירת קרקע לשימוש הרבים והיחיד"&gt;&lt;span class="first-word-window"&gt;ולפ"ז&lt;/span&gt; יש למצוא גדר במה דזה תלוי במסירת יהושע ובכוחו להנחיל את הארץ, כי דין התורה במה נחשב רה"ר הוא בקרקע שאין לה משמעות שימושית בעצמה, שבזה אמרה תורה ששימוש הרבים בה יחשיבה כרה"ר, ובאמת בזה אין ליהושע לחדש דין (יותר ממה שאין לחכ' בכל דור), דבהגדרת שימוש הרבים עצמם ודאי שאין ליהושע כח, שלא ניתן לו כח באנשים, ואף בקרקע הרי לא ניתן לו כח אלא לחלוקתה, ואין לו בה קניין, ואין לו כח להגבילה בגדרים קניניים, וגם אין גדר רה"ר תלוי בקניין (דא"כ לא אתי מה דאמר ר' יוחנן בירושלים אלא למ"ד דלא נתחלקה לשבטים, ואף אי נימא דאין קנין השבט כמו קנין יחיד לגבי זה, הרי שהיה לברר בכל מקום מה הונחל ליחיד ומה לא. וגם אין אפשרות לברר זה בקרקע שאין נוחות תשמישה קבוע, וגם ברור דאין זה גדר תפיסת שבט או תפיסת יחיד דשבט, דזה שייך לגדרי אחוזת אבות ולא לגדרי קנין, דלמי חוזרת ביובל. ואכמ"ל). אלא שכיון שניתן לו להנחיל ולחלקה לכל ישראל, היה לו גם כח להגדיר מקום לכל ישראל, היינו, מה שזה צורכם, וגם זה בגדר חלוקה, שזה שיהיה מקום שהוא לשימוש הרבים אין זה גדר של זכות וחובה הסותר לזכות היחיד, וכולם צריכים לזה, וע"כ גם זה הוא מדין חלוקה. וחלוקת הארץ לשימושיה אכן היה בכוחו, ובזה שחילק סוג הקרקע ביחס לשימוש הרבים והיחיד, הרי שהגדיר שבארץ ישראל יש משמעות בסוג&lt;/p&gt;&lt;/div&gt;
+          &lt;div&gt;&lt;/div&gt;
+          &lt;div class="margin-notes-column left-margin"&gt;&lt;div class="side-note-anchor" style="top: 4px;"&gt;רשויות – 7, 627) - משמעות שימוש הרבים לגבי קרקע - הרבים מגדירים משמעות שימוש הקרקע ולא הקרקע עצמה&lt;/div&gt;&lt;div class="side-note-anchor" style="top: 268px;"&gt;רשויות – 7, 628) - גדר כח יהושע בהנחלת הארץ - כח הנ"ל להיות מגדיר מסירת קרקע לשימוש הרבים והיחיד&lt;/div&gt;&lt;/div&gt;
+        &lt;/div&gt;&lt;/div&gt;
+      &lt;div class="page-number-footer pos-center"&gt;פח&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;</pre>
+  </div>
+
+  <script>
+    const fullDebugPayload = {
+      pageIndex: 88,
+      trace: {"pageIndex":88,"gematria":"פח","pageRole":"regular","pageContext":{"simanBadge":"סימן ד","rawH2WithoutSiman":"רשויות","h4Title":"רשות הרבים"},"h2Text":"","initialBudget":915,"tokensPlaced":[{"id":615,"type":"p","col":"right","linesPlaced":7,"totalLines":7,"isEndOfP":true},{"id":616,"type":"p","col":"right","linesPlaced":16,"totalLines":16,"isEndOfP":true},{"id":617,"type":"p","col":"right","linesPlaced":13,"totalLines":13,"isEndOfP":true},{"id":618,"type":"h5","col":"right","text":"הגדרות השימושיות של רשות הרבים"},{"id":619,"type":"p","col":"right","linesPlaced":3,"totalLines":3,"isEndOfP":true},{"id":620,"type":"p","col":"left","linesPlaced":12,"totalLines":12,"isEndOfP":true},{"id":621,"type":"p","col":"left","linesPlaced":29,"totalLines":45,"isEndOfP":false}],"steps":[],"justificationLog":{"neededGrowth":7,"heightCeiling":894,"tiersApplied":{"priority1_headingBefore":5,"priority2_headingAfter":2,"priority3_paragraphSpacing":0}},"balanceLog":null,"domMetrics":{"bodyFlowClientHeight":915,"bodyFlowScrollHeight":915,"finalBudget":20,"footnotesQueuedCount":0,"footnotesHeightMeasured":0}},
+      domInspection: {"rightCol":{"scrollHeight":893,"offsetHeight":893,"childrenCount":5,"children":[{"tag":"P","className":"p-end","textSnippet":"מצאנו לו דין דאתי רבים ומבטלי מחיצתא. ולתירוץ שני ","offsetHeight":150,"marginTop":"0px","marginBottom":"7.1875px","lineHeight":"21.44px"},{"tag":"P","className":"p-end","textSnippet":"עכ\"פ מצאנו דדין ב' מחיצות אינו עניין לדין רשות הרב","offsetHeight":343,"marginTop":"0px","marginBottom":"7.1875px","lineHeight":"21.44px"},{"tag":"P","className":"p-end","textSnippet":"ועכ\"פ משמע בתוס' שאף שאין מתירים רה\"י לר\"י יותר מי","offsetHeight":279,"marginTop":"0px","marginBottom":"7.1875px","lineHeight":"21.44px"},{"tag":"DIV","className":"title-level-5","textSnippet":"הגדרות השימושיות של רשות הרבים","offsetHeight":19,"marginTop":"12.625px","marginBottom":"4.25px","lineHeight":"18.7067px"},{"tag":"P","className":"p-end","textSnippet":"הנה כמשנ\"ת דיני רשות הרבים בכל מקום, שורשם שיהיה מ","offsetHeight":64,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"}]},"leftCol":{"scrollHeight":893,"offsetHeight":893,"childrenCount":2,"children":[{"tag":"P","className":"p-end","textSnippet":"והביאור בזה בהקדם מה דצ\"ב איך בכלל יגדיר שימוש הרב","offsetHeight":257,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"},{"tag":"P","className":"p-cut","textSnippet":"ולפ\"ז יש למצוא גדר במה דזה תלוי במסירת יהושע ובכוח","offsetHeight":622,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"}]},"footnoteArea":null,"bodyFlow":{"clientHeight":915,"scrollHeight":915}},
+      warnings: []
+    };
+
+    function copyFullJSON() {
+      navigator.clipboard.writeText(JSON.stringify(fullDebugPayload, null, 2)).then(() => {
+        alert('נתוני הדיבאג הועתקו ללוח בהצלחה!');
+      });
+    }
+  </script>
+</body>
+</html>
