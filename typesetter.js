@@ -1088,12 +1088,20 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
                 }
                 applied += delta;
                 lastGood = ws + 'px';
+                // תיקון קריטי: אם עברנו את ה-budget, חזור אחורה ל-lastGood הקודם.
+                // הלולאה הזו יכולה להוסיף 21px בצעד אחד כשרק 5px נדרשים.
+                if (applied > budget + 2) {
+                    // חרגנו ב-2px+ מה-budget — אפס ל-lastGood הקודם וצא
+                    p.style.wordSpacing = lastGood;
+                    applied -= delta;  // נטרל את ההוספה האחרונה
+                    break;
+                }
             } else {
                 p.style.wordSpacing = prev;
             }
         }
         logDetails.tiersApplied['priority5_wordSpacing'] = (logDetails.tiersApplied['priority5_wordSpacing'] || 0) + applied;
-        return Math.min(applied, budget);
+        return applied;  // תיקון: החזר את הערך האמיתי, לא Math.min(applied, budget)
     }
 
     const priorityTiers = [
@@ -1280,7 +1288,10 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
                     if (typeof resetColumnJustificationStyles === 'function') {
                         resetColumnJustificationStyles(shortCol);
                     }
-                    distributeColumnJustification(shortCol, needed2, styleObj, tallH + 30, colWidth, traceObj);
+                    // תיקון קריטי: ceiling צריך להיות tallH + 3 (לא tallH + 30).
+                    // tallH + 30 איפשר 30px יתרון וגרם ל-OVERSHOOT של 16-21px.
+                    // tallH + 3 מאפשר טולרנס קטן (3px) ומונע overshoot.
+                    distributeColumnJustification(shortCol, needed2, styleObj, tallH + 3, colWidth, traceObj);
                 }
             }
         }
