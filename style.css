@@ -131,7 +131,7 @@
     --sz-sh-year: 12pt;
 
     /* גוף הטקסט ומילה ראשונה */
-    --fn-body: 'גוטמן רש"י רגיל', 'פרנק רוהל ליברה רגיל', serif;
+    --fn-body: 'גוטמן רש\"י רגיל', 'פרנק רוהל ליברה רגיל', serif;
     --sz-body: 12pt;
     --line-height-body: 1.34;
     --last-line-align: center;
