@@ -2093,3 +2093,147 @@ window.addEventListener('load', async function() {
     });
 });
 
+
+// ==========================================================================
+// ייצוא HTML מרונדר — לבדיקה ויזואלית מדויקת
+// ==========================================================================
+// פונקציה זו מייצאת את המסמך המרונדר (כפי שהוא מופיע בהדפסה ל-PDF)
+// לקובץ HTML עצמאי, ללא קוד היצירה, עם כל הסגנונות הדרושים.
+
+async function exportRenderedHTML() {
+    const bookContainer = document.getElementById('book-container');
+    if (!bookContainer) {
+        alert('אין מסמך מרונדר. הרץ עימוד קודם.');
+        return;
+    }
+
+    const btn = document.getElementById('btn-export-html');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ מייצא...';
+    }
+
+    try {
+        // 1) שכפול ה-#book-container
+        const clone = bookContainer.cloneNode(true);
+
+        // 2) הסרת event handlers
+        clone.querySelectorAll('*').forEach(el => {
+            el.removeAttribute('onclick');
+        });
+
+        // 3) איסוף CSS — fetch style.css + fonts-def.css
+        const cssFiles = ['style.css', 'fonts-def.css'];
+        const extLink = document.getElementById('fonts-extended-stylesheet');
+        if (extLink) cssFiles.push('fonts-extended.css');
+
+        const cssContents = [];
+        for (const file of cssFiles) {
+            try {
+                const res = await fetch(file);
+                if (res.ok) {
+                    const text = await res.text();
+                    cssContents.push(`/* === ${file} === */\n${text}`);
+                }
+            } catch (e) {
+                console.warn(`לא ניתן לטעון ${file}:`, e);
+            }
+        }
+
+        // 4) איסוף CSS variables מ-:root
+        const rootStyle = getComputedStyle(document.documentElement);
+        const cssVars = [];
+        for (const sheet of document.styleSheets) {
+            try {
+                for (const rule of sheet.cssRules) {
+                    if (rule.selectorText === ':root' && rule.style) {
+                        for (let i = 0; i < rule.style.length; i++) {
+                            const prop = rule.style[i];
+                            if (prop.startsWith('--')) {
+                                const val = rootStyle.getPropertyValue(prop).trim();
+                                if (val) cssVars.push(`${prop}: ${val};`);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // 5) בניית HTML עצמאי
+        const html = `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מסמך מרונדר — ייצוא</title>
+<style>
+/* === CSS Variables מהשורש === */
+:root {
+    ${cssVars.join('\n    ')}
+}
+
+${cssContents.join('\n\n')}
+
+/* === סגנונות ייצוא — מציגים רק את הספר === */
+body {
+    margin: 0;
+    padding: 20px;
+    background: #f1f5f9;
+    font-family: 'Assistant', sans-serif;
+}
+#sidebar, #text-pane, #settings-pane, #resizer, #measuring-box {
+    display: none !important;
+}
+#preview-pane {
+    display: block !important;
+    padding: 0 !important;
+    float: none !important;
+    width: auto !important;
+}
+#book-container {
+    margin: 0 auto;
+    transform: none !important;
+}
+.a4-page {
+    margin: 0 auto 20px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    background: white !important;
+    transform: none !important;
+}
+</style>
+</head>
+<body>
+${clone.outerHTML}
+</body>
+</html>`;
+
+        // 6) הורדה
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'rendered-document.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+        if (btn) {
+            btn.textContent = '✓ יוצא';
+            setTimeout(() => {
+                btn.textContent = '💾 ייצוא HTML';
+                btn.disabled = false;
+            }, 2000);
+        }
+        console.log('✓ HTML מרונדר יוצא');
+    } catch (e) {
+        console.error('exportRenderedHTML נכשל:', e);
+        if (btn) {
+            btn.textContent = '💾 ייצוא HTML';
+            btn.disabled = false;
+        }
+        alert('ייצוא HTML נכשל: ' + e.message);
+    }
+}
+
+window.exportRenderedHTML = exportRenderedHTML;
