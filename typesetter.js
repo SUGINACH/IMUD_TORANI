@@ -981,6 +981,33 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
         return applied;
     }
 
+    // 2.5 הגדלת margin-bottom של H5 דווקא (בלוף איזון ייעודי)
+    // P2.5 — תיקון ייעודי לבעיית H5 בטור: H5 יוצר גובה עודף של ~16px
+    // ש-P1-P5 הרגילים לא מצליחים לפצות עליו. ה-tier הזה מגדיל את
+    // margin-bottom של H5 דווקא כדי למלא את הפער.
+    function applyPriority2_5_H5MarginBottom(budget) {
+        const h5Headings = queryHeadings().filter(h => h.classList.contains('title-level-5'));
+        if (!h5Headings.length || budget <= 0.5) return 0;
+        const perHead = Math.min(18, budget / h5Headings.length);
+        let applied = 0;
+        h5Headings.forEach(h => {
+            if (applied >= budget - 0.5 || colOverCeiling()) return;
+            const share = Math.min(perHead, budget - applied);
+            const base = parseFloat(window.getComputedStyle(h).marginBottom) || 0;
+            const prev = h.style.marginBottom;
+            const delta = measureColScrollDelta(shortCol, () => {
+                h.style.marginBottom = (base + share) + 'px';
+            });
+            if (colOverCeiling()) {
+                h.style.marginBottom = prev;
+            } else {
+                applied += delta;
+            }
+        });
+        logDetails.tiersApplied['priority2_5_h5MarginBottom'] = (logDetails.tiersApplied['priority2_5_h5MarginBottom'] || 0) + applied;
+        return applied;
+    }
+
     // 3. הגדלת רווח בין פסקאות
     function applyPriority3_ParagraphSpacing(budget) {
         const pElements = Array.from(shortCol.querySelectorAll('p'));
@@ -1123,6 +1150,7 @@ function distributeColumnJustification(shortCol, neededGrowth, styleObj, heightC
     const priorityTiers = [
         { name: 'P1 (רווח לפני כותרת)', fn: applyPriority1_HeadingBefore, weight: 6 },
         { name: 'P2 (רווח אחרי כותרת)', fn: applyPriority2_HeadingAfter, weight: 4 },
+        { name: 'P2.5 (margin-bottom H5)', fn: applyPriority2_5_H5MarginBottom, weight: 3.5 },
         { name: 'P3 (רווח פסקאות)', fn: applyPriority3_ParagraphSpacing, weight: 3 },
         { name: 'P4 (רווח שורות)', fn: applyPriority4_LineHeight, weight: 2 },
         { name: 'P5 (רווח מילים)', fn: applyPriority5_WordSpacing, weight: 1 }

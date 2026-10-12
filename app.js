@@ -1157,7 +1157,7 @@ function initFontPickers() {
 }
 
 async function ensureBuiltinFontsLoaded() {
-    const families = ['Assistant', 'Rubik']; // רק גופני UI מ-Google Fonts — שאר הגופנים נטענים מ-_fonts.css
+    const families = ['Assistant', 'Rubik']; // רק גופני UI מ-Google Fonts — שאר הגופנים נטענים מ-fonts-def.css (רשימה 1) ו-fonts-extended.css (רשימה 2, על-ידי לחצן)
     const weights = ['400', '700', '900'];
     try {
         const loads = [];
@@ -1204,35 +1204,102 @@ async function loadSystemFonts() {
 }
 
 async function loadExternalFonts() {
+    // רשימה 1 (priority): מאכלס את ה-pickers מ-fonts-priority.json.
+    // ה-@font-face כבר נטענו דרך fonts-def.css (שמיובא ב-style.css).
+    // הדפדפן יוריד את קבצי ה-woff2 בפועל רק כשהגופן בשימוש (font-display: swap).
     try {
-        const res = await fetch('fonts/fonts.json');
+        const res = await fetch('fonts-priority.json');
         if (!res.ok) return;
         const fonts = await res.json();
         if (!Array.isArray(fonts)) return;
 
-        for (const font of fonts) {
-            try {
-                const fontFace = new FontFace(font.family, `url(fonts/${encodeURIComponent(font.file)})`);
-                await fontFace.load();
-                document.fonts.add(fontFace);
+        document.querySelectorAll('.font-picker').forEach(select => {
+            const currentVal = select.value;
+            let grp = select.querySelector('optgroup[label="גופנים מקומיים — רשימה 1"]');
+            if (!grp) {
+                grp = document.createElement('optgroup');
+                grp.label = 'גופנים מקומיים — רשימה 1';
+                select.prepend(grp);
+            }
+            fonts.forEach(font => {
+                const opt = document.createElement('option');
+                opt.value = `'${font.family}', serif`;
+                opt.textContent = font.family;
+                grp.appendChild(opt);
+            });
+            select.value = currentVal;
+        });
+        console.log(`✓ רשימה 1: ${fonts.length} גופנים נוספו ל-pickers`);
+    } catch (e) {
+        console.warn('loadExternalFonts (רשימה 1) נכשל:', e);
+    }
+}
 
-                document.querySelectorAll('.font-picker').forEach(select => {
-                    const currentVal = select.value;
-                    let grp = select.querySelector('optgroup[label="גופנים מקומיים (תיקיית fonts)"]');
-                    if (!grp) {
-                        grp = document.createElement('optgroup');
-                        grp.label = 'גופנים מקומיים (תיקיית fonts)';
-                        select.prepend(grp);
-                    }
-                    const opt = document.createElement('option');
-                    opt.value = `'${font.family}', serif`;
-                    opt.textContent = font.family;
-                    grp.appendChild(opt);
-                    select.value = currentVal;
-                });
-            } catch (err) {}
+/**
+ * loadExtendedFonts — טוען את רשימה 2 של הגופנים (~1300 גופנים).
+ * מופעלת על-ידי לחצן "📚 טען גופנים נוספים" בסרגל העליון.
+ */
+let _extendedFontsLoaded = false;
+async function loadExtendedFonts() {
+    if (_extendedFontsLoaded) {
+        alert('רשימה 2 של הגופנים כבר נטענה.');
+        return;
+    }
+    const btn = document.getElementById('btn-load-extended-fonts');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ טוען גופנים...';
+    }
+
+    try {
+        // 1) הזרקת fonts-extended.css
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'fonts-extended.css';
+        link.id = 'fonts-extended-stylesheet';
+        document.head.appendChild(link);
+        await new Promise((resolve, reject) => {
+            link.onload = resolve;
+            link.onerror = reject;
+            setTimeout(resolve, 5000);
+        });
+
+        // 2) אכלוס ה-pickers מ-fonts-extended.json
+        const res = await fetch('fonts-extended.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const fonts = await res.json();
+        if (!Array.isArray(fonts)) throw new Error('פורמט שגוי');
+
+        document.querySelectorAll('.font-picker').forEach(select => {
+            const currentVal = select.value;
+            let grp = select.querySelector('optgroup[label="גופנים מקומיים — רשימה 2"]');
+            if (!grp) {
+                grp = document.createElement('optgroup');
+                grp.label = 'גופנים מקומיים — רשימה 2';
+                select.appendChild(grp);
+            }
+            fonts.forEach(font => {
+                const opt = document.createElement('option');
+                opt.value = `'${font.family}', serif`;
+                opt.textContent = font.family;
+                grp.appendChild(opt);
+            });
+            select.value = currentVal;
+        });
+
+        _extendedFontsLoaded = true;
+        if (btn) {
+            btn.textContent = `✓ נטענו ${fonts.length} גופנים נוספים`;
         }
-    } catch (e) {}
+        console.log(`✓ רשימה 2: ${fonts.length} גופנים נטענו`);
+    } catch (e) {
+        console.error('loadExtendedFonts נכשל:', e);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '📚 טען גופנים נוספים';
+        }
+        alert('טעינת רשימה 2 נכשלה. בדוק את הקונסול לפרטים.');
+    }
 }
 
 /* ==========================================================================
