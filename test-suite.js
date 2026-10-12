@@ -342,7 +342,7 @@ function generateLayoutReport() {
                 const so = { fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--fn-body'), fontSize: getComputedStyle(document.documentElement).getPropertyValue('--sz-body'), lineHeight: getComputedStyle(document.documentElement).getPropertyValue('--line-height-body') || '1.34' };
                 const cw = col.offsetWidth - 40;
                 ps.forEach((p, pi) => {
-                    const raw = p.getAttribute('data-raw-text') || p.textContent || '';
+                    const raw = p.classList.contains('p-cut') ? (p.textContent || '') : (p.getAttribute('data-raw-text') || p.textContent || '');
                     if (!raw.trim() || typeof getLinesFromParagraph !== 'function') return;
                     const info = getLinesFromParagraph(raw, cw, so, false);
                     if (!info.lines?.length) return;

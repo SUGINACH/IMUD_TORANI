@@ -1,0 +1,1680 @@
+{
+  "total_pages": 97,
+  "sparse_last_lines": [
+    {
+      "page": 11,
+      "col": "R",
+      "words": 2,
+      "text_preview": "הכוונה. ויהיו",
+      "ls_applied": "none"
+    },
+    {
+      "page": 11,
+      "col": "L",
+      "words": 3,
+      "text_preview": "השבוע. בחלק היום",
+      "ls_applied": "none"
+    },
+    {
+      "page": 12,
+      "col": "R",
+      "words": 1,
+      "text_preview": "במטרת",
+      "ls_applied": "none"
+    },
+    {
+      "page": 13,
+      "col": "L",
+      "words": 2,
+      "text_preview": "המלאכה בה,",
+      "ls_applied": "none"
+    },
+    {
+      "page": 14,
+      "col": "R",
+      "words": 4,
+      "text_preview": "הפסוק מה שלא פרט",
+      "ls_applied": "none"
+    },
+    {
+      "page": 14,
+      "col": "L",
+      "words": 3,
+      "text_preview": "אם בוראה, וזו",
+      "ls_applied": "none"
+    },
+    {
+      "page": 15,
+      "col": "R",
+      "words": 3,
+      "text_preview": "בראשית על כל",
+      "ls_applied": "none"
+    },
+    {
+      "page": 16,
+      "col": "L",
+      "words": 1,
+      "text_preview": "התוצאה.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 16,
+      "col": "R",
+      "words": 4,
+      "text_preview": "והשניה שאין במשמעותה תכלית",
+      "ls_applied": "none"
+    },
+    {
+      "page": 16,
+      "col": "L",
+      "words": 4,
+      "text_preview": "שנמצא דינים שהם ביחס",
+      "ls_applied": "none"
+    },
+    {
+      "page": 17,
+      "col": "R",
+      "words": 2,
+      "text_preview": "בגדר אחד,",
+      "ls_applied": "none"
+    },
+    {
+      "page": 18,
+      "col": "R",
+      "words": 4,
+      "text_preview": "מעתיד אתכם לקדושה לעולם",
+      "ls_applied": "none"
+    },
+    {
+      "page": 19,
+      "col": "R",
+      "words": 4,
+      "text_preview": "ביחס להנהגת האדם אליה,",
+      "ls_applied": "none"
+    },
+    {
+      "page": 19,
+      "col": "L",
+      "words": 2,
+      "text_preview": "עם השבת.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 19,
+      "col": "R",
+      "words": 2,
+      "text_preview": "שאין היא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 19,
+      "col": "L",
+      "words": 4,
+      "text_preview": "בשמירת מצב שביתה דאדם.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 20,
+      "col": "L",
+      "words": 4,
+      "text_preview": "זה גדר יום שביתה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 21,
+      "col": "R",
+      "words": 1,
+      "text_preview": "ימים.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 23,
+      "col": "L",
+      "words": 1,
+      "text_preview": "ית'.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 24,
+      "col": "R",
+      "words": 1,
+      "text_preview": "והאסורים.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 24,
+      "col": "L",
+      "words": 4,
+      "text_preview": "המציאות הנובעת מן המעשה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 24,
+      "col": "R",
+      "words": 1,
+      "text_preview": "ונצטרך",
+      "ls_applied": "none"
+    },
+    {
+      "page": 24,
+      "col": "L",
+      "words": 4,
+      "text_preview": "המקרה שחפץ מונח במקום",
+      "ls_applied": "none"
+    },
+    {
+      "page": 26,
+      "col": "R",
+      "words": 2,
+      "text_preview": "להגדיר את",
+      "ls_applied": "none"
+    },
+    {
+      "page": 27,
+      "col": "R",
+      "words": 4,
+      "text_preview": "שימושיים של האדם יוגדרו",
+      "ls_applied": "none"
+    },
+    {
+      "page": 28,
+      "col": "R",
+      "words": 2,
+      "text_preview": "בר שימוש",
+      "ls_applied": "none"
+    },
+    {
+      "page": 28,
+      "col": "L",
+      "words": 4,
+      "text_preview": "לגבי קנין, כמו מי",
+      "ls_applied": "none"
+    },
+    {
+      "page": 30,
+      "col": "L",
+      "words": 1,
+      "text_preview": "שישתנה.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 30,
+      "col": "L",
+      "words": 2,
+      "text_preview": "משמעות של",
+      "ls_applied": "none"
+    },
+    {
+      "page": 31,
+      "col": "R",
+      "words": 3,
+      "text_preview": "שמשייכים מציאויות לגדר",
+      "ls_applied": "none"
+    },
+    {
+      "page": 31,
+      "col": "L",
+      "words": 3,
+      "text_preview": "ועריות היה נראה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 32,
+      "col": "L",
+      "words": 2,
+      "text_preview": "של המעשה.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 32,
+      "col": "R",
+      "words": 3,
+      "text_preview": "הגורם למעשה והתוצאה.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 32,
+      "col": "L",
+      "words": 1,
+      "text_preview": "דעת.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 33,
+      "col": "L",
+      "words": 2,
+      "text_preview": "אנוס עליו.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 34,
+      "col": "R",
+      "words": 2,
+      "text_preview": "הטהור, והיינו,",
+      "ls_applied": "none"
+    },
+    {
+      "page": 34,
+      "col": "L",
+      "words": 2,
+      "text_preview": "המעשה עצמו",
+      "ls_applied": "none"
+    },
+    {
+      "page": 35,
+      "col": "R",
+      "words": 2,
+      "text_preview": "התורה ישנה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 36,
+      "col": "R",
+      "words": 3,
+      "text_preview": "מעשה מצווה, ידיעת",
+      "ls_applied": "none"
+    },
+    {
+      "page": 36,
+      "col": "R",
+      "words": 1,
+      "text_preview": "שהשייכות",
+      "ls_applied": "none"
+    },
+    {
+      "page": 37,
+      "col": "R",
+      "words": 3,
+      "text_preview": "בגופו כדוגמת חלבים",
+      "ls_applied": "none"
+    },
+    {
+      "page": 37,
+      "col": "L",
+      "words": 3,
+      "text_preview": "בשביתת כלים לב\"ש.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 39,
+      "col": "R",
+      "words": 4,
+      "text_preview": "על מיטה, שהרי הוא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 39,
+      "col": "L",
+      "words": 3,
+      "text_preview": "היא מעשה בדבר,",
+      "ls_applied": "none"
+    },
+    {
+      "page": 40,
+      "col": "R",
+      "words": 4,
+      "text_preview": "אין נחשבת המלאכה חלוקה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 41,
+      "col": "L",
+      "words": 1,
+      "text_preview": "במקומו).",
+      "ls_applied": "-0.01em"
+    },
+    {
+      "page": 41,
+      "col": "R",
+      "words": 2,
+      "text_preview": "שלגבי נזיקין",
+      "ls_applied": "none"
+    },
+    {
+      "page": 41,
+      "col": "L",
+      "words": 2,
+      "text_preview": "היא שעתה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 42,
+      "col": "L",
+      "words": 1,
+      "text_preview": "האסור",
+      "ls_applied": "none"
+    },
+    {
+      "page": 43,
+      "col": "R",
+      "words": 2,
+      "text_preview": "אפילו לצורך",
+      "ls_applied": "none"
+    },
+    {
+      "page": 43,
+      "col": "L",
+      "words": 2,
+      "text_preview": "לעושה ולתוצאה.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 44,
+      "col": "R",
+      "words": 2,
+      "text_preview": "ראויה למעשה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 44,
+      "col": "L",
+      "words": 2,
+      "text_preview": "במתעסק שנפעל",
+      "ls_applied": "none"
+    },
+    {
+      "page": 45,
+      "col": "R",
+      "words": 4,
+      "text_preview": "האיסור, אלא מידיעת המציאות.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 46,
+      "col": "R",
+      "words": 1,
+      "text_preview": "את",
+      "ls_applied": "none"
+    },
+    {
+      "page": 46,
+      "col": "L",
+      "words": 2,
+      "text_preview": "לעשותו. ועשיית",
+      "ls_applied": "none"
+    },
+    {
+      "page": 47,
+      "col": "R",
+      "words": 1,
+      "text_preview": "מלאכה).",
+      "ls_applied": "none"
+    },
+    {
+      "page": 47,
+      "col": "L",
+      "words": 1,
+      "text_preview": "בשובט",
+      "ls_applied": "none"
+    },
+    {
+      "page": 48,
+      "col": "R",
+      "words": 3,
+      "text_preview": "שתוצאת המלאכה היא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 48,
+      "col": "L",
+      "words": 1,
+      "text_preview": "במצבב.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 49,
+      "col": "R",
+      "words": 4,
+      "text_preview": "פרטי המלאכות נלמדו מכל",
+      "ls_applied": "none"
+    },
+    {
+      "page": 49,
+      "col": "L",
+      "words": 4,
+      "text_preview": "המלאכות מה דחשיב לאדם.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 49,
+      "col": "L",
+      "words": 4,
+      "text_preview": "שמערב לא עשה דבר.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 50,
+      "col": "R",
+      "words": 3,
+      "text_preview": "מיוחסים במה שהן",
+      "ls_applied": "none"
+    },
+    {
+      "page": 51,
+      "col": "R",
+      "words": 4,
+      "text_preview": "שקראוהו הדבר הנעשה ע\"י",
+      "ls_applied": "none"
+    },
+    {
+      "page": 52,
+      "col": "R",
+      "words": 3,
+      "text_preview": "וכאמור), וכן לא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 53,
+      "col": "L",
+      "words": 4,
+      "text_preview": "היא חלק של המעשה.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 54,
+      "col": "R",
+      "words": 2,
+      "text_preview": "כל מעשה,",
+      "ls_applied": "none"
+    },
+    {
+      "page": 54,
+      "col": "L",
+      "words": 3,
+      "text_preview": "הנוגעים אף לזה.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 54,
+      "col": "R",
+      "words": 3,
+      "text_preview": "אליהם, וע\"כ יהיה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 54,
+      "col": "L",
+      "words": 1,
+      "text_preview": "שני",
+      "ls_applied": "none"
+    },
+    {
+      "page": 55,
+      "col": "R",
+      "words": 1,
+      "text_preview": "הוא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 56,
+      "col": "L",
+      "words": 1,
+      "text_preview": "במקום",
+      "ls_applied": "none"
+    },
+    {
+      "page": 57,
+      "col": "R",
+      "words": 1,
+      "text_preview": "אפשרויות",
+      "ls_applied": "none"
+    },
+    {
+      "page": 57,
+      "col": "L",
+      "words": 2,
+      "text_preview": "לרשות שנחשבים",
+      "ls_applied": "none"
+    },
+    {
+      "page": 58,
+      "col": "R",
+      "words": 2,
+      "text_preview": "במקום כהכנה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 59,
+      "col": "R",
+      "words": 4,
+      "text_preview": "והעברתו שייך לקומתו, ובזה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 59,
+      "col": "R",
+      "words": 4,
+      "text_preview": "אדם המונח הוא בד'",
+      "ls_applied": "none"
+    },
+    {
+      "page": 59,
+      "col": "L",
+      "words": 4,
+      "text_preview": "במקום ד' לא יחשב",
+      "ls_applied": "none"
+    },
+    {
+      "page": 61,
+      "col": "R",
+      "words": 3,
+      "text_preview": "מעבר. ולכן יהיה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 61,
+      "col": "L",
+      "words": 1,
+      "text_preview": "במקום",
+      "ls_applied": "none"
+    },
+    {
+      "page": 62,
+      "col": "R",
+      "words": 2,
+      "text_preview": "לשימוש בכולו",
+      "ls_applied": "none"
+    },
+    {
+      "page": 62,
+      "col": "L",
+      "words": 1,
+      "text_preview": "בו.",
+      "ls_applied": "-0.01em"
+    },
+    {
+      "page": 62,
+      "col": "L",
+      "words": 3,
+      "text_preview": "שהראשון יניחו במקום",
+      "ls_applied": "none"
+    },
+    {
+      "page": 63,
+      "col": "R",
+      "words": 1,
+      "text_preview": "שיש",
+      "ls_applied": "none"
+    },
+    {
+      "page": 63,
+      "col": "L",
+      "words": 3,
+      "text_preview": "ומה שיש בזה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 64,
+      "col": "L",
+      "words": 2,
+      "text_preview": "לא תגדיר",
+      "ls_applied": "none"
+    },
+    {
+      "page": 65,
+      "col": "R",
+      "words": 1,
+      "text_preview": "למקום",
+      "ls_applied": "none"
+    },
+    {
+      "page": 65,
+      "col": "L",
+      "words": 1,
+      "text_preview": "מאוחדים.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 66,
+      "col": "R",
+      "words": 4,
+      "text_preview": "כאילו הניחו בלא מקום.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 67,
+      "col": "R",
+      "words": 2,
+      "text_preview": "עירובי חצרות.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 67,
+      "col": "L",
+      "words": 4,
+      "text_preview": "הגדרה רק ע\"פ תנאי",
+      "ls_applied": "none"
+    },
+    {
+      "page": 68,
+      "col": "R",
+      "words": 4,
+      "text_preview": "מוכן לכך, וכיון שדברים",
+      "ls_applied": "none"
+    },
+    {
+      "page": 69,
+      "col": "L",
+      "words": 3,
+      "text_preview": "שישתמש האדם במקום",
+      "ls_applied": "none"
+    },
+    {
+      "page": 70,
+      "col": "R",
+      "words": 4,
+      "text_preview": "גודל וכו', אבל מכמה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 70,
+      "col": "L",
+      "words": 2,
+      "text_preview": "של הייחוד.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 71,
+      "col": "R",
+      "words": 4,
+      "text_preview": "דברים, ואם יונח בה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 72,
+      "col": "R",
+      "words": 1,
+      "text_preview": "שמחיצה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 72,
+      "col": "L",
+      "words": 1,
+      "text_preview": "שתרתי",
+      "ls_applied": "none"
+    },
+    {
+      "page": 73,
+      "col": "R",
+      "words": 1,
+      "text_preview": "מספר",
+      "ls_applied": "none"
+    },
+    {
+      "page": 73,
+      "col": "L",
+      "words": 3,
+      "text_preview": "כשיש ארבע מחיצות",
+      "ls_applied": "none"
+    },
+    {
+      "page": 74,
+      "col": "R",
+      "words": 2,
+      "text_preview": "הנותרים של",
+      "ls_applied": "none"
+    },
+    {
+      "page": 75,
+      "col": "R",
+      "words": 3,
+      "text_preview": "להחשיבם כרשות היחיד.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 75,
+      "col": "L",
+      "words": 2,
+      "text_preview": "שלושה מרכיבים:",
+      "ls_applied": "none"
+    },
+    {
+      "page": 76,
+      "col": "R",
+      "words": 1,
+      "text_preview": "מאידך",
+      "ls_applied": "none"
+    },
+    {
+      "page": 76,
+      "col": "L",
+      "words": 4,
+      "text_preview": "לעצמו ובעיית העירוב היא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 77,
+      "col": "R",
+      "words": 3,
+      "text_preview": "וכל מקום שנצרך",
+      "ls_applied": "none"
+    },
+    {
+      "page": 77,
+      "col": "L",
+      "words": 3,
+      "text_preview": "היות המקום גדור",
+      "ls_applied": "none"
+    },
+    {
+      "page": 78,
+      "col": "L",
+      "words": 2,
+      "text_preview": "ג' מחיצות",
+      "ls_applied": "none"
+    },
+    {
+      "page": 79,
+      "col": "R",
+      "words": 3,
+      "text_preview": "מקום ביחס לרשות",
+      "ls_applied": "none"
+    },
+    {
+      "page": 79,
+      "col": "L",
+      "words": 4,
+      "text_preview": "שיעור לבוד יחשב כישנו",
+      "ls_applied": "none"
+    },
+    {
+      "page": 80,
+      "col": "R",
+      "words": 1,
+      "text_preview": "שהרי",
+      "ls_applied": "none"
+    },
+    {
+      "page": 81,
+      "col": "R",
+      "words": 2,
+      "text_preview": "הרוחות פרוצות.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 81,
+      "col": "L",
+      "words": 2,
+      "text_preview": "הרוחות האחרות.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 83,
+      "col": "R",
+      "words": 2,
+      "text_preview": "חפץ. אך",
+      "ls_applied": "none"
+    },
+    {
+      "page": 83,
+      "col": "L",
+      "words": 1,
+      "text_preview": "ברור.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 84,
+      "col": "R",
+      "words": 4,
+      "text_preview": "לשימוש במקום אחד אלא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 84,
+      "col": "L",
+      "words": 4,
+      "text_preview": "אין נחשב פסיעה, אלא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 85,
+      "col": "R",
+      "words": 1,
+      "text_preview": "שימוש",
+      "ls_applied": "none"
+    },
+    {
+      "page": 86,
+      "col": "L",
+      "words": 4,
+      "text_preview": "מקום רשות הרבים, דאין",
+      "ls_applied": "none"
+    },
+    {
+      "page": 87,
+      "col": "R",
+      "words": 3,
+      "text_preview": "פרוץ מד' רוחות.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 87,
+      "col": "L",
+      "words": 4,
+      "text_preview": "חלוקה. וחלוקת הארץ לשימושיה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 88,
+      "col": "R",
+      "words": 4,
+      "text_preview": "חפץ שווים בכל הרשויות.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 88,
+      "col": "L",
+      "words": 4,
+      "text_preview": "העמוד, ואף שאין בזה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 89,
+      "col": "R",
+      "words": 3,
+      "text_preview": "כחלק מרה\"ר לר\"י.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 89,
+      "col": "L",
+      "words": 1,
+      "text_preview": "כרה\"ר.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 90,
+      "col": "R",
+      "words": 3,
+      "text_preview": "שמשמעות המלאכה היא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 91,
+      "col": "R",
+      "words": 3,
+      "text_preview": "וההתעסקות לשם התוצאה.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 91,
+      "col": "L",
+      "words": 2,
+      "text_preview": "צריך שיהיה",
+      "ls_applied": "none"
+    },
+    {
+      "page": 92,
+      "col": "R",
+      "words": 4,
+      "text_preview": "לא היו מוציאים (ויש",
+      "ls_applied": "none"
+    },
+    {
+      "page": 92,
+      "col": "L",
+      "words": 1,
+      "text_preview": "המעשה,",
+      "ls_applied": "none"
+    },
+    {
+      "page": 94,
+      "col": "R",
+      "words": 2,
+      "text_preview": "גם היא",
+      "ls_applied": "none"
+    },
+    {
+      "page": 94,
+      "col": "L",
+      "words": 4,
+      "text_preview": "עצמה שאין בה חסרון",
+      "ls_applied": "none"
+    },
+    {
+      "page": 95,
+      "col": "R",
+      "words": 4,
+      "text_preview": "מעשה, והיינו, שדברים האסורים",
+      "ls_applied": "none"
+    },
+    {
+      "page": 95,
+      "col": "L",
+      "words": 2,
+      "text_preview": "בשם מלאכה.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 95,
+      "col": "R",
+      "words": 4,
+      "text_preview": "משמעות מה שמקור המקום",
+      "ls_applied": "none"
+    },
+    {
+      "page": 96,
+      "col": "R",
+      "words": 4,
+      "text_preview": "לעקירה והנחה, אך ביחס",
+      "ls_applied": "none"
+    },
+    {
+      "page": 97,
+      "col": "R",
+      "words": 2,
+      "text_preview": "בדעת רשב\"ם).",
+      "ls_applied": "none"
+    },
+    {
+      "page": 97,
+      "col": "L",
+      "words": 1,
+      "text_preview": "מלאכות.א",
+      "ls_applied": "none"
+    },
+    {
+      "page": 97,
+      "col": "R",
+      "words": 1,
+      "text_preview": "הכתובות.",
+      "ls_applied": "none"
+    },
+    {
+      "page": 97,
+      "col": "L",
+      "words": 1,
+      "text_preview": "ההתעסקות.",
+      "ls_applied": "none"
+    }
+  ],
+  "column_balance_issues": [],
+  "letter_spacing_applied": 2,
+  "page_summary": [
+    {
+      "page": 1,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 2,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 3,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 4,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 5,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 6,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 7,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 8,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 9,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 10,
+      "blocks": 0,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 11,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 12,
+      "blocks": 2,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 13,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 14,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 15,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 16,
+      "blocks": 2,
+      "sparse_count": 3,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 17,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 18,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 19,
+      "blocks": 2,
+      "sparse_count": 4,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 20,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 21,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 22,
+      "blocks": 1,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 23,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 24,
+      "blocks": 2,
+      "sparse_count": 4,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 25,
+      "blocks": 1,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 26,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 27,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 28,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 29,
+      "blocks": 1,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 30,
+      "blocks": 2,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 31,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 32,
+      "blocks": 2,
+      "sparse_count": 3,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 33,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 34,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 35,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 36,
+      "blocks": 2,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 37,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 38,
+      "blocks": 1,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 39,
+      "blocks": 2,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 40,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 41,
+      "blocks": 2,
+      "sparse_count": 3,
+      "ls_count": 1,
+      "imbalance": 0
+    },
+    {
+      "page": 42,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 43,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 44,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 45,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 46,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 47,
+      "blocks": 2,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 48,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 49,
+      "blocks": 2,
+      "sparse_count": 3,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 50,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 51,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 52,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 53,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 54,
+      "blocks": 2,
+      "sparse_count": 4,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 55,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 56,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 57,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 58,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 59,
+      "blocks": 2,
+      "sparse_count": 3,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 60,
+      "blocks": 1,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 61,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 62,
+      "blocks": 2,
+      "sparse_count": 3,
+      "ls_count": 1,
+      "imbalance": 0
+    },
+    {
+      "page": 63,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 64,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 65,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 66,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 67,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 68,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 69,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 70,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 71,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 72,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 73,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 74,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 75,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 76,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 77,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 78,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 79,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 80,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 81,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 82,
+      "blocks": 1,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 83,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 84,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 85,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 86,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 87,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 88,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 89,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 90,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 91,
+      "blocks": 2,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 92,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 93,
+      "blocks": 1,
+      "sparse_count": 0,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 94,
+      "blocks": 1,
+      "sparse_count": 2,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 95,
+      "blocks": 2,
+      "sparse_count": 3,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 96,
+      "blocks": 1,
+      "sparse_count": 1,
+      "ls_count": 0,
+      "imbalance": 0
+    },
+    {
+      "page": 97,
+      "blocks": 2,
+      "sparse_count": 4,
+      "ls_count": 0,
+      "imbalance": 0
+    }
+  ],
+  "totals": {
+    "total_sparse_last_lines": 141,
+    "pages_with_imbalance": 0,
+    "ls_applied_count": 2
+  }
+}

@@ -1529,7 +1529,9 @@ function tightenRunts(col, colWidth, styleObj) {
         // דלג על פסקאות עם first-word-window (drop word) — אסור לשנות את המידה
         if (p.querySelector('.first-word-window')) continue;
 
-        const rawText = p.getAttribute('data-raw-text') || p.textContent || '';
+        const rawText = p.classList.contains('p-cut')
+            ? (p.textContent || '')  // p-cut: השתמש בטקסט המוצג בפועל (חלק ראשון בלבד)
+            : (p.getAttribute('data-raw-text') || p.textContent || '');  // p-end: הטקסט המלא
         if (!rawText.trim()) continue;
 
         // דלג על פסקאות חד-שוריות
@@ -1591,8 +1593,6 @@ function tightenRunts(col, colWidth, styleObj) {
 
 /**
  * tightenRuntsInBlock — עובר על שני הטורים בבלוק ומפעיל tightenRunts.
- * תיקון: אם טור אחד קצר משמעותית מהשני (>10px), לא מכווצים אותו עוד יותר —
- * אחרת tightenRunts יחמיר את חוסר האיזון.
  * @param {HTMLElement} block — בלוק דו-טורי
  * @param {number} colWidth — רוחב טור
  * @param {object} styleObj — סגנון
@@ -1605,12 +1605,19 @@ function tightenRuntsInBlock(block, colWidth, styleObj) {
     const lCol = block.querySelector('.left-col');
     if (!rCol || !lCol) return 0;
 
-    // השוואת גבהים — אם הפרש גדול, לא מכווצים את הטור הקצר
     const rH = rCol.scrollHeight;
     const lH = lCol.scrollHeight;
-    const IMBALANCE_THRESHOLD = 10;  // אם הפרש > 10px, לא מכווצים את הקצר
-    const canTightenR = !(lH > rH + IMBALANCE_THRESHOLD);  // R כבר קצר — לא לכווץ
-    const canTightenL = !(rH > lH + IMBALANCE_THRESHOLD);  // L כבר קצר — לא לכווץ
+    const IMBALANCE_THRESHOLD = 10;
+
+    // שלב 1: זיהוי פסקאות p-cut עם שורה דלילה
+    // p-cut = פסקה חתוכה שממשיכה בטור הבא.
+    // אם יש p-cut בטור הקצר, נאפשר כיווץ גם שם —
+    // כי כיווץ מושך מילה מהשורה הדלילה למעלה ומבטל אותה,
+    // וה-rebalance אחר כך יאזן מחדש.
+    const hasCutR = !!rCol.querySelector('p.p-cut');
+    const hasCutL = !!lCol.querySelector('p.p-cut');
+    const canTightenR = hasCutR || !(lH > rH + IMBALANCE_THRESHOLD);
+    const canTightenL = hasCutL || !(rH > lH + IMBALANCE_THRESHOLD);
 
     if (canTightenR) total += tightenRunts(rCol, colWidth, styleObj);
     if (canTightenL) total += tightenRunts(lCol, colWidth, styleObj);
@@ -2943,7 +2950,19 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             if (lHeight > availableHeight) heightPenalty += (lHeight - availableHeight) * 5000;
         }
 
-        let score = balanceQualityScore + heightPenalty;
+        // Runt penalty: אם נקודת החיתוך יוצרת שורה דלילה בסוף טור ימין (p-cut).
+        // sp.lines[sp.lineIndex - 1] היא השורה האחרונה של החלק שנשאר בימין.
+        // אם יש בה 1-3 מילים — זה runt. הענק penalty כדי שהמערכת תעדיף חיתוך ללא runt.
+        let runtPenalty = 0;
+        if (sp.lineIndex > 0 && sp.lines[sp.lineIndex - 1]) {
+            const lastLineAtSplit = sp.lines[sp.lineIndex - 1];
+            const wordsAtSplit = lastLineAtSplit.split(/\s+/).filter(w => w.length > 0).length;
+            if (wordsAtSplit === 1) runtPenalty = 1000;
+            else if (wordsAtSplit === 2) runtPenalty = 500;
+            else if (wordsAtSplit === 3) runtPenalty = 200;
+        }
+
+        let score = balanceQualityScore + heightPenalty + runtPenalty;
 
         if (score < minScore) {
             minScore = score;
