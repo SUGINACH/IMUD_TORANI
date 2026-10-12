@@ -2175,30 +2175,51 @@ async function exportRenderedHTML() {
 ${cssContents.join('\n\n')}
 
 /* === סגנונות ייצוא — מציגים רק את הספר === */
-body {
+html, body {
     margin: 0;
-    padding: 20px;
-    background: #f1f5f9;
+    padding: 0;
+    background: #334155;
     font-family: 'Assistant', sans-serif;
+    height: auto !important;
+    overflow: visible !important;
+}
+body {
+    padding: 20px 0;
 }
 #sidebar, #text-pane, #settings-pane, #resizer, #measuring-box {
     display: none !important;
 }
 #preview-pane {
     display: block !important;
+    position: static !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     padding: 0 !important;
     float: none !important;
     width: auto !important;
+    flex: none !important;
+    background: transparent !important;
 }
 #book-container {
     margin: 0 auto;
     transform: none !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 .a4-page {
-    margin: 0 auto 20px !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-    background: white !important;
+    margin: 0 auto 25px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+    background: #ffffff !important;
     transform: none !important;
+    flex-shrink: 0;
+}
+/* ביטול @media print — נציג הכל במסך */
+@media print {
+    .a4-page {
+        page-break-after: always;
+    }
 }
 </style>
 </head>
