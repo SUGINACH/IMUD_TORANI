@@ -1487,6 +1487,7 @@ p.p-cut { text-align-last: justify !important; }
 .note-body-text {
     font-family: var(--fn-note-body, inherit);
     font-size: var(--sz-note-body, inherit);
+    display: inline;  /* תיקון: ודא שהטקסט באותה שורה כמו המספר */
 }
 
 .note-line-num {
@@ -1495,6 +1496,7 @@ p.p-cut { text-align-last: justify !important; }
     text-decoration: none;
     color: inherit;
     cursor: pointer;
+    display: inline;  /* תיקון: ודא שהמספר באותה שורה כמו הטקסט */
 }
 
 .note-marker { line-height: 0; cursor: pointer; }

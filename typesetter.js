@@ -743,6 +743,22 @@ function knuthPlassBreak(words, colWidth, styleObj, opts = {}) {
     const lastLinePenalty = opts.lastLinePenalty != null ? opts.lastLinePenalty : 0;
     const overfullPenalty = opts.overfullPenalty != null ? opts.overfullPenalty : 1000;
     const firstLineWidthReduction = opts.firstLineWidthReduction || 0;
+    // פעולה 4 — פרמטרים מתקדמים (לפי מחקרים):
+    // looseness: מאפשר לאלגוריתם להוסיף/להסיר שורות מהאופטימום הטבעי.
+    //   looseness=+1 → חפש פתרון עם שורה אחת יותר (למניעת אלמנות/איזון טורים).
+    //   looseness=-1 → חפש פתרון עם שורה אחת פחות (למניעת יתומים/חיסכון מקום).
+    const looseness = opts.looseness || 0;
+    // adjdemerits: קנס נוסף כאשר שתי שורות עוקבות הן בקטגוריות כושר (fitness)
+    // בלתי-תואמות (למשל "tight" אחרי "very loose"). מונע ניגודים חזותיים חריפים.
+    const adjdemerits = opts.adjdemerits != null ? opts.adjdemerits : 3000;
+    // parfillskip: האם לתת לשורה האחרונה מתיחה אינסופית (כמו TeX).
+    // אם true — השורה האחרונה אינה נדרשת להגיע לרוחב הטור, ו-badness=0 תמיד.
+    const parfillskip = opts.parfillskip !== false; // ברירת מחדל: true
+    // clubpenalties: מערך קנסות לשורות הראשונות של פסקה אחרי כותרת (לפי מחקר 1,
+    // סעיף "מניעה רב-שורתית באמצעות \clubpenalties").
+    // דוגמה: [10000, 10000, 150] — אוסר שבירה אחרי שורה 1 ו-2, מאפשר משורה 3.
+    // אם לא מסופק, ברירת מחדל: רק orphanPenalty לשורה הראשונה.
+    const clubpenalties = opts.clubpenalties || null;
 
     // רוחב רווח טבעי וגבולות מתיחה/כיווץ
     const spaceW = _getSpaceWidth(styleObj);
@@ -786,8 +802,9 @@ function knuthPlassBreak(words, colWidth, styleObj, opts = {}) {
     }
 
     // פונקציית עזר: חישוב עלות שורה (badness + demerits)
-    // מחזירה { feasible, badness, demerits, isOverfull }
-    function lineCost(a, b, isLastLine, isFirstLine) {
+    // מחזירה { feasible, badness, demerits, isOverfull, fitnessClass, ratio }
+    // פעולה 4 — lineNumInPara: מספר השורה בפסקה (1-based), לצורך clubpenalties
+    function lineCost(a, b, isLastLine, isFirstLine, lineNumInPara) {
         const target = isFirstLine ? firstLineTarget : colWidth;
         const natural = lineNaturalWidth(a, b);
         const numSpaces = b - a - 1; // רווחים בין מילים בשורה
@@ -880,102 +897,194 @@ function knuthPlassBreak(words, colWidth, styleObj, opts = {}) {
         if (isOverfull) penalty += overfullPenalty;
         if (isLastLine && numWordsInLine === 0) penalty += lastLinePenalty;
 
+        // פעולה 4 — clubpenalties: אם סופק מערך קנסות ויש לנו מספר שורה,
+        // החל את הקנס המתאים. זה מאפשר "שתי שורות אחרי כותרת" (לפי מחקר 1).
+        if (clubpenalties && lineNumInPara && lineNumInPara <= clubpenalties.length) {
+            penalty += clubpenalties[lineNumInPara - 1];
+        }
+
         // TeX נוסחת demerits: D = (linePenalty + badness)^2 + penalty^2 (אם penalty >= 0)
         // נשתמש בנוסחה הקלאסית: demerits = linePenalty + badness^2 + penalty^2
         const demerits = linePenalty + badness * badness + penalty * penalty;
 
-        return { feasible, badness, demerits, isOverfull, natural };
+        // פעולה 4 — fitness class (לפי מחקר 2, סעיף "fitness classes"):
+        // 4 קטגוריות לפי יחס ההתאמה r:
+        //   0 (tight):    r < -0.5  (כיווץ משמעותי)
+        //   1 (decent):   -0.5 <= r <= 0.5  (נורמלי)
+        //   2 (loose):    0.5 < r < 1  (מתיחה מתונה)
+        //   3 (very loose): r >= 1  (מתיחה קיצונית)
+        // נשתמש בזה ל-adjdemerits (קנס על מעבר בין קטגוריות בלתי-תואמות).
+        let fitnessClass = 1; // ברירת מחדל: decent
+        let ratio = 0;
+        if (!isLastLine && !isOverfull && numSpaces > 0) {
+            if (natural > target) {
+                ratio = -(natural - target) / lineShrink;
+            } else if (natural < target) {
+                ratio = (target - natural) / lineStretch;
+            }
+            if (ratio < -0.5) fitnessClass = 0;
+            else if (ratio <= 0.5) fitnessClass = 1;
+            else if (ratio < 1) fitnessClass = 2;
+            else fitnessClass = 3;
+        }
+
+        return { feasible, badness, demerits, isOverfull, natural, fitnessClass, ratio };
     }
 
     // ===== תכנון דינמי =====
-    // best[i] = { cost, parent, lineStart } — העלות המינימלית להגיע למילה i
-    // best[0] = { cost: 0, parent: -1, lineStart: 0 }
-    // best[i] = min over a < i, line feasible of best[a].cost + lineCost(a, i).demerits
+    // best[i] = { cost, parent, lineStart, fitnessClass, lineCount } — העלות המינימלית
+    // להגיע למילה i עם מספר שורות וקטגוריית כושר של השורה האחרונה.
     //
-    // אופטימיזציה: נסרוק רק נקודות a שעדיין אפשריות. נתחיל מ-a=0 ונזוז קדימה עד שהשורה
-    // הופכת לא-אפשרית (כיווץ יתר).
+    // פעולה 4 — מימוש מלא של looseness:
+    // במקום לשמור רק נקודה אחת לכל `end`, נשמור את הנקודה הטובה ביותר
+    // לכל (end, lineCount). כך נוכל בסוף לבחור נקודת סיום עם מספר שורות
+    // = optimal_lineCount + looseness.
+    //
+    // bestByLineCount[end] = Map<lineCount, {cost, parent, lineStart, fitnessClass, lineCount}>
 
-    // best[i] עבור i ב-0..N
     const best = new Array(N + 1).fill(null);
-    best[0] = { cost: 0, parent: -1, lineStart: 0 };
+    // best[end] = Map: lineCount → node
+    // נשתמש ב-best[end] כ-Map כדי לשמור מספר נקודות לכל end.
+    const bestByLineCount = new Array(N + 1).fill(null);
+    bestByLineCount[0] = new Map();
+    bestByLineCount[0].set(0, { cost: 0, parent: -1, lineStart: 0, fitnessClass: 1, lineCount: 0 });
 
-    // רשימת נקודות פעילות: מספרי מילים שמהן אפשר להתחיל שורה חדשה
-    // (כלומר: הגענו אליהן עם עלות סופית)
     let activeStarts = [0];
 
     for (let end = 1; end <= N; end++) {
-        let bestForEnd = null;
-        // נסה כל נקודת התחלה אפשרית, מהסוף להתחלה (a יורד).
-        // ככל ש-a קטן יותר, השורה (a, end) כוללת יותר מילים ולכן ארוכה יותר.
-        const newActiveStarts = [];
+        const endMap = new Map(); // lineCount → best node
+
         for (let sIdx = activeStarts.length - 1; sIdx >= 0; sIdx--) {
             const a = activeStarts[sIdx];
             if (a >= end) continue;
             const isLastLine = (end === N);
             const isFirstLine = (a === 0);
-            const lc = lineCost(a, end, isLastLine, isFirstLine);
+            // פעולה 4 — lineNumInPara: אם יש clubpenalties, נחשב את מספר השורה
+            // מתוך aLineCount. אבל כי אנחנו בתוך הלולאה על aLineCount, נעביר
+            // את המספר בתוך הלולאה הפנימית.
+            const lc = lineCost(a, end, isLastLine, isFirstLine, null);
 
             if (!lc.feasible) {
-                // אם השורה ארוכה מדי (natural > target) — נקודות התחלה קודמות
-                // (a קטן יותר) יוסיפו עוד מילים ויהפכו את השורה לארוכה אף יותר.
-                // לכן אפשר לצאת מהלולאה.
                 if (lc.natural > (isFirstLine ? firstLineTarget : colWidth)) break;
-                // אם השורה קצרה מדי (underfull) — נקודות התחלה קודמות עשויות
-                // להיות טובות יותר (עוד מילים מתקרבות ליעד). לכן נמשיך לחפש.
             }
 
-            const candidateCost = best[a].cost + lc.demerits;
-            if (!bestForEnd || candidateCost < bestForEnd.cost) {
-                bestForEnd = { cost: candidateCost, parent: a, lineStart: a };
+            // פעולה 4 — adjdemerits
+            // עבור כל (a, lineCount) ב-bestByLineCount[a], חשב את העלות הכוללת
+            const aMap = bestByLineCount[a];
+            if (!aMap) continue;
+            for (const [aLineCount, aNode] of aMap) {
+                // פעולה 4 — אם יש clubpenalties, חשב מחדש את lineCost עם lineNumInPara
+                let lcWithClub = lc;
+                if (clubpenalties) {
+                    lcWithClub = lineCost(a, end, isLastLine, isFirstLine, aLineCount + 1);
+                }
+                const prevFitness = aNode.fitnessClass;
+                const currFitness = lcWithClub.fitnessClass;
+                let adjDem = 0;
+                if (Math.abs(prevFitness - currFitness) > 1) {
+                    adjDem = adjdemerits;
+                }
+                const candidateCost = aNode.cost + lcWithClub.demerits + adjDem;
+                const candidateLineCount = aLineCount + 1;
+
+                // שמור את הנקודה הטובה ביותר ל- (end, candidateLineCount)
+                const existing = endMap.get(candidateLineCount);
+                if (!existing || candidateCost < existing.cost) {
+                    endMap.set(candidateLineCount, {
+                        cost: candidateCost,
+                        parent: a,
+                        parentLineCount: aLineCount,  // כדי לשחזר את המסלול
+                        lineStart: a,
+                        fitnessClass: currFitness,
+                        lineCount: candidateLineCount,
+                    });
+                }
             }
         }
 
-        // שמור את best[end]
-        if (bestForEnd) {
-            best[end] = bestForEnd;
-        } else {
-            // Fallback: שבירה כפויה מ-end-1 ל-end (שורה בת מילה אחת)
-            // זה קורה רק אם אף חלוקה לא אפשרית — מקרה נדיר ביותר.
+        // שמור את endMap (אם ריק, צור fallback)
+        if (endMap.size === 0) {
+            // Fallback
             const fallbackParent = end - 1;
-            const fallbackCost = (best[fallbackParent] ? best[fallbackParent].cost : 0) + overfullPenalty * 10;
-            best[end] = { cost: fallbackCost, parent: fallbackParent, lineStart: fallbackParent };
+            const fallbackParentMap = bestByLineCount[fallbackParent];
+            let fallbackParentNode = null;
+            let fallbackParentLC = 0;
+            if (fallbackParentMap) {
+                for (const [lc, node] of fallbackParentMap) {
+                    if (!fallbackParentNode || node.cost < fallbackParentNode.cost) {
+                        fallbackParentNode = node;
+                        fallbackParentLC = lc;
+                    }
+                }
+            }
+            const fallbackCost = (fallbackParentNode ? fallbackParentNode.cost : 0) + overfullPenalty * 10;
+            const fallbackLC = (fallbackParentNode ? fallbackParentLC : 0) + 1;
+            endMap.set(fallbackLC, {
+                cost: fallbackCost,
+                parent: fallbackParent,
+                parentLineCount: fallbackParentLC,
+                lineStart: fallbackParent,
+                fitnessClass: 1,
+                lineCount: fallbackLC,
+            });
         }
+        bestByLineCount[end] = endMap;
 
-        // בנה רשימת active starts מחדש — כל הנקודות שעדיין אפשרות
-        // (כלומר, נקודות שלא הגיעו ל-overfull קשה עבור end)
+        // בנה רשימת active starts מחדש
         const newActive = [];
         for (const a of activeStarts) {
             if (a >= end) continue;
-            // בדוק אם שורה מ-a ל-end+1 עדיין יכולה להיות אפשרית (בגבול)
-            // נספיק: אם רוחב השורה מ-a ל-end (כולל end-1) כבר עולה על colWidth + lineShrink_max,
-            // אז שורה מ-a ל-end+1 תהיה גרועה יותר.
             const natural = lineNaturalWidth(a, end);
             const numSpaces = end - a - 1;
             const lineShrink = numSpaces * spaceShrink;
             if (natural > colWidth + lineShrink + 1 && numSpaces > 0) {
-                // נקודה זו כבר לא רלוונטית — אל תכלול אותה
                 continue;
             }
             newActive.push(a);
         }
-        newActive.push(end); // end עצמו הוא נקודת התחלה אפשרית לשורה הבאה
+        newActive.push(end);
         activeStarts = newActive;
     }
 
-    // שחזור המסלול מ-N ל-0
+    // פעולה 4 — looseness: בחר נקודת סיום עם מספר שורות = optimal + looseness
+    // ראשית, מצא את הנקודה האופטימלית (העלות המינימלית) ב-bestByLineCount[N]
+    const endMapN = bestByLineCount[N];
+    let optimalNode = null;
+    let optimalLineCount = 0;
+    if (endMapN) {
+        for (const [lc, node] of endMapN) {
+            if (!optimalNode || node.cost < optimalNode.cost) {
+                optimalNode = node;
+                optimalLineCount = lc;
+            }
+        }
+    }
+
+    // אם looseness != 0, חפש נקודה עם targetLineCount = optimalLineCount + looseness
+    let chosenNode = optimalNode;
+    if (looseness !== 0 && endMapN) {
+        const targetLineCount = optimalLineCount + looseness;
+        const targetNode = endMapN.get(targetLineCount);
+        if (targetNode) {
+            chosenNode = targetNode;
+        }
+        // אם אין נקודה עם targetLineCount, השאר את האופטימלית
+    }
+
+    // שחזור המסלול מ-chosenNode
     const breakPoints = [];
     let cur = N;
+    let curLineCount = chosenNode ? chosenNode.lineCount : 0;
     let feasibility = 'optimal';
     while (cur > 0) {
-        const node = best[cur];
-        if (!node) {
-            // לא אמור לקרות
-            feasibility = 'fallback';
-            break;
-        }
+        const curMap = bestByLineCount[cur];
+        if (!curMap) { feasibility = 'fallback'; break; }
+        const node = curMap.get(curLineCount);
+        if (!node) { feasibility = 'fallback'; break; }
         breakPoints.unshift(node.lineStart);
         if (node.parent === -1) break;
         cur = node.parent;
+        curLineCount = node.parentLineCount;
     }
     breakPoints.push(N);
 
@@ -994,7 +1103,7 @@ function knuthPlassBreak(words, colWidth, styleObj, opts = {}) {
         lineWidths.push(Math.min(natural, target));
     }
 
-    const totalCost = best[N] ? best[N].cost : 0;
+    const totalCost = chosenNode ? chosenNode.cost : 0;
     const lastLineWidth = lineWidths.length > 0 ? lineWidths[lineWidths.length - 1] : 0;
 
     // בדוק אם היתה שורת overfull כלשהי (למעט השורה האחרונה שמקבלת יחס מקל)
@@ -1042,9 +1151,10 @@ function getKpCacheStats() {
     };
 }
 
-function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLines) {
-    // בדוק מטמון
-    const key = _cacheKey(text, colWidth, styleObj, useWindowIfMultipleLines);
+function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLines, looseness) {
+    // בדוק מטמון (כולל looseness במפתח)
+    const loosenessKey = looseness || 0;
+    const key = _cacheKey(text, colWidth, styleObj, useWindowIfMultipleLines) + '|l' + loosenessKey;
     const cached = _linesCache.get(key);
     if (cached) return cached;
 
@@ -1129,6 +1239,7 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
             const kpResult = knuthPlassBreak(words, colWidth, styleObj, {
                 ...kpOpts,
                 firstLineWidthReduction,
+                looseness: loosenessKey,  // פעולה 4 — העבר looseness
             });
 
             if (kpResult.lines.length > 0) {
@@ -1136,6 +1247,7 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
                     lines: kpResult.lines,
                     hasWindow: shouldApplyWindowKP,
                     numLines: kpResult.numLines,
+                    _fromKp: true,  // סימון שהשורות הגיעו מ-Knuth-Plass
                     // שדות נוספים לצורכי דיבאג
                     _kpTotalCost: kpResult.totalCost,
                     _kpFeasibility: kpResult.feasibility,
@@ -2238,7 +2350,39 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
     } catch (e) {
         console.warn('rebalance after tightenRunts failed:', e);
     }
-    
+
+    // פעולה 4 — איזון טורים איטרטיבי עם looseness (לפי מחקר 1, סעיף "lua-widow-control").
+    // אם יש אי-איזון משמעותי (>20px), נסה להריץ את הפסקה האחרונה בטור הארוך
+    // עם looseness=-1 (שורה פחות) כדי לקצר אותו. אם זה לא עובד, נסה את
+    // הפסקה הראשונה בטור הקצר עם looseness=+1 (שורה יותר).
+    try {
+        const rH = rCol.scrollHeight;
+        const lH = lCol.scrollHeight;
+        const diff = Math.abs(rH - lH);
+        if (diff > 20) {
+            // מצא את הטור הארוך והקצר
+            const tallCol = rH > lH ? rCol : lCol;
+            const shortCol = rH > lH ? lCol : rCol;
+            // נסה לקצר את הטור הארוך ע"י הרצת הפסקה האחרונה עם looseness=-1
+            const lastP = tallCol.querySelector('p:last-child');
+            if (lastP && lastP.getAttribute('data-raw-text')) {
+                const rawText = lastP.getAttribute('data-raw-text');
+                const isCont = lastP.classList.contains('p-cut');
+                const linesInfo = getLinesFromParagraph(rawText, colWidth, styleObj, !isCont, -1);
+                if (linesInfo._fromKp && linesInfo.numLines > 0) {
+                    // בדוק אם המספר החדש של שורות קטן יותר
+                    const currentLines = (lastP.innerHTML.match(/<br>/g) || []).length + 1;
+                    if (linesInfo.numLines < currentLines) {
+                        // החל את השורות החדשות
+                        lastP.innerHTML = linesInfo.lines.map(l => escapeHTML(l)).join('<br>');
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('looseness-based rebalance failed:', e);
+    }
+
     // נקודה 5: tryLookAheadWordPull מנוטרל — מבוסס על postext §Q + recommendation #9.
     
     // נקודה 6: תיקון אלמנות cross-column (פעולה 1 — מטריצת עדיפויות).
@@ -3377,15 +3521,33 @@ function applyCandidateLayoutToDOM(block, candidate, styleObj, colWidth) {
             p.className = isCont ? 'p-cut' : (isPartialHead ? 'p-cut' : 'p-end');
             p.setAttribute('data-token-id', item.id);
             
-            // יצירת HTML משורות
+            // פעולה 4 — תיקון אינטגרציה קריטי: ה-renderer חייב לכבד את השורות
+            // ש-Knuth-Plass חישב. בעבר, הקוד עשה item.lines.join(' ') והדפדפן
+            // שבר שורות מחדש — מה שביטל לחלוטין את עבודת KP וגרם לרגרסיות.
+            //
+            // עכשיו: אם יש שורות מ-KP (מסומנות _fromKp), נכניס <br> ביניהן
+            // כדי לכפות את החלוקה. השורות עצמן יעברו escapeHTML וייושרו ע"י הדפדפן.
+            // השורה האחרונה תקבל text-align-last: right (או var) כדי לא למתוח אותה.
             let text = item.text;
-            if (item.lines && item.lines.length > 0) {
+            let usedKpLines = false;
+            if (item._fromKp && item.lines && item.lines.length > 1) {
+                // שורות מ-KP — נכבד אותן עם <br>
+                text = item.lines.map(line => escapeHTML(line)).join('<br>');
+                usedKpLines = true;
+            } else if (item.lines && item.lines.length > 0) {
+                // שורות מ-DOM probe הישן — נשתמש ב-join(' ') כמו קודם
                 text = item.lines.join(' ');
             }
             
             // יישום drop-word/dibbur-hamatchil
-            if (isCont) {
-                p.innerHTML = escapeHTML(text);
+            if (isCont || usedKpLines) {
+                // פסקת המשך או פסקה עם שורות KP — אין drop-word
+                // (drop-word רלוונטי רק לפסקה ראשונה, ו-KP כבר התחשב בו)
+                if (usedKpLines) {
+                    p.innerHTML = text;
+                } else {
+                    p.innerHTML = escapeHTML(text);
+                }
             } else {
                 p.innerHTML = createDropWord(text, false, item.totalLines === 1, item.totalLines || 2);
             }
@@ -3894,7 +4056,8 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
                 lines: linesInfo.lines,
                 isSingleLine: linesInfo.lines.length <= 1,
                 hasWindow: linesInfo.hasWindow,
-                numLines: linesInfo.lines.length
+                numLines: linesInfo.lines.length,
+                _fromKp: !!linesInfo._fromKp,  // העבר סימון KP ל-renderer
             };
         }
         return item;
@@ -3950,7 +4113,12 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         } else {
             const p = document.createElement('p');
             p.className = 'p-end';
-            p.innerHTML = createDropWord(item.rawText, item.isCont, item.isSingleLine, item.numLines);
+            // פעולה 4 — כבד שורות KP עם <br>
+            if (item._fromKp && item.lines && item.lines.length > 1) {
+                p.innerHTML = item.lines.map(line => escapeHTML(line)).join('<br>');
+            } else {
+                p.innerHTML = createDropWord(item.rawText, item.isCont, item.isSingleLine, item.numLines);
+            }
             applyDelimiterStyles(p, 'body', getBodySizePt(), true);
             col.appendChild(p);
         }
@@ -3967,8 +4135,15 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             let item = items[sp.itemIndex];
             let pRight = document.createElement('p');
             pRight.className = 'p-cut';
-            let rightText = sp.lines.slice(0, sp.lineIndex).join(' ');
-            pRight.innerHTML = createDropWord(rightText, item.isCont, false, sp.lineIndex);
+            // פעולה 4 — כבד שורות KP עם <br> בפיצול טורים
+            let rightText;
+            if (item._fromKp) {
+                rightText = sp.lines.slice(0, sp.lineIndex).map(l => escapeHTML(l)).join('<br>');
+                pRight.innerHTML = rightText;
+            } else {
+                rightText = sp.lines.slice(0, sp.lineIndex).join(' ');
+                pRight.innerHTML = createDropWord(rightText, item.isCont, false, sp.lineIndex);
+            }
             applyDelimiterStyles(pRight, 'body', getBodySizePt(), true);
             rCol.appendChild(pRight);
         }
@@ -3979,8 +4154,15 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             let item = items[sp.itemIndex];
             let pLeft = document.createElement('p');
             pLeft.className = 'p-end';
-            let leftText = sp.lines.slice(sp.lineIndex).join(' ');
-            pLeft.innerHTML = createDropWord(leftText, true, false, item.lines.length - sp.lineIndex);
+            // פעולה 4 — כבד שורות KP עם <br> בפיצול טורים
+            let leftText;
+            if (item._fromKp) {
+                leftText = sp.lines.slice(sp.lineIndex).map(l => escapeHTML(l)).join('<br>');
+                pLeft.innerHTML = leftText;
+            } else {
+                leftText = sp.lines.slice(sp.lineIndex).join(' ');
+                pLeft.innerHTML = createDropWord(leftText, true, false, item.lines.length - sp.lineIndex);
+            }
             applyDelimiterStyles(pLeft, 'body', getBodySizePt(), true);
             lCol.appendChild(pLeft);
         }
@@ -4416,7 +4598,9 @@ function buildNoteBlockElement(queue, columns) {
         applyNoteMarkerStyle(num, true);
         const body = document.createElement('span');
         body.className = 'note-body-text';
-        body.textContent = item.text;
+        // תיקון: נקה את תו U+E000 (נעילת רווחים בתוך הערות) לפני הצגה.
+        // אחרת, התו מופיע כריבוע/תו לא מזוהה במקום רווח.
+        body.textContent = (item.text || '').replace(/\uE000/g, ' ');
         const inst = (typeof findExtTextStyle === 'function') ? findExtTextStyle(item.styleId) : null;
         if (inst && inst.def.style) applyExtStyleToNode(body, inst.def.style, 10);
         line.appendChild(num);
@@ -5570,11 +5754,17 @@ function performTypesetInner() {
                         }
 
                         pageHasContent = true;
-                        const chunk = lines.slice(0, bestFitLine).join(' ');
+                        const chunkLines = lines.slice(0, bestFitLine);
                         const isEndOfP = (bestFitLine === lines.length);
                         pElem.className = isEndOfP ? 'p-end' : 'p-cut';
-                        pElem.setAttribute('data-raw-text', chunk);
-                        pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length);
+                        pElem.setAttribute('data-raw-text', chunkLines.join(' '));
+                        // פעולה 4 — כבד שורות KP עם <br> במסלול טור יחיד
+                        if (linesInfo._fromKp && chunkLines.length > 1) {
+                            pElem.innerHTML = chunkLines.map(l => escapeHTML(l)).join('<br>');
+                        } else {
+                            const chunk = chunkLines.join(' ');
+                            pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length);
+                        }
                         applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
 
                         pageTrace.tokensPlaced.push({ id: currentTok.id, type: 'p', linesPlaced: bestFitLine, totalLines: lines.length, isEndOfP });
@@ -5604,9 +5794,15 @@ function performTypesetInner() {
                 /* כותרת 3 רוחבית (Span 1 Column) */
                 if (peekMode === 'span_1col' && !pendingWordTokens) {
                     const currentAvailH = getBlockColumnBudget(pageLayout.bodyFlow, pageLayout.page, null);
-                    // דרישת מינימום 190px כדי לא להשאיר כותרת וטקסט קטוע בתחתית עמוד
-                    if (currentAvailH < 190) {
-                        pageTrace.steps.push(`כותרת רוחבית [${peekTok.id}] נדחתה לעמוד הבא עקב חוסר מקום מספיק לגוף (${currentAvailH}px)`);
+                    // פעולה 4 — תיקון "עמודים קצרים לפני H3":
+                    // הסף הישן (190px) גרם לעמודים קצרים מדי. הסף החדש מבוסס על
+                    // דרישת "שתי שורות טקסט אחרי H3" (לפי מחקר 1, סעיף "קיבוע כותרות").
+                    // גובה H3 + 2 שורות טקסט ≈ 60px + 2*20px = 100px. נשתמש ב-120px
+                    // כדי לאפשר גם margin.
+                    // אבל: אם currentAvailH קטן מ-120, דחה את ה-H3. אחרת, אפשר לו
+                    // להיכנס גם אם יש רק שורה אחת אחריו — עדיף על עמוד קצר.
+                    if (currentAvailH < 120) {
+                        pageTrace.steps.push(`כותרת רוחבית [${peekTok.id}] נדחתה לעמוד הבא עקב חוסר מקום (${currentAvailH}px < 120px)`);
                         break;
                     }
 
@@ -5829,11 +6025,17 @@ function performTypesetInner() {
                             }
 
                             pageHasContent = true;
-                            const chunk = lines.slice(0, bestFitLine).join(' ');
+                            const chunkLines = lines.slice(0, bestFitLine);
                             const isEndOfP = (bestFitLine === lines.length);
                             pElem.className = isEndOfP ? 'p-end' : 'p-cut';
-                            pElem.setAttribute('data-raw-text', chunk);
-                            pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length);
+                            pElem.setAttribute('data-raw-text', chunkLines.join(' '));
+                            // פעולה 4 — כבד שורות KP עם <br> במסלול דו-טורי
+                            if (linesInfo._fromKp && chunkLines.length > 1) {
+                                pElem.innerHTML = chunkLines.map(l => escapeHTML(l)).join('<br>');
+                            } else {
+                                const chunk = chunkLines.join(' ');
+                                pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length);
+                            }
                             applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
 
                             pageTrace.tokensPlaced.push({ id: currentTok.id, type: 'p', col: colName, linesPlaced: bestFitLine, totalLines: lines.length, isEndOfP });
