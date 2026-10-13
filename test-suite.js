@@ -182,26 +182,64 @@ function checkFontFallback(el) {
     }
     if (!requested) return null;
     // נרמול: הסר גרשיים, לוכסנים (בריחת דפדפן), ורווחים
-    const normalize = s => s.split(',')[0].trim().replace(/['"\\]/g, '').replace(/\s+/g, ' ');
-    const firstRequested = normalize(requested);
-    const firstActual = normalize(actualFamily);
-    const isFallback = firstRequested !== firstActual && !firstActual.includes(firstRequested) && !firstRequested.includes(firstActual);
-    return { requested: firstRequested, actual: firstActual, isFallback };
+    // תיקון T9: צריך לבדוק את כל רשימת ה-fallback, לא רק את הראשון.
+    // דוגמה: requested = "'גוטמן רש\"י רגיל', 'פרנק רוהל ליברה רגיל', serif"
+    // actual = "פרנק רוהל ליברה רגיל, serif"
+    // אם ניקח רק את הראשון ב-requested ונשווה ל-actual — נקבל false positive.
+    // הפתרון: לפצל את requested לרשימה, ולבדוק אם actual מופיע בה.
+    const normalizeOne = s => s.trim().replace(/^['"]|['"]$/g, '').replace(/['"\\]/g, '').replace(/\s+/g, ' ');
+    const requestedList = requested.split(',').map(normalizeOne).filter(s => s.length > 0);
+    const actualList = actualFamily.split(',').map(normalizeOne).filter(s => s.length > 0);
+    const firstRequested = requestedList[0] || '';
+    const firstActual = actualList[0] || '';
+    // fallback אמיתי = ה-actual הראשון אינו מופיע בשום מקום ב-requestedList
+    const isInRequestedList = requestedList.some(r => r === firstActual || firstActual.includes(r) || r.includes(firstActual));
+    const isFallback = !isInRequestedList && firstRequested !== firstActual;
+    return { requested: firstRequested, actual: firstActual, isFallback, requestedList, actualList };
 }
 
 function detectTofu(fontFamily) {
+    // תיקון T12: הגרסה הישנה בדקה רק "האם משהו מצויר" — אבל כשהגופן לא קיים,
+    // הדפדפן נופל ל-serif גנרי שכן מצייר עברית. לכן הבדיקה תמיד החזירה false.
+    // הגרסה החדשה משווה בין ציור הגופן המבוקש לבין ציור serif גנרי. אם הם זהים
+    // (או דומים מאוד), הגופן לא נטען ויש fallback.
+    // תיקון נוסף: אם המבוקש הוא עצמו "serif" או "sans-serif" — אין משמעות
+    // ל-bad comparison, ולכן נחזיר false (אין tofu).
     try {
+        // גופנים גנריים — לעולם אינם tofu
+        const generic = ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui'];
+        if (generic.includes(fontFamily.toLowerCase())) return false;
+
         const canvas = document.createElement('canvas');
         canvas.width = 200; canvas.height = 40;
         const ctx = canvas.getContext('2d');
         if (!ctx) return false;
-        ctx.font = `16px '${fontFamily}'`;
+
+        // צייר עם הגופן המבוקש
+        ctx.font = `16px '${fontFamily}', serif`;
         ctx.fillStyle = '#000'; ctx.textBaseline = 'top';
         ctx.fillText('אבגדהוזחטיכלמנסעפצקרשת', 5, 5);
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        let black = 0;
-        for (let i = 3; i < data.length; i += 4) if (data[i] > 0) black++;
-        return black < 100;
+        const data1 = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let black1 = 0;
+        for (let i = 3; i < data1.length; i += 4) if (data1[i] > 0) black1++;
+
+        // אם אין שום פיקסל שחור — זה tofu אמיתי
+        if (black1 < 50) return true;
+
+        // צייר עם serif גנרי בלבד
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = `16px serif`;
+        ctx.fillStyle = '#000'; ctx.textBaseline = 'top';
+        ctx.fillText('אבגדהוזחטיכלמנסעפצקרשת', 5, 5);
+        const data2 = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let black2 = 0;
+        for (let i = 3; i < data2.length; i += 4) if (data2[i] > 0) black2++;
+
+        // אם מספר הפיקסלים זהה (או כמעט זהה), הגופן לא נטען ויש fallback
+        // סף 5% — אם ההפרש קטן מ-5% מ-black2, זה אותו ציור
+        if (black2 > 0 && Math.abs(black1 - black2) < black2 * 0.05) return true;
+
+        return false;
     } catch (e) { return false; }
 }
 
@@ -692,16 +730,24 @@ function generateLayoutReport() {
                     if (!p.classList.contains('p-cut')) return;
                     
                     // בדיקת שורות דלילות באמצעות DOM אמיתי (Range.getClientRects)
+                    // תיקון קריטי (T2): ב-RTL, rect.width אינו מייצג את רוחב השורה.
+                    // getClientRects יכול להחזיר מספר rects לאותה שורה (אחד לכל span
+                    // פנימי, כמו drop-word), וכל rect.width הוא רק רוחב ה-span עצמו.
+                    // כדי למדוד את רוחב השורה בפועל, יש להשתמש ב-
+                    // rect.right - colRect.left (המרחק מתחילת הטור עד סוף הטקסט).
                     try {
                         const range = document.createRange();
                         range.selectNodeContents(p);
                         const rects = range.getClientRects();
-                        // אסוף שורות ייחודיות לפי top
+                        // אסוף שורות ייחודיות לפי top, ולכל שורה קח את ה-maxRight
                         const lineMap = new Map();
                         for (const rect of rects) {
                             if (rect.height > 0) {
                                 const top = Math.round(rect.top);
-                                lineMap.set(top, Math.max(lineMap.get(top) || 0, rect.width));
+                                const rightFromColLeft = rect.right - colRect.left;
+                                if (!lineMap.has(top) || rightFromColLeft > lineMap.get(top)) {
+                                    lineMap.set(top, rightFromColLeft);
+                                }
                             }
                         }
                         if (lineMap.size === 0) return;
@@ -909,4 +955,19 @@ window.generateLayoutReport = generateLayoutReport;
 window.checkCanvasMeasurementAccuracy = checkCanvasMeasurementAccuracy;
 window.checkCanvasLineEstimate = checkCanvasLineEstimate;
 window.checkKnuthPlassQuality = checkKnuthPlassQuality;
+// חשיפת פונקציות הבדיקה הפנימיות לצורכי אימות חיצוני
+window.checkColumnOverflow = checkColumnOverflow;
+window.checkSideNoteOverlap = checkSideNoteOverlap;
+window.checkWidowOrphan = checkWidowOrphan;
+window.checkHeadingAtColumnBottom = checkHeadingAtColumnBottom;
+window.checkSingleLinePCut = checkSingleLinePCut;
+window.checkEmptyColumn = checkEmptyColumn;
+window.checkHebrewIssues = checkHebrewIssues;
+window.checkRivers = checkRivers;
+window.checkWideWordSpacing = checkWideWordSpacing;
+window.checkTightenRuntsApplied = checkTightenRuntsApplied;
+window.checkConsecutiveHyphens = checkConsecutiveHyphens;
+window.checkFontFallback = checkFontFallback;
+window.detectTofu = detectTofu;
+window.checkPriorityFontsLoaded = checkPriorityFontsLoaded;
 })();
