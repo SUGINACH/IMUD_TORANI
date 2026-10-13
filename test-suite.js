@@ -239,17 +239,17 @@ function checkWidowOrphan(page) {
         const paras = Array.from(col.querySelectorAll('p'));
         if (!paras.length) return;
         const firstP = paras[0];
-        // אלמנה: פסקת המשך (p-cut/data-is-cont) עם שורה אחת בלבד בלבד
-        // סף 1.5 — פסקה עם 2 שורות אינה אלמנה
+        // אלמנה: פסקת המשך (p-cut/data-is-cont) עם שורה אחת בודדת בלבד
+        // סף 1.1 — רק פסקה עם שורה אחת ממש (לא 2)
         if (firstP.classList.contains('p-cut') || firstP.getAttribute('data-is-cont') === 'true') {
             const lh = parseFloat(getComputedStyle(firstP).lineHeight) || 20;
-            if (firstP.offsetHeight < lh * 1.5) widows.push({ col: ci, para: 0 });
+            if (firstP.offsetHeight < lh * 1.1) widows.push({ col: ci, para: 0 });
         }
         const lastP = paras[paras.length - 1];
-        // יתום: פסקה אחרונה (לא p-end) עם שורה אחת בלבד
+        // יתום: פסקה אחרונה (לא p-end) עם שורה אחת בודדת
         if (!lastP.classList.contains('p-end')) {
             const lh = parseFloat(getComputedStyle(lastP).lineHeight) || 20;
-            if (lastP.offsetHeight < lh * 1.5 && paras.length > 1) orphans.push({ col: ci, para: paras.length - 1 });
+            if (lastP.offsetHeight < lh * 1.1 && paras.length > 1) orphans.push({ col: ci, para: paras.length - 1 });
         }
     });
     return { widows: widows.length, orphans: orphans.length, details: { widows, orphans } };
@@ -261,19 +261,29 @@ function checkHeadingAtColumnBottom(page) {
         const ch = Array.from(col.children).filter(c => c.nodeType === 1);
         if (!ch.length) return;
         const last = ch[ch.length - 1];
-        // בדיקה א': האלמנט האחרון הוא כותרת
+        // בדיקה א': האלמנט האחרון הוא כותרת (אין שום טקסט אחריה)
         if (last && /title-level-[3456]/.test(last.className)) {
             const m = last.className.match(/title-level-(\d)/);
             issues.push({ col: ci, headingType: m ? m[1] : '?', issue: 'heading_last' });
         }
         // בדיקה ב': כותרת עם פחות מ-2 שורות טקסט אחריה
+        // (כותרת "תלויה" בתחתית — התוכן שלה עבר לטור הבא)
         if (ch.length >= 2) {
             const secondLast = ch[ch.length - 2];
             if (secondLast && /title-level-[3456]/.test(secondLast.className || '')) {
                 const lh = parseFloat(getComputedStyle(last).lineHeight) || 20;
-                if (last.offsetHeight < lh * 2.0) {
+                // ספור שורות בפועל עם getClientRects
+                const range = document.createRange();
+                range.selectNodeContents(last);
+                const rects = range.getClientRects();
+                const lineTops = new Set();
+                for (const rect of rects) {
+                    if (rect.height > 0) lineTops.add(Math.round(rect.top));
+                }
+                const actualLines = lineTops.size;
+                if (actualLines < 2) {
                     const m = secondLast.className.match(/title-level-(\d)/);
-                    issues.push({ col: ci, headingType: m ? m[1] : '?', issue: 'heading_with_lt_2_lines' });
+                    issues.push({ col: ci, headingType: m ? m[1] : '?', issue: 'heading_with_lt_2_lines', linesAfter: actualLines });
                 }
             }
         }
@@ -286,8 +296,8 @@ function checkSingleLinePCut(page) {
     page.querySelectorAll('.right-col, .left-col').forEach((col, ci) => {
         col.querySelectorAll('p.p-cut').forEach((p, pi) => {
             const lh = parseFloat(getComputedStyle(p).lineHeight) || 20;
-            // סף 1.5 — פסקה עם 2 שורות אינה חד-שורתית
-            if (p.offsetHeight < lh * 1.5) issues.push({ col: ci, paraIdx: pi });
+            // סף 1.1 — רק פסקה עם שורה אחת ממש
+            if (p.offsetHeight < lh * 1.1) issues.push({ col: ci, paraIdx: pi });
         });
     });
     return issues;
@@ -479,6 +489,10 @@ function generateLayoutReport() {
                 const colRect = col.getBoundingClientRect();
                 const cw = colRect.width;
                 ps.forEach(p => {
+                    // דלילות רלוונטית רק בפסקאות p-cut (אמצע פסקה — השורה האחרונה בטור)
+                    // דלילות בפסקאות p-end (סיום טבעי ממורכז) אינה בעיה.
+                    if (!p.classList.contains('p-cut')) return;
+                    
                     // בדיקת שורות דלילות באמצעות DOM אמיתי (Range.getClientRects)
                     try {
                         const range = document.createRange();
@@ -498,10 +512,10 @@ function generateLayoutReport() {
                         const lineCount = lineMap.size;
                         
                         // שורה דלילה: השורה האחרונה תופסת פחות מ-50% מרוחב הטור
-                        // ויש יותר משורה אחת (שורה בודדת אינה "דלילה" — זו פסקה קצרה)
+                        // ויש יותר משורה אחת
                         if (lineCount > 1 && lastLineWidth < cw * 0.5) {
                             S.sparse++;
-                            if (p.classList.contains('p-cut')) S.sparseCut++; else S.sparseEnd++;
+                            S.sparseCut++;
                         }
                     } catch (e) {
                         // fallback: אם Range לא עובד, דלג
