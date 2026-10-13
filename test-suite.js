@@ -181,8 +181,10 @@ function checkFontFallback(el) {
         if (cssVar) requested = cssVar;
     }
     if (!requested) return null;
-    const firstRequested = requested.split(',')[0].trim().replace(/['"]/g, '');
-    const firstActual = actualFamily.split(',')[0].trim().replace(/['"]/g, '');
+    // נרמול: הסר גרשיים, לוכסנים (בריחת דפדפן), ורווחים
+    const normalize = s => s.split(',')[0].trim().replace(/['"\\]/g, '').replace(/\s+/g, ' ');
+    const firstRequested = normalize(requested);
+    const firstActual = normalize(actualFamily);
     const isFallback = firstRequested !== firstActual && !firstActual.includes(firstRequested) && !firstRequested.includes(firstActual);
     return { requested: firstRequested, actual: firstActual, isFallback };
 }
@@ -237,14 +239,17 @@ function checkWidowOrphan(page) {
         const paras = Array.from(col.querySelectorAll('p'));
         if (!paras.length) return;
         const firstP = paras[0];
+        // אלמנה: פסקת המשך (p-cut/data-is-cont) עם שורה אחת בלבד בלבד
+        // סף 1.5 — פסקה עם 2 שורות אינה אלמנה
         if (firstP.classList.contains('p-cut') || firstP.getAttribute('data-is-cont') === 'true') {
             const lh = parseFloat(getComputedStyle(firstP).lineHeight) || 20;
-            if (firstP.offsetHeight < lh * 2.2) widows.push({ col: ci, para: 0 });
+            if (firstP.offsetHeight < lh * 1.5) widows.push({ col: ci, para: 0 });
         }
         const lastP = paras[paras.length - 1];
+        // יתום: פסקה אחרונה (לא p-end) עם שורה אחת בלבד
         if (!lastP.classList.contains('p-end')) {
             const lh = parseFloat(getComputedStyle(lastP).lineHeight) || 20;
-            if (lastP.offsetHeight < lh * 2.2 && paras.length > 1) orphans.push({ col: ci, para: paras.length - 1 });
+            if (lastP.offsetHeight < lh * 1.5 && paras.length > 1) orphans.push({ col: ci, para: paras.length - 1 });
         }
     });
     return { widows: widows.length, orphans: orphans.length, details: { widows, orphans } };
@@ -256,9 +261,21 @@ function checkHeadingAtColumnBottom(page) {
         const ch = Array.from(col.children).filter(c => c.nodeType === 1);
         if (!ch.length) return;
         const last = ch[ch.length - 1];
+        // בדיקה א': האלמנט האחרון הוא כותרת
         if (last && /title-level-[3456]/.test(last.className)) {
             const m = last.className.match(/title-level-(\d)/);
-            issues.push({ col: ci, headingType: m ? m[1] : '?' });
+            issues.push({ col: ci, headingType: m ? m[1] : '?', issue: 'heading_last' });
+        }
+        // בדיקה ב': כותרת עם פחות מ-2 שורות טקסט אחריה
+        if (ch.length >= 2) {
+            const secondLast = ch[ch.length - 2];
+            if (secondLast && /title-level-[3456]/.test(secondLast.className || '')) {
+                const lh = parseFloat(getComputedStyle(last).lineHeight) || 20;
+                if (last.offsetHeight < lh * 2.0) {
+                    const m = secondLast.className.match(/title-level-(\d)/);
+                    issues.push({ col: ci, headingType: m ? m[1] : '?', issue: 'heading_with_lt_2_lines' });
+                }
+            }
         }
     });
     return issues;
@@ -269,7 +286,8 @@ function checkSingleLinePCut(page) {
     page.querySelectorAll('.right-col, .left-col').forEach((col, ci) => {
         col.querySelectorAll('p.p-cut').forEach((p, pi) => {
             const lh = parseFloat(getComputedStyle(p).lineHeight) || 20;
-            if (p.offsetHeight < lh * 2.2) issues.push({ col: ci, paraIdx: pi });
+            // סף 1.5 — פסקה עם 2 שורות אינה חד-שורתית
+            if (p.offsetHeight < lh * 1.5) issues.push({ col: ci, paraIdx: pi });
         });
     });
     return issues;
@@ -456,22 +474,37 @@ function generateLayoutReport() {
 
             const checkSparse = (col) => {
                 const ps = col.querySelectorAll('p'); if (!ps.length) return;
-                const so = {
-                    fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--fn-body'),
-                    fontSize: getComputedStyle(document.documentElement).getPropertyValue('--sz-body'),
-                    lineHeight: getComputedStyle(document.documentElement).getPropertyValue('--line-height-body') || '1.34'
-                };
-                const cw = col.offsetWidth - 40;
+                // השתמש ב-getBoundingClientRect().width שמושפע מ-transform:scale,
+                // בדיוק כמו getClientRects. כך ההשוואה תהיה עקבית.
+                const colRect = col.getBoundingClientRect();
+                const cw = colRect.width;
                 ps.forEach(p => {
-                    const raw = p.classList.contains('p-cut') ? (p.textContent || '') : (p.getAttribute('data-raw-text') || p.textContent || '');
-                    if (!raw.trim() || typeof getLinesFromParagraph !== 'function') return;
-                    const info = getLinesFromParagraph(raw, cw, so, false);
-                    if (!info.lines?.length) return;
-                    const lastLine = info.lines[info.lines.length - 1];
-                    const words = lastLine.split(/\s+/).filter(x => x.length > 0).length;
-                    if (words > 0 && words <= 4) {
-                        S.sparse++;
-                        if (p.classList.contains('p-cut')) S.sparseCut++; else S.sparseEnd++;
+                    // בדיקת שורות דלילות באמצעות DOM אמיתי (Range.getClientRects)
+                    try {
+                        const range = document.createRange();
+                        range.selectNodeContents(p);
+                        const rects = range.getClientRects();
+                        // אסוף שורות ייחודיות לפי top
+                        const lineMap = new Map();
+                        for (const rect of rects) {
+                            if (rect.height > 0) {
+                                const top = Math.round(rect.top);
+                                lineMap.set(top, Math.max(lineMap.get(top) || 0, rect.width));
+                            }
+                        }
+                        if (lineMap.size === 0) return;
+                        const sortedTops = Array.from(lineMap.keys()).sort((a, b) => a - b);
+                        const lastLineWidth = lineMap.get(sortedTops[sortedTops.length - 1]) || 0;
+                        const lineCount = lineMap.size;
+                        
+                        // שורה דלילה: השורה האחרונה תופסת פחות מ-50% מרוחב הטור
+                        // ויש יותר משורה אחת (שורה בודדת אינה "דלילה" — זו פסקה קצרה)
+                        if (lineCount > 1 && lastLineWidth < cw * 0.5) {
+                            S.sparse++;
+                            if (p.classList.contains('p-cut')) S.sparseCut++; else S.sparseEnd++;
+                        }
+                    } catch (e) {
+                        // fallback: אם Range לא עובד, דלג
                     }
                 });
             };
