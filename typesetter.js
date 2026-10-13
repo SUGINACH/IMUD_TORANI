@@ -1379,13 +1379,168 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
         console.warn('rebalance after tightenRunts failed:', e);
     }
     
-    // נקודה 5: tryLookAheadWordPull מנוטרל — מבוסס על postext §Q + recommendation #9:
-    // "Don't pull words from the next column. Religious/semantic text units must not
-    //  be silently rebalanced for visual fit. A sparse last line is preferable to a
-    //  word pulled across a column boundary."
-    // tryLookAheadWordPull(block, rCol, lCol, styleObj, colWidth, budget);
+    // נקודה 5: tryLookAheadWordPull מנוטרל — מבוסס על postext §Q + recommendation #9.
+    
+    // נקודה 6: תיקון אלמנות cross-column (פעולה 1 — מטריצת עדיפויות).
+    // סדר העדיפויות לפי מחקר:
+    //   1. No Content Loss (אין לדרוס טקסט)
+    //   2. מניעת יתום/אלמנה (הקנס העליון)
+    //   3. מניעת כותרת תלויה
+    //   4. איזון טורים
+    //   5. מניעת שורות דלילות
+    // המטריצה מבוצעת אחרי האיזון וה-tightenRunts, כדי לתקן אלמנות שנוצרו למרות ה-look-ahead.
+    try {
+        const fixed = fixWidowContinuation(block, colWidth, styleObj);
+        // אם fixWidowContinuation שינה טקסט, הרץ שוב tightenRunts כדי לטפל
+        // בשורה אחרונה דלילה שעלולה להיווצר ב-p-cut (קונפליקט אלמנה→דלילות).
+        if (fixed) {
+            tightenRuntsInBlock(block, colWidth, styleObj);
+        }
+    } catch (e) {
+        console.warn('fixWidowContinuation failed:', e);
+    }
     
     return enforceBlockColumnsWithinCeiling(block, budget);
+}
+
+/**
+ * fixWidowContinuation — תיקון אלמנות cross-column (פעולה 1).
+ *
+ * מטריצת עדיפויות לפי מחקר:
+ *   1. No Content Loss — אין לדרוס טקסט
+ *   2. מניעת יתום/אלמנה — הקנס העליון
+ *   3. מניעת כותרת תלויה
+ *   4. איזון טורים
+ *   5. מניעת שורות דלילות
+ *
+ * אם הפסקה הראשונה בטור השני היא המשך (data-is-cont) עם שורה אחת בודדת,
+ * מעביר מילים מסוף ה-p-cut לתחילת ההמשך עד שלהמשך ≥2 שורות.
+ * Fallback (שלב 3 לפי מחקר): אם העברת מילים לא הצליחה, משוך את האלמנה
+ * חזרה לטור הראשון (מזג את ההמשך חזרה ל-p-cut).
+ */
+function fixWidowContinuation(block, colWidth, styleObj) {
+    const rCol = block.querySelector('.right-col');
+    const lCol = block.querySelector('.left-col');
+    if (!rCol || !lCol) return false;
+
+    let anyFixed = false;
+
+    // בדוק שני כיוונים: R→L (p-cut ב-R, המשך ב-L) ו-L→R (p-cut ב-L, המשך ב-R)
+    for (const [cutCol, contCol] of [[rCol, lCol], [lCol, rCol]]) {
+        const cutParas = Array.from(cutCol.querySelectorAll('p'));
+        const contParas = Array.from(contCol.querySelectorAll('p'));
+        if (!cutParas.length || !contParas.length) continue;
+
+        const lastCut = cutParas[cutParas.length - 1];
+        const firstCont = contParas[0];
+
+        // הפסקה האחרונה בטור הראשון חייבת להיות p-cut
+        if (!lastCut.classList.contains('p-cut')) continue;
+        // הפסקה הראשונה בטור השני חייבת להיות המשך
+        if (firstCont.getAttribute('data-is-cont') !== 'true') continue;
+
+        // ספור שורות בהמשך באמצעות getClientRects (DOM אמיתי)
+        const range = document.createRange();
+        range.selectNodeContents(firstCont);
+        const rects = range.getClientRects();
+        const lineTops = new Set();
+        for (const rect of rects) {
+            if (rect.height > 0) lineTops.add(Math.round(rect.top));
+        }
+        const contLines = lineTops.size;
+
+        // רק אם ההמשך הוא שורה אחת בודדת — תיקן!
+        if (contLines !== 1) continue;
+
+        // קח את הטקסט של שתי הפסקאות
+        const cutText = lastCut.textContent.trim();
+        const contText = firstCont.textContent.trim();
+
+        // חלק את ה-p-cut למילים
+        const cutWords = cutText.split(/\s+/);
+        if (cutWords.length < 5) continue; // צריך מספיק מילים ב-p-cut
+
+        // שלב 1: העבר מילים מסוף ה-p-cut לתחילת ההמשך עד שלהמשך ≥2 שורות
+        const movedWords = [];
+        const maxMove = Math.min(8, cutWords.length - 3);
+        for (let w = 0; w < maxMove; w++) {
+            const word = cutWords.pop();
+            if (!word) break;
+            movedWords.unshift(word);
+
+            // עדכן את ה-p-cut
+            const fww = lastCut.querySelector('.first-word-window');
+            const newCutText = cutWords.join(' ') + '.';
+            if (fww) {
+                const afterFww = fww.nextSibling;
+                if (afterFww && afterFww.nodeType === 3) {
+                    afterFww.textContent = ' ' + newCutText;
+                } else {
+                    lastCut.appendChild(document.createTextNode(' ' + newCutText));
+                }
+            } else {
+                lastCut.textContent = newCutText;
+            }
+
+            // עדכן את ההמשך
+            const contFww = firstCont.querySelector('.first-word-window');
+            const newContText = movedWords.join(' ') + ' ' + contText;
+            if (contFww) {
+                const afterFww = contFww.nextSibling;
+                if (afterFww && afterFww.nodeType === 3) {
+                    afterFww.textContent = ' ' + newContText;
+                }
+            } else {
+                firstCont.textContent = newContText;
+            }
+
+            // בדוק אם ההמשך כעת ≥2 שורות
+            const range2 = document.createRange();
+            range2.selectNodeContents(firstCont);
+            const rects2 = range2.getClientRects();
+            const lineTops2 = new Set();
+            for (const rect of rects2) {
+                if (rect.height > 0) lineTops2.add(Math.round(rect.top));
+            }
+            if (lineTops2.size >= 2) break;
+        }
+
+        // בדוק שוב אם ההמשך עדיין שורה אחת (המילים לא הספיקו)
+        const range3 = document.createRange();
+        range3.selectNodeContents(firstCont);
+        const rects3 = range3.getClientRects();
+        const lineTops3 = new Set();
+        for (const rect of rects3) {
+            if (rect.height > 0) lineTops3.add(Math.round(rect.top));
+        }
+        if (lineTops3.size < 2) {
+            // שלב 3 (Fallback לפי מחקר): משוך את האלמנה חזרה לטור הראשון.
+            // מזג את ההמשך חזרה ל-p-cut — שחזר את הטקסט המלא והפוך ל-p-end.
+            const fww = lastCut.querySelector('.first-word-window');
+            const fullText = cutText; // הטקסט המקורי של ה-p-cut
+            if (fww) {
+                const afterFww = fww.nextSibling;
+                if (afterFww && afterFww.nodeType === 3) {
+                    afterFww.textContent = ' ' + fullText;
+                }
+            } else {
+                lastCut.textContent = fullText;
+            }
+            // הסר את ההמשך מהטור השני
+            firstCont.remove();
+            // שנה את ה-p-cut ל-p-end (הפסקה שלמה, לא חתוכה)
+            lastCut.classList.remove('p-cut');
+            lastCut.classList.add('p-end');
+            lastCut.removeAttribute('data-is-cont');
+            console.log('fixWidowContinuation: מיזגתי המשך קצר חזרה ל-p-cut (fallback)');
+            anyFixed = true;
+            continue;
+        }
+
+        console.log('fixWidowContinuation: העברתי מילים מ-p-cut להמשך');
+        anyFixed = true;
+    }
+    return anyFixed;
 }
 
 /**
@@ -2990,7 +3145,23 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             else if (wordsAtSplit === 3) runtPenalty = 200;
         }
 
-        let score = balanceQualityScore + heightPenalty + runtPenalty;
+        // === Look-ahead: Widow/Orphan penalty (חדש — פעולה 2) ===
+        // בדוק כמה שורות יהיו בהמשך (טור שמאל) אחרי החיתוך.
+        // אם ההמשך הוא שורה אחת בודדת — זו אלמנה! הענק קנס כבד.
+        // אם החלק שנשאר בימין הוא שורה אחת — זה יתום! הענק קנס כבד.
+        let widowPenalty = 0;
+        if (sp.lineIndex > 0 && sp.lines) {
+            const linesInRight = sp.lineIndex;
+            const linesInLeft = sp.lines.length - sp.lineIndex;
+            // יתום: שורה אחת בימין (תחילת פסקה שעוברת לשמאל)
+            if (linesInRight === 1) widowPenalty += 10000;
+            // אלמנה: שורה אחת בשמאל (שארית פסקה מימין)
+            if (linesInLeft === 1) widowPenalty += 10000;
+            // כמעט-אלמנה: 2 שורות בשמאל
+            if (linesInLeft === 2) widowPenalty += 3000;
+        }
+
+        let score = balanceQualityScore + heightPenalty + runtPenalty + widowPenalty;
 
         if (score < minScore) {
             minScore = score;
