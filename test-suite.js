@@ -206,6 +206,107 @@ function detectTofu(fontFamily) {
 }
 
 // ==========================================================================
+// פעולה 3 חלק ב' — בדיקת דיוק Canvas API
+// ==========================================================================
+// משווה בין measureLineWidthCanvas (canvas.measureText) לבין מדידת DOM
+// אמיתית (span.offsetWidth). מחזיר אחוז סטייה ממוצע ומקסימלי.
+// ==========================================================================
+function checkCanvasMeasurementAccuracy(sampleWords) {
+    const samples = sampleWords || [
+        'השבת', 'המצווה', 'המעשה', 'בראשית', 'וידבר', 'ויאמר',
+        'השכינה', 'הקדוש-ברוך-הוא', 'ישראל', 'תורה', 'מצווה', 'הלכה'
+    ];
+    const styleObj = { fontFamily: "'Frank Ruhl Libre', serif", fontSize: '16px' };
+    const results = [];
+    let totalAbsDelta = 0, maxAbsDelta = 0, maxRelDelta = 0;
+
+    // צור span נסתר אחד למדידת DOM
+    const span = document.createElement('span');
+    span.style.cssText = 'position:absolute; top:-99999px; left:-99999px; visibility:hidden; white-space:pre;';
+    document.body.appendChild(span);
+    span.style.fontFamily = styleObj.fontFamily;
+    span.style.fontSize = styleObj.fontSize;
+
+    for (const w of samples) {
+        const canvasW = (typeof measureLineWidthCanvas === 'function')
+            ? measureLineWidthCanvas(w, styleObj)
+            : -1;
+        span.textContent = w;
+        const domW = span.offsetWidth;
+        const absDelta = Math.abs(canvasW - domW);
+        const relDelta = domW > 0 ? absDelta / domW : 0;
+        totalAbsDelta += absDelta;
+        if (absDelta > maxAbsDelta) maxAbsDelta = absDelta;
+        if (relDelta > maxRelDelta) maxRelDelta = relDelta;
+        results.push({ word: w, canvasW: +canvasW.toFixed(2), domW, absDelta: +absDelta.toFixed(2), relDelta: +(relDelta * 100).toFixed(2) + '%' });
+    }
+    document.body.removeChild(span);
+
+    return {
+        sampleCount: samples.length,
+        avgAbsDelta: +(totalAbsDelta / samples.length).toFixed(2),
+        maxAbsDelta: +maxAbsDelta.toFixed(2),
+        maxRelDelta: +(maxRelDelta * 100).toFixed(2) + '%',
+        results,
+        cacheStats: (typeof getWordWidthCacheStats === 'function') ? getWordWidthCacheStats() : null,
+    };
+}
+
+// בדיקת אומדן מספר שורות: משווה estimateLineCountCanvas לבין מדידת DOM אמיתית
+// של פסקה בת N מילים.
+function checkCanvasLineEstimate(words, colWidth, styleObj) {
+    if (typeof estimateLineCountCanvas !== 'function') {
+        return { error: 'estimateLineCountCanvas not available' };
+    }
+    const canvasResult = estimateLineCountCanvas(words, colWidth, styleObj, {});
+
+    // מדידת DOM אמיתית: נבנה פסקה ב-#measuring-box ונספור שורות לפי offsetTop
+    let domLines = 0;
+    try {
+        const box = document.getElementById('measuring-box');
+        if (box) {
+            const savedCss = box.style.cssText;
+            box.style.width = colWidth + 'px';
+            box.style.fontFamily = styleObj.fontFamily || 'serif';
+            box.style.fontSize = styleObj.fontSize || '16px';
+            box.style.lineHeight = styleObj.lineHeight || '1.4';
+            box.style.textAlign = 'justify';
+            box.style.textJustify = 'inter-word';
+            box.style.direction = 'rtl';
+            box.innerHTML = '';
+            const p = document.createElement('p');
+            p.style.margin = '0'; p.style.padding = '0';
+            p.style.lineHeight = styleObj.lineHeight || '1.4';
+            const measureId = 'cme-' + Math.random().toString(36).slice(2, 8);
+            p.innerHTML = words.map((w, i) => `<span id="${measureId}-${i}">${w}</span>`).join(' ');
+            box.appendChild(p);
+            let curTop = -1, lineCount = 0;
+            for (let i = 0; i < words.length; i++) {
+                const s = document.getElementById(`${measureId}-${i}`);
+                if (!s) continue;
+                if (curTop === -1) { curTop = s.offsetTop; lineCount = 1; }
+                else if (Math.abs(s.offsetTop - curTop) > 8) { curTop = s.offsetTop; lineCount++; }
+            }
+            domLines = lineCount;
+            box.innerHTML = '';
+            box.style.cssText = savedCss;
+        }
+    } catch (e) {
+        return { error: 'DOM measurement failed: ' + e.message, canvasResult };
+    }
+
+    return {
+        wordCount: words.length,
+        colWidth,
+        canvasNumLines: canvasResult.numLines,
+        domNumLines: domLines,
+        delta: canvasResult.numLines - domLines,
+        canvasLineTexts: canvasResult.lineTexts,
+        canvasLastLineWidth: +canvasResult.lastLineWidth.toFixed(2),
+    };
+}
+
+// ==========================================================================
 // בדיקות DOM ויזואליות
 // ==========================================================================
 function checkColumnOverflow(col) {
@@ -604,6 +705,40 @@ tr.warn{background:rgba(245,158,11,.08)}
     });
     h += '</div>';
 
+    // פעולה 3 חלק ב' — דוח Canvas API
+    h += '<h2>Canvas API (פעולה 3 חלק ב)</h2>';
+    try {
+        const acc = checkCanvasMeasurementAccuracy();
+        const cacheOk = acc.cacheStats && acc.cacheStats.wordCount > 0;
+        h += `<div class="sum">
+            <div><div class="n">${acc.sampleCount}</div><div class="l">דגימות</div></div>
+            <div><div class="n ${acc.avgAbsDelta<2?'ok':'warn'}">${acc.avgAbsDelta}px</div><div class="l">סטייה ממוצעת</div></div>
+            <div><div class="n ${acc.maxAbsDelta<5?'ok':'warn'}">${acc.maxAbsDelta}px</div><div class="l">סטייה מקסימלית</div></div>
+            <div><div class="n ${cacheOk?'ok':'bad'}">${acc.cacheStats ? acc.cacheStats.wordCount : 0}</div><div class="l">מילים במטמון</div></div>
+        </div>`;
+        h += '<div class="section"><h3>דגימות מדידה — Canvas vs DOM</h3>';
+        h += '<table class="issues-table"><thead><tr><th>מילה</th><th>Canvas (px)</th><th>DOM (px)</th><th>Δ (px)</th><th>Δ (%)</th></tr></thead><tbody>';
+        acc.results.forEach(r => {
+            const cls = r.absDelta > 2 ? 'warn' : (r.absDelta > 5 ? 'bad' : '');
+            h += `<tr class="${cls}"><td>${r.word}</td><td>${r.canvasW}</td><td>${r.domW}</td><td>${r.absDelta}</td><td>${r.relDelta}</td></tr>`;
+        });
+        h += '</tbody></table></div>';
+
+        // אומדן מספר שורות
+        const estWords = ['השבת','המצווה','המעשה','הגדר','הרשות','ההוצאה','המלאכה','האיסור','הקדוש','החילול','השביתה','המנוחה','הנפישה','הזכירה','השמירה','היום','הזמן','המקום','החפץ','האדם','הכח','הפעולה','התוצאה','העושה','הנעשה','המציאות','ההויה','החלל','הכלל','הפרט'];
+        const est = checkCanvasLineEstimate(estWords, 280, { fontFamily: "'Frank Ruhl Libre', serif", fontSize: '16px', lineHeight: '1.4' });
+        if (!est.error) {
+            const okClass = Math.abs(est.delta) <= 1 ? 'ok' : 'warn';
+            h += `<div class="section"><h3>אומדן מספר שורות — Canvas vs DOM</h3>`;
+            h += `<p>מילים: ${est.wordCount}, רוחב טור: ${est.colWidth}px</p>`;
+            h += `<p>Canvas: <b class="${okClass}">${est.canvasNumLines}</b> שורות | DOM: <b>${est.domNumLines}</b> שורות | הפרש: <b class="${okClass}">${est.delta > 0 ? '+' : ''}${est.delta}</b></p>`;
+            h += `<p>רוחב שורה אחרונה (Canvas): ${est.canvasLastLineWidth}px</p>`;
+            h += '</div>';
+        }
+    } catch (e) {
+        h += `<p class="bad">שגיאת Canvas: ${e.message}</p>`;
+    }
+
     h += '<h2>טבלת בעיות ויזואליות</h2>';
     if (allIssues.length === 0) {
         h += '<p class="ok">✓ לא נמצאו בעיות ויזואליות!</p>';
@@ -674,4 +809,6 @@ else initTestSuiteButtons();
 
 window.generateTestText = generateTestText;
 window.generateLayoutReport = generateLayoutReport;
+window.checkCanvasMeasurementAccuracy = checkCanvasMeasurementAccuracy;
+window.checkCanvasLineEstimate = checkCanvasLineEstimate;
 })();

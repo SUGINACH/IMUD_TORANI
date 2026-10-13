@@ -238,3 +238,128 @@
 - `download/typesetting-final-v8.zip` (2.0 MB, 110 קבצים)
 - כולל 101 קבצי גופנים (100 מ-GitHub + Guttman Rashi)
 - כולל _fonts.css עם כל הגדרות @font-face
+
+---
+
+## Task ID: action-3-part-2-canvas-api
+**Agent:** main (Super Z)
+**Date:** 2026-10-13
+**Task:** השלמת חלקה השני של פעולה 3 — Canvas API + Width Caching למדידת רוחב טקסט.
+
+### רקע
+חלקה הראשון של פעולה 3 (Width Caching — `_linesCache`) כבר יושם בקומיט הקודם
+(`637c3d6 v17-fix: Width Caching ל-getLinesFromParagraph`). חלקה השני דורש החלפת
+מדידות `getBoundingClientRect` / `offsetWidth` היקרות (Layout Thrashing) במדידות
+`canvas.measureText()` המנותקות מ-DOM, לפי מחקר סעיף 5 ("פתרון ה-Off-DOM Canvas
+Measurement").
+
+### Work Log:
+- **הוספת מודול Canvas חדש** ב-`typesetter.js` (סעיף 3א, לפני `getLinesFromParagraph`):
+  - `_measureCanvas` / `_measureCtx` — canvas גלובלי יחיד.
+  - `_wordWidthCache` (Map, max 8000) — מטמון רוחבי מילים לפי `font|word`.
+  - `_spaceWidthCache` (Map) — מטמון רוחב רווח לכל תיאור גופן.
+  - `_getCanvasCtx()`, `_fontDescriptor(styleObj)`, `_isFontAvailable(styleObj)`.
+  - `measureWordWidth(word, styleObj)` — רוחב מילה עם מטמון, fallback ל-DOM.
+  - `measureLineWidthCanvas(text, styleObj)` — רוחב שורה, fallback ל-DOM.
+  - `_getSpaceWidth(styleObj)` — רוחב רווח בגופן, fallback לאומדן 25% מ-fontSize.
+  - `estimateLineCountCanvas(words, colWidth, styleObj, opts)` — אלגוריתם greedy
+    לאומדן מספר שורות, מחזיר גם שורות ורוחב שורה אחרונה.
+  - `resetWordWidthCache()` — ניקוי מטמון.
+  - `getWordWidthCacheStats()` — סטטיסטיקות לדיבאג.
+
+- **שילוב Canvas ב-`getLinesFromParagraph`**:
+  - החלפת האומדן הישן (`singleLineHeight / oneLineH` עם 2 קריאות `offsetHeight`)
+    ב-`estimateLineCountCanvas` — מונע Layout Thrashing.
+  - fallback מלא למסלול ה-DOM הישן אם canvas אינו זמין או הגופן אינו טעון.
+  - תיקון באג חבוי: הוספת `appendChild` מותנה (`if (!pMeasure.parentNode)`)
+    כדי להבטיח ש-`pMeasure` מחובר ל-DOM לפני קריאת `offsetTop` של ה-spans הפנימיים.
+
+- **שילוב Canvas ב-`measureCandidateLines`**:
+  - החלפת מדידת `lastLineWidth` הישנה (span זמני + `offsetWidth`) ב-
+    `measureLineWidthCanvas`, עם fallback ל-DOM אם canvas אינו זמין.
+  - שימוש ב-`getComputedStyle(p)` כדי לקבל את הגופן בפועל שהופעל על הפסקה
+    (כולל פולבק מ-`buildMeasureClone`), במקום להסתמך על `opts.styleObj` החלקי.
+
+- **תיקון באגים קריטיים במהלך האימות**:
+  1. **באג ב-`_isFontAvailable`**: ה-regex `/^['"]|['"]$/g` הסיר רק את הגרש המוביל
+     מתוך רשימת fallback (`'Frank Ruhl Libre', serif`), והותיר גרש תואם עודף.
+     **תיקון**: העברת ה-`fontFamily` כמות שהוא ל-`document.fonts.check()` שמטפל
+     ברשימת fallback באופן טבעי.
+  2. **באג ב-`_fontDescriptor`**: אותה בעיית regex, יצרה מחרוזת font פגומה
+     (`16px 'Frank Ruhl Libre', serif'`) שגרמה ל-canvas ליפול לגופן ברירת מחדל.
+     **תיקון**: אם `family` מכיל פסיק — נשתמש בו כמו שהוא. אחרת — נסיר גרשיים
+     קיימים ונעטוף מחדש אם יש רווחים.
+
+- **איפוס מטמון ב-`performTypeset`**:
+  - נוספה קריאה ל-`resetWordWidthCache()` בתחילת כל מחזור עימוד, כדי למנוע
+    מדידות שגויות אחרי שינוי גופן/הגדרות.
+
+- **חשיפת פונקציות על `window`** לצורכי בדיקה:
+  - `measureWordWidth`, `measureLineWidthCanvas`, `estimateLineCountCanvas`,
+    `resetWordWidthCache`, `getWordWidthCacheStats`.
+
+- **הוספת בדיקות ב-`test-suite.js`**:
+  - `checkCanvasMeasurementAccuracy(sampleWords)` — משווה canvas ל-DOM על 12 מילים.
+  - `checkCanvasLineEstimate(words, colWidth, styleObj)` — משווה אומדן מספר שורות.
+  - שילוב בדוח העימוד המועשר (`generateLayoutReport`): סעיף חדש "Canvas API"
+    עם טבלת דגימות, סטיות, והשוואת אומדן שורות.
+
+### Verification (בדיקה מספרית, Playwright + Chromium):
+הרצתי שני סקריפטים: `verify_canvas_api.js` (אימות פונקציונלי) ו-
+`compare_typeset_quality.js` (השוואה מול baseline).
+
+**אימות Canvas API:**
+- ✅ כל 7 הפונקציות חשופות על `window`.
+- ✅ דיוק מדידת מילים: סטייה ממוצעת **0.25px**, מקסימלית **0.47px** (על 12 דגימות).
+- ✅ אומדן מספר שורות: **התאמה מושלמת** (Canvas: 6, DOM: 6, Δ: 0).
+- ✅ מטמון מאוכלס: 904-917 מילים אחרי עימוד מלא.
+- ✅ 0 page errors.
+
+**השוואת איכות עימוד (מול baseline ללא Canvas):**
+
+| מדד | Baseline | עם Canvas | Δ |
+|---|---|---|---|
+| זמן רינדור | 25089 ms | 24724 ms | -1.5% (מהיר יותר) |
+| עמודים | 363 | 363 | 0 |
+| בלוקים | 355 | 354 | -1 (זניח) |
+| אלמנות | 0 | 0 | 0 |
+| יתומים | 0 | 0 | 0 |
+| **Sparse p-cut** | **8** | **1** | **-7 (-87.5%)** ✅ |
+| Imbalanced (>5px) | 5 (1.4%) | 5 (1.4%) | 0 |
+| Overflow | 0 | 0 | 0 |
+| Page errors | 0 | 0 | 0 |
+
+**הערה**: שיפור דרמטי ב-sparse p-cut (-87.5%) נובע כנראה מכך שהאומדן המבוסס
+canvas מדויק יותר מהאומדן הישן (`singleLineHeight / oneLineH`), מה שמוביל
+להחלטות drop-word נכונות יותר וחלוקת פסקאות מאוזנת יותר. עמודי החוסר-איזון
+השתנו בין baseline ל-canvas (כי החלוקה שונה), אך מספרם זהה (5 מתוך 354).
+
+### Stage Summary:
+- ✅ מודול Canvas API מלא יושם בהצלחה לפי מחקר סעיף 5.
+- ✅ דיוק מדידה גבוה (סטייה ממוצעת 0.25px מול DOM).
+- ✅ אומדן מספר שורות מדויק (Δ=0 בדגימת 30 מילים).
+- ✅ מטמון רוחבי מילים פעיל (904+ מילים במהלך עימוד).
+- ✅ תאימות מלאה — אין שגיאות, אין דרדור באיכות העימוד.
+- ✅ שיפור נלווה: sparse p-cut ירד מ-8 ל-1.
+- ✅ שיפור נלווה: זמן רינדור ירד ב-1.5%.
+- ✅ בדיקות ויזואליות בדוח העימוד המועשר (Canvas API section).
+
+### Files Modified:
+- `typesetter.js`:
+  - סעיף 3א חדש: מודול Canvas API (פונקציות `measureWordWidth`, `measureLineWidthCanvas`,
+    `estimateLineCountCanvas`, `resetWordWidthCache`, `getWordWidthCacheStats`).
+  - `getLinesFromParagraph` — שימוש ב-`estimateLineCountCanvas` לאומדן שורות, עם fallback.
+  - `measureCandidateLines` — שימוש ב-`measureLineWidthCanvas` למדידת `lastLineWidth`.
+  - `performTypeset` — קריאה ל-`resetWordWidthCache()`.
+  - 5 חשיפות חדשות על `window`.
+- `test-suite.js`:
+  - `checkCanvasMeasurementAccuracy` + `checkCanvasLineEstimate` (פונקציות חדשות).
+  - סעיף "Canvas API" ב-`generateLayoutReport` עם טבלת דגימות והשוואת אומדן.
+  - 2 חשיפות חדשות על `window`.
+
+### Files Created:
+- `scripts/verify_canvas_api.js` — אימות פונקציונלי מלא של Canvas API.
+- `scripts/compare_typeset_quality.js` — השוואת איכות עימוד baseline vs canvas.
+- `scripts/screenshot_problem_pages.js` — צילום עמודים לאימות ויזואלי.
+- `download/canvas-api-page1.png` — צילום עמוד 1 (אימות ראשוני).
+- `download/canvas-api-screenshots/page-{001,027,030,150,363}.png` — צילומי עמודים נבחרים.
