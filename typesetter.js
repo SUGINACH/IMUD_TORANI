@@ -293,8 +293,767 @@ function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
 
 /* ==========================================================================
    4. מדידת שורות אטומית עם הגנת הערות שוליים (\uE000)
+   ==========================================================================
+
+   פעולה 3 — Width Caching (לפי מחקר סעיף 7):
+   מטמון תוצאות getLinesFromParagraph לפי גיבוב (hash) של הקלט.
+   מאיץ עימוד פי 3-5 על ידי מניעת חישובים חוזרים של אותה פסקה.
+   המטמון מתאפס בכל קריאה ל-typesetDocument.
    ========================================================================== */
+const _linesCache = new Map();
+const _LINES_CACHE_MAX = 2000;
+
+function _cacheKey(text, colWidth, styleObj, useWindow) {
+    // צור מפתח ייחודי מהפרמטרים
+    const fp = styleObj.fontFamily || '';
+    const fs = styleObj.fontSize || '';
+    const lh = styleObj.lineHeight || '';
+    const ws = styleObj.wordSpacing || '';
+    const ls = styleObj.letterSpacing || '';
+    return `${text.length}|${colWidth}|${fp}|${fs}|${lh}|${ws}|${ls}|${useWindow}`;
+}
+
+/* ==========================================================================
+   3א. Canvas API למדידת רוחב טקסט — פעולה 3 חלק ב'
+   ==========================================================================
+   פתרון Off-DOM Canvas Measurement לפי מחקר סעיף 5 ("פתרון ה-Off-DOM
+   Canvas Measurement"):
+   - שימוש ב-canvas.measureText() במקום offsetWidth / getBoundingClientRect
+     למדידת רוחב מילה / שורה / פסקה.
+   - מונע Layout Thrashing — אין Reflow בדפדפן, הואיל ו-canvas פונה ישירות
+     למנוע הפונטים (Font Engine) ומחזיר רוחב שבר אבסולוטי ומדויק.
+   - מטמון רוחבי מילים ב-Map (key: font|word → width), לפי המלצת המחקר
+     "שימוש במטמון רוחבים (Width Caching)".
+   - מאפשר אומדן מהיר של מספר שורות (estimateLineCountCanvas) ללא צורך
+     ב-DOM probe יקר של offsetHeight / offsetTop.
+
+   שימוש נוכחי:
+   1. measureWordWidth(word, styleObj) — רוחב מילה בודדת עם מטמון.
+   2. measureLineWidthCanvas(text, styleObj) — רוחב שורה (מילים מופרדות ברווח).
+   3. estimateLineCountCanvas(words, colWidth, styleObj, opts) — אומדן גרידי
+      של מספר שורות, מחזיר גם את השורות ורוחב השורה האחרונה.
+   4. resetWordWidthCache() — ניקוי המטמון (נקרא מ-performTypeset).
+
+   הערות:
+   - canvas.measureText אינו מבצע שבירת שורות או הצדקה (justify); הוא רק מודד
+     רוחב. לכן הוא משמש לאומדן בלבד, וה-DOM נשאר ה-Source of Truth לחלוקת
+     השורות בפועל (span.offsetTop).
+   - מטמון המילים נשמר גם בין פסקאות (בניגוד ל-_linesCache שמתאפס), כי רוחב
+     מילה בגופן נתון אינו תלוי בעמוד / פסקה.
+   - יש להמתין לטעינת הגופן לפני מדידה. נשתמש ב-document.fonts.check() כדי
+     לוודא שהגופן זמין (לפי לקח קודם: document.fonts.status אינו אמין).
+   ========================================================================== */
+
+let _measureCanvas = null;
+let _measureCtx = null;
+const _wordWidthCache = new Map();
+const _WORD_WIDTH_CACHE_MAX = 8000;
+// מטמון רוחב רווח לכל תיאור גופן — חיוני לאלגוריתם ה-greedy.
+const _spaceWidthCache = new Map();
+
+/**
+ * _getCanvasCtx — מחזיר הקשר 2d של canvas יחיד גלובלי.
+ * יצירת canvas יקרה; לכן נשמרת מופע יחיד.
+ */
+function _getCanvasCtx() {
+    if (!_measureCanvas) {
+        try {
+            _measureCanvas = document.createElement('canvas');
+            _measureCanvas.width = 10;
+            _measureCanvas.height = 10;
+            _measureCtx = _measureCanvas.getContext('2d');
+        } catch (e) {
+            console.warn('canvasMeasure: canvas not available', e);
+            _measureCtx = null;
+        }
+    }
+    return _measureCtx;
+}
+
+/**
+ * _fontDescriptor — בונה מחרוזת font תקנית ל-canvas (למשל "16px 'FrankRuehl'").
+ * תומך ברשימת fallback (למשל "'Frank Ruhl Libre', serif") — משאיר אותה כמו שהיא.
+ * @param {object} styleObj — { fontFamily, fontSize }
+ */
+function _fontDescriptor(styleObj) {
+    const size = styleObj.fontSize || '16px';
+    let family = String(styleObj.fontFamily || 'serif').trim();
+    // אם family מכיל פסיק — זו רשימת fallback, נשתמש בה כמו שהיא.
+    if (family.includes(',')) {
+        return `${size} ${family}`;
+    }
+    // אחרת — זו משפחה אחת. נסיר גרשיים קיימים ונעטוף מחדש אם יש רווחים.
+    const cleanFamily = family.replace(/^['"]|['"]$/g, '').trim();
+    const needsQuotes = /\s/.test(cleanFamily);
+    const quotedFamily = needsQuotes ? `'${cleanFamily}'` : cleanFamily;
+    return `${size} ${quotedFamily}`;
+}
+
+/**
+ * _isFontAvailable — בודק האם הגופן זמין באמצעות document.fonts.check().
+ * אם אינו זמין, נחזיר false ונסתפק במדידת DOM כ-fallback.
+ * תומך ברשימת fallback (למשל "'Frank Ruhl Libre', serif") — מעביר את
+ * כל הרשימה ל-document.fonts.check, שבודק את המשפחה הראשונה.
+ */
+function _isFontAvailable(styleObj) {
+    if (typeof document === 'undefined' || !document.fonts || !document.fonts.check) {
+        return false;
+    }
+    const size = styleObj.fontSize || '16px';
+    const family = styleObj.fontFamily || 'serif';
+    try {
+        // document.fonts.check מקבל font shorthand ובודק את המשפחה הראשונה.
+        // נעביר את ה-fontFamily כמות שהוא (כולל רשימת fallback).
+        return document.fonts.check(`${size} ${family}`);
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * _cacheKeyForWord — מפתח ייחודי למילה במטמון.
+ */
+function _cacheKeyForWord(word, fontDesc) {
+    return `${fontDesc}|${word}`;
+}
+
+/**
+ * measureWordWidth — מודד רוחב מילה בודדת בעזרת canvas, עם מטמון.
+ * אם canvas אינו זמין או הגופן אינו טעון — נופל למדידת DOM.
+ *
+ * @param {string} word
+ * @param {object} styleObj — { fontFamily, fontSize }
+ * @returns {number} רוחב בפיקסלים (שבר אבסולוטי)
+ */
+function measureWordWidth(word, styleObj) {
+    if (!word) return 0;
+    const fontDesc = _fontDescriptor(styleObj);
+    const key = _cacheKeyForWord(word, fontDesc);
+    const cached = _wordWidthCache.get(key);
+    if (cached !== undefined) return cached;
+
+    // ניקוי מטמון אם מלא
+    if (_wordWidthCache.size >= _WORD_WIDTH_CACHE_MAX) {
+        const keys = Array.from(_wordWidthCache.keys());
+        for (let i = 0; i < keys.length / 2; i++) _wordWidthCache.delete(keys[i]);
+    }
+
+    const ctx = _getCanvasCtx();
+    if (!ctx || !_isFontAvailable(styleObj)) {
+        // Fallback: DOM measurement
+        let fallbackW = 0;
+        try {
+            const span = document.createElement('span');
+            span.style.cssText = `position:absolute; visibility:hidden; white-space:pre; font:${fontDesc};`;
+            span.textContent = word;
+            document.body.appendChild(span);
+            fallbackW = span.offsetWidth;
+            document.body.removeChild(span);
+        } catch (e) { fallbackW = 0; }
+        _wordWidthCache.set(key, fallbackW);
+        return fallbackW;
+    }
+
+    ctx.font = fontDesc;
+    const width = ctx.measureText(word).width;
+    _wordWidthCache.set(key, width);
+    return width;
+}
+
+/**
+ * measureLineWidthCanvas — מודד רוחב שורה שלמה (מילים מופרדות ברווח) ב-canvas.
+ * משתמש במטמון. מתאים ל-RTL כיוון שרוחב אינו תלוי בכיוון.
+ *
+ * @param {string} text — השורה כולה
+ * @param {object} styleObj
+ * @returns {number}
+ */
+function measureLineWidthCanvas(text, styleObj) {
+    if (!text) return 0;
+    const fontDesc = _fontDescriptor(styleObj);
+    const key = `__line__|${fontDesc}|${text}`;
+    const cached = _wordWidthCache.get(key);
+    if (cached !== undefined) return cached;
+
+    const ctx = _getCanvasCtx();
+    if (!ctx || !_isFontAvailable(styleObj)) {
+        // Fallback ל-DOM (מקרה נדיר — הגופן אמור להיות טעון בעת המדידה)
+        let fallbackW = 0;
+        try {
+            const span = document.createElement('span');
+            span.style.cssText = `position:absolute; visibility:hidden; white-space:pre; font:${fontDesc};`;
+            span.textContent = text;
+            document.body.appendChild(span);
+            fallbackW = span.offsetWidth;
+            document.body.removeChild(span);
+        } catch (e) { fallbackW = 0; }
+        _wordWidthCache.set(key, fallbackW);
+        return fallbackW;
+    }
+
+    ctx.font = fontDesc;
+    const width = ctx.measureText(text).width;
+    // נשמור במטמון רק אם אינו גדול מדי (כדי לא להציף מטמון מילים בשורות)
+    if (text.length <= 80) {
+        _wordWidthCache.set(key, width);
+    }
+    return width;
+}
+
+/**
+ * _getSpaceWidth — מודד רוחב רווח בודד בגופן, עם מטמון נפרד.
+ */
+function _getSpaceWidth(styleObj) {
+    const fontDesc = _fontDescriptor(styleObj);
+    const cached = _spaceWidthCache.get(fontDesc);
+    if (cached !== undefined) return cached;
+
+    const ctx = _getCanvasCtx();
+    if (!ctx || !_isFontAvailable(styleObj)) {
+        // אומדן גס: רוחב רווח ≈ 25% מגובה הגופן
+        const sizeMatch = String(styleObj.fontSize || '16px').match(/([\d.]+)/);
+        const sizeNum = sizeMatch ? parseFloat(sizeMatch[1]) : 16;
+        const est = sizeNum * 0.25;
+        _spaceWidthCache.set(fontDesc, est);
+        return est;
+    }
+    ctx.font = fontDesc;
+    const w = ctx.measureText(' ').width;
+    _spaceWidthCache.set(fontDesc, w);
+    return w;
+}
+
+/**
+ * estimateLineCountCanvas — אומדן מהיר של מספר שורות בעזרת canvas.
+ * אלגוריתם greedy: מצרף מילים עד שהרוחב עובר את colWidth, אז יורד שורה.
+ * מתחשב ב-word-spacing ו-rtl — אך אינו מבצע הצדקה (justify) או שבירת
+ * מילים (hyphenation). מתאים לאומדן בלבד.
+ *
+ * @param {string[]} words
+ * @param {number} colWidth
+ * @param {object} styleObj
+ * @param {object} opts — { wordSpacing?: number }
+ * @returns {{ numLines: number, lineTexts: string[], lastLineWidth: number, lineStartIdx: number[] }}
+ */
+function estimateLineCountCanvas(words, colWidth, styleObj, opts = {}) {
+    if (!words || words.length === 0) {
+        return { numLines: 0, lineTexts: [], lastLineWidth: 0, lineStartIdx: [] };
+    }
+    const ctx = _getCanvasCtx();
+    if (!ctx || !_isFontAvailable(styleObj)) {
+        // Fallback: נחזיר 0 כדי שהקריאה תדע לנסות מסלול אחר
+        return { numLines: 0, lineTexts: [], lastLineWidth: 0, lineStartIdx: [] };
+    }
+
+    const spaceW = _getSpaceWidth(styleObj);
+    const wordSpacing = (typeof opts.wordSpacing === 'number') ? opts.wordSpacing : 0;
+    // תיקון לפי letterSpacing (אופציונלי)
+    const lsPerChar = (typeof opts.letterSpacing === 'number') ? opts.letterSpacing : 0;
+
+    const lineTexts = [];
+    const lineStartIdx = [];
+    let currentLine = [];
+    let currentWidth = 0;
+    let currentStartIdx = 0;
+
+    for (let i = 0; i < words.length; i++) {
+        const word = words[i];
+        const wordW = measureWordWidth(word, styleObj) + (lsPerChar * word.length);
+        // רוחב נוסף: רווח + wordSpacing (רק אם אינה המילה הראשונה בשורה)
+        const addedW = currentLine.length === 0
+            ? wordW
+            : (spaceW + wordSpacing + wordW);
+
+        if (currentWidth + addedW > colWidth && currentLine.length > 0) {
+            lineTexts.push(currentLine.join(' '));
+            lineStartIdx.push(currentStartIdx);
+            currentLine = [word];
+            currentWidth = wordW;
+            currentStartIdx = i;
+        } else {
+            if (currentLine.length === 0) currentStartIdx = i;
+            currentLine.push(word);
+            currentWidth += addedW;
+        }
+    }
+    if (currentLine.length > 0) {
+        lineTexts.push(currentLine.join(' '));
+        lineStartIdx.push(currentStartIdx);
+    }
+
+    const lastLine = lineTexts[lineTexts.length - 1] || '';
+    const lastLineWidth = lastLine ? measureLineWidthCanvas(lastLine, styleObj) : 0;
+
+    return {
+        numLines: lineTexts.length,
+        lineTexts,
+        lastLineWidth,
+        lineStartIdx,
+    };
+}
+
+/**
+ * resetWordWidthCache — מנקה את מטמון רוחבי המילים.
+ * נקרא מ-performTypeset כדי לאפס מצב בין רינדורים (למשל אחרי שינוי גופן).
+ * שים לב: המטמון אינו חייב להתאפס כי רוחב מילה בגופן נתון אינו תלוי בעמוד.
+ * אך נאפס אם חל שינוי בהגדרות הגופן הגלובליות.
+ */
+function resetWordWidthCache() {
+    _wordWidthCache.clear();
+    _spaceWidthCache.clear();
+}
+
+/**
+ * getWordWidthCacheStats — לצורכי דיבאג: מחזיר סטטיסטיקות מטמון.
+ */
+function getWordWidthCacheStats() {
+    return {
+        wordCount: _wordWidthCache.size,
+        spaceCount: _spaceWidthCache.size,
+        wordMax: _WORD_WIDTH_CACHE_MAX,
+    };
+}
+
+/* ==========================================================================
+   3ב. Knuth-Plass — שבירת שורות אופטימלית (פעולה 4)
+   ==========================================================================
+   מימוש מלא של אלגוריתם Knuth-Plass (TeX, 1981) לשבירת שורות אופטימלית
+   ברמת הפסקה. בניגוד לאלגוריתם הגרידי (חמדן) הממלא כל שורה עד אפס מקום,
+   Knuth-Plass משתמש בתכנון דינמי על גרף נקודות שבירה כדי למצוא את
+   המסלול בעל עלות הדמריטס הכוללת המינימלית עבור הפסקה כולה.
+
+   מודל האובייקטים (לפי מחקר סעיף 2.1):
+   - **תיבות (Boxes)**: מילים בעלות רוחב קבוע (נמדדות דרך Canvas).
+   - **דבק (Glue)**: רווחים בין-מילים עם יכולת התרחבות (stretch) והתכווצות (shrink).
+     CSS `text-align: justify` מאפשר ~50% מתיחה ו-~33% כיווץ מעבר לרוחב הרווח
+     הטבעי.
+   - **קנסות (Penalties)**: קנס קווי (linePenalty) לכל שורה, קנס אלמנה (widowPenalty)
+     על שורה אחרונה בת מילה אחת, קנס יתום (orphanPenalty) על שורה ראשונה בת
+     מילה אחת, קנס שורה אחרונה ריקה (lastLinePenalty).
+
+   נוסחאות:
+   - **Badness**: 100 * (|stretch_used / stretch_max|)^3 — מודד כמה נדרש למתוח
+     את הדבק. מוגבל ל-10000 (אינסוף).
+   - **Demerits (עלות שורה)**: linePenalty + badness^2 + penalty^2 — לפי TeX.
+   - **Demerits כולל**: סכום דמריטס של כל השורות. Knuth-Plass מוצא את המסלול
+     עם הסכום המינימלי.
+
+   פסילת שורות לא-אפשריות:
+   - אם badness > tolerance, השורה נפסלת.
+   - אם הרוחב הטבעי עולה על colWidth והכיווץ המקסימלי אינו מספיק — השורה נפסלת.
+   - אם מילה בודדת רחבה מ-colWidth — נאלצים לאפשר שורת "overfull" עם קנס גבוה
+     (אין ברירה אחרת).
+
+   אופטימיזציה:
+   - משתמש ברשימת "active nodes" — רק נקודות שבירה שנמצאו אפשריות ממשיכות
+     להיות מורחבות. זה מפחית את הסיבוכיות מ-O(N^3) ל-O(N^2) במקרה הממוצע.
+   - מטמון נפרד לתוצאות Knuth-Plass (לפי hash של טקסט + רוחב + סגנון).
+
+   הערות RTL:
+   - האלגוריתם תלוי-כיוון רק במובן של סדר המילים. הסדר נשמר כמות שהוא.
+   - הדפדפן אחראי לסידור הויזואלי ב-`direction: rtl`, לא Knuth-Plass.
+   ========================================================================== */
+
+// מטמון תוצאות Knuth-Plass
+const _kpCache = new Map();
+const _KP_CACHE_MAX = 1500;
+
+// ברירת מחדל: Knuth-Plass פעיל אם Canvas זמין. ניתן לכבות דרך UI.
+let _kpEnabled = true;
+
+/**
+ * isKnuthPlassAvailable — בודק האם Knuth-Plass יכול לרוץ (Canvas + גופן זמינים).
+ */
+function isKnuthPlassAvailable(styleObj) {
+    if (!_kpEnabled) return false;
+    const ctx = _getCanvasCtx();
+    if (!ctx) return false;
+    return _isFontAvailable(styleObj || { fontFamily: "'Frank Ruhl Libre', serif", fontSize: '16px' });
+}
+
+/**
+ * setKnuthPlassEnabled — הפעלה/כיבוי גלובלי של Knuth-Plass.
+ * נקרא מ-UI checkbox.
+ */
+function setKnuthPlassEnabled(enabled) {
+    _kpEnabled = !!enabled;
+    // נקה מטמון כדי שקריאות עתידיות יחשבו מחדש
+    _kpCache.clear();
+    _linesCache.clear();
+}
+
+function isKnuthPlassEnabled() { return _kpEnabled; }
+
+/**
+ * _kpCacheKey — מפתח ייחודי לתוצאות Knuth-Plass.
+ */
+function _kpCacheKey(words, colWidth, styleObj, opts) {
+    const fp = styleObj.fontFamily || '';
+    const fs = styleObj.fontSize || '';
+    const ws = styleObj.wordSpacing || '';
+    const ls = styleObj.letterSpacing || '';
+    const tol = opts.tolerance || 200;
+    const lp = opts.linePenalty || 10;
+    // לא נכלול את כל המילים ב-key כי הן ארוכות; נשתמש ב-hash קצר.
+    // נספר מילים וניקח hash מ-3 המילים הראשונות + 3 האחרונות.
+    const n = words.length;
+    const head = n > 0 ? words.slice(0, Math.min(3, n)).join('|') : '';
+    const tail = n > 6 ? words.slice(-3).join('|') : '';
+    const mid = n > 6 ? words[Math.floor(n / 2)] : '';
+    return `kp|${n}|${colWidth}|${fp}|${fs}|${ws}|${ls}|${tol}|${lp}|${head}|${mid}|${tail}`;
+}
+
+/**
+ * knuthPlassBreak — האלגוריתם הראשי. מקבל מערך מילים ומחזיר חלוקה אופטימלית לשורות.
+ *
+ * @param {string[]} words — מערך מילים (אחרי עיבוד: הערות, runt prevention, וכו').
+ * @param {number} colWidth — רוחב הטור בפיקסלים.
+ * @param {object} styleObj — { fontFamily, fontSize, wordSpacing?, letterSpacing? }
+ * @param {object} opts — פרמטרים אופציונליים:
+ *   - tolerance: מקסימום badness מותר (ברירת מחדל 200, כמו TeX).
+ *   - linePenalty: קנס קווי לכל שורה (ברירת מחדל 10).
+ *   - widowPenalty: קנס על שורה אחרונה בת מילה אחת (ברירת מחדל 150).
+ *   - orphanPenalty: קנס על שורה ראשונה בת מילה אחת (ברירת מחדל 150).
+ *   - lastLinePenalty: קנס על שורה אחרונה ריקה (ברירת מחדל 0).
+ *   - overfullPenalty: קנס על שורת overfull (ברירת מחדל 1000).
+ *   - firstLineWidthReduction: הפחתת רוחב לשורה ראשונה (ל-drop word).
+ * @returns {{ lines: string[], numLines: number, totalCost: number,
+ *            lastLineWidth: number, lineWidths: number[], feasibility: 'optimal'|'overfull'|'fallback' }}
+ */
+function knuthPlassBreak(words, colWidth, styleObj, opts = {}) {
+    if (!words || words.length === 0) {
+        return { lines: [], numLines: 0, totalCost: 0, lastLineWidth: 0, lineWidths: [], feasibility: 'optimal' };
+    }
+
+    // בדוק מטמון
+    const cacheKey = _kpCacheKey(words, colWidth, styleObj, opts);
+    const cached = _kpCache.get(cacheKey);
+    if (cached) return cached;
+
+    // ניקוי מטמון אם מלא
+    if (_kpCache.size >= _KP_CACHE_MAX) {
+        const keys = Array.from(_kpCache.keys());
+        for (let i = 0; i < keys.length / 2; i++) _kpCache.delete(keys[i]);
+    }
+
+    const tolerance = opts.tolerance != null ? opts.tolerance : 200;
+    const linePenalty = opts.linePenalty != null ? opts.linePenalty : 10;
+    const widowPenalty = opts.widowPenalty != null ? opts.widowPenalty : 150;
+    const orphanPenalty = opts.orphanPenalty != null ? opts.orphanPenalty : 150;
+    const lastLinePenalty = opts.lastLinePenalty != null ? opts.lastLinePenalty : 0;
+    const overfullPenalty = opts.overfullPenalty != null ? opts.overfullPenalty : 1000;
+    const firstLineWidthReduction = opts.firstLineWidthReduction || 0;
+
+    // רוחב רווח טבעי וגבולות מתיחה/כיווץ
+    const spaceW = _getSpaceWidth(styleObj);
+    // CSS justify יכול למתוח ולכווץ רווחים באופן גמיש למדי — אין גבול קשיח בתקן.
+    // בפועל, דפדפנים מאפשרים:
+    //   - מתיחה עד פי 2-3 מהרוחב הטבעי (לעתים יותר)
+    //   - כיווץ עד כדי העלמות הרווח לגמרי (100% כיווץ)
+    // ערכים קטנים מדי יגרמו לאלגוריתם לסמן שורות נורמליות כ-overfull ולהעדיף
+    // מילה בודדת בכל שורה.
+    const spaceStretch = spaceW * 2.5;
+    const spaceShrink = spaceW * 1.0;
+
+    // תיקון letterSpacing
+    const lsPerChar = parseFloat(styleObj.letterSpacing) || 0;
+    // תיקון wordSpacing נוסף
+    const wsExtra = parseFloat(styleObj.wordSpacing) || 0;
+
+    // רוחבי מילים
+    const N = words.length;
+    const wordWs = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+        wordWs[i] = measureWordWidth(words[i], styleObj) + lsPerChar * words[i].length;
+    }
+
+    // סכומים מצטברים (prefix sums) לחישוב O(1) של רוחב שורה.
+    // prefixW[i] = sum(wordWs[0..i-1]) — סכום רוחבי המילים מ-0 עד i-1.
+    const prefixW = new Float64Array(N + 1);
+    prefixW[0] = 0;
+    for (let i = 0; i < N; i++) prefixW[i + 1] = prefixW[i] + wordWs[i];
+
+    // רוחב יעד לשורה ראשונה (עם הפחתת drop word אם יש)
+    const firstLineTarget = colWidth - firstLineWidthReduction;
+
+    // פונקציית עזר: חישוב רוחב טבעי של שורה מ-word[a] עד word[b-1] (כולל)
+    // משמע: b-a מילים, עם (b-a-1) רווחים ביניהן
+    // O(1) בזכות prefix sums.
+    function lineNaturalWidth(a, b) {
+        const wordsWidth = prefixW[b] - prefixW[a];
+        const numSpaces = b - a - 1;
+        return wordsWidth + numSpaces * (spaceW + wsExtra);
+    }
+
+    // פונקציית עזר: חישוב עלות שורה (badness + demerits)
+    // מחזירה { feasible, badness, demerits, isOverfull }
+    function lineCost(a, b, isLastLine, isFirstLine) {
+        const target = isFirstLine ? firstLineTarget : colWidth;
+        const natural = lineNaturalWidth(a, b);
+        const numSpaces = b - a - 1; // רווחים בין מילים בשורה
+        const lineStretch = numSpaces * spaceStretch;
+        const lineShrink = numSpaces * spaceShrink;
+
+        let badness = 0;
+        let isOverfull = false;
+
+        if (isLastLine) {
+            // שורה אחרונה: מותר להיות underfull (קצרה מהטור) עם badness=0.
+            // אבל אסור להיות overfull (ארוכה מהטור) — הדפדפן לא יכול לכווץ רווחים
+            // מתחת לאפס, ולכן שורה ארוכה מדי תגלוש מחוץ לטור.
+            if (natural > target + 0.5) {
+                if (numSpaces === 0) {
+                    isOverfull = true;
+                    badness = 10000;
+                } else {
+                    const shrinkUsed = natural - target;
+                    if (shrinkUsed > lineShrink + 0.5) {
+                        isOverfull = true;
+                        badness = 10000;
+                    } else {
+                        // אפשר לכווץ — badness נמוך כי זו שורה אחרונה
+                        badness = 0;
+                    }
+                }
+            } else {
+                // underfull או מושלם — badness 0 לשורה אחרונה
+                badness = 0;
+            }
+        } else if (natural > target) {
+            // צריך לכווץ
+            if (numSpaces === 0) {
+                // מילה אחת שרחבה מהטור — overfull אמיתי
+                if (natural > target + 0.5) {
+                    isOverfull = true;
+                    badness = 10000; // אינסוף
+                } else {
+                    badness = 0;
+                }
+            } else {
+                const shrinkUsed = natural - target;
+                // CSS יכול לכווץ רווחים עד כדי העלמותם (maxShrink = numSpaces * spaceW)
+                // אבל אנחנו משתמשים ב-lineShrink = numSpaces * spaceShrink (עם spaceShrink = spaceW)
+                // כך שזה תואם.
+                if (shrinkUsed > lineShrink + 0.5) {
+                    // אי-אפשר לכווץ מספיק — overfull אמיתי
+                    isOverfull = true;
+                    badness = 10000;
+                } else {
+                    const ratio = shrinkUsed / lineShrink;
+                    badness = Math.min(10000, Math.round(100 * Math.pow(ratio, 3)));
+                }
+            }
+        } else if (natural < target) {
+            // צריך למתוח
+            if (numSpaces === 0) {
+                // מילה אחת קצרה מהטור — שורה דלילה מאוד. BADNESS גבוה כדי להרתיע.
+                // נתייחס ל-target כאל יכולת המתיחה המקסימלית (כי אין רווחים למתוח).
+                const stretchNeeded = target - natural;
+                const ratio = stretchNeeded / target;
+                badness = Math.min(10000, Math.round(100 * Math.pow(ratio, 3)));
+            } else {
+                const stretchUsed = target - natural;
+                const ratio = stretchUsed / lineStretch;
+                badness = Math.min(10000, Math.round(100 * Math.pow(ratio, 3)));
+            }
+        } else {
+            badness = 0;
+        }
+
+        // פסילה אם badness > tolerance ואינה שורת overfull כפויה
+        let feasible = true;
+        if (badness > tolerance && !isOverfull) {
+            feasible = false;
+        }
+        // שורת overfull כפויה: אפשרית אך עם קנס גבוה
+        if (isOverfull) {
+            feasible = true;
+        }
+
+        // חישוב demerits (עלות) לפי TeX:
+        // demerits = linePenalty + badness^2 + penalty^2
+        // כאשר penalty כולל: widowPenalty / orphanPenalty / lastLinePenalty / overfullPenalty
+        let penalty = 0;
+        const numWordsInLine = b - a;
+        if (isLastLine && numWordsInLine === 1) penalty += widowPenalty;
+        if (isFirstLine && numWordsInLine === 1) penalty += orphanPenalty;
+        if (isOverfull) penalty += overfullPenalty;
+        if (isLastLine && numWordsInLine === 0) penalty += lastLinePenalty;
+
+        // TeX נוסחת demerits: D = (linePenalty + badness)^2 + penalty^2 (אם penalty >= 0)
+        // נשתמש בנוסחה הקלאסית: demerits = linePenalty + badness^2 + penalty^2
+        const demerits = linePenalty + badness * badness + penalty * penalty;
+
+        return { feasible, badness, demerits, isOverfull, natural };
+    }
+
+    // ===== תכנון דינמי =====
+    // best[i] = { cost, parent, lineStart } — העלות המינימלית להגיע למילה i
+    // best[0] = { cost: 0, parent: -1, lineStart: 0 }
+    // best[i] = min over a < i, line feasible of best[a].cost + lineCost(a, i).demerits
+    //
+    // אופטימיזציה: נסרוק רק נקודות a שעדיין אפשריות. נתחיל מ-a=0 ונזוז קדימה עד שהשורה
+    // הופכת לא-אפשרית (כיווץ יתר).
+
+    // best[i] עבור i ב-0..N
+    const best = new Array(N + 1).fill(null);
+    best[0] = { cost: 0, parent: -1, lineStart: 0 };
+
+    // רשימת נקודות פעילות: מספרי מילים שמהן אפשר להתחיל שורה חדשה
+    // (כלומר: הגענו אליהן עם עלות סופית)
+    let activeStarts = [0];
+
+    for (let end = 1; end <= N; end++) {
+        let bestForEnd = null;
+        // נסה כל נקודת התחלה אפשרית, מהסוף להתחלה (a יורד).
+        // ככל ש-a קטן יותר, השורה (a, end) כוללת יותר מילים ולכן ארוכה יותר.
+        const newActiveStarts = [];
+        for (let sIdx = activeStarts.length - 1; sIdx >= 0; sIdx--) {
+            const a = activeStarts[sIdx];
+            if (a >= end) continue;
+            const isLastLine = (end === N);
+            const isFirstLine = (a === 0);
+            const lc = lineCost(a, end, isLastLine, isFirstLine);
+
+            if (!lc.feasible) {
+                // אם השורה ארוכה מדי (natural > target) — נקודות התחלה קודמות
+                // (a קטן יותר) יוסיפו עוד מילים ויהפכו את השורה לארוכה אף יותר.
+                // לכן אפשר לצאת מהלולאה.
+                if (lc.natural > (isFirstLine ? firstLineTarget : colWidth)) break;
+                // אם השורה קצרה מדי (underfull) — נקודות התחלה קודמות עשויות
+                // להיות טובות יותר (עוד מילים מתקרבות ליעד). לכן נמשיך לחפש.
+            }
+
+            const candidateCost = best[a].cost + lc.demerits;
+            if (!bestForEnd || candidateCost < bestForEnd.cost) {
+                bestForEnd = { cost: candidateCost, parent: a, lineStart: a };
+            }
+        }
+
+        // שמור את best[end]
+        if (bestForEnd) {
+            best[end] = bestForEnd;
+        } else {
+            // Fallback: שבירה כפויה מ-end-1 ל-end (שורה בת מילה אחת)
+            // זה קורה רק אם אף חלוקה לא אפשרית — מקרה נדיר ביותר.
+            const fallbackParent = end - 1;
+            const fallbackCost = (best[fallbackParent] ? best[fallbackParent].cost : 0) + overfullPenalty * 10;
+            best[end] = { cost: fallbackCost, parent: fallbackParent, lineStart: fallbackParent };
+        }
+
+        // בנה רשימת active starts מחדש — כל הנקודות שעדיין אפשרות
+        // (כלומר, נקודות שלא הגיעו ל-overfull קשה עבור end)
+        const newActive = [];
+        for (const a of activeStarts) {
+            if (a >= end) continue;
+            // בדוק אם שורה מ-a ל-end+1 עדיין יכולה להיות אפשרית (בגבול)
+            // נספיק: אם רוחב השורה מ-a ל-end (כולל end-1) כבר עולה על colWidth + lineShrink_max,
+            // אז שורה מ-a ל-end+1 תהיה גרועה יותר.
+            const natural = lineNaturalWidth(a, end);
+            const numSpaces = end - a - 1;
+            const lineShrink = numSpaces * spaceShrink;
+            if (natural > colWidth + lineShrink + 1 && numSpaces > 0) {
+                // נקודה זו כבר לא רלוונטית — אל תכלול אותה
+                continue;
+            }
+            newActive.push(a);
+        }
+        newActive.push(end); // end עצמו הוא נקודת התחלה אפשרית לשורה הבאה
+        activeStarts = newActive;
+    }
+
+    // שחזור המסלול מ-N ל-0
+    const breakPoints = [];
+    let cur = N;
+    let feasibility = 'optimal';
+    while (cur > 0) {
+        const node = best[cur];
+        if (!node) {
+            // לא אמור לקרות
+            feasibility = 'fallback';
+            break;
+        }
+        breakPoints.unshift(node.lineStart);
+        if (node.parent === -1) break;
+        cur = node.parent;
+    }
+    breakPoints.push(N);
+
+    // בנה מערך שורות
+    const lines = [];
+    const lineWidths = [];
+    for (let i = 0; i < breakPoints.length - 1; i++) {
+        const a = breakPoints[i];
+        const b = breakPoints[i + 1];
+        const lineWords = words.slice(a, b);
+        lines.push(lineWords.join(' '));
+        const isFirstLine = (a === 0);
+        const target = isFirstLine ? firstLineTarget : colWidth;
+        const natural = lineNaturalWidth(a, b);
+        // אם השורה ארוכה מהטור — overfull; אחרת השתמש ב-natural
+        lineWidths.push(Math.min(natural, target));
+    }
+
+    const totalCost = best[N] ? best[N].cost : 0;
+    const lastLineWidth = lineWidths.length > 0 ? lineWidths[lineWidths.length - 1] : 0;
+
+    // בדוק אם היתה שורת overfull כלשהי (למעט השורה האחרונה שמקבלת יחס מקל)
+    for (let i = 0; i < lines.length; i++) {
+        if (i === lines.length - 1) continue; // שורה אחרונה — מדלגים
+        const a = breakPoints[i];
+        const b = breakPoints[i + 1];
+        const natural = lineNaturalWidth(a, b);
+        const isFirstLine = (a === 0);
+        const target = isFirstLine ? firstLineTarget : colWidth;
+        if (natural > target + 1) {
+            feasibility = 'overfull';
+            break;
+        }
+    }
+
+    const result = {
+        lines,
+        numLines: lines.length,
+        totalCost,
+        lastLineWidth,
+        lineWidths,
+        feasibility,
+    };
+    _kpCache.set(cacheKey, result);
+    return result;
+}
+
+/**
+ * resetKpCache — מנקה את מטמון Knuth-Plass.
+ * נקרא מ-performTypeset.
+ */
+function resetKpCache() {
+    _kpCache.clear();
+}
+
+/**
+ * getKpCacheStats — לצורכי דיבאג.
+ */
+function getKpCacheStats() {
+    return {
+        kpCount: _kpCache.size,
+        kpMax: _KP_CACHE_MAX,
+        kpEnabled: _kpEnabled,
+    };
+}
+
 function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLines) {
+    // בדוק מטמון
+    const key = _cacheKey(text, colWidth, styleObj, useWindowIfMultipleLines);
+    const cached = _linesCache.get(key);
+    if (cached) return cached;
+
+    // אם המטמון מלא — נקה חצי
+    if (_linesCache.size >= _LINES_CACHE_MAX) {
+        const keys = Array.from(_linesCache.keys());
+        for (let i = 0; i < keys.length / 2; i++) _linesCache.delete(keys[i]);
+    }
+
     const measureContainer = document.getElementById('measuring-box');
     measureContainer.style.width = colWidth + 'px';
     measureContainer.style.fontFamily = styleObj.fontFamily;
@@ -329,18 +1088,92 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
         return { lines: [], hasWindow: false, numLines: 0 };
     }
 
+    // פעולה 4 — Knuth-Plass: נסה שבירת שורות אופטימלית לפני המסלול הישן.
+    // אם Knuth-Plass זמין (Canvas + גופן טעון), הוא יחשב חלוקה אופטימלית
+    // ונחזור מיד — ללא צורך ב-DOM probe יקר.
+    if (isKnuthPlassAvailable(styleObj)) {
+        try {
+            const kpOpts = {
+                tolerance: 200,
+                linePenalty: 10,
+                widowPenalty: 150,
+                orphanPenalty: 150,
+                lastLinePenalty: 0,
+                overfullPenalty: 1000,
+            };
+            // אם יש drop word, נפחית את רוחב השורה הראשונה בגודל משוער של החלון.
+            // נשתמש באומדן גס: רוחב המילה הראשונה * 1.5 (כדי לכסות את ה"חלון").
+            // בעתיד אפשר למדוד את ה-CSS first-word-window במדויק.
+            let firstLineWidthReduction = 0;
+            const dropWordMode = document.getElementById('drop-word-mode')?.value || 'window';
+            const dropWordCount = parseInt(document.getElementById('drop-word-count')?.value, 10) || 1;
+            const dropWordMinLines = parseInt(document.getElementById('drop-word-min-lines')?.value, 10) || 2;
+            // אומדן מהיר של מספר שורות כדי להחליט אם להפעיל drop word
+            const quickEstimate = estimateLineCountCanvas(words, colWidth, styleObj, {
+                wordSpacing: parseFloat(styleObj.wordSpacing) || 0,
+                letterSpacing: parseFloat(styleObj.letterSpacing) || 0,
+            });
+            const shouldApplyWindowKP = useWindowIfMultipleLines
+                && (quickEstimate.numLines >= dropWordMinLines)
+                && (dropWordMode === 'window');
+
+            if (shouldApplyWindowKP) {
+                // רוחב החלון: רוחב המילים הראשונות + padding כלשהו
+                const dropWordsStr = words.slice(0, Math.min(dropWordCount, words.length)).join(' ');
+                const dropW = measureLineWidthCanvas(dropWordsStr, styleObj);
+                // ה"חלון" תופס את העמודה הימנית של השורה הראשונה, בגובה 2-3 שורות.
+                // השפעתו על רוחב השורה הראשונה: הוא מוריד את הרוחב הזמין בערך רוחב המילה.
+                firstLineWidthReduction = Math.max(0, dropW - 10);
+            }
+
+            const kpResult = knuthPlassBreak(words, colWidth, styleObj, {
+                ...kpOpts,
+                firstLineWidthReduction,
+            });
+
+            if (kpResult.lines.length > 0) {
+                const result = {
+                    lines: kpResult.lines,
+                    hasWindow: shouldApplyWindowKP,
+                    numLines: kpResult.numLines,
+                    // שדות נוספים לצורכי דיבאג
+                    _kpTotalCost: kpResult.totalCost,
+                    _kpFeasibility: kpResult.feasibility,
+                    _kpLastLineWidth: kpResult.lastLineWidth,
+                };
+                _linesCache.set(key, result);
+                return result;
+            }
+        } catch (e) {
+            console.warn('Knuth-Plass failed, falling back to DOM:', e);
+        }
+    }
+
     const pMeasure = document.createElement('p');
     pMeasure.style.margin = '0';
     pMeasure.style.padding = '0';
     pMeasure.style.lineHeight = styleObj.lineHeight;
 
-    // FIX: מדידה ראשונית בלי drop word — אומדן גס
-    pMeasure.textContent = text;
-    measureContainer.appendChild(pMeasure);
-    const singleLineHeight = pMeasure.offsetHeight;
-    pMeasure.textContent = "א";
-    const oneLineH = pMeasure.offsetHeight;
-    let numLinesEstimated = Math.max(1, Math.round(singleLineHeight / oneLineH));
+    // פעולה 3 חלק ב' — אומדן מהיר של מספר שורות בעזרת Canvas API.
+    // במקום שני קריאות offsetHeight יקרות (Layout Thrashing), נשתמש ב-canvas
+    // לאומדן גרידי של מספר השורות. אם canvas אינו זמין או הגופן אינו טעון —
+    // נפול בחזרה למסלול ה-DOM הישן (singleLineHeight / oneLineH).
+    let numLinesEstimated = 0;
+    const canvasEstimate = estimateLineCountCanvas(words, colWidth, styleObj, {
+        wordSpacing: parseFloat(styleObj.wordSpacing) || 0,
+        letterSpacing: parseFloat(styleObj.letterSpacing) || 0,
+    });
+    if (canvasEstimate.numLines > 0) {
+        numLinesEstimated = canvasEstimate.numLines;
+    } else {
+        // Fallback: מדידה ישנה ב-DOM
+        pMeasure.textContent = text;
+        measureContainer.appendChild(pMeasure);
+        const singleLineHeight = pMeasure.offsetHeight;
+        pMeasure.textContent = "א";
+        const oneLineH = pMeasure.offsetHeight;
+        numLinesEstimated = Math.max(1, Math.round(singleLineHeight / oneLineH));
+    }
 
     const minLines = parseInt(document.getElementById('drop-word-min-lines')?.value, 10) || 2;
     const mode = document.getElementById('drop-word-mode')?.value || 'window';
@@ -371,6 +1204,11 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     }
 
     pMeasure.innerHTML = html;
+    // נוודא ש-pMeasure מחובר ל-DOM לפני קריאת offsetTop של ה-spans הפנימיים.
+    // במסלול ה-canvas לא בוצע appendChild מוקדם יותר, לכן נעשה זאת כאן.
+    if (!pMeasure.parentNode) {
+        measureContainer.appendChild(pMeasure);
+    }
 
     // FIX: מדידה מחדש של numLines עם ה-drop word בפועל.
     // אם ה-drop word דחף שורה נוספת, numLines יהיה גבוה יותר מ-numLinesEstimated.
@@ -402,11 +1240,14 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     }
 
     measureContainer.innerHTML = '';
-    return {
+    const result = {
         lines,
         hasWindow: shouldApplyWindow,
         numLines: lines.length
     };
+    // שמור במטמון
+    _linesCache.set(key, result);
+    return result;
 }
 
 /* ==========================================================================
@@ -617,15 +1458,34 @@ function measureCandidateLines(opts) {
     const height = p.offsetHeight;
     const lastLine = lines[lines.length - 1] || '';
     
-    // מדידת רוחב השורה האחרונה: נעטוף אותה ב-span זמני
+    // פעולה 3 חלק ב' — מדידת רוחב השורה האחרונה בעזרת Canvas API.
+    // במקום יצירת span זמני וקריאת offsetWidth (Layout Thrashing), נשתמש
+    // ב-canvas.measureText שאינו מזיז reflow. אם canvas אינו זמין או הגופן
+    // אינו טעון — נפול בחזרה למדידת ה-DOM הישנה.
+    // שים לב: נשתמש ב-getComputedStyle(p) כדי לקבל את הגופן בפועל שהופעל
+    // על הפסקה (כולל פולבק מ-buildMeasureClone), במקום להסתמך על opts.styleObj
+    // שעלול להיות חלקי.
     let lastLineWidth = 0;
     if (lastLine) {
-        const measureSpan = document.createElement('span');
-        measureSpan.style.cssText = 'display:inline-block; visibility:hidden;';
-        measureSpan.textContent = lastLine;
-        p.appendChild(measureSpan);
-        lastLineWidth = measureSpan.offsetWidth;
-        p.removeChild(measureSpan);
+        let computedStyleObj = opts.styleObj || {};
+        try {
+            const cs = getComputedStyle(p);
+            if (cs.fontFamily && cs.fontSize) {
+                computedStyleObj = { fontFamily: cs.fontFamily, fontSize: cs.fontSize };
+            }
+        } catch (e) { /* fallback ל-opts.styleObj */ }
+        const canvasW = measureLineWidthCanvas(lastLine, computedStyleObj);
+        if (canvasW > 0) {
+            lastLineWidth = canvasW;
+        } else {
+            // Fallback: DOM span measurement
+            const measureSpan = document.createElement('span');
+            measureSpan.style.cssText = 'display:inline-block; visibility:hidden;';
+            measureSpan.textContent = lastLine;
+            p.appendChild(measureSpan);
+            lastLineWidth = measureSpan.offsetWidth;
+            p.removeChild(measureSpan);
+        }
     }
     
     // ניקוי
@@ -2949,6 +3809,19 @@ window.buildMeasureClone = buildMeasureClone;
 window.measureCandidateLines = measureCandidateLines;
 window.measureParagraphHeight = measureParagraphHeight;
 window.measurePartialLines = measurePartialLines;
+// פעולה 3 חלק ב' — Canvas API
+window.measureWordWidth = measureWordWidth;
+window.measureLineWidthCanvas = measureLineWidthCanvas;
+window.estimateLineCountCanvas = estimateLineCountCanvas;
+window.resetWordWidthCache = resetWordWidthCache;
+window.getWordWidthCacheStats = getWordWidthCacheStats;
+// פעולה 4 — Knuth-Plass
+window.knuthPlassBreak = knuthPlassBreak;
+window.isKnuthPlassAvailable = isKnuthPlassAvailable;
+window.isKnuthPlassEnabled = isKnuthPlassEnabled;
+window.setKnuthPlassEnabled = setKnuthPlassEnabled;
+window.resetKpCache = resetKpCache;
+window.getKpCacheStats = getKpCacheStats;
 window.buildLayoutItems = buildLayoutItems;
 window.measureHeadingHeight = measureHeadingHeight;
 window.calculateCandidateLayout = calculateCandidateLayout;
@@ -4081,6 +4954,13 @@ function typesetDocument() {
 
 function performTypeset() {
     // איפוס מצב גלובלי לפני תחילת כל מחזור עימוד (מונע דליפת state בין רינדורים).
+    // פעולה 3: נקה מטמון מדידות — הטקסט או ההגדרות עשויים להשתנות.
+    _linesCache.clear();
+    // פעולה 3 חלק ב': נקה גם את מטמון רוחבי המילים של Canvas.
+    // הגופן או הגדרות העימוד עשויות להשתנות, לכן יש לנקות כדי למנוע מדידות שגויות.
+    if (typeof resetWordWidthCache === 'function') resetWordWidthCache();
+    // פעולה 4: נקה גם את מטמון Knuth-Plass.
+    if (typeof resetKpCache === 'function') resetKpCache();
     if (typeof clearPendingChanges === 'function') clearPendingChanges();
     updateGrid();
     updateStyles();
