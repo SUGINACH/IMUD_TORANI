@@ -2114,15 +2114,17 @@ async function exportRenderedHTML() {
     }
 
     try {
-        // 1) שכפול ה-#book-container
-        const clone = bookContainer.cloneNode(true);
+        // 1) שכפול ה-#preview-pane (שמכיל את #book-container) — כך המבנה
+        // ההיררכי נשמר, וה-layout זהה ל-DOM החי.
+        const previewPane = document.getElementById('preview-pane');
+        const clone = previewPane.cloneNode(true);
 
         // 2) הסרת event handlers
         clone.querySelectorAll('*').forEach(el => {
             el.removeAttribute('onclick');
         });
 
-        // 3) איסוף CSS — fetch style.css + fonts-def.css
+        // 3) איסוף CSS — fetch style.css + fonts-def.css + fonts-extended.css (אם נטען)
         const cssFiles = ['style.css', 'fonts-def.css'];
         const extLink = document.getElementById('fonts-extended-stylesheet');
         if (extLink) cssFiles.push('fonts-extended.css');
@@ -2140,23 +2142,100 @@ async function exportRenderedHTML() {
             }
         }
 
-        // 4) איסוף CSS variables מ-:root
+        // 3.5) הטמעת גופני עדיפות כ-base64 — חיוני כדי שה-HTML המיוצא
+        // יציג את הגופנים נכון גם בלי תיקיית fonts/ לידו.
+        // טוענים רק את 12 גופני העדיפות כדי לא להגדיל את הקובץ יותר מדי.
+        const PRIORITY_FONT_FILES = [
+            'Guttman-Rashi-Normal.woff2',
+            'FrankReal-Bold.woff2',
+            'Alpha-Black.woff2',
+            'Alpha-Bold.woff2',
+            'Livorna-Regular.woff2',
+            'Livorna-Bold.woff2',
+            'Hadassah-Friedlaender-Bold.woff2',
+            'FrankRuhlLibre-Regular.woff2',
+            'Frank-Ruhl-Libre-Bold.woff2',
+            'FrankRuhlLibre-Black.woff2',
+            'Noto-Serif-Hebrew-Bold.woff2',
+            'Noto-Serif-Hebrew-Black.woff2'
+        ];
+        const embeddedFonts = [];
+        for (const fontFile of PRIORITY_FONT_FILES) {
+            try {
+                const res = await fetch('fonts/' + fontFile);
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const reader = new FileReader();
+                    const base64 = await new Promise((resolve, reject) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                    embeddedFonts.push({ file: fontFile, base64 });
+                }
+            } catch (e) {
+                console.warn(`לא ניתן להטמיע ${fontFile}:`, e);
+            }
+        }
+        if (embeddedFonts.length > 0) {
+            console.log(`exportRenderedHTML: הוטמעו ${embeddedFonts.length} גופנים`);
+        }
+
+        // 4) איסוף CSS variables מ-:root (computed) + inline styles שהוצבו ע"י JS
+        // חיוני: typesetter.js מציב ערכים מדויקים (כמו --w-col: 39.604%)
+        // ישירות על document.documentElement.style, ואנחנו צריכים את הערכים
+        // האלה — לא את הערכים המעוגלים מה-CSS המקורי.
+        // חיוני גם: ה-re-typeset רץ ב-scale=1, ולכן ה-HTML המיוצא צריך
+        // להכיל --preview-scale: 1 (לא את ה-scale המקורי).
         const rootStyle = getComputedStyle(document.documentElement);
         const cssVars = [];
+        const seenProps = new Set();
+        
+        // א. אסוף inline styles מ-document.documentElement (הוצבו ע"י JS)
+        const rootEl = document.documentElement;
+        for (let i = 0; i < rootEl.style.length; i++) {
+            const prop = rootEl.style[i];
+            if (prop.startsWith('--')) {
+                const val = rootEl.style.getPropertyValue(prop).trim();
+                if (val) {
+                    cssVars.push(`${prop}: ${val};`);
+                    seenProps.add(prop);
+                }
+            }
+        }
+        
+        // ב. אסוף CSS variables מ-:root rules (רק אלה שלא הוצבו inline)
         for (const sheet of document.styleSheets) {
             try {
                 for (const rule of sheet.cssRules) {
                     if (rule.selectorText === ':root' && rule.style) {
                         for (let i = 0; i < rule.style.length; i++) {
                             const prop = rule.style[i];
-                            if (prop.startsWith('--')) {
+                            if (prop.startsWith('--') && !seenProps.has(prop)) {
                                 const val = rootStyle.getPropertyValue(prop).trim();
-                                if (val) cssVars.push(`${prop}: ${val};`);
+                                if (val) {
+                                    cssVars.push(`${prop}: ${val};`);
+                                    seenProps.add(prop);
+                                }
                             }
                         }
                     }
                 }
             } catch (e) {}
+        }
+
+        // 4.5) החלפת src ב-@font-face של גופני העדיפות עם base64
+        let cssText = cssContents.join('\n\n');
+        for (const { file, base64 } of embeddedFonts) {
+            // החלף url('fonts/FILE') או url("fonts/FILE") עם base64
+            const patterns = [
+                `url('fonts/${file}')`,
+                `url("fonts/${file}")`,
+                `url(fonts/${file})`
+            ];
+            for (const pat of patterns) {
+                cssText = cssText.split(pat).join(`url(${base64})`);
+            }
         }
 
         // 5) בניית HTML עצמאי
@@ -2167,12 +2246,12 @@ async function exportRenderedHTML() {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מסמך מרונדר — ייצוא</title>
 <style>
-/* === CSS Variables מהשורש === */
+${cssText}
+
+/* === CSS Variables מהשורש (אחרי ה-CSS כדי לגבור על :root) === */
 :root {
     ${cssVars.join('\n    ')}
 }
-
-${cssContents.join('\n\n')}
 
 /* === סגנונות ייצוא — מציגים רק את הספר === */
 html, body {
@@ -2190,23 +2269,24 @@ body {
     display: none !important;
 }
 #preview-pane {
-    display: block !important;
+    display: flex !important;
     position: static !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-    padding: 0 !important;
+    padding: 20px 0 !important;
     float: none !important;
-    width: auto !important;
+    width: 100% !important;
     flex: none !important;
-    background: transparent !important;
+    background: #334155 !important;
 }
 #book-container {
     margin: 0 auto;
-    transform: none !important;
     display: flex;
     flex-direction: column;
     align-items: center;
+    will-change: auto !important;
+    transition: none !important;
 }
 .a4-page {
     margin: 0 auto 25px !important;
@@ -2225,6 +2305,16 @@ body {
 </head>
 <body>
 ${clone.outerHTML}
+<script>
+// המתן לטעינת כל הגופנים, ואז הכרח את הדפדפן לחשב מחדש את ה-layout.
+// חיוני: בלי זה, הדפדפן עשוי להשתמש ב-fallback זמני ולחשב מדדים שגויים.
+if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+        // אלץ reflow
+        document.body.offsetHeight;
+    });
+}
+</script>
 </body>
 </html>`;
 
