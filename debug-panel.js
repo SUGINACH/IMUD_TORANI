@@ -1,5 +1,5 @@
 /* ==========================================================================
-   debug-panel.js — מצב בדיקה: דוח עימוד חי + מרקרים ויזואליים
+   debug-panel.js — מצב בדיקה + מערכת טאבים לסרגל הצידי
    ========================================================================== */
 (function() {
 'use strict';
@@ -8,102 +8,127 @@ let _debugMode = false;
 let _lastReportData = null;
 let _blockMarkers = [];
 
-function initDebugPanel() {
-    if (document.getElementById('btn-debug-mode')) return;
-    const bar = document.querySelector('.text-actions-bar');
-    if (!bar) return;
+/**
+ * initTabSystem — מחליף את מבנה ה-sidebar ב-3 טאבים.
+ */
+function initTabSystem() {
+    if (document.getElementById('tab-bar')) return; // כבר מותקן
 
-    // צור קונטיינר ללחצני בדיקה (מוסתר במצב רגיל)
-    const testBtns = document.createElement('div');
-    testBtns.id = 'debug-test-buttons';
-    testBtns.style.cssText = 'display:none; flex-direction:row; gap:4px;';
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
 
-    // לחצן 1: מסמך בדיקה קבוע
-    const btnFixed = document.createElement('button');
-    btnFixed.type = 'button';
-    btnFixed.className = 'btn-tool btn-secondary';
-    btnFixed.innerHTML = '📋 מסמך קבוע';
-    btnFixed.style.flex = '0.7';
-    btnFixed.title = 'הזרקת טקסט בדיקה קבוע (seeded — אותו טקסט בכל פעם)';
-    btnFixed.addEventListener('click', function() {
+    // שמור את text-pane ו-settings-pane
+    const textPane = document.getElementById('text-pane');
+    const settingsPane = document.getElementById('settings-pane');
+    if (!textPane || !settingsPane) return;
+
+    // הסר את ה-collapse-strip של settings-pane (נשאר רק התוכן)
+    const collapseStrip = settingsPane.querySelector('.collapse-strip');
+    if (collapseStrip) collapseStrip.remove();
+
+    // עטוף את settings-content ב-div עם id
+    const settingsContent = settingsPane.querySelector('.settings-content');
+    if (settingsContent) {
+        settingsContent.id = 'tab-settings-content';
+    }
+
+    // צור טאב 3: מצב בדיקה
+    const debugPane = document.createElement('div');
+    debugPane.id = 'tab-debug';
+    debugPane.className = 'tab-pane';
+    debugPane.style.cssText = 'display:none; flex:1; overflow-y:auto; padding:8px;';
+    debugPane.innerHTML = `
+        <div class="debug-toolbar" style="display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap;">
+            <button id="btn-seeded" class="btn-tool btn-secondary" style="flex:1;" title="טקסט קבוע (אותו טקסט בכל פעם)">📋 מסמך קבוע</button>
+            <button id="btn-random" class="btn-tool btn-secondary" style="flex:1;" title="טקסט רנדומלי">🎲 מסמך רנדומלי</button>
+            <button id="btn-report-window" class="btn-tool btn-secondary" style="flex:1;" title="דוח בחלון נפרד">📊 דוח נפרד</button>
+            <button id="btn-refresh-debug" class="btn-tool btn-secondary" style="flex:0.5;" title="רענן דוח">🔄</button>
+            <button id="btn-export-marked" class="btn-tool btn-primary" style="flex:1;" title="ייצא HTML ממורקר">💾 ייצא ממורקר</button>
+        </div>
+        <div id="debug-summary"></div>
+        <div id="debug-blocks-table" style="margin-top:12px;"></div>
+        <div id="debug-issues-list" style="margin-top:12px;"></div>
+    `;
+
+    // הפוך את textPane לטאב 1
+    textPane.id = 'tab-editor';
+    textPane.classList.add('tab-pane');
+    textPane.style.flex = '1';
+
+    // הפוך את settingsPane לטאב 2 — הסר collapsed, הסתר
+    settingsPane.id = 'tab-settings';
+    settingsPane.classList.add('tab-pane');
+    settingsPane.classList.remove('collapsed');
+    settingsPane.style.cssText = 'display:none; flex:1; overflow-y:auto;';
+
+    // הוסף את טאב הבדיקה ל-sidebar
+    sidebar.appendChild(debugPane);
+
+    // צור שורת טאבים בראש ה-sidebar
+    const tabBar = document.createElement('div');
+    tabBar.id = 'tab-bar';
+    tabBar.style.cssText = 'display:flex; flex-direction:row; background:#1e293b; border-bottom:2px solid #334155; flex-shrink:0;';
+    tabBar.innerHTML = `
+        <button class="tab-btn active" data-tab="tab-editor" style="flex:1; padding:8px 4px; border:none; background:#334155; color:#e2e8f0; cursor:pointer; font-size:9pt; font-family:inherit; border-radius:0 0 0 0;">✍️ עורך</button>
+        <button class="tab-btn" data-tab="tab-settings" style="flex:1; padding:8px 4px; border:none; background:#1e293b; color:#94a3b8; cursor:pointer; font-size:9pt; font-family:inherit;">⚙️ הגדרות</button>
+        <button class="tab-btn" data-tab="tab-debug" style="flex:1; padding:8px 4px; border:none; background:#1e293b; color:#94a3b8; cursor:pointer; font-size:9pt; font-family:inherit;">🔬 בדיקה</button>
+    `;
+    sidebar.insertBefore(tabBar, sidebar.firstChild);
+
+    // טפל בלחיצות טאב
+    tabBar.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tabId = this.dataset.tab;
+            // הסתר את כל הטאבים
+            document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+            // הצג את הטאב הנבחר
+            const target = document.getElementById(tabId);
+            if (target) target.style.display = 'flex';
+            // עדכן כפתורים
+            tabBar.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = '#1e293b';
+                b.style.color = '#94a3b8';
+            });
+            this.classList.add('active');
+            this.style.background = '#334155';
+            this.style.color = '#e2e8f0';
+            // אם עברנו לטאב בדיקה, הפעל דוח
+            if (tabId === 'tab-debug') {
+                _debugMode = true;
+                runDebugReport();
+            } else {
+                _debugMode = false;
+                clearBlockMarkers();
+            }
+        });
+    });
+
+    // חבר לחצני בדיקה
+    document.getElementById('btn-seeded').addEventListener('click', function() {
         if (typeof generateTestTextSeeded === 'function') {
             const text = generateTestTextSeeded();
             if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
             setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
         }
     });
-    testBtns.appendChild(btnFixed);
-
-    // לחצן 2: מסמך בדיקה רנדומלי
-    const btnRandom = document.createElement('button');
-    btnRandom.type = 'button';
-    btnRandom.className = 'btn-tool btn-secondary';
-    btnRandom.innerHTML = '🎲 מסמך רנדומלי';
-    btnRandom.style.flex = '0.7';
-    btnRandom.title = 'הזרקת טקסט בדיקה רנדומלי (טקסט שונה בכל פעם)';
-    btnRandom.addEventListener('click', function() {
+    document.getElementById('btn-random').addEventListener('click', function() {
         if (typeof generateTestText === 'function') {
             const text = generateTestText();
             if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
             setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
         }
     });
-    testBtns.appendChild(btnRandom);
-
-    // לחצן 3: דוח עימוד (חלון נפרד)
-    const btnReport = document.createElement('button');
-    btnReport.type = 'button';
-    btnReport.className = 'btn-tool btn-secondary';
-    btnReport.innerHTML = '📊 דוח עימוד';
-    btnReport.style.flex = '0.7';
-    btnReport.title = 'הפקת דוח עימוד מפורט בחלון נפרד';
-    btnReport.addEventListener('click', function() {
+    document.getElementById('btn-report-window').addEventListener('click', function() {
         if (typeof generateLayoutReport === 'function') generateLayoutReport();
     });
-    testBtns.appendChild(btnReport);
-
-    bar.insertBefore(testBtns, bar.firstChild);
-
-    // כפתור מצב בדיקה
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = 'btn-debug-mode';
-    btn.className = 'btn-tool btn-secondary';
-    btn.innerHTML = '🔬 מצב בדיקה';
-    btn.style.flex = '0.7';
-    btn.title = 'הפעלת מצב בדיקה — דוח עימוד חי עם מרקרים ויזואליים';
-    btn.addEventListener('click', toggleDebugMode);
-    bar.insertBefore(btn, testBtns);
-
-    createDebugPanel();
+    document.getElementById('btn-refresh-debug').addEventListener('click', runDebugReport);
+    document.getElementById('btn-export-marked').addEventListener('click', exportMarkedHTML);
 }
 
 function toggleDebugMode() {
     _debugMode = !_debugMode;
-    const btn = document.getElementById('btn-debug-mode');
-    if (btn) {
-        btn.style.background = _debugMode ? '#10b981' : '';
-        btn.style.color = _debugMode ? '#fff' : '';
-        btn.textContent = _debugMode ? '✓ מצב בדיקה פעיל' : '🔬 מצב בדיקה';
-    }
-    const panel = document.getElementById('debug-panel');
-    if (panel) panel.style.display = _debugMode ? 'flex' : 'none';
-    // הצג/הסתר את לחצני הבדיקה בסרגל
-    const testButtons = document.getElementById('debug-test-buttons');
-    if (testButtons) testButtons.style.display = _debugMode ? 'flex' : 'none';
     if (_debugMode) { runDebugReport(); } else { clearBlockMarkers(); }
-}
-
-function createDebugPanel() {
-    if (document.getElementById('debug-panel')) return;
-    const panel = document.createElement('div');
-    panel.id = 'debug-panel';
-    panel.style.cssText = 'display:none;position:fixed;top:0;left:0;width:500px;height:100vh;background:#0f172a;color:#e2e8f0;font-family:monospace;font-size:10pt;z-index:9999;overflow-y:auto;padding:16px;box-shadow:4px 0 20px rgba(0,0,0,0.5);direction:rtl;';
-    panel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #334155;padding-bottom:8px;"><h2 style="color:#38bdf8;margin:0;font-size:14pt;">🔬 דוח עימוד חי</h2><div><button id="debug-export-btn" style="background:#2563eb;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:9pt;margin-left:4px;">💾 ייצא HTML ממורקר</button><button id="debug-refresh-btn" style="background:#475569;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:9pt;margin-left:4px;">🔄 רענן</button><button id="debug-close-btn" style="background:#dc2626;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:9pt;">✕</button></div></div><div id="debug-summary"></div><div id="debug-blocks-table" style="margin-top:16px;"></div><div id="debug-issues-list" style="margin-top:16px;"></div>';
-    document.body.appendChild(panel);
-    document.getElementById('debug-close-btn').addEventListener('click', toggleDebugMode);
-    document.getElementById('debug-refresh-btn').addEventListener('click', runDebugReport);
-    document.getElementById('debug-export-btn').addEventListener('click', exportMarkedHTML);
 }
 
 function runDebugReport() {
@@ -161,7 +186,6 @@ function runDebugReport() {
 function applyBlockMarker(block, color, tooltip, issues) {
     var old = block.querySelector('.debug-block-marker'); if (old) old.remove();
     block.style.outline = '3px solid ' + color; block.style.outlineOffset = '2px';
-    block.dataset.debugTooltip = tooltip; block.dataset.debugColor = color;
     var marker = document.createElement('div'); marker.className = 'debug-block-marker';
     marker.style.cssText = 'position:absolute;top:4px;right:4px;background:' + color + ';color:#fff;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:bold;z-index:100;pointer-events:none;opacity:0.9;';
     marker.textContent = issues.length > 0 ? issues.length + '⚠' : '✓';
@@ -170,33 +194,54 @@ function applyBlockMarker(block, color, tooltip, issues) {
 }
 
 function clearBlockMarkers() {
-    _blockMarkers.forEach(function(m) { m.element.style.outline = ''; m.element.style.outlineOffset = ''; m.element.removeAttribute('data-debug-tooltip'); m.element.removeAttribute('data-debug-color'); m.element.removeAttribute('title'); var marker = m.element.querySelector('.debug-block-marker'); if (marker) marker.remove(); });
+    _blockMarkers.forEach(function(m) { m.element.style.outline = ''; m.element.style.outlineOffset = ''; m.element.removeAttribute('title'); var marker = m.element.querySelector('.debug-block-marker'); if (marker) marker.remove(); });
     _blockMarkers = [];
 }
 
 function renderDebugPanel(S, blockData, allIssues) {
+    // סיכום — מותאם לרוחב הפאנל (לא כהה)
     var summary = document.getElementById('debug-summary');
     if (summary) {
         var issueCount = S.imbalanced + S.overflow + S.sparseCut + S.widows + S.orphans + S.headingAtBottom + S.singleLinePCut + S.emptyColumns + S.sideNoteOverlap + S.shortPages;
         var okBlocks = S.totalBlocks - S.imbalanced;
-        summary.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;"><div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16pt;font-weight:bold;color:#38bdf8;">' + S.totalPages + '</div><div style="font-size:8pt;color:#94a3b8;">עמודים</div></div><div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16pt;font-weight:bold;color:' + (okBlocks > 0 ? '#10b981' : '#ef4444') + ';">' + okBlocks + '/' + S.totalBlocks + '</div><div style="font-size:8pt;color:#94a3b8;">בלוקים תקינים</div></div><div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16pt;font-weight:bold;color:' + (issueCount === 0 ? '#10b981' : '#ef4444') + ';">' + issueCount + '</div><div style="font-size:8pt;color:#94a3b8;">סה"כ בעיות</div></div><div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16pt;font-weight:bold;color:' + (S.sparseCut === 0 ? '#10b981' : '#f59e0b') + ';">' + S.sparseCut + '</div><div style="font-size:8pt;color:#94a3b8;">שורות דלילות</div></div></div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;font-size:8pt;"><div style="text-align:center;"><span style="color:' + (S.imbalanced ? '#eab308' : '#10b981') + ';font-weight:bold;">' + S.imbalanced + '</span> לא מאוזן</div><div style="text-align:center;"><span style="color:' + (S.overflow ? '#ef4444' : '#10b981') + ';font-weight:bold;">' + S.overflow + '</span> גלישות</div><div style="text-align:center;"><span style="color:' + (S.widows ? '#ef4444' : '#10b981') + ';font-weight:bold;">' + S.widows + '</span> אלמנות</div><div style="text-align:center;"><span style="color:' + (S.orphans ? '#ef4444' : '#10b981') + ';font-weight:bold;">' + S.orphans + '</span> יתומים</div><div style="text-align:center;"><span style="color:' + (S.shortPages ? '#f59e0b' : '#10b981') + ';font-weight:bold;">' + S.shortPages + '</span> עמודים קצרים</div></div>';
+        summary.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px;">'
+            + '<div style="background:#e2e8f0;padding:6px;border-radius:4px;text-align:center;border:1px solid #cbd5e1;"><div style="font-size:14pt;font-weight:bold;color:#1e293b;">' + S.totalPages + '</div><div style="font-size:7pt;color:#64748b;">עמודים</div></div>'
+            + '<div style="background:#e2e8f0;padding:6px;border-radius:4px;text-align:center;border:1px solid #cbd5e1;"><div style="font-size:14pt;font-weight:bold;color:' + (okBlocks > 0 ? '#059669' : '#dc2626') + ';">' + okBlocks + '/' + S.totalBlocks + '</div><div style="font-size:7pt;color:#64748b;">תקינים</div></div>'
+            + '<div style="background:#e2e8f0;padding:6px;border-radius:4px;text-align:center;border:1px solid #cbd5e1;"><div style="font-size:14pt;font-weight:bold;color:' + (issueCount === 0 ? '#059669' : '#dc2626') + ';">' + issueCount + '</div><div style="font-size:7pt;color:#64748b;">בעיות</div></div>'
+            + '<div style="background:#e2e8f0;padding:6px;border-radius:4px;text-align:center;border:1px solid #cbd5e1;"><div style="font-size:14pt;font-weight:bold;color:' + (S.sparseCut === 0 ? '#059669' : '#d97706') + ';">' + S.sparseCut + '</div><div style="font-size:7pt;color:#64748b;">דלילות</div></div>'
+            + '</div>'
+            + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:2px;font-size:7pt;margin-bottom:8px;">'
+            + '<div style="text-align:center;">אי-איזון: <b style="color:' + (S.imbalanced ? '#ca8a04' : '#059669') + '">' + S.imbalanced + '</b></div>'
+            + '<div style="text-align:center;">גלישות: <b style="color:' + (S.overflow ? '#dc2626' : '#059669') + '">' + S.overflow + '</b></div>'
+            + '<div style="text-align:center;">אלמנות: <b style="color:' + (S.widows ? '#dc2626' : '#059669') + '">' + S.widows + '</b></div>'
+            + '<div style="text-align:center;">יתומים: <b style="color:' + (S.orphans ? '#dc2626' : '#059669') + '">' + S.orphans + '</b></div>'
+            + '<div style="text-align:center;">קצרים: <b style="color:' + (S.shortPages ? '#d97706' : '#059669') + '">' + S.shortPages + '</b></div>'
+            + '</div>';
     }
+
     var tableDiv = document.getElementById('debug-blocks-table');
     if (tableDiv) {
-        var html = '<h3 style="color:#818cf8;font-size:11pt;margin-bottom:6px;">טבלת בלוקים מפורטת</h3><div style="font-size:7pt;color:#94a3b8;margin-bottom:4px;">🟢 תקין | 🟡 אי-איזון | 🟠 דלילות | 🔴 גלישה | 🟣 כותרת/אלמנה</div><table style="width:100%;border-collapse:collapse;font-size:8pt;"><thead><tr style="background:#334155;"><th style="padding:3px;text-align:center;">עמוד</th><th style="padding:3px;">בלוק</th><th style="padding:3px;">R</th><th style="padding:3px;">L</th><th style="padding:3px;">Δ</th><th style="padding:3px;">סטטוס</th><th style="padding:3px;">בעיות</th></tr></thead><tbody>';
+        var html = '<div style="font-size:8pt;font-weight:bold;color:#475569;margin-bottom:4px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;">טבלת בלוקים</div>';
+        html += '<div style="font-size:6pt;color:#64748b;margin-bottom:3px;">🟢תקין 🟡אי-איזון 🟠דלילות 🔴גלישה 🟣אלמנה</div>';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:7pt;"><thead><tr style="background:#e2e8f0;"><th style="padding:2px;border:1px solid #cbd5e1;">עמוד</th><th style="padding:2px;border:1px solid #cbd5e1;">בלוק</th><th style="padding:2px;border:1px solid #cbd5e1;">R</th><th style="padding:2px;border:1px solid #cbd5e1;">L</th><th style="padding:2px;border:1px solid #cbd5e1;">Δ</th><th style="padding:2px;border:1px solid #cbd5e1;">●</th><th style="padding:2px;border:1px solid #cbd5e1;">בעיות</th></tr></thead><tbody>';
         blockData.forEach(function(b) {
-            html += '<tr class="debug-block-row" data-page="' + b.page + '" data-block="' + b.block + '" style="cursor:pointer;border-bottom:1px solid #1e293b;' + (b.ok ? '' : 'background:rgba(245,158,11,0.08);') + '"><td style="padding:2px;text-align:center;">' + (b.pNum || b.page) + '</td><td style="padding:2px;text-align:center;">#' + b.block + '</td><td style="padding:2px;text-align:center;">' + b.rH + '</td><td style="padding:2px;text-align:center;">' + b.lH + '</td><td style="padding:2px;text-align:center;color:' + (b.d > 5 ? '#eab308' : '#10b981') + ';">' + b.d + '</td><td style="padding:2px;text-align:center;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + b.color + ';"></span></td><td style="padding:2px;font-size:7pt;">' + (b.issues.map(function(i) { return i.type + '(' + i.detail + ')'; }).join(', ') || '—') + '</td></tr>';
+            html += '<tr class="debug-block-row" data-page="' + b.page + '" data-block="' + b.block + '" style="cursor:pointer;border:1px solid #cbd5e1;' + (b.ok ? '' : 'background:#fef3c7;') + '"><td style="padding:1px;text-align:center;">' + (b.pNum || b.page) + '</td><td style="padding:1px;text-align:center;">#' + b.block + '</td><td style="padding:1px;text-align:center;">' + b.rH + '</td><td style="padding:1px;text-align:center;">' + b.lH + '</td><td style="padding:1px;text-align:center;color:' + (b.d > 5 ? '#ca8a04' : '#059669') + ';">' + b.d + '</td><td style="padding:1px;text-align:center;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + b.color + ';"></span></td><td style="padding:1px;font-size:6pt;">' + (b.issues.map(function(i) { return i.type + '(' + i.detail + ')'; }).join(', ') || '—') + '</td></tr>';
         });
         html += '</tbody></table>';
         tableDiv.innerHTML = html;
         tableDiv.querySelectorAll('.debug-block-row').forEach(function(row) { row.addEventListener('click', function() { var page = parseInt(row.dataset.page); var block = parseInt(row.dataset.block); scrollToBlock(page, block); }); });
     }
+
     var issuesDiv = document.getElementById('debug-issues-list');
     if (issuesDiv && allIssues.length > 0) {
-        var h = '<h3 style="color:#ef4444;font-size:11pt;margin-bottom:6px;">רשימת בעיות</h3><table style="width:100%;border-collapse:collapse;font-size:8pt;"><thead><tr style="background:#334155;"><th style="padding:3px;">עמוד</th><th style="padding:3px;">סוג</th><th style="padding:3px;">חומרה</th><th style="padding:3px;">פרטים</th></tr></thead><tbody>';
-        allIssues.slice(0, 200).forEach(function(iss) { var sevColor = iss.severity === 'high' ? '#ef4444' : (iss.severity === 'medium' ? '#f59e0b' : '#94a3b8'); h += '<tr style="border-bottom:1px solid #1e293b;"><td style="padding:2px;">' + (iss.pNum || iss.page) + '</td><td style="padding:2px;">' + iss.type + '</td><td style="padding:2px;color:' + sevColor + ';">' + iss.severity + '</td><td style="padding:2px;">' + iss.detail + '</td></tr>'; });
-        h += '</tbody></table>'; issuesDiv.innerHTML = h;
-    } else if (issuesDiv) { issuesDiv.innerHTML = '<h3 style="color:#10b981;font-size:11pt;">✓ אין בעיות!</h3>'; }
+        var h = '<div style="font-size:8pt;font-weight:bold;color:#dc2626;margin-bottom:4px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;">רשימת בעיות (' + allIssues.length + ')</div>';
+        h += '<table style="width:100%;border-collapse:collapse;font-size:7pt;"><thead><tr style="background:#e2e8f0;"><th style="padding:2px;border:1px solid #cbd5e1;">עמוד</th><th style="padding:2px;border:1px solid #cbd5e1;">סוג</th><th style="padding:2px;border:1px solid #cbd5e1;">חומרה</th><th style="padding:2px;border:1px solid #cbd5e1;">פרטים</th></tr></thead><tbody>';
+        allIssues.slice(0, 200).forEach(function(iss) { var sc = iss.severity === 'high' ? '#dc2626' : (iss.severity === 'medium' ? '#d97706' : '#64748b'); h += '<tr style="border:1px solid #cbd5e1;"><td style="padding:1px;">' + (iss.pNum || iss.page) + '</td><td style="padding:1px;">' + iss.type + '</td><td style="padding:1px;color:' + sc + ';">' + iss.severity + '</td><td style="padding:1px;">' + iss.detail + '</td></tr>'; });
+        h += '</tbody></table>';
+        issuesDiv.innerHTML = h;
+    } else if (issuesDiv) {
+        issuesDiv.innerHTML = '<div style="color:#059669;font-weight:bold;font-size:10pt;">✓ אין בעיות!</div>';
+    }
 }
 
 function scrollToBlock(pageNum, blockIdx) {
@@ -204,7 +249,7 @@ function scrollToBlock(pageNum, blockIdx) {
     var blocks = pg.querySelectorAll('.block-2col'); var block = blocks[blockIdx]; if (!block) return;
     block.scrollIntoView({ behavior: 'smooth', block: 'center' });
     var origOutline = block.style.outline; var origOutlineOffset = block.style.outlineOffset;
-    block.style.outline = '5px solid #38bdf8'; block.style.outlineOffset = '4px';
+    block.style.outline = '5px solid #3b82f6'; block.style.outlineOffset = '4px';
     setTimeout(function() { block.style.outline = origOutline; block.style.outlineOffset = origOutlineOffset; }, 2000);
 }
 
@@ -217,18 +262,29 @@ function exportMarkedHTML() {
     blockData.forEach(function(b, i) { var cb = clonedBlocks[i]; if (!cb) return; cb.style.outline = '3px solid ' + b.color; cb.style.outlineOffset = '2px'; cb.style.position = 'relative'; var m = document.createElement('div'); m.style.cssText = 'position:absolute;top:4px;right:4px;background:' + b.color + ';color:#fff;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:bold;z-index:100;'; m.textContent = b.issues.length > 0 ? b.issues.length + '⚠' : '✓'; cb.appendChild(m); cb.title = b.tooltip; });
     var stylesHTML = '';
     for (var sheet of document.styleSheets) { try { if (sheet.cssRules) { stylesHTML += '<style>\n'; for (var rule of sheet.cssRules) stylesHTML += rule.cssText + '\n'; stylesHTML += '</style>\n'; } else if (sheet.href) { stylesHTML += '<link rel="stylesheet" href="' + sheet.href + '">\n'; } } catch (e) {} }
-    var panelHTML = '<div id="debug-panel-export" style="position:fixed;top:0;left:0;width:500px;height:100vh;background:#0f172a;color:#e2e8f0;font-family:monospace;font-size:10pt;z-index:9999;overflow-y:auto;padding:16px;box-shadow:4px 0 20px rgba(0,0,0,0.5);direction:rtl;"><h2 style="color:#38bdf8;border-bottom:2px solid #334155;padding-bottom:8px;">🔬 דוח עימוד ממורקר</h2><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0;"><div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16pt;font-weight:bold;color:#38bdf8;">' + S.totalPages + '</div><div style="font-size:8pt;color:#94a3b8;">עמודים</div></div><div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16pt;font-weight:bold;color:#10b981;">' + (S.totalBlocks - S.imbalanced) + '/' + S.totalBlocks + '</div><div style="font-size:8pt;color:#94a3b8;">תקינים</div></div><div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16pt;font-weight:bold;color:' + ((S.imbalanced + S.overflow + S.sparseCut + S.widows + S.orphans) > 0 ? '#ef4444' : '#10b981') + ';">' + (S.imbalanced + S.overflow + S.sparseCut + S.widows + S.orphans) + '</div><div style="font-size:8pt;color:#94a3b8;">בעיות</div></div><div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="font-size:16pt;font-weight:bold;color:' + (S.sparseCut > 0 ? '#f59e0b' : '#10b981') + ';">' + S.sparseCut + '</div><div style="font-size:8pt;color:#94a3b8;">דלילות</div></div></div><h3 style="color:#818cf8;font-size:11pt;">טבלת בלוקים</h3><table style="width:100%;border-collapse:collapse;font-size:8pt;"><thead><tr style="background:#334155;"><th style="padding:3px;">עמוד</th><th style="padding:3px;">בלוק</th><th style="padding:3px;">R</th><th style="padding:3px;">L</th><th style="padding:3px;">Δ</th><th style="padding:3px;">סטטוס</th><th style="padding:3px;">בעיות</th></tr></thead><tbody>';
-    blockData.forEach(function(b, i) { panelHTML += '<tr style="cursor:pointer;border-bottom:1px solid #1e293b;" onclick="document.querySelectorAll(\'.block-2col\')[' + i + '].scrollIntoView({behavior:\'smooth\',block:\'center\'});"><td style="padding:2px;text-align:center;">' + (b.pNum || b.page) + '</td><td style="padding:2px;text-align:center;">#' + b.block + '</td><td style="padding:2px;text-align:center;">' + b.rH + '</td><td style="padding:2px;text-align:center;">' + b.lH + '</td><td style="padding:2px;text-align:center;color:' + (b.d > 5 ? '#eab308' : '#10b981') + ';">' + b.d + '</td><td style="padding:2px;text-align:center;"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + b.color + ';"></span></td><td style="padding:2px;font-size:7pt;">' + (b.issues.map(function(iss) { return iss.type + '(' + iss.detail + ')'; }).join(', ') || '—') + '</td></tr>'; });
-    panelHTML += '</tbody></table>';
-    if (allIssues.length > 0) { panelHTML += '<h3 style="color:#ef4444;font-size:11pt;margin-top:12px;">רשימת בעיות</h3><table style="width:100%;border-collapse:collapse;font-size:8pt;"><thead><tr style="background:#334155;"><th style="padding:3px;">עמוד</th><th style="padding:3px;">סוג</th><th style="padding:3px;">חומרה</th><th style="padding:3px;">פרטים</th></tr></thead><tbody>'; allIssues.slice(0, 200).forEach(function(iss) { var sc = iss.severity === 'high' ? '#ef4444' : (iss.severity === 'medium' ? '#f59e0b' : '#94a3b8'); panelHTML += '<tr style="border-bottom:1px solid #1e293b;"><td style="padding:2px;">' + (iss.pNum || iss.page) + '</td><td style="padding:2px;">' + iss.type + '</td><td style="padding:2px;color:' + sc + ';">' + iss.severity + '</td><td style="padding:2px;">' + iss.detail + '</td></tr>'; }); panelHTML += '</tbody></table>'; }
+    var panelHTML = '<div id="debug-panel-export" style="position:fixed;top:0;left:0;width:400px;height:100vh;background:#f8fafc;color:#1e293b;font-family:sans-serif;font-size:9pt;z-index:9999;overflow-y:auto;padding:12px;box-shadow:4px 0 20px rgba(0,0,0,0.2);direction:rtl;border-left:2px solid #cbd5e1;"><h2 style="color:#1e40af;border-bottom:2px solid #cbd5e1;padding-bottom:6px;font-size:12pt;">🔬 דוח עימוד ממורקר</h2>';
+    panelHTML += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:8px 0;">';
+    panelHTML += '<div style="background:#e2e8f0;padding:6px;border-radius:4px;text-align:center;border:1px solid #cbd5e1;"><div style="font-size:14pt;font-weight:bold;color:#1e293b;">' + S.totalPages + '</div><div style="font-size:7pt;color:#64748b;">עמודים</div></div>';
+    panelHTML += '<div style="background:#e2e8f0;padding:6px;border-radius:4px;text-align:center;border:1px solid #cbd5e1;"><div style="font-size:14pt;font-weight:bold;color:#059669;">' + (S.totalBlocks - S.imbalanced) + '/' + S.totalBlocks + '</div><div style="font-size:7pt;color:#64748b;">תקינים</div></div>';
+    panelHTML += '<div style="background:#e2e8f0;padding:6px;border-radius:4px;text-align:center;border:1px solid #cbd5e1;"><div style="font-size:14pt;font-weight:bold;color:' + ((S.imbalanced+S.overflow+S.sparseCut+S.widows+S.orphans)>0?'#dc2626':'#059669') + ';">' + (S.imbalanced+S.overflow+S.sparseCut+S.widows+S.orphans) + '</div><div style="font-size:7pt;color:#64748b;">בעיות</div></div>';
+    panelHTML += '<div style="background:#e2e8f0;padding:6px;border-radius:4px;text-align:center;border:1px solid #cbd5e1;"><div style="font-size:14pt;font-weight:bold;color:' + (S.sparseCut>0?'#d97706':'#059669') + ';">' + S.sparseCut + '</div><div style="font-size:7pt;color:#64748b;">דלילות</div></div>';
     panelHTML += '</div>';
-    var html = '<!DOCTYPE html>\n<html lang="he" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>מסמך מרונדר ממורקר</title>\n' + stylesHTML + '\n<style>\nhtml,body{margin:0;padding:0;background:#334155;}\n#sidebar,#text-pane,#settings-pane,#resizer,#measuring-box{display:none!important;}\n#preview-pane{display:block!important;position:static!important;width:calc(100% - 500px)!important;margin-right:500px!important;}\n#book-container{margin:0 auto;}\n.block-2col{position:relative;}\n.debug-block-marker{position:absolute;top:4px;right:4px;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:bold;z-index:100;color:#fff;}\n</style>\n</head>\n<body>\n' + panelHTML + '\n' + clone.outerHTML + '\n</body>\n</html>';
+    panelHTML += '<div style="font-size:8pt;font-weight:bold;color:#475569;margin:8px 0 4px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;">טבלת בלוקים</div>';
+    panelHTML += '<table style="width:100%;border-collapse:collapse;font-size:7pt;"><thead><tr style="background:#e2e8f0;"><th style="padding:2px;border:1px solid #cbd5e1;">עמוד</th><th style="padding:2px;border:1px solid #cbd5e1;">בלוק</th><th style="padding:2px;border:1px solid #cbd5e1;">R</th><th style="padding:2px;border:1px solid #cbd5e1;">L</th><th style="padding:2px;border:1px solid #cbd5e1;">Δ</th><th style="padding:2px;border:1px solid #cbd5e1;">●</th><th style="padding:2px;border:1px solid #cbd5e1;">בעיות</th></tr></thead><tbody>';
+    blockData.forEach(function(b, i) { panelHTML += '<tr style="cursor:pointer;border:1px solid #cbd5e1;' + (b.ok?'':'background:#fef3c7;') + '" onclick="document.querySelectorAll(\'.block-2col\')[' + i + '].scrollIntoView({behavior:\'smooth\',block:\'center\'});"><td style="padding:1px;text-align:center;">' + (b.pNum||b.page) + '</td><td style="padding:1px;text-align:center;">#' + b.block + '</td><td style="padding:1px;text-align:center;">' + b.rH + '</td><td style="padding:1px;text-align:center;">' + b.lH + '</td><td style="padding:1px;text-align:center;color:' + (b.d>5?'#ca8a04':'#059669') + ';">' + b.d + '</td><td style="padding:1px;text-align:center;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + b.color + ';"></span></td><td style="padding:1px;font-size:6pt;">' + (b.issues.map(function(iss){return iss.type+'('+iss.detail+')';}).join(', ')||'—') + '</td></tr>'; });
+    panelHTML += '</tbody></table>';
+    if (allIssues.length > 0) { panelHTML += '<div style="font-size:8pt;font-weight:bold;color:#dc2626;margin:8px 0 4px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;">רשימת בעיות</div><table style="width:100%;border-collapse:collapse;font-size:7pt;"><thead><tr style="background:#e2e8f0;"><th style="padding:2px;border:1px solid #cbd5e1;">עמוד</th><th style="padding:2px;border:1px solid #cbd5e1;">סוג</th><th style="padding:2px;border:1px solid #cbd5e1;">חומרה</th><th style="padding:2px;border:1px solid #cbd5e1;">פרטים</th></tr></thead><tbody>'; allIssues.slice(0,200).forEach(function(iss){var sc=iss.severity==='high'?'#dc2626':(iss.severity==='medium'?'#d97706':'#64748b');panelHTML+='<tr style="border:1px solid #cbd5e1;"><td style="padding:1px;">'+(iss.pNum||iss.page)+'</td><td style="padding:1px;">'+iss.type+'</td><td style="padding:1px;color:'+sc+';">'+iss.severity+'</td><td style="padding:1px;">'+iss.detail+'</td></tr>';}); panelHTML += '</tbody></table>'; }
+    panelHTML += '</div>';
+    var html = '<!DOCTYPE html>\n<html lang="he" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>מסמך מרונדר ממורקר</title>\n' + stylesHTML + '\n<style>\nhtml,body{margin:0;padding:0;background:#475569;}\n#sidebar,#text-pane,#settings-pane,#resizer,#measuring-box,#tab-bar{display:none!important;}\n#preview-pane{display:block!important;position:static!important;width:calc(100% - 400px)!important;margin-right:400px!important;}\n#book-container{margin:0 auto;}\n.block-2col{position:relative;}\n</style>\n</head>\n<body>\n' + panelHTML + '\n' + clone.outerHTML + '\n</body>\n</html>';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = 'marked-document.html'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
-    console.log('✓ HTML ממורקר יוצא');
 }
 
 var _origTypesetDocument = typeof typesetDocument === 'function' ? typesetDocument : null;
 if (_origTypesetDocument) { typesetDocument = function() { _origTypesetDocument.apply(this, arguments); if (_debugMode) { setTimeout(function() { runDebugReport(); }, 5000); } }; }
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initDebugPanel); } else { initDebugPanel(); }
-window.toggleDebugMode = toggleDebugMode; window.runDebugReport = runDebugReport; window.exportMarkedHTML = exportMarkedHTML; window.isDebugMode = function() { return _debugMode; };
+
+if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initTabSystem); } else { initTabSystem(); }
+window.toggleDebugMode = toggleDebugMode;
+window.runDebugReport = runDebugReport;
+window.exportMarkedHTML = exportMarkedHTML;
+window.isDebugMode = function() { return _debugMode; };
 })();
