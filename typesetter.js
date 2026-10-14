@@ -5294,18 +5294,26 @@ function performTypeset() {
         // אבל הדפדפן שובר שורות בעצמו (greedy) עם justify תקין.
         // applyKpLineBreaks();
     } catch (err) {
-        console.error('typeset failed:', err);
-        const stats = document.getElementById('editor-stats');
-        if (stats) {
-            stats.textContent = '⚠️ שגיאת עימוד: ' + (err && err.message ? err.message : String(err));
-            stats.style.color = '#dc2626';
-        }
-        // הצגת הודעת alert לא חוסמת דרך setTimeout כדי לא להקפיא את ה-Main Thread.
-        setTimeout(() => {
-            if (typeof window.showToast === 'function') {
-                window.showToast('שגיאת עימוד: ' + (err && err.message ? err.message : String(err)));
+        // TRACE HOOK: עצירה יזומה ע"י trace-manager אינה שגיאה אמיתית — היא משמשת לעצירת העימוד בנקודה מסוימת
+        if (err && err.message === '__TRACE_STOP__') {
+            console.log('[trace] העימוד הופסק יזומת ע"י trace-manager');
+            if (typeof window.__traceOnStopped === 'function') {
+                try { window.__traceOnStopped(); } catch (e) {}
             }
-        }, 0);
+        } else {
+            console.error('typeset failed:', err);
+            const stats = document.getElementById('editor-stats');
+            if (stats) {
+                stats.textContent = '⚠️ שגיאת עימוד: ' + (err && err.message ? err.message : String(err));
+                stats.style.color = '#dc2626';
+            }
+            // הצגת הודעת alert לא חוסמת דרך setTimeout כדי לא להקפיא את ה-Main Thread.
+            setTimeout(() => {
+                if (typeof window.showToast === 'function') {
+                    window.showToast('שגיאת עימוד: ' + (err && err.message ? err.message : String(err)));
+                }
+            }, 0);
+        }
     }
 }
 
@@ -5535,6 +5543,23 @@ function performTypesetInner() {
         sections.push(currentSection);
     }
 
+    // TRACE HOOK: דיווח רשימת הפרקים ל-trace-manager (אם מופעל)
+    if (typeof window.__traceOnChaptersBuilt === 'function') {
+        try {
+            const traceChapters = sections.map((s, i) => ({
+                idx: i,
+                type: s.type,
+                title: s.isNewPage ? (s.hToken ? s.hToken.text : '') : (s.token ? s.token.text : 'תוכן ראשוני'),
+                level: s.isNewPage ? (s.hToken ? s.hToken.level : 0) : (s.token ? s.token.level : 0),
+                lineIdx: s.isNewPage ? (s.hToken ? s.hToken.lineIdx : 0) : (s.token ? s.token.lineIdx : 0),
+                tokenCount: (s.tokens || []).length,
+                isSubShaar: s.type === 'sub_shaar',
+                isNewPage: !!s.isNewPage
+            }));
+            window.__traceOnChaptersBuilt(traceChapters);
+        } catch (e) { console.warn('[trace] chapters built hook failed:', e); }
+    }
+
     const gtocShows = Array.from(document.querySelectorAll('.gtoc-show:checked')).map(cb => parseInt(cb.value, 10));
     const gtocGroups = Array.from(document.querySelectorAll('.gtoc-grp:checked')).map(cb => parseInt(cb.value, 10));
     if (typeof importedTextStyles !== 'undefined') {
@@ -5563,28 +5588,31 @@ function performTypesetInner() {
     const customC = document.getElementById('hdr-c-custom')?.value || '';
     const customL = document.getElementById('hdr-l-custom')?.value || '';
 
-    if (showMainShaar) {
+    // TRACE HOOK: כשמסננים לפרק בודד, דלג על שער הפתיחה ושער הסיום
+    const __traceFiltering = (typeof window.__traceChapterFilter === 'number');
+
+    if (showMainShaar && !__traceFiltering) {
         renderExtAnchor(container, 'beforeAll', rawText);
         renderMainShaar(container, activeThemeId, pageIndex);
         if (document.getElementById('main-shaar-count-numbering')?.checked) pageIndex++;
         renderExtAnchor(container, 'afterMainShaar', rawText);
-    } else {
+    } else if (!__traceFiltering) {
         renderExtAnchor(container, 'beforeAll', rawText);
     }
 
-    if (showBackShaar) {
+    if (showBackShaar && !__traceFiltering) {
         renderBackShaar(container, activeThemeId, pageIndex);
         if (document.getElementById('back-shaar-count-numbering')?.checked) pageIndex++;
     }
 
-    if (enableGeneralTOC) {
+    if (enableGeneralTOC && !__traceFiltering) {
         const generalTocEntries = buildStructuredTOC(tokens, gtocShows, gtocGroups);
         const pagesRendered = renderPaginatedTOC(container, generalTocEntries, "תוכן עניינים כללי", bookTitle, "תוכן עניינים כללי", pageIndex, "תוכן עניינים כללי", "תוכן עניינים כללי", "gtoc");
         if (document.getElementById('general-toc-count-numbering')?.checked !== false) {
             pageIndex += pagesRendered;
         }
     }
-    renderExtAnchor(container, 'afterGeneralToc', rawText);
+    if (!__traceFiltering) renderExtAnchor(container, 'afterGeneralToc', rawText);
 
     const styleObj = {
         fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--fn-body'),
@@ -5597,6 +5625,27 @@ function performTypesetInner() {
 
     for (let sIdx = 0; sIdx < sections.length; sIdx++) {
         const sec = sections[sIdx];
+
+        // TRACE HOOK: עדכון פרק נוכחי + סינון פרקים (לרינדור פרק בודד)
+        if (typeof window.__traceOnChapterStart === 'function') {
+            try { window.__traceOnChapterStart(sIdx, sections.length); } catch (e) {}
+        }
+        // אם trace-manager מבקש לעבד רק פרק מסוים — דלג על כל השאר
+        if (typeof window.__traceChapterFilter === 'number' && sIdx !== window.__traceChapterFilter) {
+            // עדיין צריך לעדכן מצב גלובלי כדי שהפרק שיוצג לא יישבר — אבל קפיצה מ-0 ל-M תיתן מספור עמודים נכון מ-1
+            if (typeof window.__traceChapterFilter === 'number' && sIdx === window.__traceChapterFilter) {
+                // (לא יקרה — כבר טופל למעלה)
+            }
+            continue;
+        }
+        // איפוס pageIndex כשמתחילים מפרק מסוים — כדי שהמספור יתחיל מ-1
+        if (typeof window.__traceChapterFilter === 'number' && sIdx === window.__traceChapterFilter && sIdx > 0) {
+            pageIndex = 1;
+            currentH1Title = '';
+            currentH2Title = '';
+            hasOpenPart = false;
+            prevPageEl = null;
+        }
 
         if (sec.type === 'sub_shaar') {
             if (prevPageEl) {

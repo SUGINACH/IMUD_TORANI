@@ -2362,10 +2362,14 @@ function initTabSystem() {
         <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
             <button id="btn-refresh-debug" class="btn-tool btn-secondary" style="flex:0.5;" title="רענן דוח">🔄 רענן</button>
             <button id="btn-export-marked" class="btn-tool btn-primary" style="flex:1;" title="ייצא HTML ממורקר">💾 ייצוא HTML ממורקר</button>
+            <button id="btn-toggle-trace" class="btn-tool btn-secondary" style="flex:1;" title="מעקב אחרי קריאות פונקציות">🔍 מעקב פונקציות</button>
         </div>
-        <div id="debug-summary"></div>
-        <div id="debug-blocks-table" style="margin-top:12px;"></div>
-        <div id="debug-issues-list" style="margin-top:12px;"></div>
+        <div id="debug-report-view">
+            <div id="debug-summary"></div>
+            <div id="debug-blocks-table" style="margin-top:12px;"></div>
+            <div id="debug-issues-list" style="margin-top:12px;"></div>
+        </div>
+        <div id="trace-view" style="display:none;flex-direction:column;"></div>
     `;
     sidebar.appendChild(debugPane);
 
@@ -2422,6 +2426,16 @@ function initTabSystem() {
     document.getElementById('btn-export-marked').addEventListener('click', function() {
         if (typeof exportMarkedHTML === 'function') exportMarkedHTML();
     });
+    const btnToggleTrace = document.getElementById('btn-toggle-trace');
+    if (btnToggleTrace) {
+        btnToggleTrace.addEventListener('click', function() {
+            if (typeof window.__traceGetState === 'function') {
+                const st = window.__traceGetState();
+                const newMode = (st.viewMode === 'trace') ? 'report' : 'trace';
+                window.__traceSetViewMode(newMode);
+            }
+        });
+    }
 
     // 9. טאב ברירת מחדל: עורך
     switchTab('text-pane');
