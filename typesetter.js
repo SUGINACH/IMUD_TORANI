@@ -4623,6 +4623,8 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         }
     }
 
+    console.log('[balance-fill] reached end of balanceColumns, bestSplit.lineIndex=' + (bestSplit ? bestSplit.lineIndex : 'no bestSplit'));
+
     resetColumnJustificationStyles(rCol);
     resetColumnJustificationStyles(lCol);
     let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
