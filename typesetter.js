@@ -2535,15 +2535,9 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
 
             if (lWords.length === 0) return;
 
-            // השורה האחרונה דלילה אם יש פחות מ-4 מילים בסך הכל בפסקה
-            // והשורה האחרונה מכילה פחות מ-4 מילים
-            // נשתמש באומדן: אם מספר השורות * 7 (מילים לשורה) > מספר המילים הכולל
-            // אז השורה האחרונה כנראה דלילה
-            const estimatedLines = rects.length;
-            const avgWordsPerLine = rWords.length / estimatedLines;
-            const lastLineEstWords = rWords.length - Math.round(avgWordsPerLine * (estimatedLines - 1));
-
-            if (lastLineEstWords < 4 || (rWords.length < estimatedLines * 4)) {
+            // תמיד נסה למשוך מילים מההמשך כדי למלא את השורה האחרונה
+            // המערכת תעצור כשלא יהיה עוד מקום
+            {
                 // נסה למשוך מילים מההמשך
                 let newRWords = rWords.slice();
                 let newLWords = lWords.slice();
