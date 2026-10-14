@@ -2547,7 +2547,7 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
                 let newRWords = rWords.slice();
                 let newLWords = lWords.slice();
                 let pulled = 0;
-                const maxPull = Math.min(5, newLWords.length);
+                const maxPull = Math.min(20, newLWords.length);
 
                 while (newLWords.length > 0 && pulled < maxPull) {
                     newRWords.push(newLWords[0]);
