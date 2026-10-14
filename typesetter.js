@@ -2512,9 +2512,11 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
     // זה מונע את המראה של "סיבת המצווה." עם רווחים עצומים.
     // ==================================================================
     try {
+        console.log('[finalize-pull] checking block, rCol.children=' + rCol.children.length + ' lCol.children=' + lCol.children.length);
         [rCol, lCol].forEach(function(sourceCol, sourceIdx) {
             const targetCol = sourceIdx === 0 ? lCol : rCol;
             const pCut = sourceCol.querySelector('p.p-cut');
+            console.log('[finalize-pull] sourceCol=' + (sourceIdx===0?'R':'L') + ' pCut=' + (pCut ? 'found' : 'none'));
             if (!pCut) return;
             const pEnd = targetCol.querySelector('p.p-end, p.p-cut');
             if (!pEnd) return;
