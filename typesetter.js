@@ -4367,6 +4367,49 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         }
     }
 
+    // ==================================================================
+    // תיקון חיתוך תוך-שורה (Intra-line split refinement)
+    // ==================================================================
+    // אחרי בחירת bestSplit, נבדוק אם השורה האחרונה בימין דלילה (≤3 מילים).
+    // אם כן, ננסה להעביר מילה אחת מסוף השורה הקודמת לתחילת השורה האחרונה,
+    // כדי למלא את השורה האחרונה ולמנוע דלילות ב-p-cut.
+    // קריטריונים:
+    //   1. bestSplit.lineIndex > 0 (יש חיתוך תוך-פסקתי)
+    //   2. השורה האחרונה בימין (lines[lineIndex-1]) מכילה ≤3 מילים
+    //   3. השורה הקודמת (lines[lineIndex-2]) מכילה ≥5 מילים
+    //   4. העברת מילה אחת תשפר את המצב (לא תיצור דלילות חדשה)
+    // ==================================================================
+    if (bestSplit.lineIndex > 1 && bestSplit.lines && bestSplit.lineIndex < bestSplit.lines.length) {
+        const lastLineIdx = bestSplit.lineIndex - 1;
+        const prevLineIdx = bestSplit.lineIndex - 2;
+        const lastLine = bestSplit.lines[lastLineIdx];
+        const prevLine = bestSplit.lines[prevLineIdx];
+        const lastWords = lastLine.trim().split(/\s+/).filter(w => w.length > 0);
+        const prevWords = prevLine.trim().split(/\s+/).filter(w => w.length > 0);
+
+        // בדיקת קריטריונים: שורה אחרונה דלילה + שורה קודמת מספיק מלאה
+        if (lastWords.length >= 1 && lastWords.length <= 3 && prevWords.length >= 5) {
+            // נסה להעביר מילה אחת מסוף prevLine לתחילת lastLine
+            const wordToMove = prevWords[prevWords.length - 1];
+            const newPrevLine = prevWords.slice(0, -1).join(' ');
+            const newLastLine = wordToMove + ' ' + lastLine;
+
+            // בדיקה: האם השורה הקודמת החדשה עדיין מכילה מספיק מילים (≥3)?
+            const newPrevWords = newPrevLine.trim().split(/\s+/).filter(w => w.length > 0);
+            if (newPrevWords.length >= 3) {
+                // בצע את השינוי — עדכן את השורות
+                const newLines = bestSplit.lines.slice();
+                newLines[prevLineIdx] = newPrevLine;
+                newLines[lastLineIdx] = newLastLine;
+                bestSplit = { ...bestSplit, lines: newLines };
+                if (traceObj) {
+                    traceObj.steps = traceObj.steps || [];
+                    traceObj.steps.push(`בוצע חיתוך תוך-שורה: הועברה מילה "${wordToMove}" משורה ${prevLineIdx} לשורה ${lastLineIdx} למניעת דלילות`);
+                }
+            }
+        }
+    }
+
     for (let i = 0; i < bestSplit.itemIndex; i++) {
         appendItemFinal(rCol, rMargin, items[i], true, false, null, items[i].isCont, false);
     }
@@ -6366,8 +6409,12 @@ function performTypesetInner() {
                 }
 
                 // PushBack במקרה של חריגה אמיתית מתקציב הדף
+                // תיקון: במקום להסיר פסקה שלמה, ננסה קודם להסיר שורה אחת מהפסקה האחרונה.
+                // רק אם הפסקה מכילה שורה אחת בלבד (או שהסרת שורה לא מספיקה) — נסיר את כל הפסקה.
                 actualAvailH = getBlockColumnBudget(pageLayout.bodyFlow, pageLayout.page, block2Col);
-                while ((rCol.scrollHeight > actualAvailH + 2 || lCol.scrollHeight > actualAvailH + 2) && (rCol.children.length + lCol.children.length > 1)) {
+                let pushBackGuard = 0; // מניעת לולאה אינסופית
+                while ((rCol.scrollHeight > actualAvailH + 2 || lCol.scrollHeight > actualAvailH + 2) && (rCol.children.length + lCol.children.length > 1) && pushBackGuard < 200) {
+                    pushBackGuard++;
                     const popCol = lCol.children.length > 0 ? lCol : rCol;
                     const poppedChild = popCol.lastElementChild;
                     if (!poppedChild) break;
@@ -6376,22 +6423,101 @@ function performTypesetInner() {
                     if (poppedChild.tagName === 'P') {
                         const rawPText = poppedChild.getAttribute('data-raw-text') || '';
                         const linesInfo = getLinesFromParagraph(rawPText, colWidth, styleObj, false);
-                        if (pendingWordTokens && pendingWordTokens.token.id === parseInt(pId, 10)) {
-                            pendingWordTokens.remainingLines = linesInfo.lines.concat(pendingWordTokens.remainingLines);
-                        } else {
-                            const tokObj = secTokens.find(t => t.id === parseInt(pId, 10));
-                            if (tokObj) {
-                                pendingWordTokens = {
-                                    token: tokObj,
-                                    remainingLines: linesInfo.lines
-                                };
+                        const pLineCount = linesInfo.lines.length;
+
+                        // תיקון PushBack חכם: אם הפסקה מכילה יותר משורה אחת,
+                        // נסה להסיר רק שורה אחת מהסוף לפני הסרת כל הפסקה.
+                        if (pLineCount > 1) {
+                            // בדוק כמה שורות גולשות מעבר לתקציב
+                            const overflowPx = Math.max(0, popCol.scrollHeight - actualAvailH);
+                            // אומדן גס: גובה שורה אחת ≈ lineHeight * fontSize
+                            const styleLineHeight = parseFloat(styleObj.lineHeight) || 1.34;
+                            const styleFontSize = parseFloat(styleObj.fontSize) || 11;
+                            const oneLinePx = styleLineHeight * styleFontSize * 1.333; // pt → px
+                            const linesToRemove = Math.max(1, Math.ceil(overflowPx / oneLinePx));
+
+                            // אם צריך להסיר פחות שורות ממספר השורות בפסקה — נסיר רק את השורות הדרושות
+                            if (linesToRemove < pLineCount) {
+                                const linesToKeep = linesInfo.lines.slice(0, pLineCount - linesToRemove);
+                                const linesToRemoveArr = linesInfo.lines.slice(pLineCount - linesToRemove);
+
+                                // עדכן את הפסקה במקום (השאר רק את השורות שנשארות)
+                                if (linesToKeep.length > 0) {
+                                    const newText = linesToKeep.join(' ');
+                                    poppedChild.setAttribute('data-raw-text', newText);
+                                    // רנדר מחדש את הפסקה עם הטקסט המקוצר
+                                    const isCont = poppedChild.getAttribute('data-is-cont') === 'true';
+                                    const newLinesInfo = getLinesFromParagraph(newText, colWidth, styleObj, !isCont);
+                                    const isSingleLine = newLinesInfo.lines.length <= 1;
+                                    poppedChild.innerHTML = createDropWord(newText, isCont, isSingleLine, newLinesInfo.lines.length);
+                                    applyDelimiterStyles(poppedChild, 'body', getBodySizePt(), false);
+
+                                    // העבר את השורות שהוסרו ל-pendingWordTokens
+                                    if (pendingWordTokens && pendingWordTokens.token.id === parseInt(pId, 10)) {
+                                        pendingWordTokens.remainingLines = linesToRemoveArr.concat(pendingWordTokens.remainingLines);
+                                    } else {
+                                        const tokObj = secTokens.find(t => t.id === parseInt(pId, 10));
+                                        if (tokObj) {
+                                            pendingWordTokens = {
+                                                token: tokObj,
+                                                remainingLines: linesToRemoveArr
+                                            };
+                                        }
+                                    }
+                                    pageTrace.steps.push(`בוצע PushBack חלקי — הוסרו ${linesToRemove} שורות מפסקה [${pId}] (מתוך ${pLineCount}) עקב חריגה (${actualAvailH}px)`);
+                                } else {
+                                    // כל השורות הוסרו — מחק את הפסקה
+                                    if (pendingWordTokens && pendingWordTokens.token.id === parseInt(pId, 10)) {
+                                        pendingWordTokens.remainingLines = linesInfo.lines.concat(pendingWordTokens.remainingLines);
+                                    } else {
+                                        const tokObj = secTokens.find(t => t.id === parseInt(pId, 10));
+                                        if (tokObj) {
+                                            pendingWordTokens = {
+                                                token: tokObj,
+                                                remainingLines: linesInfo.lines
+                                            };
+                                        }
+                                    }
+                                    popCol.removeChild(poppedChild);
+                                    pageTrace.steps.push(`בוצע PushBack מלא לפסקה [${pId}] (${pLineCount} שורות) עקב חריגה (${actualAvailH}px)`);
+                                }
+                            } else {
+                                // צריך להסיר יותר שורות ממה שיש — הסר את כל הפסקה
+                                if (pendingWordTokens && pendingWordTokens.token.id === parseInt(pId, 10)) {
+                                    pendingWordTokens.remainingLines = linesInfo.lines.concat(pendingWordTokens.remainingLines);
+                                } else {
+                                    const tokObj = secTokens.find(t => t.id === parseInt(pId, 10));
+                                    if (tokObj) {
+                                        pendingWordTokens = {
+                                            token: tokObj,
+                                            remainingLines: linesInfo.lines
+                                        };
+                                    }
+                                }
+                                popCol.removeChild(poppedChild);
+                                pageTrace.steps.push(`בוצע PushBack מלא לפסקה [${pId}] (${pLineCount} שורות) עקב חריגה גדולה (${actualAvailH}px)`);
                             }
+                        } else {
+                            // פסקה בעלת שורה אחת — הסר אותה כולה
+                            if (pendingWordTokens && pendingWordTokens.token.id === parseInt(pId, 10)) {
+                                pendingWordTokens.remainingLines = linesInfo.lines.concat(pendingWordTokens.remainingLines);
+                            } else {
+                                const tokObj = secTokens.find(t => t.id === parseInt(pId, 10));
+                                if (tokObj) {
+                                    pendingWordTokens = {
+                                        token: tokObj,
+                                        remainingLines: linesInfo.lines
+                                    };
+                                }
+                            }
+                            popCol.removeChild(poppedChild);
+                            pageTrace.steps.push(`בוצע PushBack לפסקה חד-שורתית [${pId}] עקב חריגה (${actualAvailH}px)`);
                         }
                     } else {
                         tokenIndex--;
+                        popCol.removeChild(poppedChild);
+                        pageTrace.steps.push(`בוצע PushBack לכותרת [${pId}] עקב חריגה (${actualAvailH}px)`);
                     }
-                    popCol.removeChild(poppedChild);
-                    pageTrace.steps.push(`בוצע PushBack לאלמנט [${pId}] עקב חריגה מגובה התקציב (${actualAvailH}px)`);
                     actualAvailH = getBlockColumnBudget(pageLayout.bodyFlow, pageLayout.page, block2Col);
                     balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, pageTrace);
                 }
