@@ -135,7 +135,13 @@ function initStyleSetDropdown() {
         '<button id="btn-export-settings" class="btn-tool btn-secondary" style="flex:0.5;font-size:8pt;" title="ייצוא הגדרות לקובץ JSON">📤 ייצוא הגדרות</button>' +
         '<button id="btn-import-settings" class="btn-tool btn-secondary" style="flex:0.5;font-size:8pt;" title="ייבוא הגדרות מקובץ JSON">📥 ייבוא הגדרות</button>' +
         '<input type="file" id="file-import-settings" accept=".json" style="display:none;">';
-    settingsPane.insertBefore(styleBar, settingsTopBar);
+    // הכנס את הסרגל לפני settings-top-bar, או בתחילת settings-pane אם לא נמצא
+    if (settingsTopBar && settingsTopBar.parentNode === settingsPane) {
+        settingsPane.insertBefore(styleBar, settingsTopBar);
+    } else {
+        // Fallback: הכנס בתחילת settings-pane
+        settingsPane.insertBefore(styleBar, settingsPane.firstChild);
+    }
 
     // טען רשימת סגנונות
     loadStyleSetsList();
