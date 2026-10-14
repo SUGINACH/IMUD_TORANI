@@ -4577,7 +4577,20 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 
                     console.log('[balance-fill] fillPct=' + Math.round(fillPct*100) + '% rWords=' + rWords.length + ' lWords=' + lWords.length);
 
-                    if ((fillPct < 0.5 || rWords.length < 4) && lWords.length > 0) {
+                    // חשב את מספר המילים בשורה האחרונה בפועל
+                    // על ידי שימוש ב-getLinesFromParagraph עם הטקסט של ה-p-cut
+                    let lastLineWordCount = 99; // ברירת מחדל גבוהה
+                    try {
+                        const rLinesInfo = getLinesFromParagraph(rText, colRect.width, styleObj, false);
+                        if (rLinesInfo.lines.length > 0) {
+                            const lastLine = rLinesInfo.lines[rLinesInfo.lines.length - 1];
+                            lastLineWordCount = lastLine.trim().split(/\s+/).filter(w => w.length > 0).length;
+                        }
+                    } catch(e) {}
+                    console.log('[balance-fill] lastLineWordCount=' + lastLineWordCount);
+
+                    // התנאי: מעט מילים בשורה האחרונה (פחות מ-4)
+                    if (lastLineWordCount < 4 && lWords.length > 0) {
                         // השורה האחרונה דלילה — נסה למשוך מילים מההמשך
                         const budget = getBlockColumnBudget ? getBlockColumnBudget(null, null, block) : 900;
                         let pulled = 0;
