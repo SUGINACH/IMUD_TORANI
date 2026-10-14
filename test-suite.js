@@ -923,28 +923,11 @@ tr.warn{background:rgba(245,158,11,.08)}
 }
 
 // ==========================================================================
-// כפתורים
+// כפתורים — מוסתרים במצב רגיל, מופיעים רק במצב בדיקה
 // ==========================================================================
 function initTestSuiteButtons() {
-    const bar = document.querySelector('.text-actions-bar');
-    if (!bar) return;
-    const btnTest = document.createElement('button');
-    btnTest.type = 'button'; btnTest.className = 'btn-tool btn-secondary';
-    btnTest.innerHTML = '🧪 טקסט בדיקה'; btnTest.style.flex = '0.7';
-    btnTest.title = 'הזרקת טקסט בדיקה מקיף (~300 עמודים)';
-    btnTest.addEventListener('click', () => {
-        const text = generateTestText();
-        if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
-        setTimeout(() => { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
-    });
-    bar.insertBefore(btnTest, bar.firstChild);
-
-    const btnReport = document.createElement('button');
-    btnReport.type = 'button'; btnReport.className = 'btn-tool btn-secondary';
-    btnReport.innerHTML = '📊 דוח עימוד'; btnReport.style.flex = '0.7';
-    btnReport.title = 'הפקת דוח מפורט עם בדיקות ויזואליות';
-    btnReport.addEventListener('click', generateLayoutReport);
-    bar.insertBefore(btnReport, btnTest.nextSibling);
+    // כפתורים אלו אינם מופיעים בסרגל הראשי — הם נוצרים רק כשמפעילים מצב בדיקה
+    // דרך debug-panel.js. הפונקציות נשארות זמינות דרך window.
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initTestSuiteButtons);
@@ -952,6 +935,76 @@ else initTestSuiteButtons();
 
 window.generateTestText = generateTestText;
 window.generateLayoutReport = generateLayoutReport;
+
+// ==========================================================================
+// טקסט בדיקה קבוע (seeded LCG) — מייצר את אותו טקסט בכל פעם
+// ==========================================================================
+let _seededState = 12345;
+function _seededRand() {
+    _seededState = (_seededState * 1103515245 + 12345) & 0x7fffffff;
+    return _seededState / 0x7fffffff;
+}
+function _seededInt(n) { return Math.floor(_seededRand() * n); }
+function _seededW() { return W[_seededInt(W.length)]; }
+
+function generateTestTextSeeded() {
+    _seededState = 12345; // Reset seed
+    let L = [];
+    L.push('שם הספר - טקסט בדיקה קבוע');
+    L.push('נושא - בדיקת עימוד');
+    L.push('נושא מפורט - כיסוי כל מקרי העימוד');
+    L.push('פרטי מהדורא - גרסת בדיקה');
+    L.push('שם המחבר - בדיקה');
+    L.push('מקום ושנת הוצאה - ירושלים | תשפ"ו');
+    L.push('שמירת זכויות - כל הזכויות שמורות');
+    L.push('פרטי הוצאה לאור - הוצאת בדיקה');
+    L.push('פרטי קשר - 052-0000000');
+    L.push('פרטים נוספים - טקסט זה נוצר עם seed קבוע לשחזור מלא');
+
+    // תוכן עניינים
+    L.push('תוכן עניינים כללי');
+    L.push('פרק א - מבוא');
+    L.push('פרק ב - פרטים');
+    L.push('פרק ג - סיכום');
+
+    L.push('פרק א - מבוא');
+    L.push('נושא - הקדמה');
+    L.push('נושא מפורט - מבוא כללי');
+    L.push('בכאן נתחיל לדון בענייני המבוא. ' + LINES(3));
+    L.push('סעיף א - הגדרות');
+    L.push(LINES(4));
+    L.push('תת סעיף - ביאור');
+    L.push(LINES(3));
+    L.push('הערה [זוהי הערת שוליים לבדיקה. היא בודקת את מערכת ההערות.]');
+    L.push(LINES(2));
+    L.push('סעיף ב - כללים');
+    L.push(LINES(5));
+    L.push('תת סעיף - פרטים');
+    L.push(LINES(3));
+    L.push('הערה [הערה נוספת לבדיקת זרימת הערות בין עמודים.]');
+    L.push(LINES(4));
+
+    // פרקים נוספים
+    for (let ch = 2; ch <= 30; ch++) {
+        L.push('פרק ' + ['א','ב','ג','ד','ה','ו','ז','ח','ט','י','יא','יב','יג','יד','טו','טז','יז','יח','יט','כ','כא','כב','כג','כד','כה','כו','כז','כח','כט'][ch-1] + ' - נושא');
+        L.push('נושא - פרק ' + ch);
+        L.push('נושא מפורט - ביאור');
+        const numParas = 8 + _seededInt(5);
+        for (let p = 0; p < numParas; p++) {
+            if (_seededInt(4) === 0) {
+                L.push('סעיף ' + (p+1) + ' - ' + _seededW());
+            }
+            L.push(LINES(2 + _seededInt(4)));
+            if (_seededInt(5) === 0) {
+                L.push('הערה [' + makePara(5 + _seededInt(5)) + ']');
+            }
+        }
+    }
+
+    L.push('סוף הספר');
+    return L.join('\n');
+}
+window.generateTestTextSeeded = generateTestTextSeeded;
 window.checkCanvasMeasurementAccuracy = checkCanvasMeasurementAccuracy;
 window.checkCanvasLineEstimate = checkCanvasLineEstimate;
 window.checkKnuthPlassQuality = checkKnuthPlassQuality;
