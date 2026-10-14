@@ -2549,19 +2549,22 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
                 let pulled = 0;
                 const maxPull = Math.min(20, newLWords.length);
 
-                while (newLWords.length > 0 && pulled < maxPull) {
+                while (newLWords.length > 1 && pulled < maxPull) {
                     newRWords.push(newLWords[0]);
                     newLWords = newLWords.slice(1);
                     pulled++;
 
-                    // בדוק אם עדיין נכנס בגובה
+                    // בדוק אם עדיין נכנס בגובה — השווה מול העמוד כולו, לא מול הטור
                     const newRText = newRWords.join(' ');
                     const isCont = pCut.getAttribute('data-is-cont') === 'true';
                     pCut.innerHTML = createDropWord(newRText, isCont, false, newRWords.length);
                     applyDelimiterStyles(pCut, 'body', getBodySizePt(), false);
                     void pCut.offsetHeight;
 
-                    if (sourceCol.scrollHeight > sourceCol.clientHeight) {
+                    // השווה מול ה-ancestor הגדול יותר (העמוד)
+                    const pageBodyFlow = sourceCol.closest('.page-body-flow');
+                    const pageAvailH = pageBodyFlow ? pageBodyFlow.clientHeight : budget;
+                    if (sourceCol.scrollHeight > pageAvailH) {
                         // יותר מדי — החזר
                         newLWords.unshift(newRWords.pop());
                         pulled--;
