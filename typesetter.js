@@ -6765,29 +6765,29 @@ function performTypesetInner() {
             const lCol = block.querySelector('.left-col');
             if (!rCol || !lCol) return;
             [rCol, lCol].forEach(function(col) {
-                const lastEl = col.lastElementChild;
-                if (!lastEl || lastEl.tagName !== 'P') return;
-                if (lastEl.classList.contains('p-cut')) return;
-                if (lastEl.hasAttribute('data-fill-last')) return;
+                // בדוק את כל פסקאות p-end, לא רק האחרונה
+                col.querySelectorAll('p.p-end').forEach(function(lastEl) {
+                    if (lastEl.hasAttribute('data-fill-last')) return;
 
-                const range = document.createRange();
-                range.selectNodeContents(lastEl);
-                const rects = range.getClientRects();
-                if (rects.length < 2) return;
+                    const range = document.createRange();
+                    range.selectNodeContents(lastEl);
+                    const rects = range.getClientRects();
+                    if (rects.length < 2) return;
 
-                const colRect = col.getBoundingClientRect();
-                const lastRect = rects[rects.length - 1];
-                const lastWidth = lastRect.right - colRect.left;
-                const colWidth = colRect.width;
-                if (colWidth <= 0) return;
-                const fillPct = lastWidth / colWidth;
+                    const colRect = col.getBoundingClientRect();
+                    const lastRect = rects[rects.length - 1];
+                    const lastWidth = lastRect.right - colRect.left;
+                    const colWidth = colRect.width;
+                    if (colWidth <= 0) return;
+                    const fillPct = lastWidth / colWidth;
 
-                if (fillPct < 0.9) {
-                    lastEl.setAttribute('data-fill-last', 'justify');
-                }
+                    if (fillPct < 0.9) {
+                        lastEl.setAttribute('data-fill-last', 'justify');
+                    }
+                });
             });
         });
-    }, 500);
+    }, 2000);
 }
 
 /* ==========================================================================
