@@ -5286,8 +5286,13 @@ function performTypeset() {
     // במקרה של שגיאה: מציג הודעת toast לא חוסמת, ולא משאיר את התצוגה ריקה.
     try {
         performTypesetInner();
-        // פעולה 4 — החל <br> על כל הפסקאות אחרי סיום העימוד
-        applyKpLineBreaks();
+        // פעולה 4 — applyKpLineBreaks מבוטל: <br> שובר את text-align: justify
+        // כי דפדפנים מתייחסים לכל שורה לפני <br> כ"שורה אחרונה" ומחילים
+        // text-align-last (center) במקום justify. זה גורם לכל השורות להיות
+        // ממורכזות ולהיראות כפסקאות נפרדות.
+        // KP עדיין משמש לחישוב numLines (לאיזון טורים ושבירת עמודים),
+        // אבל הדפדפן שובר שורות בעצמו (greedy) עם justify תקין.
+        // applyKpLineBreaks();
     } catch (err) {
         console.error('typeset failed:', err);
         const stats = document.getElementById('editor-stats');
