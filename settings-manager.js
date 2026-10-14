@@ -122,25 +122,28 @@ function initStyleSetDropdown() {
     var settingsPane = document.getElementById('settings-pane');
     if (!settingsPane || document.getElementById('style-set-bar')) return;
 
-    var settingsTopBar = settingsPane.querySelector('.settings-top-bar');
-    if (!settingsTopBar) return;
+    // הסרגל צריך להיכנס בתוך settings-content (שהוא flex column),
+    // לא כילד ישיר של settings-pane (שהוא flex row).
+    var settingsContent = settingsPane.querySelector('.settings-content');
+    if (!settingsContent) return;
+
+    var settingsTopBar = settingsContent.querySelector('.settings-top-bar');
 
     var styleBar = document.createElement('div');
     styleBar.id = 'style-set-bar';
-    styleBar.style.cssText = 'display:flex;gap:6px;padding:8px 10px;background:#e2e8f0;border-bottom:1px solid #cbd5e1;align-items:center;flex-wrap:wrap;';
+    styleBar.style.cssText = 'display:flex;gap:6px;padding:8px 10px;background:#e2e8f0;border-bottom:1px solid #cbd5e1;align-items:center;flex-wrap:wrap;flex-shrink:0;';
     styleBar.innerHTML =
         '<label style="font-size:9pt;font-weight:bold;color:#1e293b;white-space:nowrap;">סגנון:</label>' +
-        '<select id="style-set-select" style="flex:1;min-width:120px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:9pt;">' +
+        '<select id="style-set-select" style="flex:1;min-width:100px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:9pt;">' +
         '<option value="">— ברירת מחדל —</option></select>' +
-        '<button id="btn-export-settings" class="btn-tool btn-secondary" style="flex:0.5;font-size:8pt;" title="ייצוא הגדרות לקובץ JSON">📤 ייצוא הגדרות</button>' +
-        '<button id="btn-import-settings" class="btn-tool btn-secondary" style="flex:0.5;font-size:8pt;" title="ייבוא הגדרות מקובץ JSON">📥 ייבוא הגדרות</button>' +
+        '<button id="btn-export-settings" class="btn-tool btn-secondary" style="flex:0.5;font-size:8pt;" title="ייצוא הגדרות לקובץ JSON">📤 ייצוא</button>' +
+        '<button id="btn-import-settings" class="btn-tool btn-secondary" style="flex:0.5;font-size:8pt;" title="ייבוא הגדרות מקובץ JSON">📥 ייבוא</button>' +
         '<input type="file" id="file-import-settings" accept=".json" style="display:none;">';
-    // הכנס את הסרגל לפני settings-top-bar, או בתחילת settings-pane אם לא נמצא
-    if (settingsTopBar && settingsTopBar.parentNode === settingsPane) {
-        settingsPane.insertBefore(styleBar, settingsTopBar);
+    // הכנס בתוך settings-content, לפני settings-top-bar
+    if (settingsTopBar && settingsTopBar.parentNode === settingsContent) {
+        settingsContent.insertBefore(styleBar, settingsTopBar);
     } else {
-        // Fallback: הכנס בתחילת settings-pane
-        settingsPane.insertBefore(styleBar, settingsPane.firstChild);
+        settingsContent.insertBefore(styleBar, settingsContent.firstChild);
     }
 
     // טען רשימת סגנונות
