@@ -5227,11 +5227,19 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
 
             if (bodyFlow.scrollHeight > maxH) {
                 gridFull.lastElementChild.remove();
+                // הסר עוד 2 פריטים כדי לפצות על margins שלא נספרים ב scrollHeight
+                for (let extra = 0; extra < 2 && gridFull.children.length > 1; extra++) {
+                    gridFull.lastElementChild.remove();
+                    currentEntryIdx--;
+                }
                 if (gridFull.children.length > 0) {
-                    if (lastSubjectIdx > pageStartIndex) {
+                    if (lastSubjectIdx > pageStartIndex && currentEntryIdx > lastSubjectIdx) {
                         const itemsToRemove = currentEntryIdx - lastSubjectIdx;
-                        for (let k = 0; k < itemsToRemove; k++) gridFull.lastElementChild.remove();
-                        currentEntryIdx = lastSubjectIdx;
+                        for (let k = 0; k < itemsToRemove; k++) {
+                            if (gridFull.children.length === 0) break;
+                            gridFull.lastElementChild.remove();
+                            currentEntryIdx--;
+                        }
                     }
                     break;
                 } else {
