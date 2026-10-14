@@ -2441,6 +2441,7 @@ function enforceBlockColumnsWithinCeiling(block, heightCeiling) {
 }
 
 function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidth, didBalance, traceObj = null) {
+    console.log('[finalize] called, didBalance=' + didBalance);
     const budget = getBlockColumnBudget(bodyFlow, pageEl, block);
     const rCol = block.querySelector('.right-col');
     const lCol = block.querySelector('.left-col');
