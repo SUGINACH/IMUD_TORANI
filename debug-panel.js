@@ -38,53 +38,8 @@ function initTabSystem() {
     // 3. הגדל את textPane ל-flex column רגיל
     textPane.style.height = '100%';
 
-    // 4. הוסף לחצני בדיקה לתוך ה-text-actions-bar של textPane
-    const actionsBar = textPane.querySelector('.text-actions-bar');
-    if (actionsBar) {
-        // מסמך קבוע
-        const btnSeeded = document.createElement('button');
-        btnSeeded.type = 'button';
-        btnSeeded.className = 'btn-tool btn-secondary';
-        btnSeeded.innerHTML = '📋 מסמך קבוע';
-        btnSeeded.style.flex = '0.7';
-        btnSeeded.title = 'טקסט בדיקה קבוע (אותו טקסט בכל פעם)';
-        btnSeeded.addEventListener('click', function() {
-            if (typeof generateTestTextSeeded === 'function') {
-                const text = generateTestTextSeeded();
-                if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
-                setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
-            }
-        });
-        actionsBar.insertBefore(btnSeeded, actionsBar.firstChild);
-
-        // מסמך רנדומלי
-        const btnRandom = document.createElement('button');
-        btnRandom.type = 'button';
-        btnRandom.className = 'btn-tool btn-secondary';
-        btnRandom.innerHTML = '🎲 מסמך רנדומלי';
-        btnRandom.style.flex = '0.7';
-        btnRandom.title = 'טקסט בדיקה רנדומלי (טקסט שונה בכל פעם)';
-        btnRandom.addEventListener('click', function() {
-            if (typeof generateTestText === 'function') {
-                const text = generateTestText();
-                if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
-                setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
-            }
-        });
-        actionsBar.insertBefore(btnRandom, btnSeeded.nextSibling);
-
-        // דוח עימוד (חלון נפרד)
-        const btnReport = document.createElement('button');
-        btnReport.type = 'button';
-        btnReport.className = 'btn-tool btn-secondary';
-        btnReport.innerHTML = '📊 דוח עימוד';
-        btnReport.style.flex = '0.7';
-        btnReport.title = 'הפקת דוח עימוד מפורט בחלון נפרד';
-        btnReport.addEventListener('click', function() {
-            if (typeof generateLayoutReport === 'function') generateLayoutReport();
-        });
-        actionsBar.insertBefore(btnReport, btnRandom.nextSibling);
-    }
+    // 4. לחצני העורך נשארים כמו שהם (עדכן, ייבוא, הדפסה, גופנים, ייצוא HTML)
+    // לא מוסיפים לחצני בדיקה לטאב העורך — הם יהיו בטאב הבדיקה
 
     // 5. צור טאב בדיקה
     const debugPane = document.createElement('div');
@@ -92,8 +47,18 @@ function initTabSystem() {
     debugPane.style.cssText = 'display:none;flex:1;flex-direction:column;overflow-y:auto;padding:8px;background:#f8fafc;';
     debugPane.innerHTML = `
         <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
+            <button id="btn-seeded" class="btn-tool btn-secondary" style="flex:1;" title="טקסט קבוע (אותו טקסט בכל פעם)">📋 מסמך קבוע</button>
+            <button id="btn-random" class="btn-tool btn-secondary" style="flex:1;" title="טקסט רנדומלי">🎲 מסמך רנדומלי</button>
+            <button id="btn-report-window" class="btn-tool btn-secondary" style="flex:1;" title="דוח עימוד בחלון נפרד">📊 דוח עימוד</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
+            <button id="btn-retypeset-debug" class="btn-tool btn-primary" style="flex:1;" title="עדכן ועמד מחדש">⚡ עדכן ועמד מחדש</button>
+            <button id="btn-import-debug" class="btn-tool btn-import" style="flex:1;" title="ייבוא טקסט">📄 ייבוא טקסט</button>
+            <input type="file" id="file-import-debug" accept=".txt,.text,.md" style="display:none;">
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
             <button id="btn-refresh-debug" class="btn-tool btn-secondary" style="flex:0.5;" title="רענן דוח">🔄 רענן</button>
-            <button id="btn-export-marked" class="btn-tool btn-primary" style="flex:1;" title="ייצא HTML ממורקר">💾 ייצא HTML ממורקר</button>
+            <button id="btn-export-marked" class="btn-tool btn-primary" style="flex:1;" title="ייצא HTML ממורקר">💾 ייצוא HTML ממורקר</button>
         </div>
         <div id="debug-summary"></div>
         <div id="debug-blocks-table" style="margin-top:12px;"></div>
@@ -152,7 +117,33 @@ function initTabSystem() {
     // טאב ברירת מחדל: עורך
     switchTab('text-pane');
 
-    // 9. חבר לחצני דוח
+    // 9. חבר לחצני טאב הבדיקה
+    document.getElementById('btn-seeded').addEventListener('click', function() {
+        if (typeof generateTestTextSeeded === 'function') {
+            var text = generateTestTextSeeded();
+            if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
+            setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
+        }
+    });
+    document.getElementById('btn-random').addEventListener('click', function() {
+        if (typeof generateTestText === 'function') {
+            var text = generateTestText();
+            if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
+            setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
+        }
+    });
+    document.getElementById('btn-report-window').addEventListener('click', function() {
+        if (typeof generateLayoutReport === 'function') generateLayoutReport();
+    });
+    document.getElementById('btn-retypeset-debug').addEventListener('click', function() {
+        if (typeof typesetDocument === 'function') typesetDocument();
+    });
+    document.getElementById('btn-import-debug').addEventListener('click', function() {
+        document.getElementById('file-import-debug').click();
+    });
+    document.getElementById('file-import-debug').addEventListener('change', function(e) {
+        if (typeof handleTxtFileImport === 'function') handleTxtFileImport(e);
+    });
     document.getElementById('btn-refresh-debug').addEventListener('click', runDebugReport);
     document.getElementById('btn-export-marked').addEventListener('click', exportMarkedHTML);
 
