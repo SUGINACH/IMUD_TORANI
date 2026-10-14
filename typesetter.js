@@ -1871,6 +1871,75 @@ function shrinkFitUntilFitsDry(pElem, targetCol, lines, fit, isContinuation, has
     return 0;
 }
 
+/**
+ * pullWordsToLastLine — מושך מילים מהשורה הבאה (המשך) לשורה האחרונה של ה-p-cut
+ * כדי למנוע שורה אחרונה דלילה עם רווחים עצומים מ-text-align-last: justify.
+ *
+ * @param {Array} lines - כל השורות של הפסקה
+ * @param {number} bestFitLine - כמות השורות שנכנסות בטור הנוכחי
+ * @param {number} colWidth - רוחב הטור
+ * @param {object} styleObj - { fontFamily, fontSize, lineHeight }
+ * @returns {object} { chunkLines, remainingLines } — שורות מעודכנות
+ */
+function pullWordsToLastLine(lines, bestFitLine, colWidth, styleObj) {
+    if (bestFitLine >= lines.length || bestFitLine < 1) {
+        return { chunkLines: lines.slice(0, bestFitLine), remainingLines: lines.slice(bestFitLine) };
+    }
+
+    const lastLine = lines[bestFitLine - 1];
+    const nextLine = lines[bestFitLine];
+    if (!lastLine || !nextLine) {
+        return { chunkLines: lines.slice(0, bestFitLine), remainingLines: lines.slice(bestFitLine) };
+    }
+
+    // בדוק אם השורה האחרונה דלילה (פחות מ-70% מילוי)
+    const lastLineWidth = measureLineWidthCanvas(lastLine, styleObj);
+    if (lastLineWidth > colWidth * 0.7) {
+        // השורה מלאה מספיק — לא צריך למשוך מילים
+        return { chunkLines: lines.slice(0, bestFitLine), remainingLines: lines.slice(bestFitLine) };
+    }
+
+    // נסה למשוך מילים מהשורה הבאה לשורה האחרונה
+    const nextWords = nextLine.split(/\s+/).filter(w => w.length > 0);
+    const lastWords = lastLine.split(/\s+/).filter(w => w.length > 0);
+
+    let pulled = 0;
+    let newLastWords = lastWords.slice();
+    let remainingNextWords = nextWords.slice();
+
+    while (remainingNextWords.length > 0 && pulled < 10) {
+        const candidateWords = newLastWords.concat([remainingNextWords[0]]);
+        const candidateLine = candidateWords.join(' ');
+        const candidateWidth = measureLineWidthCanvas(candidateLine, styleObj);
+
+        // בדוק אם המילה הנוספת עדיין נכנסת ברוחב הטור (עם רווח)
+        if (candidateWidth <= colWidth) {
+            newLastWords = candidateWords;
+            remainingNextWords = remainingNextWords.slice(1);
+            pulled++;
+        } else {
+            break;
+        }
+    }
+
+    if (pulled === 0) {
+        // לא הצלחנו למשוך אף מילה
+        return { chunkLines: lines.slice(0, bestFitLine), remainingLines: lines.slice(bestFitLine) };
+    }
+
+    // בנה את השורות החדשות
+    const newLastLine = newLastWords.join(' ');
+    const newNextLine = remainingNextWords.join(' ');
+
+    const newChunkLines = lines.slice(0, bestFitLine - 1).concat([newLastLine]);
+    let newRemainingLines = lines.slice(bestFitLine + 1);
+    if (newNextLine.length > 0) {
+        newRemainingLines = [newNextLine].concat(newRemainingLines);
+    }
+
+    return { chunkLines: newChunkLines, remainingLines: newRemainingLines };
+}
+
 function canHeadingFitWithBody(targetCol, headingTok, nextToks, colWidth, styleObj, availH) {
     const { avoidOrphans } = getWidowOrphanPrefs();
     if (!avoidOrphans) return true;
@@ -6039,8 +6108,18 @@ function performTypesetInner() {
                         }
 
                         pageHasContent = true;
-                        const chunkLines = lines.slice(0, bestFitLine);
+                        
+                        // תיקון: משוך מילים מההמשך לשורה האחרונה כדי למנוע שורה דלילה
+                        let chunkLines = lines.slice(0, bestFitLine);
+                        let remainingLines = lines.slice(bestFitLine);
                         const isEndOfP = (bestFitLine === lines.length);
+                        
+                        if (!isEndOfP && typeof pullWordsToLastLine === 'function') {
+                            const pullResult = pullWordsToLastLine(lines, bestFitLine, 580, styleObj);
+                            chunkLines = pullResult.chunkLines;
+                            remainingLines = pullResult.remainingLines;
+                        }
+                        
                         pElem.className = isEndOfP ? 'p-end' : 'p-cut';
                         pElem.setAttribute('data-raw-text', chunkLines.join(' '));
                         // פעולה 4 — כבד שורות KP עם <br> במסלול טור יחיד
@@ -6060,7 +6139,7 @@ function performTypesetInner() {
                         } else {
                             pendingWordTokens = {
                                 token: currentTok,
-                                remainingLines: lines.slice(bestFitLine)
+                                remainingLines: remainingLines
                             };
                             break;
                         }
@@ -6310,8 +6389,18 @@ function performTypesetInner() {
                             }
 
                             pageHasContent = true;
-                            const chunkLines = lines.slice(0, bestFitLine);
+                            
+                            // תיקון: משוך מילים מההמשך לשורה האחרונה כדי למנוע שורה דלילה
+                            let chunkLines = lines.slice(0, bestFitLine);
+                            let remainingLines = lines.slice(bestFitLine);
                             const isEndOfP = (bestFitLine === lines.length);
+                            
+                            if (!isEndOfP && typeof pullWordsToLastLine === 'function') {
+                                const pullResult = pullWordsToLastLine(lines, bestFitLine, colWidth, styleObj);
+                                chunkLines = pullResult.chunkLines;
+                                remainingLines = pullResult.remainingLines;
+                            }
+                            
                             pElem.className = isEndOfP ? 'p-end' : 'p-cut';
                             pElem.setAttribute('data-raw-text', chunkLines.join(' '));
                             // פעולה 4 — כבד שורות KP עם <br> במסלול דו-טורי
@@ -6363,7 +6452,7 @@ function performTypesetInner() {
                             } else {
                                 pendingWordTokens = {
                                     token: currentTok,
-                                    remainingLines: lines.slice(bestFitLine)
+                                    remainingLines: remainingLines
                                 };
                                 break;
                             }
