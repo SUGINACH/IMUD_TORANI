@@ -4480,14 +4480,16 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 
         // Runt penalty: אם נקודת החיתוך יוצרת שורה דלילה בסוף טור ימין (p-cut).
         // sp.lines[sp.lineIndex - 1] היא השורה האחרונה של החלק שנשאר בימין.
-        // אם יש בה 1-3 מילים — זה runt. הענק penalty כדי שהמערכת תעדיף חיתוך ללא runt.
+        // אם יש בה 1-5 מילים — זה runt. הענק penalty כבד כדי שהמערכת תעדיף חיתוך ללא runt.
         let runtPenalty = 0;
         if (sp.lineIndex > 0 && sp.lines[sp.lineIndex - 1]) {
             const lastLineAtSplit = sp.lines[sp.lineIndex - 1];
             const wordsAtSplit = lastLineAtSplit.split(/\s+/).filter(w => w.length > 0).length;
-            if (wordsAtSplit === 1) runtPenalty = 1000;
-            else if (wordsAtSplit === 2) runtPenalty = 500;
-            else if (wordsAtSplit === 3) runtPenalty = 200;
+            if (wordsAtSplit === 1) runtPenalty = 10000;
+            else if (wordsAtSplit === 2) runtPenalty = 8000;
+            else if (wordsAtSplit === 3) runtPenalty = 5000;
+            else if (wordsAtSplit === 4) runtPenalty = 3000;
+            else if (wordsAtSplit === 5) runtPenalty = 1500;
         }
 
         // === Look-ahead: Widow/Orphan penalty (חדש — פעולה 2) ===
