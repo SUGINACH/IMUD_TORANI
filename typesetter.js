@@ -2520,12 +2520,14 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
             console.log('[finalize-pull] sourceCol=' + (sourceIdx===0?'R':'L') + ' pCut=' + (pCut ? 'found' : 'none'));
             if (!pCut) return;
             const pEnd = targetCol.querySelector('p.p-end, p.p-cut');
+            console.log('[finalize-pull] pEnd=' + (pEnd ? 'found' : 'none'));
             if (!pEnd) return;
 
             void pCut.offsetHeight; // אלץ reflow
             const range = document.createRange();
             range.selectNodeContents(pCut);
             const rects = range.getClientRects();
+            console.log('[finalize-pull] rects=' + rects.length);
             if (rects.length < 2) return;
 
             const colRect = sourceCol.getBoundingClientRect();
