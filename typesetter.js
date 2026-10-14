@@ -4548,6 +4548,81 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         appendItemFinal(lCol, lMargin, items[i], false, false, null, items[i].isCont, false);
     }
 
+    // ==================================================================
+    // תיקון קריטי: משוך מילים מההמשך לשורה האחרונה של p-cut אחרי רינדור
+    // ==================================================================
+    // אחרי ש-balanceColumns יצר את ה-p-cut, נבדוק את השורה האחרונה בפועל.
+    // אם היא דלילה (פחות מ-50% מילוי או פחות מ-4 מילים),
+    // נמשוך מילים מההמשך (ה-p-end בטור השני) ונרנדר מחדש.
+    // ==================================================================
+    if (bestSplit.lineIndex > 0) {
+        const rLastEl = rCol.lastElementChild;
+        const lFirstEl = lCol.firstElementChild;
+        if (rLastEl && rLastEl.tagName === 'P' && rLastEl.classList.contains('p-cut') &&
+            lFirstEl && lFirstEl.tagName === 'P' && lFirstEl.classList.contains('p-end')) {
+            try {
+                void rLastEl.offsetHeight; // אלץ reflow
+                const range = document.createRange();
+                range.selectNodeContents(rLastEl);
+                const rects = range.getClientRects();
+                if (rects.length >= 2) {
+                    const colRect = rCol.getBoundingClientRect();
+                    const lastRect = rects[rects.length - 1];
+                    const lastWidth = lastRect.right - colRect.left;
+                    const fillPct = colRect.width > 0 ? lastWidth / colRect.width : 1;
+                    const rText = rLastEl.getAttribute('data-raw-text') || '';
+                    const rWords = rText.trim().split(/\s+/).filter(w => w.length > 0);
+                    const lText = lFirstEl.getAttribute('data-raw-text') || '';
+                    const lWords = lText.trim().split(/\s+/).filter(w => w.length > 0);
+
+                    console.log('[balance-fill] fillPct=' + Math.round(fillPct*100) + '% rWords=' + rWords.length + ' lWords=' + lWords.length);
+
+                    if ((fillPct < 0.5 || rWords.length < 4) && lWords.length > 0) {
+                        // השורה האחרונה דלילה — נסה למשוך מילים מההמשך
+                        const budget = getBlockColumnBudget ? getBlockColumnBudget(null, null, block) : 900;
+                        let pulled = 0;
+                        let newRWords = rWords.slice();
+                        let newLWords = lWords.slice();
+                        const maxPull = Math.min(5, newLWords.length);
+
+                        while (newLWords.length > 0 && pulled < maxPull) {
+                            newRWords.push(newLWords[0]);
+                            newLWords = newLWords.slice(1);
+                            pulled++;
+                            // בדוק אם עדיין נכנס בגובה
+                            const testText = newRWords.join(' ');
+                            const isCont = rLastEl.getAttribute('data-is-cont') === 'true';
+                            rLastEl.innerHTML = createDropWord(testText, isCont, false, newRWords.length);
+                            applyDelimiterStyles(rLastEl, 'body', getBodySizePt(), false);
+                            void rLastEl.offsetHeight;
+                            if (rCol.scrollHeight > budget) {
+                                // יותר מדי — החזר
+                                newLWords.unshift(newRWords.pop());
+                                pulled--;
+                                break;
+                            }
+                        }
+
+                        if (pulled > 0) {
+                            const newRText = newRWords.join(' ');
+                            const newLText = newLWords.join(' ');
+                            rLastEl.setAttribute('data-raw-text', newRText);
+                            const isCont = rLastEl.getAttribute('data-is-cont') === 'true';
+                            rLastEl.innerHTML = createDropWord(newRText, isCont, false, newRWords.length);
+                            applyDelimiterStyles(rLastEl, 'body', getBodySizePt(), false);
+                            lFirstEl.setAttribute('data-raw-text', newLText);
+                            lFirstEl.innerHTML = createDropWord(newLText, true, false, newLWords.length);
+                            applyDelimiterStyles(lFirstEl, 'body', getBodySizePt(), false);
+                            console.log('[balance-fill] pulled ' + pulled + ' words. newRText="' + newRText.substring(0,40) + '"');
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[balance-fill] failed:', e);
+            }
+        }
+    }
+
     resetColumnJustificationStyles(rCol);
     resetColumnJustificationStyles(lCol);
     let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
