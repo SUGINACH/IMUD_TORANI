@@ -1272,9 +1272,9 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     if (fnOpen && fnClose) {
         const escO = fnOpen.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
         const escC = fnClose.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-        safeText = safeText.replace(new RegExp(escO + '([\\s\\S]*?)' + escC, 'g'), (m, inner) => {
-            return fnOpen + inner.replace(/\s+/g, '\uE000') + fnClose;
-        });
+        // תיקון קריטי: החלף את טקסט ההערה בסמן קטן (אות אחת) לפני המדידה.
+        // הרינדור בפועל מחליף את ההערה בסמן על-כתבי קטן, אז המדידה צריכה לשקף זאת.
+        safeText = safeText.replace(new RegExp(escO + '[\\s\\S]*?' + escC, 'g'), '\u05D0');
     }
 
     const words = safeText.split(/\s+/);
@@ -1577,9 +1577,9 @@ function measureCandidateLines(opts) {
     if (fnOpen && fnClose) {
         const escO = fnOpen.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
         const escC = fnClose.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-        safeText = safeText.replace(new RegExp(escO + '([\\s\\S]*?)' + escC, 'g'), (m, inner) => {
-            return fnOpen + inner.replace(/\s+/g, '\uE000') + fnClose;
-        });
+        // תיקון קריטי: החלף את טקסט ההערה בסמן קטן (אות אחת) לפני המדידה.
+        // הרינדור בפועל מחליף את ההערה בסמן על-כתבי קטן, אז המדידה צריכה לשקף זאת.
+        safeText = safeText.replace(new RegExp(escO + '[\\s\\S]*?' + escC, 'g'), '\u05D0');
     }
     
     const words = safeText.split(/\s+/).filter(w => w.length > 0);
@@ -2433,6 +2433,61 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
         }
     } catch (e) {
         console.warn('rebalance after tightenRunts failed:', e);
+    }
+
+    // ==================================================================
+    // תיקון: מילוי טור עד הסוף כשהשורה האחרונה דלילה
+    // ==================================================================
+    // אם האלמנט האחרון בטור הוא p-end והשורה האחרונה שלו דלילה (פחות מ-70% מילוי),
+    // ויש מקום פנוי בתחתית הטור (הטור לא מלא עד ה-budget),
+    // נמתח את הפסקה האחרונה על ידי הגדלת line-height כדי למלא את המקום הפנוי.
+    // זה מונע את המראה של "שורה ריקה בסוף הטור".
+    // ==================================================================
+    try {
+        const maxH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
+        const minH = Math.min(rCol.scrollHeight, lCol.scrollHeight);
+        const freeSpace = budget - minH;
+        
+        // רק אם יש מקום פנוי משמעותי (יותר מ-20px) והטורים מאוזנים יחסית
+        if (freeSpace > 20 && Math.abs(maxH - minH) <= 30) {
+            [rCol, lCol].forEach(function(col) {
+                const lastEl = col.lastElementChild;
+                if (!lastEl || lastEl.tagName !== 'P') return;
+                
+                // בדוק אם השורה האחרונה דלילה
+                const range = document.createRange();
+                range.selectNodeContents(lastEl);
+                const rects = range.getClientRects();
+                if (rects.length < 2) return;
+                
+                const colRect = col.getBoundingClientRect();
+                const lastRect = rects[rects.length - 1];
+                const lastWidth = lastRect.right - colRect.left;
+                const fillPct = colRect.width > 0 ? lastWidth / colRect.width : 1;
+                
+                if (fillPct < 0.7) {
+                    // חשב כמה מקום פנוי יש בטור הזה
+                    const colFree = budget - col.scrollHeight;
+                    if (colFree > 10) {
+                        // חשב את ה-line-height הנדרש כדי למלא את המקום
+                        const currentLineHeight = parseFloat(getComputedStyle(lastEl).lineHeight) || 20;
+                        const numLines = rects.length;
+                        const extraPerLine = colFree / numLines;
+                        const newLineHeight = currentLineHeight + extraPerLine;
+                        
+                        // הגבל את המתיחה ל-60% מעל ה-line-height המקורי (היה 30%)
+                        const maxLineHeight = currentLineHeight * 1.6;
+                        const finalLineHeight = Math.min(newLineHeight, maxLineHeight);
+                        
+                        if (finalLineHeight > currentLineHeight + 0.5) {
+                            lastEl.style.lineHeight = finalLineHeight + 'px';
+                        }
+                    }
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('fill column bottom failed:', e);
     }
 
     // פעולה 4 — איזון טורים איטרטיבי עם looseness (לפי מחקר 1, סעיף "lua-widow-control").
