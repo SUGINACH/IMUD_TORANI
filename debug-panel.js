@@ -1,10 +1,8 @@
 /* ==========================================================================
-   debug-panel.js — מערכת טאבים לסרגל הצידי + מצב בדיקה
+   debug-panel.js — דוח עימוד חי + מרקרים ויזואליים (בלבד)
    ==========================================================================
-   מבנה חדש: ה-sidebar הופך לפאנל יחיד (440px) עם 3 טאבים:
-   1. עורך תוכן וחלוקת עמודים (כולל כל הלחצנים הרגילים + לחצני בדיקה)
-   2. לוח הגדרות עימוד (מחליף את הפאנל המתרחב)
-   3. מצב בדיקה (דוח עימוד חי + מרקרים)
+   קובץ זה מכיל אך ורק את לוגיקת הדוח החי והמרקרים.
+   מערכת הטאבים נמצאת ב-app.js (חלק קבוע של התוכנה).
    ========================================================================== */
 (function() {
 'use strict';
@@ -12,150 +10,6 @@
 let _debugMode = false;
 let _lastReportData = null;
 let _blockMarkers = [];
-
-function initTabSystem() {
-    if (document.getElementById('tab-bar')) return;
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-
-    const textPane = document.getElementById('text-pane');
-    const settingsPane = document.getElementById('settings-pane');
-    if (!textPane || !settingsPane) return;
-
-    // 1. הסר את ה-collapse-strip של settings-pane
-    const collapseStrip = settingsPane.querySelector('.collapse-strip');
-    if (collapseStrip) collapseStrip.remove();
-
-    // 2. הגדל את text-pane לרוחב מלא, הסתר את settings-pane
-    textPane.style.width = '100%';
-    textPane.style.borderLeft = 'none';
-    settingsPane.style.display = 'none';
-    settingsPane.classList.remove('collapsed');
-    settingsPane.style.width = '100%';
-    settingsPane.style.height = '100%';
-    settingsPane.style.borderLeft = 'none';
-
-    // 3. הגדל את textPane ל-flex column רגיל
-    textPane.style.height = '100%';
-
-    // 3.5. הוסף דרופדאון סגנונות + ייבוא/ייצוא לטאב ההגדרות (קוד ב-settings-manager.js)
-    if (typeof initStyleSetDropdown === 'function') initStyleSetDropdown();
-
-    // 4. לחצני העורך נשארים כמו שהם (עדכן, ייבוא, הדפסה, גופנים, ייצוא HTML)
-    // לא מוסיפים לחצני בדיקה לטאב העורך — הם יהיו בטאב הבדיקה
-
-    // 5. צור טאב בדיקה
-    const debugPane = document.createElement('div');
-    debugPane.id = 'tab-debug';
-    debugPane.style.cssText = 'display:none;flex:1;flex-direction:column;overflow-y:auto;padding:8px;background:#f8fafc;';
-    debugPane.innerHTML = `
-        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
-            <button id="btn-seeded" class="btn-tool btn-secondary" style="flex:1;" title="טקסט קבוע (אותו טקסט בכל פעם)">📋 מסמך קבוע</button>
-            <button id="btn-random" class="btn-tool btn-secondary" style="flex:1;" title="טקסט רנדומלי">🎲 מסמך רנדומלי</button>
-            <button id="btn-report-window" class="btn-tool btn-secondary" style="flex:1;" title="דוח עימוד בחלון נפרד">📊 דוח עימוד</button>
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
-            <button id="btn-retypeset-debug" class="btn-tool btn-primary" style="flex:1;" title="עדכן ועמד מחדש">⚡ עדכן ועמד מחדש</button>
-            <button id="btn-import-debug" class="btn-tool btn-import" style="flex:1;" title="ייבוא טקסט">📄 ייבוא טקסט</button>
-            <input type="file" id="file-import-debug" accept=".txt,.text,.md" style="display:none;">
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
-            <button id="btn-refresh-debug" class="btn-tool btn-secondary" style="flex:0.5;" title="רענן דוח">🔄 רענן</button>
-            <button id="btn-export-marked" class="btn-tool btn-primary" style="flex:1;" title="ייצא HTML ממורקר">💾 ייצוא HTML ממורקר</button>
-        </div>
-        <div id="debug-summary"></div>
-        <div id="debug-blocks-table" style="margin-top:12px;"></div>
-        <div id="debug-issues-list" style="margin-top:12px;"></div>
-    `;
-    sidebar.appendChild(debugPane);
-
-    // 6. צור שורת טאבים — מצורפת מעל textPane
-    const tabBar = document.createElement('div');
-    tabBar.id = 'tab-bar';
-    tabBar.style.cssText = 'display:flex;flex-direction:row;background:#1e293b;flex-shrink:0;border-bottom:2px solid #334155;';
-    tabBar.innerHTML = `
-        <button class="tab-btn" data-tab="text-pane" style="flex:1;padding:8px 4px;border:none;background:#334155;color:#e2e8f0;cursor:pointer;font-size:9pt;font-family:inherit;">✍️ עורך</button>
-        <button class="tab-btn" data-tab="settings-pane" style="flex:1;padding:8px 4px;border:none;background:#1e293b;color:#94a3b8;cursor:pointer;font-size:9pt;font-family:inherit;">⚙️ הגדרות</button>
-        <button class="tab-btn" data-tab="tab-debug" style="flex:1;padding:8px 4px;border:none;background:#1e293b;color:#94a3b8;cursor:pointer;font-size:9pt;font-family:inherit;">🔬 בדיקה</button>
-    `;
-    sidebar.insertBefore(tabBar, sidebar.firstChild);
-
-    // 7. הגדר את ה-sidebar כ-flex column (טאבים מלמעלה, תוכן מתחת)
-    sidebar.style.flexDirection = 'column';
-    sidebar.style.width = '440px';
-
-    // 8. טפל בלחיצות טאב
-    function switchTab(tabId) {
-        // הסתר את כל הפאנלים
-        textPane.style.display = 'none';
-        settingsPane.style.display = 'none';
-        debugPane.style.display = 'none';
-        // הצג את הנבחר
-        const target = document.getElementById(tabId);
-        if (target) target.style.display = (tabId === 'tab-debug') ? 'flex' : 'flex';
-        // עדכן כפתורים
-        tabBar.querySelectorAll('.tab-btn').forEach(function(b) {
-            b.style.background = '#1e293b';
-            b.style.color = '#94a3b8';
-        });
-        const activeBtn = tabBar.querySelector('[data-tab="' + tabId + '"]');
-        if (activeBtn) {
-            activeBtn.style.background = '#334155';
-            activeBtn.style.color = '#e2e8f0';
-        }
-        // אם עברנו לטאב בדיקה
-        if (tabId === 'tab-debug') {
-            _debugMode = true;
-            runDebugReport();
-        } else {
-            _debugMode = false;
-            clearBlockMarkers();
-        }
-    }
-
-    tabBar.querySelectorAll('.tab-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() { switchTab(this.dataset.tab); });
-    });
-
-    // טאב ברירת מחדל: עורך
-    switchTab('text-pane');
-
-    // 9. חבר לחצני טאב הבדיקה
-    document.getElementById('btn-seeded').addEventListener('click', function() {
-        if (typeof generateTestTextSeeded === 'function') {
-            var text = generateTestTextSeeded();
-            if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
-            setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
-        }
-    });
-    document.getElementById('btn-random').addEventListener('click', function() {
-        if (typeof generateTestText === 'function') {
-            var text = generateTestText();
-            if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
-            setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
-        }
-    });
-    document.getElementById('btn-report-window').addEventListener('click', function() {
-        if (typeof generateLayoutReport === 'function') generateLayoutReport();
-    });
-    document.getElementById('btn-retypeset-debug').addEventListener('click', function() {
-        if (typeof typesetDocument === 'function') typesetDocument();
-    });
-    document.getElementById('btn-import-debug').addEventListener('click', function() {
-        document.getElementById('file-import-debug').click();
-    });
-    document.getElementById('file-import-debug').addEventListener('change', function(e) {
-        if (typeof handleTxtFileImport === 'function') handleTxtFileImport(e);
-    });
-    document.getElementById('btn-refresh-debug').addEventListener('click', runDebugReport);
-    document.getElementById('btn-export-marked').addEventListener('click', exportMarkedHTML);
-
-    // 10. בטל את toggleSettingsPane הישן כדי שלא יתנגש
-    if (typeof window.toggleSettingsPane === 'function') {
-        const orig = window.toggleSettingsPane;
-        window.toggleSettingsPane = function() { switchTab('settings-pane'); };
-    }
-}
 
 function runDebugReport() {
     var pages = document.querySelectorAll('#book-container .a4-page');
@@ -281,10 +135,19 @@ function exportMarkedHTML() {
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = 'marked-document.html'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
 }
 
-var _orig = typeof typesetDocument === 'function' ? typesetDocument : null;
-if (_orig) { typesetDocument = function() { _orig.apply(this, arguments); if (_debugMode) { setTimeout(runDebugReport, 5000); } }; }
+// Hook into typesetDocument — אחרי כל עימוד, אם אנחנו בטאב הבדיקה, רענן דוח
+var _origTypeset = typeof typesetDocument === 'function' ? typesetDocument : null;
+if (_origTypeset) {
+    typesetDocument = function() {
+        _origTypeset.apply(this, arguments);
+        var debugPane = document.getElementById('tab-debug');
+        if (debugPane && debugPane.style.display !== 'none') {
+            setTimeout(runDebugReport, 5000);
+        }
+    };
+}
 
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initTabSystem); } else { initTabSystem(); }
 window.runDebugReport = runDebugReport;
+window.clearBlockMarkers = clearBlockMarkers;
 window.exportMarkedHTML = exportMarkedHTML;
 })();
