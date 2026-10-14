@@ -1368,7 +1368,8 @@ p {
     line-height: var(--line-height-body, 1.34);
     box-sizing: border-box;
 }
-p.p-end { text-align-last: var(--last-line-align, center) !important; }
+p.p-end { text-align-last: var(--last-line-align, center); }
+p.p-end[data-fill-last="justify"] { text-align-last: justify !important; }
 p.p-cut { text-align-last: justify !important; }
 
 /* ============================================================
