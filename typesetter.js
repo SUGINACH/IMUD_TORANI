@@ -2444,40 +2444,48 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
     // זה מונע את המראה של "שורה ריקה בסוף הטור".
     // ==================================================================
     try {
-        // ==================================================================
-        // תיקון: מילוי שורה אחרונה דלילה על ידי text-align-last: justify
-        // ==================================================================
-        // אם השורה האחרונה בפסקה האחרונה בטור דלילה (פחות מ-90% מילוי),
-        // נשתמש ב-text-align-last: justify כדי למתוח את השורה האחרונה.
-        // זה יגרום לשורה האחרונה להיות מלאה על ידי הוספת רווח בין המילים.
-        // ==================================================================
-        [rCol, lCol].forEach(function(col) {
-            const lastEl = col.lastElementChild;
-            if (!lastEl || lastEl.tagName !== 'P') return;
-            if (lastEl.classList.contains('p-cut')) return; // רק p-end
-            
-            // אלץ reflow לפני המדידה
-            void col.offsetHeight;
-            
-            // בדוק אם השורה האחרונה דלילה
-            const range = document.createRange();
-            range.selectNodeContents(lastEl);
-            const rects = range.getClientRects();
-            if (rects.length < 2) return;
-            
-            const colRect = col.getBoundingClientRect();
-            const lastRect = rects[rects.length - 1];
-            const lastWidth = lastRect.right - colRect.left;
-            const colWidth = colRect.width;
-            if (colWidth <= 0) return;
-            const fillPct = lastWidth / colWidth;
-            
-            // רק אם השורה האחרונה דלילה משמעותית (פחות מ-90%)
-            if (fillPct < 0.9) {
-                // השתמש ב-data-fill-last="justify" כדי למתוח את השורה האחרונה
-                lastEl.setAttribute('data-fill-last', 'justify');
-            }
-        });
+        const maxH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
+        const minH = Math.min(rCol.scrollHeight, lCol.scrollHeight);
+        const freeSpace = budget - minH;
+        
+        // רק אם יש מקום פנוי משמעותי (יותר מ-20px) והטורים מאוזנים יחסית
+        if (freeSpace > 20 && Math.abs(maxH - minH) <= 30) {
+            [rCol, lCol].forEach(function(col) {
+                const lastEl = col.lastElementChild;
+                if (!lastEl || lastEl.tagName !== 'P') return;
+                
+                // בדוק אם השורה האחרונה דלילה
+                const range = document.createRange();
+                range.selectNodeContents(lastEl);
+                const rects = range.getClientRects();
+                if (rects.length < 2) return;
+                
+                const colRect = col.getBoundingClientRect();
+                const lastRect = rects[rects.length - 1];
+                const lastWidth = lastRect.right - colRect.left;
+                const fillPct = colRect.width > 0 ? lastWidth / colRect.width : 1;
+                
+                if (fillPct < 0.7) {
+                    // חשב כמה מקום פנוי יש בטור הזה
+                    const colFree = budget - col.scrollHeight;
+                    if (colFree > 10) {
+                        // חשב את ה-line-height הנדרש כדי למלא את המקום
+                        const currentLineHeight = parseFloat(getComputedStyle(lastEl).lineHeight) || 20;
+                        const numLines = rects.length;
+                        const extraPerLine = colFree / numLines;
+                        const newLineHeight = currentLineHeight + extraPerLine;
+                        
+                        // הגבל את המתיחה ל-60% מעל ה-line-height המקורי (היה 30%)
+                        const maxLineHeight = currentLineHeight * 1.6;
+                        const finalLineHeight = Math.min(newLineHeight, maxLineHeight);
+                        
+                        if (finalLineHeight > currentLineHeight + 0.5) {
+                            lastEl.style.lineHeight = finalLineHeight + 'px';
+                        }
+                    }
+                }
+            });
+        }
     } catch (e) {
         console.warn('fill column bottom failed:', e);
     }
@@ -6751,43 +6759,6 @@ function performTypesetInner() {
         divider.style.alignSelf = 'start';
         divider.style.height = minH + 'px';
     });
-
-    // ==================================================================
-    // פוסט-פרוססינג: מילוי שורה אחרונה דלילה בכל הבלוקים
-    // ==================================================================
-    // אחרי כל העימוד, עוברים על כל הבלוקים ובודקים אם הפסקה האחרונה בטור
-    // מסתיימת בשורה דלילה. אם כן — מפעילים text-align-last: justify.
-    // רץ ב-setTimeout כדי שהמדידה תהיה מדויקת אחרי layout סופי
-    // ==================================================================
-    setTimeout(function() {
-        document.querySelectorAll('.block-2col').forEach(block => {
-            const rCol = block.querySelector('.right-col');
-            const lCol = block.querySelector('.left-col');
-            if (!rCol || !lCol) return;
-            [rCol, lCol].forEach(function(col) {
-                // בדוק את כל פסקאות p-end, לא רק האחרונה
-                col.querySelectorAll('p.p-end').forEach(function(lastEl) {
-                    if (lastEl.hasAttribute('data-fill-last')) return;
-
-                    const range = document.createRange();
-                    range.selectNodeContents(lastEl);
-                    const rects = range.getClientRects();
-                    if (rects.length < 2) return;
-
-                    const colRect = col.getBoundingClientRect();
-                    const lastRect = rects[rects.length - 1];
-                    const lastWidth = lastRect.right - colRect.left;
-                    const colWidth = colRect.width;
-                    if (colWidth <= 0) return;
-                    const fillPct = lastWidth / colWidth;
-
-                    if (fillPct < 0.9) {
-                        lastEl.setAttribute('data-fill-last', 'justify');
-                    }
-                });
-            });
-        });
-    }, 2000);
 }
 
 /* ==========================================================================
