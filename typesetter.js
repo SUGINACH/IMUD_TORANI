@@ -2505,6 +2505,89 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
     }
 
     // ==================================================================
+    // תיקון קריטי: משוך מילים מההמשך לשורה האחרונה של p-cut
+    // ==================================================================
+    // אחרי כל העיבוד, בדוק אם ה-p-cut (הפסקה המקוטעת בסוף טור) מסתיימת
+    // בשורה עם מעט מילים. אם כן, משוך מילים מההמשך (ה-p-end בטור השני).
+    // זה מונע את המראה של "סיבת המצווה." עם רווחים עצומים.
+    // ==================================================================
+    try {
+        [rCol, lCol].forEach(function(sourceCol, sourceIdx) {
+            const targetCol = sourceIdx === 0 ? lCol : rCol;
+            const pCut = sourceCol.querySelector('p.p-cut');
+            if (!pCut) return;
+            const pEnd = targetCol.querySelector('p.p-end, p.p-cut');
+            if (!pEnd) return;
+
+            void pCut.offsetHeight; // אלץ reflow
+            const range = document.createRange();
+            range.selectNodeContents(pCut);
+            const rects = range.getClientRects();
+            if (rects.length < 2) return;
+
+            const colRect = sourceCol.getBoundingClientRect();
+            // ספור את מספר המילים בשורה האחרונה על ידי בדיקת כמה מילים נכנסות
+            // ברוחב שנותר אחרי השורה הקודמת
+            const rText = pCut.getAttribute('data-raw-text') || '';
+            const lText = pEnd.getAttribute('data-raw-text') || '';
+            const rWords = rText.trim().split(/\s+/).filter(w => w.length > 0);
+            const lWords = lText.trim().split(/\s+/).filter(w => w.length > 0);
+
+            if (lWords.length === 0) return;
+
+            // השורה האחרונה דלילה אם יש פחות מ-4 מילים בסך הכל בפסקה
+            // והשורה האחרונה מכילה פחות מ-4 מילים
+            // נשתמש באומדן: אם מספר השורות * 7 (מילים לשורה) > מספר המילים הכולל
+            // אז השורה האחרונה כנראה דלילה
+            const estimatedLines = rects.length;
+            const avgWordsPerLine = rWords.length / estimatedLines;
+            const lastLineEstWords = rWords.length - Math.round(avgWordsPerLine * (estimatedLines - 1));
+
+            if (lastLineEstWords < 4 || (rWords.length < estimatedLines * 4)) {
+                // נסה למשוך מילים מההמשך
+                let newRWords = rWords.slice();
+                let newLWords = lWords.slice();
+                let pulled = 0;
+                const maxPull = Math.min(5, newLWords.length);
+
+                while (newLWords.length > 0 && pulled < maxPull) {
+                    newRWords.push(newLWords[0]);
+                    newLWords = newLWords.slice(1);
+                    pulled++;
+
+                    // בדוק אם עדיין נכנס בגובה
+                    const newRText = newRWords.join(' ');
+                    const isCont = pCut.getAttribute('data-is-cont') === 'true';
+                    pCut.innerHTML = createDropWord(newRText, isCont, false, newRWords.length);
+                    applyDelimiterStyles(pCut, 'body', getBodySizePt(), false);
+                    void pCut.offsetHeight;
+
+                    if (sourceCol.scrollHeight > budget) {
+                        // יותר מדי — החזר
+                        newLWords.unshift(newRWords.pop());
+                        pulled--;
+                        break;
+                    }
+                }
+
+                if (pulled > 0) {
+                    const newRText = newRWords.join(' ');
+                    const newLText = newLWords.join(' ');
+                    pCut.setAttribute('data-raw-text', newRText);
+                    const isCont = pCut.getAttribute('data-is-cont') === 'true';
+                    pCut.innerHTML = createDropWord(newRText, isCont, false, newRWords.length);
+                    applyDelimiterStyles(pCut, 'body', getBodySizePt(), false);
+                    pEnd.setAttribute('data-raw-text', newLText);
+                    pEnd.innerHTML = createDropWord(newLText, true, false, newLWords.length);
+                    applyDelimiterStyles(pEnd, 'body', getBodySizePt(), false);
+                }
+            }
+        });
+    } catch (e) {
+        console.warn('pull words in finalize failed:', e);
+    }
+
+    // ==================================================================
     // תיקון: מילוי טור עד הסוף כשהשורה האחרונה דלילה
     // ==================================================================
     // אם האלמנט האחרון בטור הוא p-end והשורה האחרונה שלו דלילה (פחות מ-70% מילוי),
