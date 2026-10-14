@@ -1097,43 +1097,7 @@ function initFontPickers() {
         ]}
     ];
 
-    const pickerDefaults = {
-        'font-body': "'גוטמן רש\"י רגיל', 'פרנק רוהל ליברה רגיל', serif",
-        'font-first-word': "'פרנק ריל מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-dh': "'אלפא שחור', 'פרנק רוהל ליברה שחור', serif",
-        'f-hdr-r': "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-hdr-c': "'ליבורנה רגיל', 'פרנק רוהל ליברה רגיל', serif",
-        'f-hdr-l': "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-hdr-verso-r': "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-hdr-verso-c': "'ליבורנה רגיל', 'פרנק רוהל ליברה רגיל', serif",
-        'f-hdr-verso-l': "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-h0': "'אלפא שחור', 'פרנק רוהל ליברה שחור', serif",
-        'f-h0-body': "'פרנק רוהל ליברה רגיל', serif",
-        'f-h1': "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-h2': "'אלפא שחור', 'פרנק רוהל ליברה שחור', serif",
-        'f-siman': "'אלפא שחור', 'פרנק רוהל ליברה שחור', serif",
-        'f-h3': "'אלפא שחור', 'נוטו סריף עברית שחור', serif",
-        'f-h4': "'אלפא שחור', 'פרנק רוהל ליברה שחור', serif",
-        'f-h5': "'אלפא מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-h6': "'נוטו סריף עברית מודגש', serif",
-        'f-h7': "'הדסה פרידלנדר מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-sh-title': "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-sh-sub': "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif",
-        'f-sh-desc': "'ליבורנה רגיל', 'פרנק רוהל ליברה רגיל', serif",
-        'f-sh-sec': "'פרנק רוהל ליברה רגיל', serif",
-        'f-sh-author': "'פרנק רוהל ליברה רגיל', serif",
-        'f-sh-year': "'פרנק רוהל ליברה רגיל', serif",
-        'f-note-title': "'פרנק רוהל ליברה מודגש', serif",
-        'f-note-body': "'פרנק רוהל ליברה רגיל', serif",
-        'f-gtoc-1': "'פרנק רוהל ליברה רגיל', serif", 'f-gtoc-2': "'פרנק רוהל ליברה רגיל', serif",
-        'f-gtoc-3': "'פרנק רוהל ליברה רגיל', serif", 'f-gtoc-4': "'פרנק רוהל ליברה רגיל', serif",
-        'f-gtoc-5': "'פרנק רוהל ליברה רגיל', serif", 'f-gtoc-6': "'פרנק רוהל ליברה רגיל', serif",
-        'f-gtoc-7': "'פרנק רוהל ליברה רגיל', serif",
-        'f-dtoc-1': "'פרנק רוהל ליברה רגיל', serif", 'f-dtoc-2': "'פרנק רוהל ליברה רגיל', serif",
-        'f-dtoc-3': "'פרנק רוהל ליברה רגיל', serif", 'f-dtoc-4': "'פרנק רוהל ליברה רגיל', serif",
-        'f-dtoc-5': "'פרנק רוהל ליברה רגיל', serif", 'f-dtoc-6': "'פרנק רוהל ליברה רגיל', serif",
-        'f-dtoc-7': "'פרנק רוהל ליברה רגיל', serif"
-    };
+    // ערכי ברירת המחדל של הגופנים נטענים מ-default_settings.json ע"י settings-manager.js
 
     document.querySelectorAll('.font-picker').forEach(select => {
         if (select.children.length === 0) {
@@ -1148,10 +1112,7 @@ function initFontPickers() {
                 });
                 select.appendChild(optGroup);
             });
-            const defVal = pickerDefaults[select.id];
-            if (defVal) {
-                select.value = defVal;
-            }
+            // ערך ברירת המחדל נקבע ע"י settings-manager.js מתוך default_settings.json
         }
     });
 }
@@ -1983,6 +1944,10 @@ if (document.readyState === 'loading') {
 // שהוגדרו קודם על-ידי ספריות אחרות (קונפליקט שקט עם analytics/tracking).
 window.addEventListener('load', async function() {
     initFontPickers();
+    // טען הגדרות ברירת מחדל מ-default_settings.json (אחרי initFontPickers כדי שה-selects יהיו מאוכלסים)
+    if (typeof loadDefaultSettings === 'function') {
+        await loadDefaultSettings();
+    }
     refreshCustomThemesUI();
     rehydrateExtImports();
 

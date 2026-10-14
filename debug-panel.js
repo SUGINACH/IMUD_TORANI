@@ -38,6 +38,9 @@ function initTabSystem() {
     // 3. הגדל את textPane ל-flex column רגיל
     textPane.style.height = '100%';
 
+    // 3.5. הוסף דרופדאון סגנונות + ייבוא/ייצוא לטאב ההגדרות (קוד ב-settings-manager.js)
+    if (typeof initStyleSetDropdown === 'function') initStyleSetDropdown();
+
     // 4. לחצני העורך נשארים כמו שהם (עדכן, ייבוא, הדפסה, גופנים, ייצוא HTML)
     // לא מוסיפים לחצני בדיקה לטאב העורך — הם יהיו בטאב הבדיקה
 
@@ -280,6 +283,8 @@ function exportMarkedHTML() {
 
 var _orig = typeof typesetDocument === 'function' ? typesetDocument : null;
 if (_orig) { typesetDocument = function() { _orig.apply(this, arguments); if (_debugMode) { setTimeout(runDebugReport, 5000); } }; }
+
 if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initTabSystem); } else { initTabSystem(); }
-window.runDebugReport = runDebugReport; window.exportMarkedHTML = exportMarkedHTML;
+window.runDebugReport = runDebugReport;
+window.exportMarkedHTML = exportMarkedHTML;
 })();
