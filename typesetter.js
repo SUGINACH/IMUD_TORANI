@@ -6554,6 +6554,80 @@ function performTypesetInner() {
                 );
                 finalizeNotePositions(pagePendingNotes, Math.min(blockUsedH, actualAvailH));
 
+                // ==================================================================
+                // תיקון: מניעת טורים ריקים/דלילים בסוף פרק או לפני כותרת 3
+                // ==================================================================
+                // אם הבלוק מכיל מעט פריטים (עד 2) ויש חוסר איזון קיצוני בין הטורים
+                // (טור אחד קצר מאוד יחסית לשני), וזה לא תחילת עמוד חדש —
+                // נדחוף את כל התוכן לעמוד הבא.
+                // זה מונע מצב שבו יש פסקה אחת קצרה בטור אחד ופסקה ארוכה בטור השני.
+                // ==================================================================
+                const rItemCount = rCol.children.length;
+                const lItemCount = lCol.children.length;
+                const totalItems = rItemCount + lItemCount;
+                const rH = rCol.scrollHeight;
+                const lH = lCol.scrollHeight;
+                const minColH = Math.min(rH, lH);
+                const maxColH = Math.max(rH, lH);
+                const hasPriorContent = pageLayout.bodyFlow.children.length > 1;
+
+                // תנאים לדחיפה:
+                // 1. יש כבר תוכן בעמוד (לא תחילת עמוד)
+                // 2. יש מעט פריטים (עד 2) — זה מצב שלא ניתן לאזן
+                // 3. הטור הקצר מאוד קצר (פחות מ-40% מהטור הארוך) — חוסר איזון קיצוני
+                // 4. או שזה סוף פרק (sectionEnd) או שהבא הוא H3
+                const _followingTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
+                const _followingMode = _followingTok && _followingTok.type.startsWith('h') ? headingModes[_followingTok.level] : 'inline_2col';
+                const isBeforeH3 = (_followingMode === 'span_1col');
+                const imbalanceRatio = maxColH > 0 ? minColH / maxColH : 1;
+                const shouldPushToNextPage = hasPriorContent && totalItems <= 2 && imbalanceRatio < 0.4 && (sectionEnd || isBeforeH3);
+
+                if (shouldPushToNextPage) {
+                    // אסוף את כל הטוקנים מהבלוק והחזר אותם ל-pendingWordTokens
+                    const allChildren = [...Array.from(rCol.children), ...Array.from(lCol.children)];
+                    // בנה מחדש את pendingWordTokens עם כל התוכן
+                    let collectedTokens = [];
+                    for (const child of allChildren) {
+                        const pId = child.getAttribute('data-token-id');
+                        if (child.tagName === 'P') {
+                            const rawPText = child.getAttribute('data-raw-text') || '';
+                            const linesInfo = getLinesFromParagraph(rawPText, colWidth, styleObj, false);
+                            const tokObj = secTokens.find(t => t.id === parseInt(pId, 10));
+                            if (tokObj) {
+                                if (pendingWordTokens && pendingWordTokens.token.id === parseInt(pId, 10)) {
+                                    // כבר יש pending — הוסף לפניו
+                                    pendingWordTokens.remainingLines = linesInfo.lines.concat(pendingWordTokens.remainingLines);
+                                } else {
+                                    collectedTokens.push({ tok: tokObj, lines: linesInfo.lines });
+                                }
+                            }
+                        } else {
+                            // כותרת — החזר אותה ל-tokenIndex
+                            const tokObj = secTokens.find(t => t.id === parseInt(pId, 10));
+                            if (tokObj) {
+                                const tIdx = secTokens.indexOf(tokObj);
+                                if (tIdx >= 0 && tIdx < tokenIndex) tokenIndex = tIdx;
+                            }
+                        }
+                    }
+                    // אם אספנו טוקנים שאינם pending, צור pending חדש מהראשון
+                    if (collectedTokens.length > 0 && !pendingWordTokens) {
+                        pendingWordTokens = {
+                            token: collectedTokens[0].tok,
+                            remainingLines: collectedTokens[0].lines
+                        };
+                        // אם יש יותר מאחד, נדרש להחזיר את האחרים ל-tokenIndex
+                        for (let i = 1; i < collectedTokens.length; i++) {
+                            const tIdx = secTokens.indexOf(collectedTokens[i].tok);
+                            if (tIdx >= 0 && tIdx < tokenIndex) tokenIndex = tIdx;
+                        }
+                    }
+                    // הסר את הבלוק
+                    pageLayout.bodyFlow.removeChild(block2Col);
+                    pageTrace.steps.push(`בוצע דחיפת בלוק לא מאוזן לעמוד הבא (${totalItems} פריטים, יחס איזון ${Math.round(imbalanceRatio * 100)}%, ${sectionEnd ? 'סוף פרק' : 'לפני H3'})`);
+                    break;
+                }
+
                 if (sectionEnd) {
                     const divHTML = getSectionDividerHTML(secDivStyle);
                     if (divHTML) {
