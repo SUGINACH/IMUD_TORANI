@@ -6395,6 +6395,8 @@ function performTypesetInner() {
                             let remainingLines = lines.slice(bestFitLine);
                             const isEndOfP = (bestFitLine === lines.length);
                             
+                            console.log('[fill-last] bestFitLine=' + bestFitLine + ' totalLines=' + lines.length + ' isEndOfP=' + isEndOfP + ' remaining=' + remainingLines.length);
+                            
                             pElem.className = isEndOfP ? 'p-end' : 'p-cut';
                             pElem.setAttribute('data-raw-text', chunkLines.join(' '));
                             // פעולה 4 — כבד שורות KP עם <br> במסלול דו-טורי
