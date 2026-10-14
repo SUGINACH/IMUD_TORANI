@@ -4534,6 +4534,66 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         }
     }
 
+    // ==================================================================
+    // תיקון נוסף: משוך מילים מההמשך (טור שמאל) לשורה האחרונה בימין
+    // ==================================================================
+    // אם השורה האחרונה בימין עדיין דלילה אחרי החיתוך התוך-שורה,
+    // נסה למשוך מילים מהשורה הראשונה בשמאל (ההמשך) לשורה האחרונה בימין.
+    // זה מונע את המראה של "סיבת המצווה." כשורה אחרונה עם 2 מילים
+    // ורווחים עצומים מ-text-align-last: justify.
+    // ==================================================================
+    if (bestSplit.lineIndex > 0 && bestSplit.lines && bestSplit.lineIndex < bestSplit.lines.length) {
+        const lastLineIdx = bestSplit.lineIndex - 1;
+        const nextLineIdx = bestSplit.lineIndex;
+        const lastLine = bestSplit.lines[lastLineIdx];
+        const nextLine = bestSplit.lines[nextLineIdx];
+        const lastWords = lastLine.trim().split(/\s+/).filter(w => w.length > 0);
+        const nextWords = nextLine.trim().split(/\s+/).filter(w => w.length > 0);
+
+        // רק אם השורה האחרונה דלילה (פחות מ-4 מילים) ויש מילים בהמשך
+        if (lastWords.length < 4 && nextWords.length > 0) {
+            // נסה למשוך מילים מהשורה הבאה לשורה האחרונה
+            let newLastWords = lastWords.slice();
+            let newNextWords = nextWords.slice();
+            let pulled = 0;
+            const maxPull = Math.min(5, newNextWords.length);
+
+            while (newNextWords.length > 0 && pulled < maxPull) {
+                const candidate = newLastWords.concat([newNextWords[0]]);
+                const candidateLine = candidate.join(' ');
+                const candidateWidth = measureLineWidthCanvas(candidateLine, styleObj);
+
+                // בדוק אם המילה הנוספת עדיין נכנסת ברוחב הטור
+                if (candidateWidth <= colWidth) {
+                    newLastWords = candidate;
+                    newNextWords = newNextWords.slice(1);
+                    pulled++;
+                } else {
+                    break;
+                }
+            }
+
+            if (pulled > 0) {
+                const newLastLine = newLastWords.join(' ');
+                const newNextLine = newNextWords.join(' ');
+                const newLines = bestSplit.lines.slice();
+                newLines[lastLineIdx] = newLastLine;
+                if (newNextLine.length > 0) {
+                    newLines[nextLineIdx] = newNextLine;
+                } else {
+                    // כל השורה הבאה עברה — הסר אותה
+                    newLines.splice(nextLineIdx, 1);
+                    bestSplit = { ...bestSplit, lineIndex: bestSplit.lineIndex };
+                }
+                bestSplit = { ...bestSplit, lines: newLines };
+                if (traceObj) {
+                    traceObj.steps = traceObj.steps || [];
+                    traceObj.steps.push(`בוצע משיכת מילים: ${pulled} מילים מהמשך לשורה האחרונה למניעת דלילות`);
+                }
+            }
+        }
+    }
+
     for (let i = 0; i < bestSplit.itemIndex; i++) {
         appendItemFinal(rCol, rMargin, items[i], true, false, null, items[i].isCont, false);
     }
