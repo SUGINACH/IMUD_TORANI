@@ -6395,12 +6395,6 @@ function performTypesetInner() {
                             let remainingLines = lines.slice(bestFitLine);
                             const isEndOfP = (bestFitLine === lines.length);
                             
-                            if (!isEndOfP && typeof pullWordsToLastLine === 'function') {
-                                const pullResult = pullWordsToLastLine(lines, bestFitLine, colWidth, styleObj);
-                                chunkLines = pullResult.chunkLines;
-                                remainingLines = pullResult.remainingLines;
-                            }
-                            
                             pElem.className = isEndOfP ? 'p-end' : 'p-cut';
                             pElem.setAttribute('data-raw-text', chunkLines.join(' '));
                             // פעולה 4 — כבד שורות KP עם <br> במסלול דו-טורי
@@ -6411,6 +6405,59 @@ function performTypesetInner() {
                                 pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length);
                             }
                             applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
+
+                            // תיקון קריטי: בדוק את השורה האחרונה בפועל אחרי הרינדור
+                            // אם היא דלילה (פחות מ-50% מילוי או פחות מ-4 מילים),
+                            // משוך מילים מההמשך ורנדר מחדש
+                            if (!isEndOfP && remainingLines.length > 0) {
+                                void pElem.offsetHeight; // אלץ reflow
+                                var range = document.createRange();
+                                range.selectNodeContents(pElem);
+                                var rects = range.getClientRects();
+                                if (rects.length >= 2) {
+                                    var colRect = targetCol.getBoundingClientRect();
+                                    var lastRect = rects[rects.length - 1];
+                                    var lastWidth = lastRect.right - colRect.left;
+                                    var fillPct = colRect.width > 0 ? lastWidth / colRect.width : 1;
+                                    var lastText = chunkLines[chunkLines.length - 1] || '';
+                                    var lastWords = lastText.trim().split(/\s+/).filter(function(w) { return w.length > 0; });
+                                    
+                                    if (fillPct < 0.5 || lastWords.length < 4) {
+                                        // השורה האחרונה דלילה — נסה למשוך מילים מההמשך
+                                        var fullText = chunkLines.join(' ') + ' ' + remainingLines.join(' ');
+                                        var allWords = fullText.split(/\s+/).filter(function(w) { return w.length > 0; });
+                                        var chunkWords = chunkLines.join(' ').split(/\s+/).filter(function(w) { return w.length > 0; });
+                                        var nextWords = remainingLines.join(' ').split(/\s+/).filter(function(w) { return w.length > 0; });
+                                        
+                                        // נסה למשוך עד 5 מילים מההמשך
+                                        var pulled = 0;
+                                        var newChunkWords = chunkWords.slice();
+                                        var newNextWords = nextWords.slice();
+                                        while (newNextWords.length > 0 && pulled < 5) {
+                                            newChunkWords.push(newNextWords[0]);
+                                            newNextWords = newNextWords.slice(1);
+                                            pulled++;
+                                            // בדוק אם עדיין נכנס בגובה הזמין
+                                            var testText = newChunkWords.join(' ');
+                                            renderParagraphProbe(pElem, testText, isContinuation, hasWindow, lines.length, false);
+                                            if (targetCol.scrollHeight > cachedAvailH) {
+                                                // יותר מדי — החזר את המילה האחרונה
+                                                newNextWords.unshift(newChunkWords.pop());
+                                                pulled--;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        if (pulled > 0) {
+                                            var newChunkText = newChunkWords.join(' ');
+                                            pElem.setAttribute('data-raw-text', newChunkText);
+                                            pElem.innerHTML = createDropWord(newChunkText, isContinuation, !hasWindow, lines.length);
+                                            applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
+                                            remainingLines = newNextWords.length > 0 ? [newNextWords.join(' ')] : [];
+                                        }
+                                    }
+                                }
+                            }
 
                             pageTrace.tokensPlaced.push({ id: currentTok.id, type: 'p', col: colName, linesPlaced: bestFitLine, totalLines: lines.length, isEndOfP });
 
