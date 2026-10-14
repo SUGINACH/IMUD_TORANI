@@ -2561,7 +2561,7 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
                     applyDelimiterStyles(pCut, 'body', getBodySizePt(), false);
                     void pCut.offsetHeight;
 
-                    if (sourceCol.scrollHeight > budget) {
+                    if (sourceCol.scrollHeight > sourceCol.clientHeight) {
                         // יותר מדי — החזר
                         newLWords.unshift(newRWords.pop());
                         pulled--;
