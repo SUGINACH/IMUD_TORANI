@@ -6414,6 +6414,7 @@ function performTypesetInner() {
                                 var range = document.createRange();
                                 range.selectNodeContents(pElem);
                                 var rects = range.getClientRects();
+                                console.log('[fill-last] p-cut rendered, rects=' + rects.length + ', remaining=' + remainingLines.length);
                                 if (rects.length >= 2) {
                                     var colRect = targetCol.getBoundingClientRect();
                                     var lastRect = rects[rects.length - 1];
@@ -6421,6 +6422,7 @@ function performTypesetInner() {
                                     var fillPct = colRect.width > 0 ? lastWidth / colRect.width : 1;
                                     var lastText = chunkLines[chunkLines.length - 1] || '';
                                     var lastWords = lastText.trim().split(/\s+/).filter(function(w) { return w.length > 0; });
+                                    console.log('[fill-last] fillPct=' + Math.round(fillPct*100) + '% lastWords=' + lastWords.length + ' lastText="' + lastText.substring(0,40) + '"');
                                     
                                     if (fillPct < 0.5 || lastWords.length < 4) {
                                         // השורה האחרונה דלילה — נסה למשוך מילים מההמשך
