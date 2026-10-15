@@ -2506,79 +2506,65 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
     }
 
     // ==================================================================
-    // תיקון קריטי: משוך מילים מההמשך לשורה האחרונה של p-cut
+    // תיקון קריטי: דחוף שורה אחרונה דלילה מ-p-cut ל-p-end
     // ==================================================================
-    // אחרי כל העיבוד, בדוק אם ה-p-cut (הפסקה המקוטעת בסוף טור) מסתיימת
-    // בשורה עם מעט מילים. אם כן, משוך מילים מההמשך (ה-p-end בטור השני).
-    // זה מונע את המראה של "סיבת המצווה." עם רווחים עצומים.
+    // אם ה-p-cut מסתיים בשורה עם מעט מילים (פחות מ-4), ויש רווחים עצומים
+    // מ-text-align-last: justify, נדחוף את המילים האחרונות לתחילת ה-p-end.
+    // כך ה-p-cut יסתיים בשורה מלאה, והמילים הדלילות יעברו להמשך.
     // ==================================================================
     try {
-        console.log('[finalize-pull] checking block, rCol.children=' + rCol.children.length + ' lCol.children=' + lCol.children.length);
         [rCol, lCol].forEach(function(sourceCol, sourceIdx) {
             const targetCol = sourceIdx === 0 ? lCol : rCol;
             const pCut = sourceCol.querySelector('p.p-cut');
-            console.log('[finalize-pull] sourceCol=' + (sourceIdx===0?'R':'L') + ' pCut=' + (pCut ? 'found' : 'none'));
             if (!pCut) return;
             const pEnd = targetCol.querySelector('p.p-end, p.p-cut');
-            console.log('[finalize-pull] pEnd=' + (pEnd ? 'found' : 'none'));
             if (!pEnd) return;
 
-            void pCut.offsetHeight; // אלץ reflow
+            void pCut.offsetHeight;
             const range = document.createRange();
             range.selectNodeContents(pCut);
             const rects = range.getClientRects();
-            console.log('[finalize-pull] rects=' + rects.length);
             if (rects.length < 2) return;
 
             const colRect = sourceCol.getBoundingClientRect();
-            // ספור את מספר המילים בשורה האחרונה על ידי בדיקת כמה מילים נכנסות
-            // ברוחב שנותר אחרי השורה הקודמת
             const rText = pCut.getAttribute('data-raw-text') || '';
             const lText = pEnd.getAttribute('data-raw-text') || '';
             const rWords = rText.trim().split(/\s+/).filter(w => w.length > 0);
             const lWords = lText.trim().split(/\s+/).filter(w => w.length > 0);
 
-            if (lWords.length === 0) return;
+            if (rWords.length === 0 || lWords.length === 0) return;
 
-            // תמיד נסה למשוך מילים מההמשך כדי למלא את השורה האחרונה
-            // המערכת תעצור כשלא יהיה עוד מקום
-            {
-                // נסה למשוך מילים מההמשך
-                let newRWords = rWords.slice();
-                let newLWords = lWords.slice();
-                let pulled = 0;
-                const maxPull = Math.min(20, newLWords.length);
-
-                while (newLWords.length > 1 && pulled < maxPull) {
-                    newRWords.push(newLWords[0]);
-                    newLWords = newLWords.slice(1);
-                    pulled++;
-
-                    // בדוק אם עדיין נכנס בגובה — השווה מול העמוד כולו, לא מול הטור
-                    const newRText = newRWords.join(' ');
-                    const isCont = pCut.getAttribute('data-is-cont') === 'true';
-                    pCut.innerHTML = createDropWord(newRText, isCont, false, newRWords.length);
-                    applyDelimiterStyles(pCut, 'body', getBodySizePt(), false);
-                    void pCut.offsetHeight;
-
-                    // השווה מול ה-ancestor הגדול יותר (העמוד)
-                    const pageBodyFlow = sourceCol.closest('.page-body-flow');
-                    const pageAvailH = pageBodyFlow ? pageBodyFlow.clientHeight : budget;
-                    if (sourceCol.scrollHeight > pageAvailH) {
-                        // יותר מדי — החזר
-                        newLWords.unshift(newRWords.pop());
-                        pulled--;
-                        break;
-                    }
+            // השתמש ב-getLinesFromParagraph כדי לספור מילים בשורה האחרונה
+            let lastLineWordCount = 99;
+            try {
+                const rLinesInfo = getLinesFromParagraph(rText, colRect.width, styleObj, false);
+                if (rLinesInfo.lines.length > 0) {
+                    const lastLine = rLinesInfo.lines[rLinesInfo.lines.length - 1];
+                    lastLineWordCount = lastLine.trim().split(/\s+/).filter(w => w.length > 0).length;
                 }
+            } catch(e) { return; }
 
-                if (pulled > 0) {
+            // אם השורה האחרונה דלילה (פחות מ-4 מילים), דחוף את המילים האחרונות ל-p-end
+            if (lastLineWordCount < 4) {
+                // חשב כמה מילים לדחוף — את כל השורה האחרונה
+                const rLinesInfo = getLinesFromParagraph(rText, colRect.width, styleObj, false);
+                const lastLine = rLinesInfo.lines[rLinesInfo.lines.length - 1];
+                const wordsToPush = lastLine.trim().split(/\s+/).filter(w => w.length > 0);
+                
+                // הסר את המילים האחרונות מה-p-cut
+                const newRWords = rWords.slice(0, rWords.length - wordsToPush.length);
+                // הוסף אותן לתחילת ה-p-end
+                const newLWords = wordsToPush.concat(lWords);
+
+                if (newRWords.length > 0) {
                     const newRText = newRWords.join(' ');
                     const newLText = newLWords.join(' ');
-                    pCut.setAttribute('data-raw-text', newRText);
                     const isCont = pCut.getAttribute('data-is-cont') === 'true';
+                    
+                    pCut.setAttribute('data-raw-text', newRText);
                     pCut.innerHTML = createDropWord(newRText, isCont, false, newRWords.length);
                     applyDelimiterStyles(pCut, 'body', getBodySizePt(), false);
+                    
                     pEnd.setAttribute('data-raw-text', newLText);
                     pEnd.innerHTML = createDropWord(newLText, true, false, newLWords.length);
                     applyDelimiterStyles(pEnd, 'body', getBodySizePt(), false);
@@ -2586,7 +2572,7 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
             }
         });
     } catch (e) {
-        console.warn('pull words in finalize failed:', e);
+        console.warn('push sparse last line failed:', e);
     }
 
     // ==================================================================
