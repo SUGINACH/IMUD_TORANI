@@ -196,7 +196,8 @@ body {
 
 .text-actions-bar {
     display: flex;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 4px;
     align-items: center;
 }
 
@@ -214,12 +215,13 @@ body {
     justify-content: center;
     gap: 5px;
     white-space: nowrap;
+    min-width: 0;
 }
 
 .btn-primary {
     background: #0f172a;
     color: #ffffff;
-    flex: 1.2;
+    flex: 1 1 auto;
     box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15);
 }
 .btn-primary:hover { background: #1e293b; transform: translateY(-1px); }
@@ -241,14 +243,14 @@ body {
     50% { box-shadow: 0 0 0 6px rgba(180, 83, 9, 0.12); }
 }
 
-.btn-import { background: #2563eb; color: #ffffff; flex: 1; }
+.btn-import { background: #2563eb; color: #ffffff; flex: 1 1 auto; }
 .btn-import:hover { background: #1d4ed8; transform: translateY(-1px); }
 
 .btn-secondary {
     background: #ffffff;
     color: #334155;
     border: 1px solid #cbd5e1;
-    flex: 0.8;
+    flex: 0 1 auto;
 }
 .btn-secondary:hover { background: #f1f5f9; border-color: #94a3b8; }
 

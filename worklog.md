@@ -1105,3 +1105,58 @@ tradeoff טבעי של KP — פיזור אחיד של רווחים על חשב�
 - נוספו @import + 12 @font-face ל-style.css לטעינת גופנים מקומיים
 - תוקנו 2 בעיות ביצועים קריטיות (loadExternalFonts + ensureBuiltinFontsLoaded)
 - מספר העמודים ירד מ-567 ל-533 (קרוב יותר ל-PDF המקורי: 546)
+
+---
+
+## Task ID: v19-fix-buttons-settings-2026-10-16
+**Agent:** main (Super Z)
+**Date:** 2026-10-16 (later)
+**Task:** תיקון כפתורים גולשים + הוספת כפתורי ייבוא/ייצוא הגדרות
+
+### Work Log:
+
+#### בעיה 1: כפתורים גולשים משורה אחת
+- **סיבה:** `.text-actions-bar` היה `display: flex` בלי `flex-wrap`, והכפתורים השתמשו ב-`flex: 1.2/1/0.8` — כשנוספו כפתורים חדשים, הם נדחסו וגלשו.
+- **תיקון ב-style.css:**
+  - `.text-actions-bar`: הוספת `flex-wrap: wrap` + הקטנת gap מ-6px ל-4px
+  - `.btn-tool`: הוספת `min-width: 0` למניעת גלישה
+  - `.btn-primary`: `flex: 1.2` → `flex: 1 1 auto`
+  - `.btn-import`: `flex: 1` → `flex: 1 1 auto`
+  - `.btn-secondary`: `flex: 0.8` → `flex: 0 1 auto`
+- **תוצאה:** 7 כפתורים מסודרים ב-2 שורות, 0 גלישות.
+
+#### בעיה 2: חסרים כפתורי ייבוא/ייצוא הגדרות
+- **גילוי:** הפונקציות `exportSettings()` ו-`importSettings()` קיימות ב-settings-manager.js, אבל:
+  - index.html של עדכון_ממשק_9 **לא טוען** את settings-manager.js
+  - אין כפתורים שקוראים להן
+- **אתגר:** טעינת settings-manager.js הייתה משנה את הגדרות הגופנים (משמות אנגליים לעבריים), בניגוד לדרישה לשמור על ברירת המחדל של עדכון_ממשק_9.
+- **פתרון:** כתיבת פונקציות ייבוא/ייצוא **עצמאיות** ב-app.js (לא תלויות ב-settings-manager.js):
+  - `collectCurrentSettings()` — אוסף 241 הגדרות מה-DOM
+  - `applySettingsToDOM(settings, triggerTypeset)` — מחיל הגדרות על ה-DOM
+  - `exportSettings()` — ייצוא לקובץ JSON
+  - `importSettings(event)` — ייבוא מקובץ JSON
+- **תוצאה:** כל הפונקציות חשופות על window ועובדות.
+
+#### הוספות ל-index.html:
+- כפתור `⚙️ ייצוא הגדרות` (id=btn-export-settings)
+- כפתור `📥 ייבוא הגדרות` (id=btn-import-settings)
+- input נסתר `file-settings-import` לייבוא קובץ JSON
+
+### אימות שברירת המחדל נשמרה:
+| הגדרה | ערך (אמור להיות כמו עדכון_ממשק_9) | סטטוס |
+|-------|-------------------------------------|-------|
+| f-h0 | `'AlphaBlack', 'David Libre', serif` | ✅ |
+| f-h1 | `'Lia Sgula', 'Bellefair', serif` | ✅ |
+| font-body | `'Guttman Rashi', 'Frank Ruhl Libre', serif` | ✅ |
+| --fn-h0 (CSS) | `'AlphaBlack', 'David Libre', serif` | ✅ |
+| --fn-h1 (CSS) | `'Lia Sgula', 'Bellefair', serif` | ✅ |
+| --fn-body (CSS) | `'Guttman Rashi', 'Frank Ruhl Libre', serif` | ✅ |
+
+### סיכום כפתורים בכרטיסיית עורך (7 כפתורים ב-2 שורות):
+שורה 1: ⚡ עדכן ועמד מחדש | 📄 ייבוא טקסט | 🖨️ הדפסה/PDF | 📚 טען גופנים נוספים
+שורה 2: 💾 ייצוא HTML | ⚙️ ייצוא הגדרות | 📥 ייבוא הגדרות
+
+### Stage Summary:
+- תוקנה גלישת הכפתורים (flex-wrap: wrap)
+- נוספו כפתורי ייבוא/ייצוא הגדרות עם פונקציות עצמאיות
+- ברירת המחדל של עדכון_ממשק_9 נשמרה (שמות גופנים אנגליים)

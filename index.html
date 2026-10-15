@@ -48,7 +48,10 @@
           <button type="button" class="btn-tool btn-secondary" onclick="window.print()">🖨️ הדפסה / PDF</button>
           <button type="button" id="btn-load-extended-fonts" class="btn-tool btn-secondary" onclick="loadExtendedFonts()">📚 טען גופנים נוספים</button>
           <button type="button" id="btn-export-html" class="btn-tool btn-secondary" onclick="exportRenderedHTML()">💾 ייצוא HTML</button>
+          <button type="button" id="btn-export-settings" class="btn-tool btn-secondary" onclick="exportSettings()" title="ייצא את כל הגדרות המערכת לקובץ JSON">⚙️ ייצוא הגדרות</button>
+          <button type="button" id="btn-import-settings" class="btn-tool btn-secondary" onclick="document.getElementById('file-settings-import').click()" title="ייבא הגדרות מערכת מקובץ JSON">📥 ייבוא הגדרות</button>
           <input type="file" id="file-txt-import" accept=".txt,.text,.md" style="display:none" onchange="handleTxtFileImport(event)">
+          <input type="file" id="file-settings-import" accept=".json,application/json" style="display:none" onchange="importSettings(event)">
         </div>
       </div>
       <div class="editor-wrapper">
