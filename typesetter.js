@@ -2532,15 +2532,15 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
             if (rWords.length === 0 || lWords.length === 0) return;
 
             // טריק: כבה זמנית את text-align-last כדי למדוד את הרוחב האמיתי
-            const origAlignLast = pCut.style.textAlignLast;
-            pCut.style.textAlignLast = 'right';
+            // השתמש ב-class כי !important ב-CSS דורס inline style
+            pCut.classList.add('measure-align-right');
             void pCut.offsetHeight; // אלץ reflow
 
             const range = document.createRange();
             range.selectNodeContents(pCut);
             const rects = range.getClientRects();
             if (rects.length < 2) {
-                pCut.style.textAlignLast = origAlignLast;
+                pCut.classList.remove('measure-align-right');
                 return;
             }
 
@@ -2562,7 +2562,7 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
             const lastLineFillPct = colRect.width > 0 ? lastLineMaxX / colRect.width : 1;
 
             // החזר את text-align-last
-            pCut.style.textAlignLast = origAlignLast;
+            pCut.classList.remove('measure-align-right');
             void pCut.offsetHeight;
 
             // דליל = הרוחב האמיתי פחות מ-60% מרוחב הטור
