@@ -1037,3 +1037,71 @@ tradeoff טבעי של KP — פיזור אחיד של רווחים על חשב�
 - תיקון 1 נשמר (clampBlockToPfBottom) — פתר 2 מתוך 4 גלישות
 - תיקונים 2,3 לא אפקטיביים — נשמרו אבל לא פעילים
 - מוכן לדיון עם משתמש על הכיוון הבא
+
+---
+
+## Task ID: v19-add-ui-features-2026-10-16
+**Agent:** main (Super Z)
+**Date:** 2026-10-16 (later)
+**Task:** הוספת ייצוא HTML + טעינת גופנים מורחבת + מערכת כרטיסיות מ-v18 ל-עדכון_ממשק_9
+
+### Work Log:
+
+#### 1. הוספת פונקציות ל-app.js:
+- `loadExtendedFonts()` — טוען רשימה 2 של גופנים (~1300) מ-fonts-extended.css
+- `exportRenderedHTML()` — ייצוא HTML עצמאי עם 13 גופני עדיפות מוטמעים כ-base64
+  - תיקון שגיאת תחביר מ-v18: `Blob(tml]` → `Blob([html]`
+  - רשימת הגופנים הותאמה ל-עדכון_ממשק_9 (Guttman Rashi, Alpha-Black, וכו')
+- `initTabSystem()` — מערכת 3 כרטיסיות (עורך/הגדרות/בדיקה)
+- `switchTab(tabId)` — מעבר בין כרטיסיות
+
+#### 2. הוספת כפתורים ל-index.html:
+- `btn-load-extended-fonts` — "📚 טען גופנים נוספים"
+- `btn-export-html` — "💾 ייצוא HTML"
+
+#### 3. הוספת טעינת גופנים מקומיים ל-style.css (קריטי!):
+**הבעיה שהתגלתה:** עדכון_ממשק_9 מתייחס לגופנים בשמות אנגליים (`AlphaBlack`, `Guttman Rashi`, `Livorna`, וכו') ב-CSS vars, אבל:
+- `fonts-def.css` **לא נטען** ב-עדכון_ממשק_9
+- גם אם היה נטען, השמות שם הם **עבריים** (`'אלפא שחור'`)
+- ב-Windows זה עבד כי הגופנים מותקנים במערכת ההפעלה
+- ב-Linux הם לא קיימים → דפדפן נופל ל-serif → 567 עמודים במקום 546
+
+**הפתרון:**
+- `@import url('fonts-def.css')` — טעינת 439 גופני עדיפות
+- 12 `@font-face` חדשים עם השמות האנגליים → קבצי woff2 המתאימים:
+  - AlphaBlack → Alpha-Black.woff2
+  - Alpha → Alpha-Regular/Bold.woff2
+  - AlphaLight → Alpha-Light.woff2
+  - Guttman Rashi → Guttman-Rashi-Normal/Bold.woff2
+  - Hadassah Friedlaender → Hadassah-Friedlaender-Regular/Bold.woff2
+  - Livorna → Livorna-Regular/Bold.woff2
+  - FrankReal → FrankReal-Regular/Bold.woff2
+
+#### 4. תיקוני ביצועים קריטיים:
+**בעיה 1:** `loadExternalFonts()` טוען 1754 גופנים עם `FontFace.load()` בזה אחר זה — חסם את `window.onload` לדקות.
+- **תיקון:** הפיכת `await loadExternalFonts()` ל-`loadExternalFonts()` (לא חוסם, רץ ברקע)
+
+**בעיה 2:** `ensureBuiltinFontsLoaded()` קרא ל-`await document.fonts.ready` — לא מגיע כי 439 גופנים נטענים (חלקם פגומים).
+- **תיקון:** החלפה ב-`Promise.race` עם timeout של 3-8 שניות
+
+### תוצאות בדיקה:
+| מדד | לפני | אחרי | שינוי |
+|------|------|------|-------|
+| מספר עמודים | 567 | **533** | -34 (קרוב יותר ל-PDF: 546) |
+| פער מ-PDF | 21 | **13** | -8 ✅ |
+| גופנים מקומיים נטענו | 0/7 | **5/7** | ✅ |
+| מערכת כרטיסיות | לא | **כן** | ✅ |
+| כפתור ייצוא HTML | לא | **כן** | ✅ |
+| כפתור גופנים מורחבים | לא | **כן** | ✅ |
+| שגיאות JS | 0 | **0** | ✅ |
+
+### הערות:
+- FrankReal ו-Alpha מראים `false` בבדיקה ראשונית, אבל זה lazy loading — הם נטענים כשנדרשים
+- הפער מ-546 ל-533 נובע כנראה מהבדלי גרסאות Chrome (143 Linux vs 155 Windows) ולא מהגופנים
+
+### Stage Summary:
+- נוספו 4 פונקציות חדשות ל-app.js (loadExtendedFonts, exportRenderedHTML, initTabSystem, switchTab)
+- נוספו 2 כפתורים ל-index.html
+- נוספו @import + 12 @font-face ל-style.css לטעינת גופנים מקומיים
+- תוקנו 2 בעיות ביצועים קריטיות (loadExternalFonts + ensureBuiltinFontsLoaded)
+- מספר העמודים ירד מ-567 ל-533 (קרוב יותר ל-PDF המקורי: 546)

@@ -24,6 +24,29 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Rubik:wght@400;500;600;700&family=Bellefair&family=David+Libre:wght@400;500;700&family=Frank+Ruhl+Libre:wght@400;700;900&family=Noto+Serif+Hebrew:wght@400;700;900&display=swap');
 
+/* ==========================================================================
+   טעינת גופנים מקומיים — הוספה לשמירת ברירת המחדל של עדכון_ממשק_9
+   ==========================================================================
+   עדכון_ממשק_9 מתייחס לגופנים המקומיים בשמות אנגליים (AlphaBlack, Guttman Rashi,
+   Livorna, וכו'), אבל ב-Windows הם מותקנים במערכת ההפעלה ולכן נטענים אוטומטית.
+   ב-Linux/CI הם לא מותקנים, והדפדפן נופל ל-serif גנרי — מה שגורם להבדלי עימוד.
+   פתרון: @import של fonts-def.css + @font-face עם השמות האנגליים.
+   ========================================================================== */
+@import url('fonts-def.css');
+
+@font-face { font-family: 'AlphaBlack'; src: url('fonts/Alpha-Black.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Alpha'; src: url('fonts/Alpha-Regular.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Alpha'; src: url('fonts/Alpha-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
+@font-face { font-family: 'AlphaLight'; src: url('fonts/Alpha-Light.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Guttman Rashi'; src: url('fonts/Guttman-Rashi-Normal.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Guttman Rashi'; src: url('fonts/Guttman-Rashi-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
+@font-face { font-family: 'Hadassah Friedlaender'; src: url('fonts/Hadassah-Friedlaender-Regular.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Hadassah Friedlaender'; src: url('fonts/Hadassah-Friedlaender-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
+@font-face { font-family: 'Livorna'; src: url('fonts/Livorna-Regular.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Livorna'; src: url('fonts/Livorna-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
+@font-face { font-family: 'FrankReal'; src: url('fonts/FrankReal-Regular.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'FrankReal'; src: url('fonts/FrankReal-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
+
 :root {
     --preview-scale: 1;
 
