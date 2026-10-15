@@ -882,3 +882,85 @@ tradeoff טבעי של KP — פיזור אחיד של רווחים על חשב�
 - v19 או�ופס ל-`עדכון_ממשק_9` בשלמותו
 - הוסרו כל התוספות של v18 (compat, report-data, UI changes)
 - מוכן לבדיקת זהות פלט מול PDF
+
+---
+
+## Task ID: v19-diagnose-2026-10-16
+**Agent:** main (Super Z)
+**Date:** 2026-10-16 (later)
+**Task:** אבחון בעיות עימוד במסמך מלא (long_test_text.txt)
+
+### Work Log:
+- בניית `scripts/inspect-layout.js` — סקריפט Playwright חיצוני לבדיקה היררכית
+- בניית `scripts/scan-all-issues.js` — סריקת כל הבעיות במסמך המלא
+- הרצה עם long_test_text.txt (1,540,404 chars, 4623 שורות) — המערכת הפיקה 567 עמודים, 725 בלוקים, 3530 פסקאות (64 שניות)
+
+### תוצאות סריקה מלאה (Linux Chrome 143):
+| סוג בעיה | כמות | חומרה |
+|----------|------|-------|
+| imbalanced | 406 | medium |
+| empty_column | 12 | low |
+| widow | 6 | high |
+| col_into_pfbottom (גלישה לאזור שוליים) | 4 | high |
+| single_line_pcut | 3 | medium |
+| sparse_pcut | 0 | high |
+| overflow (scrollHeight) | 0 | critical |
+| side_note_overlap | 0 | high |
+| heading_at_bottom | 0 | high |
+| **סה"כ** | **431** | — |
+
+### תגליות מרכזיות:
+
+#### 1. קורלציה בין widow ל-empty_column (3 מקרים זהים):
+- **p186 b1:** widow (R, "גדר בהיות במקום אחד ביטול קביעות") + empty_column (L)
+- **p253 b3:** widow (R, "מסויים, וע"כ אין במעשה חסרון") + empty_column (L)
+- **p266 b3:** widow (R, "נתווסף יותר במימרא דרב יהודה אמר שמואל") + empty_column (L)
+
+**סיבה:** המנוע מעביר פסקה קצרה לטור L, היא נשארת כ-widow (שורה אחת), והטור L נשאר ריק כי הפסקה הקודמת עברה לטור R. זו בדיוק הבעיה בעמ' 128, 142, 152 ב-PDF.
+
+#### 2. גלישה לאזור הערות שוליים (4 מקרים):
+- **p94 b0/L:** +28px
+- **p228 b0/L:** +17px
+- **p232 b1/L:** +1px
+- **p472 b1/L:** +1px
+
+**סיבה:** `justifyColumnVertically` מוסיף margin-bottom כדי לאזן, אבל זה דוחף את הטור מתחת ל-page-body-flow (pfBottom). זו הבעיה בעמ' 52 ב-PDF.
+
+#### 3. 406 imbalanced (רובן ~20-22px):
+- אלו פערים קטנים שנובעים מכותרות שמוסיפות ~22px (margin-top + margin-bottom + גובה כותרת).
+- המנגנון `justifyColumnVertically` לא מצליח לסגור את הפער כי הוא מוגבל ל-60px ולא יכול לגלוש.
+
+### אבחון קוד (`typesetter.js`):
+
+#### balanceColumns (שורות 710-963):
+- מקבל `availableHeight` אבל העונש (x2000) רק מונע חריגה — לא מונע יצירת טור ריק.
+- אין בדיקה: "אם התוכן לא מספיק ל-2 טורים, דחוף לעמוד הבא".
+
+#### justifyColumnVertically (שורות 685-708):
+- מוסיף margin-bottom עד 60px כדי לאזן.
+- **אין בדיקת גבול עליון** — יכול לדחוף את הטור מתחת ל-pfBottom.
+
+#### לוגיקת סיום בלוק (שורות 2472-2507):
+- בודק `usedBlockH <= remPageHeight` — אבל רק אחרי `justifyColumnVertically` כבר רץ.
+- סדר פעולות שגוי: איזון → בדיקת גבול, במקום: בדיקת גבול → איזון.
+
+### תכנית תיקון:
+1. **תיקון 1 — מניעת טורים ריקים + widow (Critical):**
+   - ב-balanceColumns, אם מספר הפריטים קטן מ-2 ואין p-cut אפשרי, דחוף את הבלוק לעמוד הבא.
+   - או: אם הפריט היחיד הוא פסקה קצרה (1-2 שורות), אל תחלק ל-2 טורים.
+
+2. **תיקון 2 — מניעת גלישה לאזור שוליים (High):**
+   - ב-justifyColumnVertically, הוסף בדיקה: אם התוספת תגרום לגלישה מתחת ל-pfBottom, הקטן אותה.
+   - או: העבר את הבדיקה ל-balanceColumns עצמו.
+
+3. **תיקון 3 — הקטנת פערי איזון (Medium):**
+   - 406 מקרים של ~20px — רובם נובעים מכותרות.
+   - פתרון: הגדל את ה-ceiling של justifyColumnVertically מ-60 ל-80 כשיש כותרת בטור.
+
+### Stage Summary:
+- נבנו 2 סקריפטים חיצוניים: inspect-layout.js + scan-all-issues.js
+- נמצאו 431 בעיות בסה"כ (406 medium, 12 low, 10 high, 0 critical)
+- 3 קורלציות widow+empty_column (בעיות עמ' 128/142/152)
+- 4 גלישות לאזור שוליים (בעיית עמ' 52)
+- 0 sparse_pcut ב-Linux (אבל יש ב-Windows — עמ' 67)
+- מוכן לתיקון לפי חומרה: גלישות קודם → טורים ריקים → דלילויות
