@@ -301,10 +301,37 @@ function syncCursorToPreview() {
         }
 
         if (tokenId !== null && tokenId !== undefined) {
-            const targetEl = document.querySelector(`[data-token-id="${tokenId}"]`);
-            if (targetEl) {
-                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // תיקון: השתמש ב-querySelectorAll כדי למצוא את כל האלמנטים עם אותו token-id.
+            // פסקאות מפוצלות (p-cut) יכולות להופיע בשני מקומות — נבחר את הקרוב ביותר
+            // למיקום הגלילה הנוכחי של התצוגה המקדימה.
+            const allMatches = document.querySelectorAll(`[data-token-id="${tokenId}"]`);
+            if (allMatches.length === 0) return;
+            
+            if (allMatches.length === 1) {
+                // מקרה רגיל — אלמנט אחד
+                allMatches[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
             }
+            
+            // מקרה מפוצל — מצא את האלמנט הקרוב ביותר למיקום הגלילה הנוכחי
+            const previewPane = document.getElementById('preview-pane');
+            const viewportCenter = previewPane 
+                ? previewPane.scrollTop + previewPane.clientHeight / 2 
+                : window.scrollY + window.innerHeight / 2;
+            
+            let closestEl = allMatches[0];
+            let closestDist = Infinity;
+            allMatches.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                // חשב מיקום יחסי במסמך (לא יחסית לviewport)
+                const absTop = rect.top + window.scrollY;
+                const dist = Math.abs(absTop - viewportCenter);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestEl = el;
+                }
+            });
+            closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
 }
@@ -1130,7 +1157,7 @@ function initFontPickers() {
 }
 
 async function ensureBuiltinFontsLoaded() {
-    const families = ['Assistant', 'Rubik', 'Bellefair', 'David Libre', 'Frank Ruhl Libre', 'Noto Serif Hebrew'];
+    const families = ['Assistant', 'Rubik']; // רק גופני UI מ-Google Fonts — שאר הגופנים נטענים מ-_fonts.css
     const weights = ['400', '700', '900'];
     try {
         const loads = [];
@@ -1897,16 +1924,41 @@ window.addEventListener('load', async function() {
     await loadExternalFonts();
     await ensureBuiltinFontsLoaded();
     
-    // FIX: המתנה נוספת ל-document.fonts.ready לפני העימוד הראשון.
-    // מונע מדידות שגויות על בסיס גופני fallback (FOUT) שגורמות לפסקאות
-    // לגלות מעבר לגבולות הדפים כשהגופנים התורניים נטענים שנייה לאחר מכן.
+    // תיקון: טעינת גופנים בשני שלבים.
+    // שלב א': טען רק את הגופנים הנחוצים לעמודי טקסט רגילים (12 גופנים).
+    // שלב ב': שאר הגופנים ייטענו ברקע תוך כדי עבודה.
+    const PRIORITY_FONTS = [
+        "12pt 'גוטמן רש\"י רגיל'",
+        "12pt 'פרנק ריל מודגש'",
+        "12pt 'אלפא שחור'",
+        "12pt 'אלפא מודגש'",
+        "12pt 'ליבורנה רגיל'",
+        "12pt 'ליבורנה מודגש'",
+        "12pt 'הדסה פרידלנדר מודגש'",
+        "12pt 'פרנק רוהל ליברה רגיל'",
+        "12pt 'פרנק רוהל ליברה מודגש'",
+        "12pt 'פרנק רוהל ליברה שחור'",
+        "12pt 'נוטו סריף עברית מודגש'",
+        "12pt 'נוטו סריף עברית שחור'",
+    ];
     try {
-        if (document.fonts && document.fonts.ready) {
-            await document.fonts.ready;
+        if (document.fonts && document.fonts.load) {
+            // טען רק את הגופנים העיקריים וחכה להם
+            await Promise.all(PRIORITY_FONTS.map(f => document.fonts.load(f).catch(() => {})));
+            console.log('✓ גופנים עיקריים נטענו — מתחיל עימוד');
         }
     } catch (e) {
-        console.warn('document.fonts.ready failed (non-critical):', e);
+        console.warn('Priority font loading failed (non-critical):', e);
     }
+    
+    // שלב ב': טען את שאר הגופנים ברקע (לא חיוני לעימוד)
+    try {
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(() => {
+                console.log('✓ כל הגופנים נטענו ברקע');
+            }).catch(() => {});
+        }
+    } catch (e) { /* non-critical */ }
 
     if (document.getElementById('section-divider-style')?.value === 'custom_img') {
         const row = document.getElementById('row-sec-div-img');
