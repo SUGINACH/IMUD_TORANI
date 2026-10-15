@@ -2166,6 +2166,9 @@ function initTabSystem() {
 
     // 9. בחירת טאב ברירת מחדל
     switchTab('text-pane');
+
+    // 10. הסר את ה-class 'tabs-not-ready' כדי להציג את הממשק
+    document.body.classList.remove('tabs-not-ready');
 }
 window.initTabSystem = initTabSystem;
 

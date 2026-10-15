@@ -32,7 +32,7 @@
   <title>מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="tabs-not-ready">
   <!-- סרגל צד ראשי המפוצל לשני טורים: אזור טקסט + לוח הגדרות -->
   <div id="sidebar">
     <!-- טור 1: אזור הדבקת ועריכת הטקסט -->
@@ -73,9 +73,6 @@
           <div class="settings-quick-actions">
             <button type="button" class="btn-header-action btn-save" onclick="saveAsDefaultTemplate()">💾 שמור תבנית</button>
             <button type="button" class="btn-header-action btn-fonts" onclick="loadSystemFonts()">📂 גופני מחשב</button>
-            <button type="button" class="btn-header-action btn-export-settings" onclick="exportSettings()" title="ייצא את כל הגדרות המערכת לקובץ JSON">📤 ייצוא הגדרות</button>
-            <button type="button" class="btn-header-action btn-import-settings" onclick="document.getElementById('file-settings-import').click()" title="ייבא הגדרות מערכת מקובץ JSON">📥 ייבוא הגדרות</button>
-            <input type="file" id="file-settings-import" accept=".json,application/json" style="display:none" onchange="importSettings(event)">
             <button type="button" class="btn-close-settings" onclick="toggleSettingsPane()" title="סגור">✕</button>
           </div>
         </div>

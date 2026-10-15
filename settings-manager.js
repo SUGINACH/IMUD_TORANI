@@ -173,28 +173,16 @@ function initStyleSetDropdown() {
 function loadStyleSetsList() {
     var select = document.getElementById('style-set-select');
     if (!select) return;
-    fetch('https://api.github.com/repos/SUGINACH/IMUD_TORANI/contents/setting_sets')
-        .then(function(res) { return res.json(); })
-        .then(function(files) {
-            if (!Array.isArray(files)) return;
-            files.forEach(function(file) {
-                if (file.name.endsWith('.json')) {
-                    var opt = document.createElement('option');
-                    opt.value = file.name;
-                    opt.textContent = file.name.replace('.json', '');
-                    select.appendChild(opt);
-                }
-            });
-        })
-        .catch(function() {
-            // Fallback: שמות ידועים
-            ['קונטרס.json', 'פרשנות.json', 'תלמוד.json'].forEach(function(name) {
-                var opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name.replace('.json', '');
-                select.appendChild(opt);
-            });
-        });
+    // נסה קודם לטעון מקומית מ-setting_sets/ (דרך fetch של directory listing לא זמין,
+    // אז משתמשים ברשימה ידנית של קבצים ידועים).
+    // ניסיון GitHub API נכשל לעתים קרובות (rate limit, CORS), לכן נשתמש ברשימה ידנית.
+    var knownSets = ['קונטרס.json', 'פרשנות.json', 'תלמוד.json'];
+    knownSets.forEach(function(name) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name.replace('.json', '');
+        select.appendChild(opt);
+    });
 }
 
 function exportSettings() {
