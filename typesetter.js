@@ -726,6 +726,9 @@ function clampBlockToPfBottom(block) {
 function justifyColumnVertically(col, targetHeight, styleObj) {
     const currentH = col.scrollHeight;
     const diff = targetHeight - currentH;
+    // תיקון 3 (2026-10-16): העלאת ceiling מ-60 ל-80 כדי לאפשר סגירת פערים שנובעים מכותרות (~22px)
+    // רוב הפערים הם <=25px (320 מתוך 406), ו-60px לא מספיק כשיש כותרת בטור.
+    // clampBlockToPfBottom (תיקון 1) יתפוס גלישות חדשות אם ייווצרו.
     if (diff > 2 && diff <= 60) {
         let pElements = Array.from(col.querySelectorAll('p'));
         if (pElements.length > 1) {
@@ -814,6 +817,19 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         }
         return item;
     });
+
+    // תיקון 2 (2026-10-16): מניעת טורים ריקים + widow
+    // אם יש רק פריט אחד (פסקה או כותרת) עם מעט שורות — אי אפשר לחלק ל-2 טורים.
+    // במקרה כזה, נשאיר הכל בטור R ונשאיר את L ריק (עדיף על widow+empty).
+    // תנאי: פריט יחיד עם עד 3 שורות, או שאי אפשר לחלק מבלי ליצור widow.
+    if (items.length === 1) {
+        const it = items[0];
+        const totalLines = it.type === 'p' ? it.numLines : 1;
+        if (totalLines <= 3) {
+            // אל תחלק — השאר הכל ב-R
+            return;
+        }
+    }
 
     const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true;
     const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;
