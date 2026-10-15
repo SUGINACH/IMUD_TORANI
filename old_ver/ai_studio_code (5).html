@@ -1,0 +1,1944 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מערכת עימוד תורנית מקצועית לדפי A4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bellefair&family=David+Libre:wght@400;700&family=Frank+Ruhl+Libre:wght@400;700;900&family=Noto+Serif+Hebrew:wght@400;700;900&family=Assistant:wght@400;600;700&display=swap');
+
+  :root {
+    /* גופנים וגדלים */
+    --fn-header: 'AAd_Livorna4', 'David Libre', 'David', serif;
+    --sz-header: 13pt;
+
+    --fn-h1: 'Lia Sgula', 'Bellefair', serif;
+    --sz-h1: 50pt;
+
+    --fn-h1-sub: 'David Libre', 'David', serif;
+    --sz-h1-sub: 28pt;
+
+    --fn-h2: 'AAd_AlphaBlack', 'David Libre', 'David', serif;
+    --sz-h2: 17pt;
+
+    --fn-h3: 'AAd_AlphaLight', 'Noto Serif Hebrew', serif;
+    --sz-h3: 13.5pt;
+
+    --fn-h4: 'FrankRuehl', 'Frank Ruhl Libre', serif;
+    --sz-h4: 12.5pt;
+
+    --fn-h5: 'David Libre', 'David', serif;
+    --sz-h5: 11.5pt;
+
+    --fn-h6: 'Noto Serif Hebrew', serif;
+    --sz-h6: 10.5pt;
+
+    --fn-h7: 'Hadassah Friedlaender', 'Hadassah', 'Noto Serif Hebrew', serif;
+    --sz-h7: 6pt;
+
+    --fn-body: 'Rashi DP', 'Frank Ruhl Libre', serif;
+    --sz-body: 11.2pt;
+
+    --fn-first-word: 'Rashi DP', 'Frank Ruhl Libre', serif;
+    --sz-first-word: 1.5em;
+
+    /* גריד */
+    --w-margin: 7.5%;
+    --w-gap: 2%;
+    --w-col: 40%;
+    --w-gutter: 2%;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: #5a5a5a;
+    font-family: var(--fn-body);
+    color: #000000;
+    display: flex;
+    flex-direction: row;
+  }
+
+  /* -------------------------------------------------------------
+     סרגל שליטה ימני עם גרירה
+  ------------------------------------------------------------- */
+  #sidebar {
+    width: 500px;
+    min-width: 360px;
+    max-width: 750px;
+    height: 100vh;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    box-shadow: -3px 0 15px rgba(0,0,0,0.3);
+    z-index: 100;
+    font-family: 'David Libre', serif;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  /* מפריד לגרירת רוחב */
+  #resizer {
+    width: 6px;
+    height: 100vh;
+    background: #333333;
+    cursor: col-resize;
+    flex-shrink: 0;
+    z-index: 110;
+    transition: background 0.2s;
+  }
+  #resizer:hover, #resizer.resizing {
+    background: #b8860b;
+  }
+
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .sidebar-title { font-size: 13pt; font-weight: 700; }
+
+  .btn-load-fonts {
+    background-color: #2c3e50;
+    color: #fff;
+    border: none;
+    padding: 4px 8px;
+    font-size: 8.5pt;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  .accordion-box {
+    background: #fbfbfb;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+
+  .accordion-title {
+    background: #eaeaea;
+    padding: 5px 10px;
+    font-size: 9.5pt;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .accordion-body {
+    padding: 8px 10px;
+    font-size: 9pt;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 5px;
+  }
+  .form-group label { font-weight: 700; margin-bottom: 2px; font-size: 8.5pt; }
+  .form-group input, .form-group select {
+    padding: 3px 6px;
+    border: 1px solid #aaa;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 9pt;
+  }
+
+  .toc-levels-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    background: #f0f0f0;
+    padding: 4px 6px;
+    border-radius: 3px;
+    margin-top: 3px;
+    margin-bottom: 4px;
+  }
+  .toc-levels-row label {
+    font-size: 8pt;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+  }
+
+  .proportions-grid, .styles-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px 8px;
+    font-size: 8.5pt;
+  }
+
+  .prop-item, .style-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .style-item label { font-weight: 700; width: 80px; }
+  .style-item select { padding: 2px; font-size: 8pt; width: 95px; }
+  .style-item input { width: 36px; padding: 2px; text-align: center; font-size: 8pt; }
+
+  .textarea-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 120px;
+    height: 140px;
+    margin-bottom: 8px;
+  }
+
+  #raw-input {
+    width: 100%;
+    height: 100%;
+    font-family: monospace;
+    font-size: 9.5pt;
+    padding: 6px;
+    border: 1px solid #777;
+    border-radius: 3px;
+    direction: rtl;
+    resize: none;
+  }
+
+  /* לחצני הפעולה בתחתית הסרגל */
+  .btn-bar-bottom {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1.5px solid #ccc;
+    flex-shrink: 0;
+  }
+  .btn-primary {
+    background-color: #000;
+    color: #fff;
+    border: none;
+    padding: 9px 14px;
+    font-size: 11pt;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 3px;
+    flex-grow: 1;
+  }
+  .btn-secondary {
+    background-color: #f0f0f0;
+    color: #000;
+    border: 1px solid #666;
+    padding: 9px 12px;
+    font-size: 10.5pt;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  /* -------------------------------------------------------------
+     תצוגת דפים מעומדים משמאל
+  ------------------------------------------------------------- */
+  #preview-pane {
+    flex-grow: 1;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 25px 20px;
+    scroll-behavior: smooth;
+    background-color: #5a5a5a;
+  }
+
+  .a4-page {
+    background-color: #ffffff;
+    width: 210mm;
+    height: 297mm;
+    max-height: 297mm;
+    padding: 15mm 15mm 15mm 15mm;
+    box-shadow: 0 0 15px rgba(0,0,0,0.4);
+    position: relative;
+    margin-bottom: 30px;
+    page-break-after: always;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* -------------------------------------------------------------
+     שער ראשי ושערי משנה
+  ------------------------------------------------------------- */
+  .main-shaar-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding: 0;
+  }
+
+  .shaar-main-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+    padding: 20mm 12mm 16mm 12mm;
+    z-index: 20;
+    position: relative;
+  }
+
+  .bsd-header { font-family: 'David Libre', serif; font-size: 11pt; font-weight: 700; color: #444; }
+  .sefer-label { font-family: 'David Libre', serif; font-size: 15pt; letter-spacing: 5px; font-weight: 700; margin-top: 4px; }
+  .book-title-main { font-family: var(--fn-h1); font-size: var(--sz-h1); line-height: 1.1; margin: 10px 0 4px 0; }
+  .book-subtitle { font-family: var(--fn-h1-sub); font-size: var(--sz-h1-sub); font-weight: 700; line-height: 1.25; }
+  
+  /* רוחב מוקטן בכ-20% לתיאור */
+  .book-description {
+    font-family: var(--fn-body);
+    font-size: 12pt;
+    line-height: 1.5;
+    max-width: 65%; /* הוקטן מ-82% */
+    margin: 10px auto;
+  }
+
+  .book-sections-summary { font-family: 'David Libre', serif; font-size: 11.5pt; line-height: 1.5; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 6px 12px; margin: 8px 0; font-weight: 700; }
+  .author-block { font-family: 'David Libre', serif; font-size: 13pt; line-height: 1.3; }
+  .author-name { font-size: 15pt; font-weight: 700; }
+  .publication-footer { font-family: 'David Libre', serif; font-size: 12pt; font-weight: 700; letter-spacing: 1px; }
+
+  /* תבניות שער ראשי */
+  .m1-bg-top { position: absolute; top: 0; left: 0; right: 0; height: 20%; background: linear-gradient(135deg, #f2f2f2 0%, #e2e2e2 100%); border-bottom: 1px solid #d0d0d0; }
+  .m1-bg-middle { position: absolute; top: 20%; left: 0; right: 0; height: 60%; background: #ffffff; }
+  .m1-bg-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 20%; background: linear-gradient(135deg, #f2f2f2 0%, #e2e2e2 100%); border-top: 1px solid #d0d0d0; }
+  .m1-panel { position: absolute; top: 0; bottom: 0; left: 12%; right: 12%; background: #ffffff; border-right: 1px solid #ccc; border-left: 1px solid #ccc; box-shadow: 0 0 20px rgba(0,0,0,0.1); display: flex; justify-content: space-between; z-index: 10; }
+  .m1-damask { width: 30px; height: 100%; background: #fafafa url("data:image/svg+xml,%3Csvg width='32' height='55' viewBox='0 0 32 55' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M16,27 C10,22 5,14 5,5 C5,0 10,0 16,5 C22,0 27,0 27,5 C27,14 22,22 16,27 Z M16,27 C10,32 5,40 5,49 C5,55 10,55 16,49 C22,55 27,55 27,49 C27,40 22,32 16,27 Z' fill='%239e9e9e' fill-opacity='0.35'/%3E%3C/svg%3E") repeat-y; flex-shrink: 0; }
+  
+  .m2-bg-top { position: absolute; top: 0; left: 0; right: 0; height: 18%; background: #eaeaea; }
+  .m2-bg-middle { position: absolute; top: 18%; left: 0; right: 0; height: 64%; background: #ffffff; box-shadow: inset 0 2px 6px rgba(0,0,0,0.06), inset 0 -2px 6px rgba(0,0,0,0.06); }
+  .m2-bg-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 18%; background: #eaeaea; }
+  .m2-panel { position: absolute; top: 0; bottom: 0; left: 10%; right: 10%; background: #ffffff; box-shadow: 0 0 25px rgba(0,0,0,0.12); display: flex; justify-content: space-between; z-index: 10; }
+  .m2-lace { width: 24px; height: 100%; background: #ffffff url("data:image/svg+xml,%3Csvg width='26' height='40' viewBox='0 0 26 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13,20 C4,16 2,8 2,2 C2,0 8,0 13,8 C18,0 24,0 24,2 C24,8 22,16 13,20 Z M13,20 C4,24 2,32 2,38 C2,40 8,40 13,32 C18,40 24,40 24,38 C24,32 22,24 13,20 Z' fill='%23888888' fill-opacity='0.45'/%3E%3C/svg%3E") repeat-y; flex-shrink: 0; }
+
+  .m3-wavy-band { position: absolute; top: 14%; left: 0; right: 0; height: 72%; background: #ffffff; border-top: 1.5px solid #d4d4d4; border-bottom: 1.5px solid #d4d4d4; }
+  .m3-panel { position: absolute; top: 0; bottom: 0; left: 9%; right: 9%; background: #ffffff; border-right: 1.5px solid #ccc; border-left: 1.5px solid #ccc; box-shadow: 0 0 25px rgba(0,0,0,0.14); z-index: 10; }
+  .m3-corner { position: absolute; width: 65px; height: 65px; fill: #111; z-index: 25; }
+  .m3-corner.tr { top: 10mm; right: 10mm; }
+  .m3-corner.tl { top: 10mm; left: 10mm; transform: scaleX(-1); }
+  .m3-corner.br { bottom: 10mm; right: 10mm; transform: scaleY(-1); }
+  .m3-corner.bl { bottom: 10mm; left: 10mm; transform: scale(-1, -1); }
+
+  /* -------------------------------------------------------------
+     שערי משנה: טור מוצב בצד שמאל וממורכז אנכית
+  ------------------------------------------------------------- */
+  .sub-shaar-page { position: relative; padding: 0; }
+  .sub-shaar-col {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 0;
+    right: auto;
+    width: 55%;
+    background: #ffffff;
+    border-right: 1.5px solid #ccc;
+    box-shadow: 5px 0 18px rgba(0,0,0,0.08);
+    display: flex;
+    z-index: 10;
+  }
+  .sub-shaar-bg-right {
+    position: absolute;
+    top: 0; bottom: 0;
+    right: 0; left: 55%;
+    background: #f4f4f4;
+  }
+  .sub-shaar-content-centered {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* ממורכז באמצע הגובה */
+    align-items: center;
+    text-align: center;
+    padding: 20mm 12mm;
+  }
+
+  /* -------------------------------------------------------------
+     תוכן עניינים (כותרות עליונות, טור יחיד ופריסה מלאה)
+  ------------------------------------------------------------- */
+  .toc-page {
+    padding: 15mm 15mm 15mm 15mm;
+    display: flex;
+    flex-direction: column;
+  }
+  .toc-grid-full {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    max-width: 175mm;
+    margin: 0 auto;
+    flex-grow: 1;
+  }
+  .toc-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 3px;
+    font-family: 'David Libre', serif;
+    font-size: 10.5pt;
+    break-inside: avoid;
+  }
+  .toc-title {
+    flex-shrink: 1;
+    max-width: 84%;
+    font-weight: 600;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    text-align: right;
+    line-height: 1.3;
+  }
+  .toc-dots {
+    flex-grow: 1;
+    border-bottom: 1px dotted #777;
+    margin: 0 8px;
+    height: 1px;
+    min-width: 25px;
+  }
+  .toc-page-num {
+    flex-shrink: 0;
+    font-weight: 700;
+    font-family: 'David Libre', serif;
+    font-size: 10.5pt;
+    min-width: 25px;
+    text-align: left;
+  }
+  
+  .toc-lvl-1 { font-size: 12pt; font-weight: 700; margin-top: 10px; margin-bottom: 4px; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
+  .toc-lvl-2 { font-size: 11pt; font-weight: 700; margin-top: 6px; padding-right: 8px; }
+  .toc-lvl-3 { font-size: 10.5pt; font-weight: 700; padding-right: 16px; }
+  .toc-lvl-4 { padding-right: 24px; }
+  .toc-lvl-5 { padding-right: 32px; }
+  .toc-lvl-6 { padding-right: 40px; }
+
+  /* כותרות 7 מקובצות בשורה רציפה אחת */
+  .toc-lvl-7-inline-block {
+    padding-right: 48px;
+    font-size: 8.8pt;
+    color: #333;
+    line-height: 1.45;
+    margin: 2px 0 6px 0;
+    text-align: justify;
+    font-family: 'David Libre', serif;
+  }
+  .toc-lvl-7-inline-block .l7-title { font-weight: 600; color: #222; }
+  .toc-lvl-7-inline-block .l7-page { font-weight: 700; color: #000; }
+  .toc-lvl-7-inline-block .l7-sep { color: #888; margin: 0 5px; font-weight: bold; }
+
+  /* -------------------------------------------------------------
+     כותרת עליונה רצה וגוף הטקסט
+  ------------------------------------------------------------- */
+  .top-header-grid {
+    display: grid;
+    grid-template-columns: var(--w-margin) var(--w-gap) var(--w-col) var(--w-gutter) var(--w-col) var(--w-gap) var(--w-margin);
+    align-items: center;
+    margin-bottom: 28px;
+    font-family: var(--fn-header);
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .header-right-col {
+    grid-column: 3;
+    text-align: center;
+    font-size: var(--sz-header);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-center-ornament {
+    grid-column: 4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .header-left-col {
+    grid-column: 5;
+    text-align: center;
+    font-size: var(--sz-header);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .title-level-2-standalone {
+    font-family: var(--fn-h2);
+    font-size: var(--sz-h2);
+    font-weight: 700;
+    text-align: center;
+    margin-top: 130px;
+    margin-bottom: 50px;
+    width: 100%;
+    line-height: 1.25;
+    flex-shrink: 0;
+  }
+
+  /* כותרת 3 בטור אחד לרוחב שני הטורים */
+  .title-level-3-span {
+    grid-column: 3 / 6;
+    font-family: var(--fn-h3);
+    font-size: var(--sz-h3);
+    font-weight: 900;
+    text-align: center;
+    margin: 12px 0 6px 0;
+    line-height: 1.22;
+  }
+
+  .title-level-4 { font-family: var(--fn-h4); font-size: var(--sz-h4); font-weight: 900; text-align: center; margin: 9px 0 4px 0; line-height: 1.22; }
+  .title-level-5 { font-family: var(--fn-h5); font-size: var(--sz-h5); font-weight: 700; text-align: center; margin: 7px 0 3px 0; line-height: 1.22; }
+  .title-level-6 { font-family: var(--fn-h6); font-size: var(--sz-h6); font-weight: 700; text-align: center; margin: 6px 0 3px 0; line-height: 1.22; }
+
+  .page-content-grid {
+    display: grid;
+    grid-template-columns: var(--w-margin) var(--w-gap) var(--w-col) var(--w-gutter) var(--w-col) var(--w-gap) var(--w-margin);
+    position: relative;
+    align-items: start;
+    height: 875px;
+  }
+
+  .page-content-grid.has-h2 { height: 660px; }
+
+  /* מצב טור יחיד עבור כותרת 0 (הקדמה) */
+  .page-content-grid.single-col-mode .single-wide-col {
+    grid-column: 3 / 6;
+    font-family: var(--fn-body);
+    font-size: var(--sz-body);
+    line-height: 1.45;
+    text-align: justify;
+    text-justify: inter-word;
+  }
+
+  .margin-notes-column {
+    font-family: var(--fn-h7);
+    font-size: var(--sz-h7);
+    line-height: 1.18;
+    text-align: center;
+    text-align-last: center;
+    font-weight: 400;
+    color: #404040;
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .right-margin { grid-column: 1; }
+  .left-margin { grid-column: 7; }
+
+  .side-note-anchor { position: absolute; width: 100%; }
+
+  .main-column {
+    font-family: var(--fn-body);
+    font-size: var(--sz-body);
+    line-height: 1.34;
+    text-align: justify;
+    text-justify: inter-word;
+    min-height: 0;
+    height: auto;
+    position: relative;
+  }
+
+  .right-col { grid-column: 3; }
+  .left-col { grid-column: 5; }
+
+  p { margin-bottom: 7px; text-align: justify; text-justify: inter-word; position: relative; }
+  p.p-end { text-align-last: center; }
+  p.p-cut { text-align-last: justify; }
+
+  .first-word-window {
+    float: right;
+    font-family: var(--fn-first-word);
+    font-size: var(--sz-first-word);
+    font-weight: 900;
+    line-height: 0.85;
+    height: 1.25em;
+    margin-left: 6px;
+    margin-bottom: 1px;
+    display: block;
+  }
+
+  .page-number-footer {
+    position: absolute;
+    bottom: 14mm;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-family: var(--fn-header);
+    font-size: 12pt;
+    font-weight: 700;
+    height: 20px;
+  }
+
+  #measuring-box {
+    position: absolute;
+    visibility: hidden;
+    pointer-events: none;
+    top: -9999px;
+    left: -9999px;
+    font-family: var(--fn-body);
+    font-size: var(--sz-body);
+    line-height: 1.34;
+  }
+
+  @media print {
+    body { background: none; padding: 0; overflow: visible; display: block; }
+    #sidebar, #resizer { display: none !important; }
+    #preview-pane { height: auto !important; overflow: visible !important; padding: 0 !important; background: none !important; }
+    .a4-page {
+      box-shadow: none;
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      max-height: 100vh;
+      padding: 15mm 15mm 15mm 15mm;
+      margin: 0;
+      page-break-after: always;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ==================== 1. סרגל שליטה ימני ==================== -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">מערכת עימוד תורנית A4</div>
+      <button class="btn-load-fonts" onclick="loadSystemFonts()">📂 טען גופני Windows</button>
+    </div>
+
+    <!-- תיבת טקסט -->
+    <div class="textarea-container">
+      <textarea id="raw-input" placeholder="הדבק כאן את הטקסט המלא..."></textarea>
+    </div>
+
+    <!-- אקורדיון: הגדרות שער ראשי -->
+    <div class="accordion-box">
+      <div class="accordion-title" onclick="toggleBox('main-shaar-box')">
+        <span>👑 הגדרות שער ראשי</span>
+        <span>▼</span>
+      </div>
+      <div class="accordion-body" id="main-shaar-box">
+        <div class="form-group">
+          <label><input type="checkbox" id="show-main-shaar" checked> הצג שער ראשי בראש הספר</label>
+        </div>
+        <div class="form-group">
+          <label>סגנון שער ראשי:</label>
+          <select id="main-shaar-style">
+            <option value="1" selected>1. דמסק ושיש מרכזי</option>
+            <option value="2">2. תחרת סלסולים כפולה</option>
+            <option value="3">3. קרנות וילנא וגיליושה</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>שם הספר (כותרת ראשית):</label>
+          <input type="text" id="inp-book-title" value="מלאכת הוצאה">
+        </div>
+        <div class="form-group">
+          <label>נושא / כותרת משנה:</label>
+          <input type="text" id="inp-book-subtitle" value="ורשויות השבת">
+        </div>
+        <div class="form-group">
+          <label>נושא מפורט / תיאור:</label>
+          <input type="text" id="inp-book-desc" value="ביאור מקיף ועמוק ביסודות המלאכה, גדרי מעשה ומחשבה, מבנה הרשויות, מחיצות, עירובי חצרות ותחומין לאור סוגיות השס והראשונים">
+        </div>
+        <div class="form-group">
+          <label>פרטי מהדורא / חלקים:</label>
+          <input type="text" id="inp-book-sections" value="חלק ראשון: יסודות המלאכה והשביתה | חלק שני: תורת הרשויות ועירובין">
+        </div>
+        <div class="form-group">
+          <label>שם המחבר:</label>
+          <input type="text" id="inp-book-author" value="אחד הלומדים">
+        </div>
+        <div class="form-group">
+          <label>מקום ושנת הוצאה:</label>
+          <input type="text" id="inp-book-year" value="פה עיהק ירושלים תובבא | שנת תשפו לפק">
+        </div>
+      </div>
+    </div>
+
+    <!-- אקורדיון: שערי משנה ועיטורים -->
+    <div class="accordion-box">
+      <div class="accordion-title" onclick="toggleBox('ornaments-box')">
+        <span>❖ שערי משנה ועיטורים</span>
+        <span>▼</span>
+      </div>
+      <div class="accordion-body" id="ornaments-box">
+        <div class="form-group">
+          <label>סגנון שערי משנה (כותרת 1 - טור שמאל):</label>
+          <select id="sub-shaar-style">
+            <option value="1" selected>1. דמסק שמאלי</option>
+            <option value="2">2. תחרה שמאלית</option>
+            <option value="3">3. קרנות וילנא שמאליות</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>עיטור כותרת עליונה (בין הטורים):</label>
+          <select id="top-ornament-style" onchange="toggleCustomTopInput()">
+            <option value="custom" selected>1. מותאם אישית (לפי השדה להלן)</option>
+            <option value="diamonds">2. מעויינים (◈ ❖ ◈)</option>
+            <option value="spear">3. רומח מחודד עם טבעת (SVG)</option>
+            <option value="swash">4. שושנתא וילנאית (SVG)</option>
+            <option value="pen">5. סלסול עט סופרים (SVG)</option>
+            <option value="none">ללא עיטור</option>
+          </select>
+        </div>
+        <div class="form-group" id="custom-top-orn-group">
+          <label>הזנת חוצץ כותרת עליונה מותאם אישית:</label>
+          <input type="text" id="inp-custom-top-orn" value="· ❖ ·">
+        </div>
+        <div class="form-group">
+          <label>עיטור סיום פרק (בין קטע לקטע):</label>
+          <select id="section-divider-style">
+            <option value="pyramid" selected>1. פירמידת וילנא (❖ ❖ ❖)</option>
+            <option value="spear">2. רומח מחודד עם טבעת (SVG)</option>
+            <option value="swash">3. שושנתא וילנאית (SVG)</option>
+            <option value="flourish">4. סלסול תורני כפול (SVG)</option>
+            <option value="none">ללא עיטור</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- אקורדיון: תוכן עניינים ובחירת רמות כותרת -->
+    <div class="accordion-box">
+      <div class="accordion-title" onclick="toggleBox('toc-settings-box')">
+        <span>📑 תוכן עניינים ובחירת רמות</span>
+        <span>▼</span>
+      </div>
+      <div class="accordion-body" id="toc-settings-box">
+        <div class="form-group">
+          <label><input type="checkbox" id="enable-general-toc" checked> הצג תוכן עניינים כללי בראש הספר</label>
+          <div style="font-size: 8pt; font-weight: 700; margin-top: 4px;">רמות כותרת בתוכן הכללי:</div>
+          <div class="toc-levels-row">
+            <label><input type="checkbox" class="gtoc-lvl" value="1" checked> 1</label>
+            <label><input type="checkbox" class="gtoc-lvl" value="2" checked> 2</label>
+            <label><input type="checkbox" class="gtoc-lvl" value="3" checked> 3</label>
+            <label><input type="checkbox" class="gtoc-lvl" value="4" checked> 4</label>
+            <label><input type="checkbox" class="gtoc-lvl" value="5" checked> 5</label>
+            <label><input type="checkbox" class="gtoc-lvl" value="6" checked> 6</label>
+            <label><input type="checkbox" class="gtoc-lvl" value="7"> 7</label>
+          </div>
+        </div>
+        
+        <div class="form-group" style="margin-top: 8px;">
+          <label><input type="checkbox" id="enable-detailed-toc" checked> הצג תוכן מפורט בראש כל חלק (שער משנה)</label>
+          <div style="font-size: 8pt; font-weight: 700; margin-top: 4px;">רמות כותרת בתוכן המפורט:</div>
+          <div class="toc-levels-row">
+            <label><input type="checkbox" class="dtoc-lvl" value="1"> 1</label>
+            <label><input type="checkbox" class="dtoc-lvl" value="2" checked> 2</label>
+            <label><input type="checkbox" class="dtoc-lvl" value="3" checked> 3</label>
+            <label><input type="checkbox" class="dtoc-lvl" value="4" checked> 4</label>
+            <label><input type="checkbox" class="dtoc-lvl" value="5" checked> 5</label>
+            <label><input type="checkbox" class="dtoc-lvl" value="6" checked> 6</label>
+            <label><input type="checkbox" class="dtoc-lvl" value="7" checked> 7</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- אקורדיון: גריד ומידות -->
+    <div class="accordion-box">
+      <div class="accordion-title" onclick="toggleBox('grid-box')">
+        <span>📐 יחסי רוחב וגריד (אחוזים)</span>
+        <span>▼</span>
+      </div>
+      <div class="accordion-body" id="grid-box">
+        <div class="proportions-grid">
+          <div class="prop-item">
+            <label>רוחב טור (%):</label>
+            <input type="number" id="prop-col" value="40" step="0.5">
+          </div>
+          <div class="prop-item">
+            <label>כותרת צד (%):</label>
+            <input type="number" id="prop-margin" value="7.5" step="0.5">
+          </div>
+          <div class="prop-item">
+            <label>רווח מרכזי (%):</label>
+            <input type="number" id="prop-gutter" value="2" step="0.5">
+          </div>
+          <div class="prop-item">
+            <label>רווח ביניים (%):</label>
+            <input type="number" id="prop-gap" value="2" step="0.5">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- אקורדיון: גופנים -->
+    <div class="accordion-box">
+      <div class="accordion-title" onclick="toggleBox('fonts-box')">
+        <span>🔤 גופנים וגדלים (11 סגנונות)</span>
+        <span>▼</span>
+      </div>
+      <div class="accordion-body" id="fonts-box" style="display: none;">
+        <div class="styles-grid">
+          <div class="style-item">
+            <label>כותרת עליונה:</label>
+            <select id="font-header" class="font-picker">
+              <option value="'AAd_Livorna4', 'David Libre', 'David', serif" selected>AAd_Livorna4</option>
+              <option value="'David', 'David Libre', serif">David</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-header" value="13">
+          </div>
+
+          <div class="style-item">
+            <label>שער (ראשי):</label>
+            <select id="font-h1" class="font-picker">
+              <option value="'Lia Sgula', 'Bellefair', serif" selected>Lia Sgula</option>
+              <option value="'Bellefair', serif">Bellefair</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-h1" value="50">
+          </div>
+
+          <div class="style-item">
+            <label>שער (משנה):</label>
+            <select id="font-h1-sub" class="font-picker">
+              <option value="'David Libre', 'David', serif" selected>David Libre</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+            </select>
+            <input type="number" id="size-h1-sub" value="28">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 2 (פרק):</label>
+            <select id="font-h2" class="font-picker">
+              <option value="'AAd_AlphaBlack', 'David Libre', 'David', serif" selected>AAd_AlphaBlack</option>
+              <option value="'David', serif">David</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-h2" value="17">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 3:</label>
+            <select id="font-h3" class="font-picker">
+              <option value="'AAd_AlphaLight', 'Noto Serif Hebrew', serif" selected>AAd_AlphaLight</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-h3" value="13.5" step="0.5">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 4:</label>
+            <select id="font-h4" class="font-picker">
+              <option value="'FrankRuehl', 'Frank Ruhl Libre', serif" selected>FrankRuehl</option>
+              <option value="'David', serif">David</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+            </select>
+            <input type="number" id="size-h4" value="12.5" step="0.5">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 5:</label>
+            <select id="font-h5" class="font-picker">
+              <option value="'David Libre', 'David', serif" selected>David Libre</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+            </select>
+            <input type="number" id="size-h5" value="11.5" step="0.5">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 6:</label>
+            <select id="font-h6" class="font-picker">
+              <option value="'Noto Serif Hebrew', serif" selected>Noto Serif Hebrew</option>
+              <option value="'David', serif">David</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-h6" value="10.5" step="0.5">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 7 (צד):</label>
+            <select id="font-h7" class="font-picker">
+              <option value="'Hadassah Friedlaender', 'Hadassah', 'Noto Serif Hebrew', serif" selected>Hadassah</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+              <option value="'Assistant', sans-serif">Assistant</option>
+            </select>
+            <input type="number" id="size-h7" value="6" step="0.2">
+          </div>
+
+          <div class="style-item">
+            <label>מילה ראשונה:</label>
+            <select id="font-first-word" class="font-picker">
+              <option value="'Rashi DP', 'Frank Ruhl Libre', serif" selected>Rashi DP</option>
+              <option value="'Frank Ruhl Libre', serif">FrankRuehl</option>
+              <option value="'David', serif">David</option>
+            </select>
+            <input type="number" id="size-first-word" value="1.5" step="0.1">
+          </div>
+
+          <div class="style-item">
+            <label>גוף הטקסט:</label>
+            <select id="font-body" class="font-picker">
+              <option value="'Rashi DP', 'Frank Ruhl Libre', serif" selected>Rashi DP</option>
+              <option value="'Frank Ruhl Libre', serif">FrankRuehl</option>
+              <option value="'David', serif">David</option>
+            </select>
+            <input type="number" id="size-body" value="11.2" step="0.2">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. לחצני פעולה בתחתית לוח ההגדרות -->
+    <div class="btn-bar-bottom">
+      <button class="btn-primary" onclick="typesetDocument()">⚡ עדכן ועמד מחדש</button>
+      <button class="btn-secondary" onclick="window.print()">🖨️ הדפסה / PDF</button>
+    </div>
+  </div>
+
+  <!-- מפריד לגרירת רוחב הסרגל -->
+  <div id="resizer"></div>
+
+  <!-- ==================== 3. תצוגת דפים מעומדים משמאל ==================== -->
+  <div id="preview-pane">
+    <div id="book-container"></div>
+  </div>
+
+  <div id="measuring-box"></div>
+
+  <script>
+    function toggleBox(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      }
+    }
+
+    function toggleCustomTopInput() {
+      const sel = document.getElementById('top-ornament-style');
+      const group = document.getElementById('custom-top-orn-group');
+      if (sel && group) {
+        group.style.display = (sel.value === 'custom') ? 'flex' : 'none';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // מנגנון גרירת רוחב הסרגל (Resizable Splitter)
+    // -------------------------------------------------------------
+    const resizer = document.getElementById('resizer');
+    const sidebar = document.getElementById('sidebar');
+    let isResizing = false;
+
+    resizer.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      resizer.classList.add('resizing');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      // חישוב ב-RTL (הסרגל מימין)
+      const newWidth = document.body.clientWidth - e.clientX;
+      if (newWidth >= 360 && newWidth <= 750) {
+        sidebar.style.width = newWidth + 'px';
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        resizer.classList.remove('resizing');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    });
+
+    async function loadSystemFonts() {
+      if ('queryLocalFonts' in window) {
+        try {
+          const availableFonts = await window.queryLocalFonts();
+          const fontFamilies = [...new Set(availableFonts.map(f => f.family))].sort((a, b) => a.localeCompare(b, 'he'));
+          
+          if (fontFamilies.length > 0) {
+            document.querySelectorAll('.font-picker').forEach(select => {
+              const currentVal = select.value;
+              select.innerHTML = '';
+              
+              const sysGroup = document.createElement('optgroup');
+              sysGroup.label = `גופני מחשב (${fontFamilies.length} נמצאו)`;
+              
+              fontFamilies.forEach(family => {
+                const opt = document.createElement('option');
+                opt.value = `'${family}', serif`;
+                opt.textContent = family;
+                if (currentVal.includes(family)) opt.selected = true;
+                sysGroup.appendChild(opt);
+              });
+              
+              select.appendChild(sysGroup);
+            });
+            alert(`נטענו בהצלחה ${fontFamilies.length} גופנים מותקנים מהמחשב!`);
+          }
+        } catch (err) {
+          alert('לא ניתנה הרשאה לגישה לגופני המחשב.');
+        }
+      } else {
+        alert('הדפדפן הנוכחי אינו תומך בגישה ישירה לגופני המערכת. מומלץ להשתמש ב-Chrome או Edge.');
+      }
+    }
+
+    function toGematria(num) {
+      num = parseInt(num, 10);
+      if (isNaN(num) || num <= 0) return "";
+      if (num === 15) return "טו";
+      if (num === 16) return "טז";
+      const hundreds = ["", "ק", "ר", "ש", "ת", "תק", "תר", "תש", "תת", "תתק"];
+      const tens = ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"];
+      const ones = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"];
+      let str = "";
+      let h = Math.floor(num / 100);
+      if (h > 0) {
+        if (h <= 4) str += ["", "ק", "ר", "ש", "ת"][h];
+        else if (h < hundreds.length) str += hundreds[h];
+        num %= 100;
+      }
+      let t = Math.floor(num / 10);
+      let o = num % 10;
+      if (t === 1 && (o === 5 || o === 6)) {
+        str += (o === 5) ? "טו" : "טז";
+      } else {
+        str += tens[t] + ones[o];
+      }
+      return str;
+    }
+
+    function updateGrid() {
+      const root = document.documentElement;
+      root.style.setProperty('--w-col', document.getElementById('prop-col').value + '%');
+      root.style.setProperty('--w-margin', document.getElementById('prop-margin').value + '%');
+      root.style.setProperty('--w-gutter', document.getElementById('prop-gutter').value + '%');
+      root.style.setProperty('--w-gap', document.getElementById('prop-gap').value + '%');
+    }
+
+    function updateStyles() {
+      const root = document.documentElement;
+      root.style.setProperty('--fn-header', document.getElementById('font-header').value);
+      root.style.setProperty('--sz-header', document.getElementById('size-header').value + 'pt');
+
+      root.style.setProperty('--fn-h1', document.getElementById('font-h1').value);
+      root.style.setProperty('--sz-h1', document.getElementById('size-h1').value + 'pt');
+
+      root.style.setProperty('--fn-h1-sub', document.getElementById('font-h1-sub').value);
+      root.style.setProperty('--sz-h1-sub', document.getElementById('size-h1-sub').value + 'pt');
+
+      root.style.setProperty('--fn-h2', document.getElementById('font-h2').value);
+      root.style.setProperty('--sz-h2', document.getElementById('size-h2').value + 'pt');
+
+      root.style.setProperty('--fn-h3', document.getElementById('font-h3').value);
+      root.style.setProperty('--sz-h3', document.getElementById('size-h3').value + 'pt');
+
+      root.style.setProperty('--fn-h4', document.getElementById('font-h4').value);
+      root.style.setProperty('--sz-h4', document.getElementById('size-h4').value + 'pt');
+
+      root.style.setProperty('--fn-h5', document.getElementById('font-h5').value);
+      root.style.setProperty('--sz-h5', document.getElementById('size-h5').value + 'pt');
+
+      root.style.setProperty('--fn-h6', document.getElementById('font-h6').value);
+      root.style.setProperty('--sz-h6', document.getElementById('size-h6').value + 'pt');
+
+      root.style.setProperty('--fn-h7', document.getElementById('font-h7').value);
+      root.style.setProperty('--sz-h7', document.getElementById('size-h7').value + 'pt');
+
+      root.style.setProperty('--fn-first-word', document.getElementById('font-first-word').value);
+      root.style.setProperty('--sz-first-word', document.getElementById('size-first-word').value + 'em');
+
+      root.style.setProperty('--fn-body', document.getElementById('font-body').value);
+      root.style.setProperty('--sz-body', document.getElementById('size-body').value + 'pt');
+    }
+
+    function createDropWord(text, isContinuation) {
+      if (isContinuation) return text;
+      text = text.trim();
+      const firstSpace = text.indexOf(' ');
+      if (firstSpace === -1) {
+        return `<span class="first-word-window">${text}</span>`;
+      }
+      const firstWord = text.substring(0, firstSpace);
+      const rest = text.substring(firstSpace + 1);
+      return `<span class="first-word-window">${firstWord}</span> ${rest}`;
+    }
+
+    function justifyColumnVertically(col, maxH) {
+      const children = Array.from(col.children);
+      if (children.length <= 1) return;
+      const currentH = col.scrollHeight;
+      const diff = maxH - currentH;
+      if (diff > 2 && diff < 160) {
+        const extraPerItem = diff / (children.length - 1);
+        children.slice(0, -1).forEach(child => {
+          const curMB = parseFloat(getComputedStyle(child).marginBottom) || 0;
+          child.style.marginBottom = (curMB + extraPerItem) + 'px';
+        });
+      }
+    }
+
+    function getTopOrnamentHTML(type) {
+      if (type === 'custom') {
+        const customInp = document.getElementById('inp-custom-top-orn');
+        const customVal = customInp ? customInp.value : '· ❖ ·';
+        return `<div style="font-size: 8.5pt; letter-spacing: 2px; color: #555; white-space: nowrap;">${customVal}</div>`;
+      } else if (type === 'diamonds') {
+        return '<div style="font-size: 8pt; letter-spacing: 3px; color: #555; white-space: nowrap;">◈ ❖ ◈</div>';
+      } else if (type === 'spear') {
+        return '<svg style="height: 9px; width: 48px;" viewBox="0 0 400 40"><circle cx="200" cy="20" r="10" fill="none" stroke="#444" stroke-width="4.5"/><circle cx="200" cy="20" r="4.5" fill="#444"/><path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#444"/><path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#444"/></svg>';
+      } else if (type === 'swash') {
+        return '<svg style="height: 12px; width: 44px; fill: #444;" viewBox="0 0 320 28"><path d="M10,14 C60,14 85,4 125,4 C145,4 152,11 160,17 C168,11 175,4 195,4 C235,4 260,14 310,14 C260,14 235,24 195,24 C175,24 168,17 160,11 C152,17 145,24 125,24 C85,24 60,14 10,14 Z M160,7 A5,5 0 1,0 160,21 A5,5 0 1,0 160,7 Z"/></svg>';
+      } else if (type === 'pen') {
+        return '<svg style="height: 12px; width: 44px;" viewBox="0 0 280 80"><g stroke="#444" fill="none" stroke-linecap="round"><path d="M30,55 C12,42 22,22 38,28 C50,32 55,48 45,58 C35,68 18,60 14,46 C10,32 25,18 42,22 C65,28 85,65 118,68 C128,69 135,62 135,50 C135,38 124,32 115,38" stroke-width="3"/><path d="M250,55 C268,42 258,22 242,28 C230,32 225,48 235,58 C245,68 262,60 266,46 C270,32 255,18 238,22 C215,28 195,65 162,68 C152,69 145,62 145,50 C145,38 156,32 165,38" stroke-width="3"/></g></svg>';
+      }
+      return '';
+    }
+
+    function getSectionDividerHTML(type) {
+      if (type === 'pyramid') {
+        return '<div style="grid-column: 3 / 6; text-align: center; line-height: 0.9; margin: 18px 0 6px 0;"><div style="font-size: 10pt; letter-spacing: 6px;">❖ ❖ ❖</div><div style="font-size: 9pt; letter-spacing: 5px; margin-top: 3px;">❖ ❖</div><div style="font-size: 8pt; margin-top: 3px;">❖</div></div>';
+      } else if (type === 'spear') {
+        return '<div style="grid-column: 3 / 6; text-align: center; margin: 16px 0 6px 0;"><svg style="width: 200px; height: 22px; margin: auto;" viewBox="0 0 400 40"><circle cx="200" cy="20" r="10" fill="none" stroke="#000" stroke-width="4.5"/><circle cx="200" cy="20" r="4.5" fill="#000"/><path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#000"/><path d="M165,20 C165,22 150,24 130,24 C95,24 55,21 30,20 C55,19 95,16 130,16 C150,16 165,18 165,20 Z" fill="#fff"/><path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#000"/><path d="M235,20 C235,22 250,24 270,24 C305,24 345,21 370,20 C345,19 305,16 270,16 C250,16 235,18 235,20 Z" fill="#fff"/></svg></div>';
+      } else if (type === 'swash') {
+        return '<div style="grid-column: 3 / 6; text-align: center; margin: 16px 0 6px 0;"><svg style="width: 170px; height: 18px; fill: #111; margin: auto;" viewBox="0 0 320 28"><path d="M10,14 C60,14 85,4 125,4 C145,4 152,11 160,17 C168,11 175,4 195,4 C235,4 260,14 310,14 C260,14 235,24 195,24 C175,24 168,17 160,11 C152,17 145,24 125,24 C85,24 60,14 10,14 Z M160,7 A5,5 0 1,0 160,21 A5,5 0 1,0 160,7 Z"/></svg></div>';
+      } else if (type === 'flourish') {
+        return '<div style="grid-column: 3 / 6; text-align: center; margin: 16px 0 6px 0;"><svg style="width: 140px; height: 45px; fill: #000; margin: auto;" viewBox="0 0 240 90"><path d="M110,48 C105,44 92,30 82,30 C68,30 55,42 42,42 C30,42 22,32 22,22 C22,12 32,5 45,5 C60,5 72,18 78,28 C82,20 88,10 100,10 C108,10 114,16 114,24 C114,35 102,44 88,44 C72,44 58,35 48,22 C42,28 35,35 25,48 C15,62 10,72 20,82 C30,90 48,85 62,72 C78,58 92,54 110,48 Z"/><path d="M130,48 C135,44 148,30 158,30 C172,30 185,42 198,42 C210,42 218,32 218,22 C218,12 208,5 195,5 C180,5 168,18 162,28 C158,20 152,10 140,10 C132,10 126,16 126,24 C126,35 138,44 152,44 C168,44 182,35 192,22 C198,28 205,35 215,48 C225,62 230,72 220,82 C210,90 192,85 178,72 C162,58 148,54 130,48 Z"/></svg></div>';
+      }
+      return '';
+    }
+
+    let lineToTokenMap = [];
+
+    // -------------------------------------------------------------
+    // שאיבת פרטי ספר מראש הטקסט
+    // -------------------------------------------------------------
+    function parseMetadataFromText(rawText) {
+      const lines = rawText.split('\n');
+      const cleanLines = [];
+
+      for (let line of lines) {
+        const trimmed = line.trim();
+        let match = false;
+
+        if (/^(?:שם הספר[:\s]*)?שם הספר\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+          document.getElementById('inp-book-title').value = trimmed.replace(/^(?:שם הספר[:\s]*)?שם הספר\s*[-–—:]\s*/i, '').trim();
+          match = true;
+        } else if (/^(?:נושא(?:\\|\/)כותרת משנה[:\s]*)?נושא\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+          document.getElementById('inp-book-subtitle').value = trimmed.replace(/^(?:נושא(?:\\|\/)כותרת משנה[:\s]*)?נושא\s*[-–—:]\s*/i, '').trim();
+          match = true;
+        } else if (/^(?:נושא מפורט\s*(?:\\|\/)\s*תיאור[:\s]*)?נושא מפורט\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+          document.getElementById('inp-book-desc').value = trimmed.replace(/^(?:נושא מפורט\s*(?:\\|\/)\s*תיאור[:\s]*)?נושא מפורט\s*[-–—:]\s*/i, '').trim();
+          match = true;
+        } else if (/^(?:פרטי מהדורא\s*(?:\\|\/)\s*חלקים[:\s]*)?פרטי מהדורא\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+          document.getElementById('inp-book-sections').value = trimmed.replace(/^(?:פרטי מהדורא\s*(?:\\|\/)\s*חלקים[:\s]*)?פרטי מהדורא\s*[-–—:]\s*/i, '').trim();
+          match = true;
+        } else if (/^(?:שם המחבר[:\s]*)?שם המחבר\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+          document.getElementById('inp-book-author').value = trimmed.replace(/^(?:שם המחבר[:\s]*)?שם המחבר\s*[-–—:]\s*/i, '').trim();
+          match = true;
+        } else if (/^(?:מקום ושנת הוצאה[:\s]*)?מקום ושנת הוצאה\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+          document.getElementById('inp-book-year').value = trimmed.replace(/^(?:מקום ושנת הוצאה[:\s]*)?מקום ושנת הוצאה\s*[-–—:]\s*/i, '').trim();
+          match = true;
+        }
+
+        if (!match) {
+          cleanLines.push(line);
+        }
+      }
+      return cleanLines.join('\n');
+    }
+
+    // -------------------------------------------------------------
+    // מנוע עימוד ראשי
+    // -------------------------------------------------------------
+    function typesetDocument() {
+      updateGrid();
+      updateStyles();
+
+      let rawText = document.getElementById('raw-input').value;
+      if (!rawText.trim()) return;
+
+      // שאיבת פרטים אוטומטית
+      rawText = parseMetadataFromText(rawText);
+
+      const container = document.getElementById('book-container');
+      container.innerHTML = '';
+
+      const lines = rawText.split('\n');
+      const tokens = [];
+      let pendingSideNote = null;
+      lineToTokenMap = [];
+
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const line = lines[lineIdx].trim();
+        if (!line) {
+          lineToTokenMap[lineIdx] = null;
+          continue;
+        }
+
+        const hMatch = line.match(/^כותרת\s*(\d+)\s*(?:מספר\s*\d+)?\s*[-–—]\s*(.*)$/);
+        if (hMatch) {
+          const lvl = parseInt(hMatch[1], 10);
+          const txt = hMatch[2].trim();
+          if (lvl === 7) {
+            pendingSideNote = txt;
+            lineToTokenMap[lineIdx] = null;
+          } else {
+            const tokenObj = { id: tokens.length, type: 'h' + lvl, level: lvl, text: txt, lineIdx: lineIdx };
+            tokens.push(tokenObj);
+            lineToTokenMap[lineIdx] = tokenObj.id;
+          }
+        } else {
+          const tokenObj = { id: tokens.length, type: 'p', text: line, sideNote: pendingSideNote, lineIdx: lineIdx };
+          tokens.push(tokenObj);
+          lineToTokenMap[lineIdx] = tokenObj.id;
+          pendingSideNote = null;
+        }
+      }
+
+      // חלוקה למקטעים
+      const sections = [];
+      let currentSection = { type: 'body', tokens: [] };
+
+      tokens.forEach(t => {
+        if (t.type === 'h1') {
+          if (currentSection.tokens.length > 0) sections.push(currentSection);
+          sections.push({ type: 'h1', token: t, tokens: [] });
+          currentSection = { type: 'body', tokens: [] };
+        } else if (t.type === 'h2' || t.type === 'h0') {
+          if (currentSection.tokens.length > 0) sections.push(currentSection);
+          currentSection = { type: t.type, h2Token: t, tokens: [] };
+        } else {
+          currentSection.tokens.push(t);
+        }
+      });
+      if (currentSection.tokens.length > 0 || currentSection.type === 'h2' || currentSection.type === 'h0') {
+        sections.push(currentSection);
+      }
+
+      const gtocLevels = Array.from(document.querySelectorAll('.gtoc-lvl:checked')).map(cb => parseInt(cb.value, 10));
+      const dtocLevels = Array.from(document.querySelectorAll('.dtoc-lvl:checked')).map(cb => parseInt(cb.value, 10));
+
+      const headingPageMap = {};
+      let pageIndex = 1;
+      let currentH1Title = '';
+      let currentH2Title = '';
+
+      const bookTitle = document.getElementById('inp-book-title').value;
+      const showMainShaar = document.getElementById('show-main-shaar').checked;
+      const mainShaarStyle = document.getElementById('main-shaar-style').value;
+      const subShaarStyle = document.getElementById('sub-shaar-style').value;
+      const topOrnStyle = document.getElementById('top-ornament-style').value;
+      const secDivStyle = document.getElementById('section-divider-style').value;
+      const enableGeneralTOC = document.getElementById('enable-general-toc').checked;
+      const enableDetailedTOC = document.getElementById('enable-detailed-toc').checked;
+
+      // 1. שער ראשי
+      if (showMainShaar) {
+        renderMainShaar(container, mainShaarStyle);
+      }
+
+      // 2. תוכן עניינים כללי (בראש הספר)
+      if (enableGeneralTOC) {
+        const generalTocEntries = buildStructuredTOC(tokens, gtocLevels);
+        const pagesRendered = renderPaginatedTOC(
+          container, 
+          generalTocEntries, 
+          "תוכן העניינים הכללי", 
+          bookTitle, 
+          "תוכן העניינים הכללי", 
+          pageIndex, 
+          topOrnStyle
+        );
+        pageIndex += pagesRendered;
+      }
+
+      // 3. עיבוד מקטעי הספר
+      for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+        const sec = sections[sIdx];
+
+        if (sec.type === 'h1') {
+          renderSubShaar(container, sec.token, subShaarStyle);
+          currentH1Title = sec.token.text.split(/[-–—]/)[0].trim();
+          headingPageMap[sec.token.id] = toGematria(pageIndex);
+
+          if (enableDetailedTOC) {
+            let inThisH1 = false;
+            const thisH1Tokens = [];
+
+            for (let t of tokens) {
+              if (t.id === sec.token.id) { inThisH1 = true; continue; }
+              if (inThisH1 && t.type === 'h1') break;
+              if (inThisH1) thisH1Tokens.push(t);
+            }
+
+            const detailedTocEntries = buildStructuredTOC(thisH1Tokens, dtocLevels);
+            const dtocPages = renderPaginatedTOC(
+              container, 
+              detailedTocEntries, 
+              "מפתח ולוח עניינים מפורט", 
+              currentH1Title, 
+              "תוכן העניינים המפורט", 
+              pageIndex, 
+              topOrnStyle
+            );
+            pageIndex += dtocPages;
+          }
+          continue;
+        }
+
+        const isH0 = (sec.type === 'h0');
+        let isFirstPage = true;
+        let h2Text = (sec.type === 'h2' || sec.type === 'h0') ? sec.h2Token.text : '';
+        let h2Id = (sec.type === 'h2' || sec.type === 'h0') ? sec.h2Token.id : undefined;
+        if (h2Text) {
+          currentH2Title = h2Text;
+          headingPageMap[h2Id] = toGematria(pageIndex);
+        }
+
+        let secTokens = sec.tokens.slice();
+        let tokenIndex = 0;
+        let pendingWordTokens = null;
+
+        while (tokenIndex < secTokens.length || pendingWordTokens) {
+          let pageLayout = createPageLayout(
+            container, 
+            isFirstPage ? h2Text : '', 
+            isFirstPage ? h2Id : undefined, 
+            pageIndex, 
+            currentH1Title, 
+            currentH2Title, 
+            topOrnStyle,
+            isH0
+          );
+          pageIndex++;
+          isFirstPage = false;
+
+          // מצב טור יחיד עבור כותרת 0 (הקדמה)
+          if (isH0) {
+            let targetCol = pageLayout.singleCol;
+            while (tokenIndex < secTokens.length || pendingWordTokens) {
+              if (targetCol.scrollHeight >= pageLayout.maxColHeight - 10 && targetCol.children.length > 0) {
+                break;
+              }
+
+              let currentTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
+
+              if (currentTok.type.startsWith('h')) {
+                const hElem = document.createElement('div');
+                hElem.className = `title-level-${currentTok.level}`;
+                hElem.textContent = currentTok.text;
+                hElem.setAttribute('data-token-id', currentTok.id);
+                targetCol.appendChild(hElem);
+                headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
+                tokenIndex++;
+                continue;
+              }
+
+              if (currentTok.type === 'p') {
+                let words = pendingWordTokens ? pendingWordTokens.remainingWords : currentTok.text.split(' ');
+                let isContinuation = pendingWordTokens ? true : false;
+
+                const pElem = document.createElement('p');
+                pElem.setAttribute('data-token-id', currentTok.id);
+                targetCol.appendChild(pElem);
+
+                let low = 1, high = words.length, bestFit = 0;
+                while (low <= high) {
+                  let mid = Math.floor((low + high) / 2);
+                  let testSlice = words.slice(0, mid).join(' ');
+                  pElem.className = (mid >= words.length) ? 'p-end' : 'p-cut';
+                  pElem.innerHTML = createDropWord(testSlice, isContinuation);
+
+                  if (targetCol.scrollHeight <= pageLayout.maxColHeight) {
+                    bestFit = mid;
+                    low = mid + 1;
+                  } else {
+                    high = mid - 1;
+                  }
+                }
+
+                if (bestFit === 0 && targetCol.children.length > 1) {
+                  targetCol.removeChild(pElem);
+                  break;
+                }
+                if (bestFit === 0) bestFit = Math.min(10, words.length);
+
+                const chunk = words.slice(0, bestFit).join(' ');
+                const isEndOfP = (bestFit >= words.length);
+                pElem.className = isEndOfP ? 'p-end' : 'p-cut';
+                pElem.innerHTML = createDropWord(chunk, isContinuation);
+
+                if (isEndOfP) {
+                  pendingWordTokens = null;
+                  tokenIndex++;
+                } else {
+                  pendingWordTokens = { token: currentTok, remainingWords: words.slice(bestFit) };
+                  break;
+                }
+              }
+            }
+            continue;
+          }
+
+          // מצב שני טורים רגיל
+          let activeCol = 'right';
+          let pendingNotes = [];
+          const actualColWidth = pageLayout.rCol.offsetWidth || 272;
+
+          const totalRemH = measureRemainingHeight(secTokens, tokenIndex, pendingWordTokens, actualColWidth);
+          const isSectionClosingPage = totalRemH <= (2 * pageLayout.maxColHeight);
+          let targetHeightPerColumn = pageLayout.maxColHeight;
+
+          if (isSectionClosingPage) {
+            targetHeightPerColumn = Math.min(pageLayout.maxColHeight, Math.max(60, Math.ceil(totalRemH / 2) + 4));
+          }
+
+          ['right', 'left'].forEach((colName) => {
+            activeCol = colName;
+            let targetCol = colName === 'right' ? pageLayout.rCol : pageLayout.lCol;
+            let targetMargin = colName === 'right' ? pageLayout.rMargin : pageLayout.lMargin;
+            let effectiveColLimit = targetHeightPerColumn;
+
+            if (colName === 'left' && isSectionClosingPage) {
+              effectiveColLimit = pageLayout.maxColHeight;
+            }
+
+            while (tokenIndex < secTokens.length || pendingWordTokens) {
+              if (targetCol.scrollHeight >= effectiveColLimit - 10 && targetCol.children.length > 0) {
+                break;
+              }
+
+              let currentTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
+
+              // כותרת 3 נפרסת לרוחב הדף המלא
+              if (currentTok.type === 'h3') {
+                const h3Elem = document.createElement('div');
+                h3Elem.className = 'title-level-3-span';
+                h3Elem.textContent = currentTok.text;
+                h3Elem.setAttribute('data-token-id', currentTok.id);
+                
+                // הוספה לקונטיינר הגריד מעל הטורים
+                pageLayout.grid.appendChild(h3Elem);
+                headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
+                tokenIndex++;
+                continue;
+              }
+
+              // כותרות 4–6
+              if (currentTok.type.startsWith('h')) {
+                const hElem = document.createElement('div');
+                hElem.className = `title-level-${currentTok.level}`;
+                hElem.textContent = currentTok.text;
+                hElem.setAttribute('data-token-id', currentTok.id);
+                targetCol.appendChild(hElem);
+
+                if (!headingPageMap[currentTok.id]) {
+                  headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
+                }
+
+                if (targetCol.scrollHeight > effectiveColLimit - 45 && targetCol.children.length > 1) {
+                  targetCol.removeChild(hElem);
+                  break;
+                }
+
+                tokenIndex++;
+                continue;
+              }
+
+              // פסקאות
+              if (currentTok.type === 'p') {
+                let words = pendingWordTokens ? pendingWordTokens.remainingWords : currentTok.text.split(' ');
+                let isContinuation = pendingWordTokens ? true : false;
+
+                const pElem = document.createElement('p');
+                pElem.setAttribute('data-token-id', currentTok.id);
+                targetCol.appendChild(pElem);
+
+                if (currentTok.sideNote && !headingPageMap[currentTok.id]) {
+                  headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
+                }
+
+                let low = 1, high = words.length, bestFit = 0;
+
+                while (low <= high) {
+                  let mid = Math.floor((low + high) / 2);
+                  let testSlice = words.slice(0, mid).join(' ');
+                  pElem.className = (mid >= words.length) ? 'p-end' : 'p-cut';
+                  pElem.innerHTML = createDropWord(testSlice, isContinuation);
+
+                  if (targetCol.scrollHeight <= effectiveColLimit) {
+                    bestFit = mid;
+                    low = mid + 1;
+                  } else {
+                    high = mid - 1;
+                  }
+                }
+
+                if (bestFit === 0 && targetCol.children.length > 1) {
+                  targetCol.removeChild(pElem);
+                  break;
+                }
+
+                if (bestFit === 0) bestFit = Math.min(8, words.length);
+
+                const chunk = words.slice(0, bestFit).join(' ');
+                const isEndOfP = (bestFit >= words.length);
+
+                pElem.className = isEndOfP ? 'p-end' : 'p-cut';
+                pElem.innerHTML = createDropWord(chunk, isContinuation);
+
+                if (!isContinuation && currentTok.sideNote) {
+                  const noteElem = document.createElement('div');
+                  noteElem.className = 'side-note-anchor';
+                  noteElem.textContent = currentTok.sideNote;
+                  targetMargin.appendChild(noteElem);
+                  pendingNotes.push({ elem: noteElem, pElem: pElem });
+                }
+
+                if (isEndOfP) {
+                  pendingWordTokens = null;
+                  tokenIndex++;
+                } else {
+                  pendingWordTokens = { token: currentTok, remainingWords: words.slice(bestFit) };
+                  break;
+                }
+              }
+            }
+          });
+
+          // הצדקה אנכית ועיטור
+          if (isSectionClosingPage) {
+            const balancedHeight = Math.max(pageLayout.rCol.scrollHeight, pageLayout.lCol.scrollHeight);
+            justifyColumnVertically(pageLayout.rCol, balancedHeight);
+            justifyColumnVertically(pageLayout.lCol, balancedHeight);
+
+            const divHTML = getSectionDividerHTML(secDivStyle);
+            if (divHTML) {
+              const divContainer = document.createElement('div');
+              divContainer.innerHTML = divHTML;
+              pageLayout.page.querySelector('.page-content-grid').appendChild(divContainer.firstElementChild);
+            }
+          } else {
+            justifyColumnVertically(pageLayout.rCol, pageLayout.maxColHeight);
+            justifyColumnVertically(pageLayout.lCol, pageLayout.maxColHeight);
+          }
+
+          pendingNotes.forEach(item => {
+            if (item.elem && item.pElem) {
+              item.elem.style.top = item.pElem.offsetTop + 'px';
+            }
+          });
+        }
+      }
+
+      // -------------------------------------------------------------
+      // הטבעת מספרי עמודים מדויקים בתוכן העניינים (כולל כותרות 7 בשורה)
+      // -------------------------------------------------------------
+      document.querySelectorAll('.toc-page-num[data-target-id], .l7-page[data-target-id]').forEach(span => {
+        const targetId = span.getAttribute('data-target-id');
+        if (targetId && headingPageMap[targetId]) {
+          span.textContent = headingPageMap[targetId];
+        }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // בניית מבנה נתונים מובנה לתוכן עניינים (כותרות 7 מוטמעות בשורה)
+    // -------------------------------------------------------------
+    function buildStructuredTOC(tokenList, allowedLevels) {
+      const entries = [];
+      let currentLvl7Group = [];
+
+      function flushLvl7() {
+        if (currentLvl7Group.length > 0) {
+          entries.push({
+            isLvl7Group: true,
+            items: currentLvl7Group.slice()
+          });
+          currentLvl7Group = [];
+        }
+      }
+
+      tokenList.forEach(t => {
+        if (t.type.startsWith('h')) {
+          if (allowedLevels.includes(t.level)) {
+            flushLvl7();
+            entries.push({
+              id: t.id,
+              level: t.level,
+              text: t.text,
+              isLvl7Group: false
+            });
+          }
+        } else if (t.type === 'p' && t.sideNote) {
+          if (allowedLevels.includes(7)) {
+            currentLvl7Group.push({
+              id: t.id,
+              text: t.sideNote
+            });
+          }
+        }
+      });
+
+      flushLvl7();
+      return entries;
+    }
+
+    // -------------------------------------------------------------
+    // רנדור תוכן עניינים רב-דפי עם כותרות עליונות
+    // -------------------------------------------------------------
+    function renderPaginatedTOC(container, entries, titleText, headerRight, headerLeft, startPNum, topOrnStyle) {
+      if (entries.length === 0) return 0;
+
+      const topOrnHTML = getTopOrnamentHTML(topOrnStyle);
+      const ITEMS_PAGE_1 = 20; // עמוד ראשון מכיל כותרת ראשית גדולה
+      const ITEMS_PAGE_REST = 28; // עמודי המשך מנוצלים במלואם מלמעלה
+
+      let curIdx = 0;
+      let pagesCount = 0;
+
+      while (curIdx < entries.length) {
+        const isFirstTOCPage = (pagesCount === 0);
+        const limit = isFirstTOCPage ? ITEMS_PAGE_1 : ITEMS_PAGE_REST;
+        const pageItems = entries.slice(curIdx, curIdx + limit);
+        curIdx += limit;
+        pagesCount++;
+
+        const page = document.createElement('div');
+        page.className = 'a4-page toc-page';
+
+        let itemsHTML = '';
+        pageItems.forEach(it => {
+          if (it.isLvl7Group) {
+            const inlineSpans = it.items.map(l7 => 
+              `<span class="l7-title">${l7.text}</span> - <span class="l7-page" data-target-id="${l7.id}"></span>`
+            ).join('<span class="l7-sep">|</span>');
+            itemsHTML += `<div class="toc-lvl-7-inline-block">${inlineSpans}</div>`;
+          } else {
+            itemsHTML += `
+              <div class="toc-item toc-lvl-${it.level}">
+                <span class="toc-title">${it.text}</span>
+                <span class="toc-dots"></span>
+                <span class="toc-page-num" data-target-id="${it.id}"></span>
+              </div>
+            `;
+          }
+        });
+
+        // כותרת עליונה רצה
+        const topHeader = `
+          <div class="top-header-grid">
+            <div class="header-right-col">${headerRight}</div>
+            <div class="header-center-ornament">${topOrnHTML}</div>
+            <div class="header-left-col">${headerLeft}</div>
+          </div>
+        `;
+
+        // כותרת פתיחה גדולה רק בעמוד הראשון של התוכן
+        const mainTitleBlock = isFirstTOCPage ? `<div class="title-level-2-standalone" style="margin-top: 50px; margin-bottom: 25px;">${titleText}</div>` : '';
+
+        page.innerHTML = `
+          ${topHeader}
+          ${mainTitleBlock}
+          <div class="toc-grid-full">${itemsHTML}</div>
+          <div class="page-number-footer">${toGematria(startPNum + pagesCount - 1)}</div>
+        `;
+        container.appendChild(page);
+      }
+
+      return pagesCount;
+    }
+
+    // -------------------------------------------------------------
+    // יצירת עמוד טקסט
+    // -------------------------------------------------------------
+    function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, topOrnStyle, isSingleCol) {
+      const page = document.createElement('div');
+      page.className = 'a4-page';
+
+      const topOrnHTML = getTopOrnamentHTML(topOrnStyle);
+
+      let contentGridHTML = '';
+      if (isSingleCol) {
+        contentGridHTML = `
+          <div class="page-content-grid single-col-mode ${h2Text ? 'has-h2' : ''}">
+            <div class="single-wide-col"></div>
+          </div>
+        `;
+      } else {
+        contentGridHTML = `
+          <div class="page-content-grid ${h2Text ? 'has-h2' : ''}">
+            <div class="margin-notes-column right-margin"></div>
+            <div></div>
+            <div class="main-column right-col"></div>
+            <div></div>
+            <div class="main-column left-col"></div>
+            <div></div>
+            <div class="margin-notes-column left-margin"></div>
+          </div>
+        `;
+      }
+
+      page.innerHTML = `
+        <div class="top-header-grid">
+          <div class="header-right-col">${h1Title}</div>
+          <div class="header-center-ornament">${topOrnHTML}</div>
+          <div class="header-left-col">${h2Title}</div>
+        </div>
+        ${h2Text ? `<div class="title-level-2-standalone" ${h2TokenId !== undefined ? `data-token-id="${h2TokenId}"` : ''}>${h2Text}</div>` : ''}
+        ${contentGridHTML}
+        <div class="page-number-footer">${toGematria(pNum)}</div>
+      `;
+
+      container.appendChild(page);
+
+      const grid = page.querySelector('.page-content-grid');
+      const rCol = page.querySelector('.right-col');
+      const lCol = page.querySelector('.left-col');
+      const singleCol = page.querySelector('.single-wide-col');
+      const rMargin = page.querySelector('.right-margin');
+      const lMargin = page.querySelector('.left-margin');
+      const maxColHeight = h2Text ? 660 : 875;
+
+      return { page, grid, rCol, lCol, singleCol, rMargin, lMargin, maxColHeight };
+    }
+
+    function measureRemainingHeight(tokensList, startIndex, pending, colWidthPx) {
+      const measureBox = document.getElementById('measuring-box');
+      measureBox.style.width = colWidthPx + 'px';
+      measureBox.innerHTML = '';
+      let dummy = document.createElement('div');
+      dummy.style.width = colWidthPx + 'px';
+
+      if (pending) {
+        let p = document.createElement('p');
+        p.className = 'p-cut';
+        p.innerHTML = createDropWord(pending.remainingWords.join(' '), true);
+        dummy.appendChild(p);
+      }
+      for (let i = startIndex; i < tokensList.length; i++) {
+        let tok = tokensList[i];
+        if (tok.type.startsWith('h')) {
+          let h = document.createElement('div');
+          h.className = `title-level-${tok.level}`;
+          h.textContent = tok.text;
+          dummy.appendChild(h);
+        } else if (tok.type === 'p') {
+          let p = document.createElement('p');
+          p.className = 'p-end';
+          p.innerHTML = createDropWord(tok.text, false);
+          dummy.appendChild(p);
+        }
+      }
+      measureBox.appendChild(dummy);
+      const h = dummy.offsetHeight;
+      measureBox.innerHTML = '';
+      return h;
+    }
+
+    // -------------------------------------------------------------
+    // רנדור שער ראשי
+    // -------------------------------------------------------------
+    function renderMainShaar(container, style) {
+      const page = document.createElement('div');
+      page.className = `a4-page main-shaar-page main-template-${style}`;
+
+      const title = document.getElementById('inp-book-title').value;
+      const subtitle = document.getElementById('inp-book-subtitle').value;
+      const desc = document.getElementById('inp-book-desc').value;
+      const sections = document.getElementById('inp-book-sections').value;
+      const author = document.getElementById('inp-book-author').value;
+      const year = document.getElementById('inp-book-year').value;
+
+      let frameHTML = '';
+      if (style === '1') {
+        frameHTML = `
+          <div class="m1-bg-top"></div><div class="m1-bg-middle"></div><div class="m1-bg-bottom"></div>
+          <div class="m1-panel"><div class="m1-damask right"></div><div style="flex-grow:1;"></div><div class="m1-damask left"></div></div>
+        `;
+      } else if (style === '2') {
+        frameHTML = `
+          <div class="m2-bg-top"></div><div class="m2-bg-middle"></div><div class="m2-bg-bottom"></div>
+          <div class="m2-panel"><div class="m2-lace right"></div><div style="flex-grow:1;"></div><div class="m2-lace left"></div></div>
+        `;
+      } else if (style === '3') {
+        frameHTML = `
+          <div class="m3-wavy-band"></div>
+          <div class="m3-panel">
+            <svg class="m3-corner tr" viewBox="0 0 100 100"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></svg>
+            <svg class="m3-corner tl" viewBox="0 0 100 100"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></svg>
+            <svg class="m3-corner br" viewBox="0 0 100 100"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></svg>
+            <svg class="m3-corner bl" viewBox="0 0 100 100"><path d="M90,10 L30,10 C15,10 10,25 25,35 C35,42 45,35 40,25 C36,18 25,20 22,16 C30,14 60,14 75,14 C78,30 78,60 76,78 C72,75 74,64 67,60 C57,55 50,65 57,75 C67,90 82,85 82,70 L82,10 Z"/></svg>
+          </div>
+        `;
+      }
+
+      page.innerHTML = `
+        ${frameHTML}
+        <div class="shaar-main-content">
+          <div>
+            <div class="bsd-header">בס"ד</div>
+            <div class="sefer-label">ספר</div>
+            <div class="book-title-main">${title}</div>
+            <div class="book-subtitle">${subtitle}</div>
+            <svg style="width: 180px; height: 24px; margin: 12px auto;" viewBox="0 0 400 40">
+              <circle cx="200" cy="20" r="10" fill="none" stroke="#000" stroke-width="4.5"/><circle cx="200" cy="20" r="4.5" fill="#000"/>
+              <path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#000"/>
+              <path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#000"/>
+            </svg>
+          </div>
+          <div class="book-description">${desc}</div>
+          <div class="book-sections-summary">${sections}</div>
+          <div class="author-block">חובר ונערך בס"ד ע"י<br><span class="author-name">${author}</span></div>
+          <div class="publication-footer">${year}</div>
+        </div>
+      `;
+      container.appendChild(page);
+    }
+
+    // -------------------------------------------------------------
+    // רנדור שער משנה (כותרת 1): טור מוצב בשמאל, ממורכז אנכית
+    // -------------------------------------------------------------
+    function renderSubShaar(container, token, style) {
+      const page = document.createElement('div');
+      page.className = 'a4-page sub-shaar-page';
+      page.setAttribute('data-token-id', token.id);
+      
+      let titleMain = token.text;
+      let titleSub = '';
+
+      if (token.text.includes('-') || token.text.includes('–') || token.text.includes('—')) {
+        const parts = token.text.split(/[-–—]/);
+        titleMain = parts[0].trim();
+        titleSub = parts.slice(1).join(' - ').trim();
+      }
+
+      let innerLace = '';
+      if (style === '2') {
+        innerLace = '<div class="m2-lace" style="border-left: 1px solid #ddd;"></div>';
+      }
+
+      page.innerHTML = `
+        <div class="sub-shaar-bg-right"></div>
+        <div class="sub-shaar-col">
+          <div class="sub-shaar-content-centered" style="flex-grow: 1;">
+            <div class="sefer-label">חלק</div>
+            <div class="book-title-main" style="font-size: 36pt;">${titleMain}</div>
+            ${titleSub ? `
+              <svg style="width: 140px; height: 25px; margin: 15px auto;" viewBox="0 0 300 30">
+                <path d="M10,15 Q75,5 140,15 Q145,10 150,5 Q155,10 160,15 Q225,5 290,15 Q225,25 160,15 Q155,20 150,25 Q145,20 140,15 Q75,25 10,15 Z" fill="#222"/>
+              </svg>
+              <div class="book-subtitle" style="font-size: 21pt;">${titleSub}</div>` : ''}
+          </div>
+          ${innerLace}
+        </div>
+      `;
+      container.appendChild(page);
+    }
+
+    // -------------------------------------------------------------
+    // סנכרון סמן טקסט (Cursor Sync)
+    // -------------------------------------------------------------
+    const textarea = document.getElementById('raw-input');
+
+    function syncCursorToPreview() {
+      const cursorPos = textarea.selectionStart;
+      const textBefore = textarea.value.substring(0, cursorPos);
+      const currentLineIdx = textBefore.split('\n').length - 1;
+
+      if (lineToTokenMap && lineToTokenMap[currentLineIdx] !== undefined) {
+        let tokenId = lineToTokenMap[currentLineIdx];
+        if (tokenId === null) {
+          for (let k = currentLineIdx - 1; k >= 0; k--) {
+            if (lineToTokenMap[k] !== null && lineToTokenMap[k] !== undefined) {
+              tokenId = lineToTokenMap[k];
+              break;
+            }
+          }
+        }
+
+        if (tokenId !== null && tokenId !== undefined) {
+          const targetEl = document.querySelector(`[data-token-id="${tokenId}"]`);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }
+    }
+
+    textarea.addEventListener('click', syncCursorToPreview);
+    textarea.addEventListener('keyup', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
+        syncCursorToPreview();
+      }
+    });
+
+    window.onload = function() {
+      document.getElementById('raw-input').value = `שם הספר - מלאכת הוצאה
+נושא - ורשויות השבת
+נושא מפורט - ביאור מקיף ועמוק ביסודות המלאכה, גדרי מעשה ומחשבה, מבנה הרשויות, מחיצות, עירובי חצרות ותחומין לאור סוגיות השס והראשונים
+פרטי מהדורא - חלק ראשון: יסודות המלאכה והשביתה | חלק שני: תורת הרשויות ועירובין
+שם המחבר - אחד הלומדים
+מקום ושנת הוצאה - פה עיהק ירושלים תובבא | שנת תשפו לפק
+
+כותרת 0 - הקדמה כללית
+מלאכת הוצאה נאסרה לנו בכלל איסורי מלאכות, ובכלל מעשי איסור, וכיון שהיא מורכבת משלושה מושגים שהם המעשה, המלאכה ומושגי הוצאה, נדרשים אנו לבאר ביתר ביאור שלושה חלקים אלו. ונחל במעשה שהוא ביחס כללי לכל מעשים שבעולם המותרים, המחוייבים והאסורים.
+
+כותרת 1 מספר 1 - הקדמות וכללים - מלאכת הוצאה
+כותרת 2 מספר 1 - גדרי מעשה
+כותרת 3 מספר 1 - מציאות המעשה
+מלאכת הוצאה נאסרה לנו בכלל איסורי מלאכות, ובכלל מעשי איסור, וכיון שהיא מורכבת משלושה מושגים שהם המעשה, המלאכה ומושגי הוצאה, נדרשים אנו לבאר ביתר ביאור שלושה חלקים אלו.
+ונחל במעשה שהוא ביחס כללי לכל מעשים שבעולם המותרים, המחוייבים והאסורים.
+והנה נדרשים אנו להקדים אי אלו דברים הנוגעים לגדרי מעשה באופן כללי שהם כהקדמה למעשה של מלאכה בשבת.
+המעשה כולל שלושה מרכיבים העושה התוצאה ואת התעסקות העושה בתוצאה, והתוצאה כשמה כן היא המציאות הנובעת מן המעשה.
+כותרת 4 מספר 1 - מושגי המציאות
+כותרת 7 מספר 1 - מושג מציאותי והגדרת קיום
+מציאות המעשה, היינו, המציאות לפני המעשה, המציאות בשעת המעשה והמציאות שנמצאה בעקבות עשיית המעשה, כי המושג מעשה כדבר שהתחדש הוא המציאות בעלת המשמעות, ומושג זה מחייב מציאות של דברים קיימים, ומשמעות במציאות אותם הדברים, ומשמעות ביחס שביניהם.
+כותרת 5 מספר 1 - המציאות
+המציאות היא כל הדברים המצויים, והדבר הקיים יוגדר ביחס למציאות כנמצא, ובמציאות ככלל לא יהיה שום משמעות חוץ לעצם הקיום, שלא יהיה משמעות לדבר הקיים, אלא עצם זה שיש הבדל במציאות שאם הדבר קיים אז הוא נמצא והלא קיים אינו נמצא.
+כותרת 5 מספר 2 - מושג הדבר הקיים הנפרד
+כותרת 7 מספר 2 - חלקי המציאות כדבר נפרד
+שאף שאמרנו שהמציאות תכיל כל הדברים נוכל לדבר על דבר שקיים כחלק מהמציאות כמושג מציאותי נפרד. ובבחינה זו אנו נותנים משמעות קיום עצמית לדבר מסוים שיהיה שייך בו הגדרות הקיום בנפרד דהיינו קיומו ללא שיהיה תלוי בקיום דבר אחר, ושיהיה הדבר העצם ושאר המציאות כמקרה בעצם.
+כותרת 5 מספר 3 - מציאות דברים נפרדים
+כמו שאמרנו המציאות הכוללת את כל הדברים הקיימים תהיה בעלת משמעות אחידה מבחינת קיום דברים, והיינו, שלגבי מה שהדברים קיימים אין במציאות משמעות מחולקת, וכל המציאות היא דבר אחד של קיום, וכל הדברים הקיימים בה יהיו מציאות אחת. אך אחר שנגדיר חלק מהמציאות כקיום של דבר נפרד תיפרד המציאות ביחס לדבר הנפרד הנמצא בה וקיומו יהיה חלק מציאות נפרד.
+כותרת 5 מספר 4 - מושג דבר בעל צורה
+היינו מה שדבר הוא בעל צורה, וביחס לקיומו הוא מציאות אחת עם כל שאר דברים כאמור, וביחס לנפרדותו הוא קיים בנפרד משאר דברים, אך ביחס לצורה הוא מושג מציאותי נוסף, וביחס לקיומו יש משמעות שהוא נמצא בגבול, וביחס לנפרדותו יש משמעות שהוא נפרד מסיבת צורתו, והוא משמעות קיום נוספת ועל כן לא יפרד מצורה השווה לו.
+כותרת 6 מספר 1 - דין שתהיה גדורה לעצמה
+כותרת 7 מספר 3 - גדרי מחיצה חריץ ותל
+דין רשות היחיד שתהיה גדורה לעצמה איתא בכמה מקומות, ומקרה הפשוט הוא שגדורה במחיצות, ואמנם בברייתא דד' רשויות הובאו שני מקרי רשות היחיד אחרים, וסה"כ שלושה והם: חריץ שהוא עמוק עשרה ורחב ארבעה על ארבעה, ותל שהוא גבוה עשרה ורחב ארבעה על ארבעה, ועוד דין בו רשות נקראת גדורה הוא כשיש לה מחיצות הסובבות את המקום הנרצה.
+כותרת 1 מספר 2 - רשויות - סוגיות
+כותרת 2 מספר 2 - מלאכת הוצאה
+כותרת 3 מספר 2 - גדרי מלאכת הוצאה
+כותרת 7 מספר 4 - הוצאה כמלאכת שינוי מקום
+מלאכת הוצאה היא מלאכה הנוגעת לשינוי מצב של חפץ מבחינת מקומו, ולא במשמעות עשיית המצב החדש, והיינו, שהרי הוצאה כוללת גם הוצאה לרה"ר וגם הכנסה לרה"י, ובהכרח שאין עדיפות למצב אחד על משנהו שנאמר שהמלאכה היא עשיית המצב החדש, וא"כ בהכרח שהמלאכה היא עצם שינוי מקום החפץ. וכיון ששינוי כולל את המצב הקודם, והמצב הבא, הרי שההתעסקות בשינוי תחייב התעסקות גם במצב הקודם וגם במצב הבא. והיינו, שמלאכת הוצאה היא מהיות החפץ מונח ברשות זו ועד היות החפץ מונח ברשות השניה, ותוצאת המלאכה היא היות החפץ במקום חדש.`;
+
+      toggleCustomTopInput();
+      typesetDocument();
+    };
+  </script>
+</body>
+</html>

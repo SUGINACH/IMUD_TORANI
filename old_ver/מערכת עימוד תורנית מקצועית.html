@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>מערכת עימוד תורנית מקצועית לדפי A4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bellefair&family=David+Libre:wght@400;700&family=Frank+Ruhl+Libre:wght@400;700;900&family=Noto+Serif+Hebrew:wght@400;700;900&family=Assistant:wght@400;600;700&display=swap');
+
+  :root {
+    /* 1. הגדרות ברירת מחדל לגופנים וגדלים */
+    --fn-header: 'AAd_Livorna4', 'David Libre', 'David', serif;
+    --sz-header: 13pt;
+
+    --fn-h1: 'Lia Sgula', 'Bellefair', serif;
+    --sz-h1: 50pt;
+
+    --fn-h1-sub: 'David Libre', 'David', serif;
+    --sz-h1-sub: 28pt;
+
+    --fn-h2: 'AAd_AlphaBlack', 'David Libre', 'David', serif;
+    --sz-h2: 17pt;
+
+    --fn-h3: 'AAd_AlphaLight', 'Noto Serif Hebrew', serif;
+    --sz-h3: 13.5pt;
+
+    --fn-h4: 'FrankRuehl', 'Frank Ruhl Libre', serif;
+    --sz-h4: 12.5pt;
+
+    --fn-h5: 'David Libre', 'David', serif;
+    --sz-h5: 11.5pt;
+
+    --fn-h6: 'Noto Serif Hebrew', serif;
+    --sz-h6: 10.5pt;
+
+    --fn-h7: 'Hadassah Friedlaender', 'Hadassah', 'Noto Serif Hebrew', serif;
+    --sz-h7: 6pt;
+
+    --fn-body: 'Rashi DP', 'Frank Ruhl Libre', serif;
+    --sz-body: 11.2pt;
+
+    --fn-first-word: 'Rashi DP', 'Frank Ruhl Libre', serif;
+    --sz-first-word: 1.5em;
+
+    /* 2. הגדרות ברירת מחדל ליחסי רוחב הגריד */
+    --w-margin: 7.5%;
+    --w-gap: 2%;
+    --w-col: 40%;
+    --w-gutter: 2%;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: #6a6a6a;
+    font-family: var(--fn-body);
+    color: #000000;
+    display: flex;
+    flex-direction: row;
+  }
+
+  /* -------------------------------------------------------------
+     1. סרגל שליטה ימני קבוע בגובה המסך
+  ------------------------------------------------------------- */
+  #sidebar {
+    width: 500px;
+    min-width: 470px;
+    height: 100vh;
+    background: #ffffff;
+    border-left: 1.5px solid #444;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 16px;
+    box-shadow: -3px 0 15px rgba(0,0,0,0.3);
+    z-index: 100;
+    font-family: 'David Libre', serif;
+    overflow-y: auto;
+  }
+
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .sidebar-title { font-size: 14pt; font-weight: 700; }
+
+  .btn-load-fonts {
+    background-color: #2c3e50;
+    color: #fff;
+    border: none;
+    padding: 5px 12px;
+    font-size: 9.5pt;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 3px;
+    font-family: 'David Libre', serif;
+  }
+  .btn-load-fonts:hover { background-color: #1a252f; }
+
+  .accordion-box {
+    background: #fbfbfb;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+
+  .accordion-title {
+    background: #eaeaea;
+    padding: 6px 10px;
+    font-size: 10.5pt;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .accordion-body {
+    padding: 10px;
+    font-size: 9.5pt;
+  }
+
+  .proportions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 12px;
+    font-size: 9.5pt;
+  }
+
+  .prop-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .prop-item label { font-weight: 700; }
+  .prop-item input { width: 60px; padding: 2px 4px; text-align: center; font-size: 9pt; }
+
+  .styles-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 12px;
+    font-size: 9pt;
+  }
+
+  .style-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3px;
+  }
+
+  .style-item label { font-weight: 700; width: 95px; }
+  .style-item select { padding: 2px 3px; font-size: 8.5pt; width: 105px; }
+  .style-item input { width: 40px; padding: 2px; text-align: center; font-size: 8.5pt; }
+
+  .textarea-container {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 160px;
+    margin-bottom: 10px;
+  }
+
+  #raw-input {
+    width: 100%;
+    flex-grow: 1;
+    min-height: 150px;
+    font-family: monospace;
+    font-size: 10pt;
+    padding: 8px;
+    border: 1px solid #777;
+    border-radius: 3px;
+    direction: rtl;
+    resize: none;
+    overflow-y: auto;
+  }
+
+  .btn-bar { display: flex; gap: 8px; flex-shrink: 0; }
+  .btn-primary {
+    background-color: #000;
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    font-size: 11pt;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 3px;
+    flex-grow: 1;
+  }
+  .btn-primary:hover { background-color: #333; }
+  .btn-secondary {
+    background-color: #f0f0f0;
+    color: #000;
+    border: 1px solid #666;
+    padding: 8px 14px;
+    font-size: 10.5pt;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  /* -------------------------------------------------------------
+     2. תצוגת דפים מעומדים משמאל (Scrollable Preview Pane)
+  ------------------------------------------------------------- */
+  #preview-pane {
+    flex-grow: 1;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 25px 20px;
+    scroll-behavior: smooth;
+  }
+
+  /* מבנה דף A4 תקני */
+  .a4-page {
+    background-color: #ffffff;
+    width: 210mm;
+    height: 297mm;
+    max-height: 297mm;
+    padding: 15mm 15mm 15mm 15mm;
+    box-shadow: 0 0 15px rgba(0,0,0,0.4);
+    position: relative;
+    margin-bottom: 30px;
+    page-break-after: always;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* דף שער (רמה 1) */
+  .shaar-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .shaar-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+  }
+
+  .shaar-title-main {
+    font-family: var(--fn-h1);
+    font-size: var(--sz-h1);
+    font-weight: 400;
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+    line-height: 1.15;
+  }
+
+  .shaar-ornament { font-size: 24pt; margin: 30px 0; }
+
+  .shaar-subtitle {
+    font-family: var(--fn-h1-sub);
+    font-size: var(--sz-h1-sub);
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  /* כותרת עליונה רצה */
+  .top-header-grid {
+    display: grid;
+    grid-template-columns: var(--w-margin) var(--w-gap) var(--w-col) var(--w-gutter) var(--w-col) var(--w-gap) var(--w-margin);
+    align-items: baseline;
+    margin-bottom: 28px;
+    font-family: var(--fn-header);
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .header-right-col {
+    grid-column: 3;
+    text-align: center;
+    font-size: var(--sz-header);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-left-col {
+    grid-column: 5;
+    text-align: center;
+    font-size: var(--sz-header);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* כותרת רמה 2: ממוקמת לאחר שליש עליון + 2 שורות רווח אחריה */
+  .title-level-2-standalone {
+    font-family: var(--fn-h2);
+    font-size: var(--sz-h2);
+    font-weight: 700;
+    text-align: center;
+    margin-top: 130px;
+    margin-bottom: 50px;
+    width: 100%;
+    line-height: 1.25;
+    flex-shrink: 0;
+  }
+
+  /* כותרות רמות 3 עד 6 */
+  .title-level-3 {
+    font-family: var(--fn-h3);
+    font-size: var(--sz-h3);
+    font-weight: 900;
+    text-align: center;
+    margin: 11px 0 5px 0;
+    line-height: 1.22;
+  }
+
+  .title-level-4 {
+    font-family: var(--fn-h4);
+    font-size: var(--sz-h4);
+    font-weight: 900;
+    text-align: center;
+    margin: 9px 0 4px 0;
+    line-height: 1.22;
+  }
+
+  .title-level-5 {
+    font-family: var(--fn-h5);
+    font-size: var(--sz-h5);
+    font-weight: 700;
+    text-align: center;
+    margin: 7px 0 3px 0;
+    line-height: 1.22;
+  }
+
+  .title-level-6 {
+    font-family: var(--fn-h6);
+    font-size: var(--sz-h6);
+    font-weight: 700;
+    text-align: center;
+    margin: 6px 0 3px 0;
+    line-height: 1.22;
+  }
+
+  /* גריד העמוד המרכזי */
+  .page-content-grid {
+    display: grid;
+    grid-template-columns: var(--w-margin) var(--w-gap) var(--w-col) var(--w-gutter) var(--w-col) var(--w-gap) var(--w-margin);
+    position: relative;
+    align-items: start;
+    height: 875px;
+  }
+
+  /* עמוד עם כותרת 2: משתרע עד לקו התחתון המדויק (660px גובה טורים) */
+  .page-content-grid.has-h2 {
+    height: 660px;
+  }
+
+  /* שוליים לכותרות צד (רמה 7) */
+  .margin-notes-column {
+    font-family: var(--fn-h7);
+    font-size: var(--sz-h7);
+    line-height: 1.18;
+    text-align: center;
+    text-align-last: center;
+    font-weight: 400;
+    color: #404040;
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .right-margin { grid-column: 1; }
+  .left-margin { grid-column: 7; }
+
+  .side-note-anchor {
+    position: absolute;
+    width: 100%;
+  }
+
+  /* טורי הטקסט המרכזיים */
+  .main-column {
+    font-family: var(--fn-body);
+    font-size: var(--sz-body);
+    line-height: 1.34;
+    text-align: justify;
+    text-justify: inter-word;
+    min-height: 0;
+    height: auto;
+    position: relative;
+  }
+
+  .right-col { grid-column: 3; }
+  .left-col { grid-column: 5; }
+
+  p {
+    margin-bottom: 7px;
+    text-align: justify;
+    text-justify: inter-word;
+    position: relative;
+  }
+
+  p.p-end { text-align-last: center; }
+  p.p-cut { text-align-last: justify; }
+
+  /* חלון מילה ראשונה מוגדלת */
+  .first-word-window {
+    float: right;
+    font-family: var(--fn-first-word);
+    font-size: var(--sz-first-word);
+    font-weight: 900;
+    line-height: 0.85;
+    height: 1.25em;
+    margin-left: 6px;
+    margin-bottom: 1px;
+    display: block;
+  }
+
+  /* מספר עמוד מעוגן בדיוק בתחתית */
+  .page-number-footer {
+    position: absolute;
+    bottom: 14mm;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-family: var(--fn-header);
+    font-size: 12pt;
+    font-weight: 700;
+    height: 20px;
+  }
+
+  /* אלמנט מדידה מוסתר לצורך חישוב איזון סופי פרקים */
+  #measuring-box {
+    position: absolute;
+    visibility: hidden;
+    pointer-events: none;
+    top: -9999px;
+    left: -9999px;
+    font-family: var(--fn-body);
+    font-size: var(--sz-body);
+    line-height: 1.34;
+  }
+
+  @media print {
+    body { background: none; padding: 0; overflow: visible; display: block; }
+    #sidebar { display: none !important; }
+    #preview-pane { height: auto !important; overflow: visible !important; padding: 0 !important; }
+    .a4-page {
+      box-shadow: none;
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      max-height: 100vh;
+      padding: 15mm 15mm 15mm 15mm;
+      margin: 0;
+      page-break-after: always;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <!-- 1. סרגל שליטה ימני קבוע בגובה המסך -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">סרגל עימוד תורני A4</div>
+      <button class="btn-load-fonts" onclick="loadSystemFonts()">📂 טען גופני Windows</button>
+    </div>
+
+    <!-- תיבת טקסט עם גלילה פנימית -->
+    <div class="textarea-container">
+      <textarea id="raw-input" placeholder="הדבק כאן את הטקסט המלא..."></textarea>
+    </div>
+
+    <div class="btn-bar" style="margin-bottom: 10px;">
+      <button class="btn-primary" onclick="typesetDocument()">⚡ עדכן ועמד מחדש</button>
+      <button class="btn-secondary" onclick="window.print()">🖨️ הדפסה / PDF</button>
+    </div>
+
+    <!-- אקורדיון: הגדרות גריד ומידות באחוזים -->
+    <div class="accordion-box">
+      <div class="accordion-title" onclick="toggleBox('grid-box')">
+        <span>📐 יחסי רוחב וגריד (אחוזים)</span>
+        <span>▼</span>
+      </div>
+      <div class="accordion-body" id="grid-box">
+        <div class="proportions-grid">
+          <div class="prop-item">
+            <label>רוחב טור (%):</label>
+            <input type="number" id="prop-col" value="40" step="0.5" onchange="updateGrid()">
+          </div>
+          <div class="prop-item">
+            <label>כותרת צד (%):</label>
+            <input type="number" id="prop-margin" value="7.5" step="0.5" onchange="updateGrid()">
+          </div>
+          <div class="prop-item">
+            <label>רווח מרכזי (%):</label>
+            <input type="number" id="prop-gutter" value="2" step="0.5" onchange="updateGrid()">
+          </div>
+          <div class="prop-item">
+            <label>רווח ביניים (%):</label>
+            <input type="number" id="prop-gap" value="2" step="0.5" onchange="updateGrid()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- אקורדיון: בחירת גופנים וגדלים ל-11 הסגנונות -->
+    <div class="accordion-box">
+      <div class="accordion-title" onclick="toggleBox('fonts-box')">
+        <span>🔤 גופנים וגדלים (11 סגנונות)</span>
+        <span>▼</span>
+      </div>
+      <div class="accordion-body" id="fonts-box" style="display: block;">
+        <div class="styles-grid">
+          <div class="style-item">
+            <label>כותרת עליונה:</label>
+            <select id="font-header" class="font-picker" onchange="updateStyles()">
+              <option value="'AAd_Livorna4', 'David Libre', 'David', serif" selected>AAd_Livorna4</option>
+              <option value="'David', 'David Libre', serif">David</option>
+              <option value="'FrankRuehl', 'Frank Ruhl Libre', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-header" value="13" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>שער (ראשי):</label>
+            <select id="font-h1" class="font-picker" onchange="updateStyles()">
+              <option value="'Lia Sgula', 'Bellefair', serif" selected>Lia Sgula</option>
+              <option value="'Bellefair', serif">Bellefair</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-h1" value="50" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>שער (משנה):</label>
+            <select id="font-h1-sub" class="font-picker" onchange="updateStyles()">
+              <option value="'David Libre', 'David', serif" selected>David Libre</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+            </select>
+            <input type="number" id="size-h1-sub" value="28" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 2 (פרק):</label>
+            <select id="font-h2" class="font-picker" onchange="updateStyles()">
+              <option value="'AAd_AlphaBlack', 'David Libre', 'David', serif" selected>AAd_AlphaBlack</option>
+              <option value="'David', 'David Libre', serif">David</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-h2" value="17" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 3:</label>
+            <select id="font-h3" class="font-picker" onchange="updateStyles()">
+              <option value="'AAd_AlphaLight', 'Noto Serif Hebrew', serif" selected>AAd_AlphaLight</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-h3" value="13.5" step="0.5" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 4:</label>
+            <select id="font-h4" class="font-picker" onchange="updateStyles()">
+              <option value="'FrankRuehl', 'Frank Ruhl Libre', serif" selected>FrankRuehl</option>
+              <option value="'David', serif">David</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+            </select>
+            <input type="number" id="size-h4" value="12.5" step="0.5" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 5:</label>
+            <select id="font-h5" class="font-picker" onchange="updateStyles()">
+              <option value="'David Libre', 'David', serif" selected>David Libre</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+            </select>
+            <input type="number" id="size-h5" value="11.5" step="0.5" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 6:</label>
+            <select id="font-h6" class="font-picker" onchange="updateStyles()">
+              <option value="'Noto Serif Hebrew', serif" selected>Noto Serif Hebrew</option>
+              <option value="'David', serif">David</option>
+              <option value="'FrankRuehl', serif">FrankRuehl</option>
+            </select>
+            <input type="number" id="size-h6" value="10.5" step="0.5" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>כותרת 7 (צד):</label>
+            <select id="font-h7" class="font-picker" onchange="updateStyles()">
+              <option value="'Hadassah Friedlaender', 'Hadassah', 'Noto Serif Hebrew', serif" selected>Hadassah</option>
+              <option value="'Noto Serif Hebrew', serif">Noto Serif</option>
+              <option value="'Assistant', sans-serif">Assistant</option>
+            </select>
+            <input type="number" id="size-h7" value="6" step="0.2" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>מילה ראשונה:</label>
+            <select id="font-first-word" class="font-picker" onchange="updateStyles()">
+              <option value="'Rashi DP', 'Frank Ruhl Libre', serif" selected>Rashi DP</option>
+              <option value="'Frank Ruhl Libre', 'FrankRuehl', serif">FrankRuehl</option>
+              <option value="'David', serif">David</option>
+            </select>
+            <input type="number" id="size-first-word" value="1.5" step="0.1" onchange="updateStyles()">
+          </div>
+
+          <div class="style-item">
+            <label>גוף הטקסט:</label>
+            <select id="font-body" class="font-picker" onchange="updateStyles()">
+              <option value="'Rashi DP', 'Frank Ruhl Libre', serif" selected>Rashi DP</option>
+              <option value="'Frank Ruhl Libre', 'FrankRuehl', serif">FrankRuehl</option>
+              <option value="'David', 'David Libre', serif">David</option>
+            </select>
+            <input type="number" id="size-body" value="11.2" step="0.2" onchange="updateStyles()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- אקורדיון: מדריך וכללי המרה -->
+    <div class="accordion-box">
+      <div class="accordion-title" onclick="toggleBox('guide-content-box')">
+        <span>📖 מדריך כללי העימוד וההמרה</span>
+        <span>▼</span>
+      </div>
+      <div class="accordion-body" id="guide-content-box" style="display: none;">
+        <div class="guide-box" style="border: none; padding: 0; margin: 0;">
+          <div class="guide-col">
+            <ul>
+              <li><b>כותרת 1:</b> דף שער עצמאי (פיצול במקף <i>ראשי - משנה</i>).</li>
+              <li><b>כותרת 2:</b> פותחת <b>דף חדש</b>, ממוקמת בגובה 2/3 עם רווח 2 שורות אחריה.</li>
+              <li><b>איזון טורים בסוף פרק:</b> הטקסט בסוף כל פרק מתחלק שווה בשווה בין הטור הימני לשמאלי, כולל פיצול פסקאות.</li>
+              <li><b>כותרות 3 עד 6:</b> מיושם חוק מניעת כותרת יתומה (אם אין מקום לכותרת + 2 שורות, היא עוברת לטור הבא).</li>
+              <li><b>כותרת 7:</b> כותרת צד בשוליים (7.5% רוחב, מיושרת לאמצע) מול ראש הפסקה.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 2. תצוגת דפים מעומדים משמאל ==================== -->
+  <div id="preview-pane">
+    <div id="book-container"></div>
+  </div>
+
+  <div id="measuring-box"></div>
+
+  <script>
+    function toggleBox(id) {
+      const el = document.getElementById(id);
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function loadSystemFonts() {
+      if ('queryLocalFonts' in window) {
+        try {
+          const availableFonts = await window.queryLocalFonts();
+          const fontFamilies = [...new Set(availableFonts.map(f => f.family))].sort((a, b) => a.localeCompare(b, 'he'));
+          
+          if (fontFamilies.length > 0) {
+            document.querySelectorAll('.font-picker').forEach(select => {
+              const currentVal = select.value;
+              select.innerHTML = '';
+              
+              const sysGroup = document.createElement('optgroup');
+              sysGroup.label = `גופני מחשב (${fontFamilies.length} נמצאו)`;
+              
+              fontFamilies.forEach(family => {
+                const opt = document.createElement('option');
+                opt.value = `'${family}', serif`;
+                opt.textContent = family;
+                if (currentVal.includes(family)) opt.selected = true;
+                sysGroup.appendChild(opt);
+              });
+              
+              select.appendChild(sysGroup);
+            });
+            alert(`נטענו בהצלחה ${fontFamilies.length} גופנים מותקנים מהמחשב!`);
+            updateStyles();
+          }
+        } catch (err) {
+          alert('לא ניתנה הרשאה לגישה לגופני המחשב.');
+        }
+      } else {
+        alert('הדפדפן הנוכחי אינו תומך בגישה ישירה לגופני המערכת. מומלץ להשתמש ב-Chrome או Edge.');
+      }
+    }
+
+    function toGematria(num) {
+      if (num === 15) return "טו";
+      if (num === 16) return "טז";
+      const hundreds = ["", "ק", "ר", "ש", "ת", "תק", "תר", "תש", "תת", "תתק"];
+      const tens = ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"];
+      const ones = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"];
+      let str = "";
+      let h = Math.floor(num / 100);
+      if (h > 0) {
+        if (h <= 4) str += ["", "ק", "ר", "ש", "ת"][h];
+        else str += hundreds[h];
+        num %= 100;
+      }
+      let t = Math.floor(num / 10);
+      let o = num % 10;
+      if (t === 1 && (o === 5 || o === 6)) {
+        str += (o === 5) ? "טו" : "טז";
+      } else {
+        str += tens[t] + ones[o];
+      }
+      return str;
+    }
+
+    function updateGrid() {
+      const root = document.documentElement;
+      root.style.setProperty('--w-col', document.getElementById('prop-col').value + '%');
+      root.style.setProperty('--w-margin', document.getElementById('prop-margin').value + '%');
+      root.style.setProperty('--w-gutter', document.getElementById('prop-gutter').value + '%');
+      root.style.setProperty('--w-gap', document.getElementById('prop-gap').value + '%');
+      typesetDocument();
+    }
+
+    function updateStyles() {
+      const root = document.documentElement;
+      root.style.setProperty('--fn-header', document.getElementById('font-header').value);
+      root.style.setProperty('--sz-header', document.getElementById('size-header').value + 'pt');
+
+      root.style.setProperty('--fn-h1', document.getElementById('font-h1').value);
+      root.style.setProperty('--sz-h1', document.getElementById('size-h1').value + 'pt');
+
+      root.style.setProperty('--fn-h1-sub', document.getElementById('font-h1-sub').value);
+      root.style.setProperty('--sz-h1-sub', document.getElementById('size-h1-sub').value + 'pt');
+
+      root.style.setProperty('--fn-h2', document.getElementById('font-h2').value);
+      root.style.setProperty('--sz-h2', document.getElementById('size-h2').value + 'pt');
+
+      root.style.setProperty('--fn-h3', document.getElementById('font-h3').value);
+      root.style.setProperty('--sz-h3', document.getElementById('size-h3').value + 'pt');
+
+      root.style.setProperty('--fn-h4', document.getElementById('font-h4').value);
+      root.style.setProperty('--sz-h4', document.getElementById('size-h4').value + 'pt');
+
+      root.style.setProperty('--fn-h5', document.getElementById('font-h5').value);
+      root.style.setProperty('--sz-h5', document.getElementById('size-h5').value + 'pt');
+
+      root.style.setProperty('--fn-h6', document.getElementById('font-h6').value);
+      root.style.setProperty('--sz-h6', document.getElementById('size-h6').value + 'pt');
+
+      root.style.setProperty('--fn-h7', document.getElementById('font-h7').value);
+      root.style.setProperty('--sz-h7', document.getElementById('size-h7').value + 'pt');
+
+      root.style.setProperty('--fn-first-word', document.getElementById('font-first-word').value);
+      root.style.setProperty('--sz-first-word', document.getElementById('size-first-word').value + 'em');
+
+      root.style.setProperty('--fn-body', document.getElementById('font-body').value);
+      root.style.setProperty('--sz-body', document.getElementById('size-body').value + 'pt');
+
+      typesetDocument();
+    }
+
+    function createDropWord(text, isContinuation) {
+      if (isContinuation) return text;
+      text = text.trim();
+      const firstSpace = text.indexOf(' ');
+      if (firstSpace === -1) {
+        return `<span class="first-word-window">${text}</span>`;
+      }
+      const firstWord = text.substring(0, firstSpace);
+      const rest = text.substring(firstSpace + 1);
+      return `<span class="first-word-window">${firstWord}</span> ${rest}`;
+    }
+
+    // הצדקה אנכית למילוי ה-Baseline ללא פערי גובה
+    function justifyColumnVertically(col, maxH) {
+      const children = Array.from(col.children);
+      if (children.length <= 1) return;
+      const currentH = col.scrollHeight;
+      const diff = maxH - currentH;
+      if (diff > 2 && diff < 160) {
+        const extraPerItem = diff / (children.length - 1);
+        children.slice(0, -1).forEach(child => {
+          const curMB = parseFloat(getComputedStyle(child).marginBottom) || 0;
+          child.style.marginBottom = (curMB + extraPerItem) + 'px';
+        });
+      }
+    }
+
+    let lineToTokenMap = [];
+
+    // מנוע העימוד הראשי המשוכלל
+    function typesetDocument() {
+      const rawText = document.getElementById('raw-input').value;
+      if (!rawText.trim()) return;
+
+      const container = document.getElementById('book-container');
+      container.innerHTML = '';
+
+      const lines = rawText.split('\n');
+      let pageIndex = 1;
+      let currentH1Title = '';
+      let currentH2Title = '';
+
+      const tokens = [];
+      let pendingSideNote = null;
+      lineToTokenMap = [];
+
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const line = lines[lineIdx].trim();
+        if (!line) {
+          lineToTokenMap[lineIdx] = null;
+          continue;
+        }
+
+        const hMatch = line.match(/^כותרת\s*(\d+)\s*(?:מספר\s*\d+)?\s*[-–—]\s*(.*)$/);
+        if (hMatch) {
+          const lvl = parseInt(hMatch[1]);
+          const txt = hMatch[2].trim();
+          if (lvl === 7) {
+            pendingSideNote = txt;
+            lineToTokenMap[lineIdx] = null;
+          } else {
+            const tokenObj = { id: tokens.length, type: 'h' + lvl, level: lvl, text: txt, lineIdx: lineIdx };
+            tokens.push(tokenObj);
+            lineToTokenMap[lineIdx] = tokenObj.id;
+          }
+        } else {
+          const tokenObj = { id: tokens.length, type: 'p', text: line, sideNote: pendingSideNote, lineIdx: lineIdx };
+          tokens.push(tokenObj);
+          lineToTokenMap[lineIdx] = tokenObj.id;
+          pendingSideNote = null;
+        }
+      }
+
+      function renderShaar(token) {
+        const page = document.createElement('div');
+        page.className = 'a4-page shaar-page';
+        page.setAttribute('data-token-id', token.id);
+        
+        let titleMain = token.text;
+        let titleSub = '';
+
+        if (token.text.includes('-') || token.text.includes('–') || token.text.includes('—')) {
+          const parts = token.text.split(/[-–—]/);
+          titleMain = parts[0].trim();
+          titleSub = parts.slice(1).join(' - ').trim();
+        }
+
+        page.innerHTML = `
+          <div class="shaar-content">
+            <div class="shaar-title-main">${titleMain}</div>
+            ${titleSub ? `<div class="shaar-ornament">❖ ❖ ❖</div><div class="shaar-subtitle">${titleSub}</div>` : ''}
+          </div>
+        `;
+        container.appendChild(page);
+        currentH1Title = titleMain;
+      }
+
+      function createPageLayout(h2Text, h2TokenId) {
+        const page = document.createElement('div');
+        page.className = 'a4-page';
+
+        const topHeader = `
+          <div class="top-header-grid">
+            <div></div><div></div>
+            <div class="header-right-col">${currentH1Title}</div>
+            <div></div>
+            <div class="header-left-col">${currentH2Title}</div>
+            <div></div><div></div>
+          </div>
+        `;
+
+        const h2Block = h2Text ? `<div class="title-level-2-standalone" ${h2TokenId !== undefined ? `data-token-id="${h2TokenId}"` : ''}>${h2Text}</div>` : '';
+
+        page.innerHTML = `
+          ${topHeader}
+          ${h2Block}
+          <div class="page-content-grid ${h2Text ? 'has-h2' : ''}">
+            <div class="margin-notes-column right-margin"></div>
+            <div></div>
+            <div class="main-column right-col"></div>
+            <div></div>
+            <div class="main-column left-col"></div>
+            <div></div>
+            <div class="margin-notes-column left-margin"></div>
+          </div>
+          <div class="page-number-footer">${toGematria(pageIndex++)}</div>
+        `;
+        container.appendChild(page);
+
+        const rCol = page.querySelector('.right-col');
+        const lCol = page.querySelector('.left-col');
+        const rMargin = page.querySelector('.right-margin');
+        const lMargin = page.querySelector('.left-margin');
+
+        // גובה מדויק לטורים
+        const maxColHeight = h2Text ? 660 : 875;
+
+        return { page, rCol, lCol, rMargin, lMargin, maxColHeight };
+      }
+
+      // חלוקת הטוקנים למקטעי פרקים (Sections)
+      const sections = [];
+      let currentSection = { type: 'body', tokens: [] };
+
+      tokens.forEach(t => {
+        if (t.type === 'h1') {
+          if (currentSection.tokens.length > 0) sections.push(currentSection);
+          sections.push({ type: 'h1', token: t });
+          currentSection = { type: 'body', tokens: [] };
+        } else if (t.type === 'h2') {
+          if (currentSection.tokens.length > 0) sections.push(currentSection);
+          currentSection = { type: 'h2', h2Token: t, tokens: [] };
+        } else {
+          currentSection.tokens.push(t);
+        }
+      });
+      if (currentSection.tokens.length > 0 || currentSection.type === 'h2') {
+        sections.push(currentSection);
+      }
+
+      // אלמנט מדידה לקביעת רוחב טור מדויק
+      const measureBox = document.getElementById('measuring-box');
+
+      // פונקציית מדידת גובה מדויקת
+      function measureRemainingHeight(tokensList, startIndex, pending) {
+        measureBox.style.width = '240px';
+        measureBox.innerHTML = '';
+        
+        let dummy = document.createElement('div');
+        if (pending) {
+          let p = document.createElement('p');
+          p.className = 'p-cut';
+          p.innerHTML = createDropWord(pending.remainingWords.join(' '), true);
+          dummy.appendChild(p);
+        }
+        for (let i = startIndex; i < tokensList.length; i++) {
+          let tok = tokensList[i];
+          if (tok.type.startsWith('h')) {
+            let h = document.createElement('div');
+            h.className = `title-level-${tok.level}`;
+            h.textContent = tok.text;
+            dummy.appendChild(h);
+          } else if (tok.type === 'p') {
+            let p = document.createElement('p');
+            p.className = 'p-end';
+            p.innerHTML = createDropWord(tok.text, false);
+            dummy.appendChild(p);
+          }
+        }
+        measureBox.appendChild(dummy);
+        const h = dummy.offsetHeight;
+        measureBox.innerHTML = '';
+        return h;
+      }
+
+      // עיבוד מקטע אחר מקטע
+      sections.forEach(sec => {
+        if (sec.type === 'h1') {
+          renderShaar(sec.token);
+          return;
+        }
+
+        let isFirstPage = true;
+        let h2Text = sec.type === 'h2' ? sec.h2Token.text : '';
+        let h2Id = sec.type === 'h2' ? sec.h2Token.id : undefined;
+        if (h2Text) currentH2Title = h2Text;
+
+        let secTokens = sec.tokens.slice();
+        let tokenIndex = 0;
+        let pendingWordTokens = null;
+
+        while (tokenIndex < secTokens.length || pendingWordTokens) {
+          let pageLayout = createPageLayout(isFirstPage ? h2Text : '', isFirstPage ? h2Id : undefined);
+          isFirstPage = false;
+
+          let activeCol = 'right';
+          let pendingNotes = [];
+
+          // חישוב האם הגענו לעמוד הסוגר של הפרק לצורך איזון מראש
+          const totalRemH = measureRemainingHeight(secTokens, tokenIndex, pendingWordTokens);
+          const isSectionClosingPage = totalRemH <= (2 * pageLayout.maxColHeight);
+          let targetHeightPerColumn = pageLayout.maxColHeight;
+
+          if (isSectionClosingPage) {
+            targetHeightPerColumn = Math.min(pageLayout.maxColHeight, Math.max(70, Math.ceil(totalRemH / 2) + 6));
+          }
+
+          // מילוי הטור הימני ולאחריו השמאלי
+          ['right', 'left'].forEach((colName, colIdx) => {
+            activeCol = colName;
+            let targetCol = colName === 'right' ? pageLayout.rCol : pageLayout.lCol;
+            let targetMargin = colName === 'right' ? pageLayout.rMargin : pageLayout.lMargin;
+            let effectiveColLimit = targetHeightPerColumn;
+
+            // אם זה הטור השמאלי בעמוד סיום, נאפשר לו למצות את כל היתרה
+            if (colName === 'left' && isSectionClosingPage) {
+              effectiveColLimit = pageLayout.maxColHeight;
+            }
+
+            while (tokenIndex < secTokens.length || pendingWordTokens) {
+              if (targetCol.scrollHeight >= effectiveColLimit - 12 && targetCol.children.length > 0) {
+                break; // סיום מילוי טור
+              }
+
+              let currentTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
+
+              // -------------------------------------------------------------
+              // חוק מניעת כותרת יתומה לכל רמות הכותרות 3 עד 6
+              // -------------------------------------------------------------
+              if (currentTok.type.startsWith('h')) {
+                const hElem = document.createElement('div');
+                hElem.className = `title-level-${currentTok.level}`;
+                hElem.textContent = currentTok.text;
+                hElem.setAttribute('data-token-id', currentTok.id);
+                targetCol.appendChild(hElem);
+
+                // בדיקה האם יש מקום לכותרת + לפחות 2 שורות מתוכנה (כ-45px)
+                if (targetCol.scrollHeight > effectiveColLimit - 45 && targetCol.children.length > 1) {
+                  targetCol.removeChild(hElem);
+                  break; // דחיית הכותרת לטור הבא
+                }
+
+                tokenIndex++;
+                continue;
+              }
+
+              // -------------------------------------------------------------
+              // טיפול בפסקאות ושבירה מדויקת
+              // -------------------------------------------------------------
+              if (currentTok.type === 'p') {
+                let words = pendingWordTokens ? pendingWordTokens.remainingWords : currentTok.text.split(' ');
+                let isContinuation = pendingWordTokens ? true : false;
+
+                const pElem = document.createElement('p');
+                pElem.setAttribute('data-token-id', currentTok.id);
+                targetCol.appendChild(pElem);
+
+                let low = 1;
+                let high = words.length;
+                let bestFit = 0;
+
+                while (low <= high) {
+                  let mid = Math.floor((low + high) / 2);
+                  let testSlice = words.slice(0, mid).join(' ');
+                  let isEnd = (mid >= words.length);
+
+                  pElem.className = isEnd ? 'p-end' : 'p-cut';
+                  pElem.innerHTML = createDropWord(testSlice, isContinuation);
+
+                  if (targetCol.scrollHeight <= effectiveColLimit) {
+                    bestFit = mid;
+                    low = mid + 1;
+                  } else {
+                    high = mid - 1;
+                  }
+                }
+
+                if (bestFit === 0 && targetCol.children.length > 1) {
+                  targetCol.removeChild(pElem);
+                  break; // מעבר טור
+                }
+
+                if (bestFit === 0) {
+                  bestFit = Math.min(8, words.length);
+                }
+
+                const chunk = words.slice(0, bestFit).join(' ');
+                const isEndOfP = (bestFit >= words.length);
+
+                pElem.className = isEndOfP ? 'p-end' : 'p-cut';
+                pElem.innerHTML = createDropWord(chunk, isContinuation);
+
+                // רישום כותרת צד (רמה 7)
+                if (!isContinuation && currentTok.sideNote) {
+                  const noteElem = document.createElement('div');
+                  noteElem.className = 'side-note-anchor';
+                  noteElem.textContent = currentTok.sideNote;
+                  targetMargin.appendChild(noteElem);
+                  pendingNotes.push({ elem: noteElem, pElem: pElem });
+                }
+
+                if (isEndOfP) {
+                  pendingWordTokens = null;
+                  tokenIndex++;
+                } else {
+                  pendingWordTokens = {
+                    token: currentTok,
+                    remainingWords: words.slice(bestFit)
+                  };
+                  break; // המשך הפסקה בטור הבא
+                }
+              }
+            }
+          });
+
+          // -------------------------------------------------------------
+          // השוואת והצדקת גובה הטורים (Vertical Justification)
+          // -------------------------------------------------------------
+          if (isSectionClosingPage) {
+            const balancedHeight = Math.max(pageLayout.rCol.scrollHeight, pageLayout.lCol.scrollHeight);
+            justifyColumnVertically(pageLayout.rCol, balancedHeight);
+            justifyColumnVertically(pageLayout.lCol, balancedHeight);
+          } else {
+            justifyColumnVertically(pageLayout.rCol, pageLayout.maxColHeight);
+            justifyColumnVertically(pageLayout.lCol, pageLayout.maxColHeight);
+          }
+
+          // עיגון מדויק של כותרות הצד מול ראש הפסקה
+          pendingNotes.forEach(item => {
+            if (item.elem && item.pElem) {
+              item.elem.style.top = item.pElem.offsetTop + 'px';
+            }
+          });
+        }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // סנכרון סמן טקסט (Cursor Sync)
+    // -------------------------------------------------------------
+    const textarea = document.getElementById('raw-input');
+
+    function syncCursorToPreview() {
+      const cursorPos = textarea.selectionStart;
+      const textBefore = textarea.value.substring(0, cursorPos);
+      const currentLineIdx = textBefore.split('\n').length - 1;
+
+      if (lineToTokenMap && lineToTokenMap[currentLineIdx] !== undefined) {
+        let tokenId = lineToTokenMap[currentLineIdx];
+        
+        if (tokenId === null) {
+          for (let k = currentLineIdx - 1; k >= 0; k--) {
+            if (lineToTokenMap[k] !== null && lineToTokenMap[k] !== undefined) {
+              tokenId = lineToTokenMap[k];
+              break;
+            }
+          }
+        }
+
+        if (tokenId !== null && tokenId !== undefined) {
+          const targetEl = document.querySelector(`[data-token-id="${tokenId}"]`);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }
+    }
+
+    textarea.addEventListener('click', syncCursorToPreview);
+    textarea.addEventListener('keyup', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
+        syncCursorToPreview();
+      }
+    });
+
+    window.onload = function() {
+      document.getElementById('raw-input').value = `כותרת 1 מספר 1 - הקדמות וכללים - מלאכת הוצאה
+כותרת 2 מספר 1 - גדרי מעשה
+כותרת 3 מספר 1 - מציאות המעשה
+מלאכת הוצאה נאסרה לנו בכלל איסורי מלאכות, ובכלל מעשי איסור, וכיון שהיא מורכבת משלושה מושגים שהם המעשה, המלאכה ומושגי הוצאה, נדרשים אנו לבאר ביתר ביאור שלושה חלקים אלו.
+ונחל במעשה שהוא ביחס כללי לכל מעשים שבעולם המותרים, המחוייבים והאסורים.
+והנה נדרשים אנו להקדים אי אלו דברים הנוגעים לגדרי מעשה באופן כללי שהם כהקדמה למעשה של מלאכה בשבת.
+המעשה כולל שלושה מרכיבים העושה התוצאה ואת התעסקות העושה בתוצאה, והתוצאה כשמה כן היא המציאות הנובעת מן המעשה.
+כותרת 4 מספר 1 - מושגי המציאות
+כותרת 7 מספר 1 - מושג מציאותי והגדרת קיום
+מציאות המעשה, היינו, המציאות לפני המעשה, המציאות בשעת המעשה והמציאות שנמצאה בעקבות עשיית המעשה, כי המושג מעשה כדבר שהתחדש הוא המציאות בעלת המשמעות, ומושג זה מחייב מציאות של דברים קיימים, ומשמעות במציאות אותם הדברים, ומשמעות ביחס שביניהם.
+כותרת 5 מספר 1 - המציאות
+המציאות היא כל הדברים המצויים, והדבר הקיים יוגדר ביחס למציאות כנמצא, ובמציאות ככלל לא יהיה שום משמעות חוץ לעצם הקיום, שלא יהיה משמעות לדבר הקיים, אלא עצם זה שיש הבדל במציאות שאם הדבר קיים אז הוא נמצא והלא קיים אינו נמצא.
+כותרת 5 מספר 2 - מושג הדבר הקיים הנפרד
+כותרת 7 מספר 2 - חלקי המציאות כדבר נפרד
+שאף שאמרנו שהמציאות תכיל כל הדברים נוכל לדבר על דבר שקיים כחלק מהמציאות כמושג מציאותי נפרד. ובבחינה זו אנו נותנים משמעות קיום עצמית לדבר מסוים שיהיה שייך בו הגדרות הקיום בנפרד דהיינו קיומו ללא שיהיה תלוי בקיום דבר אחר, ושיהיה הדבר העצם ושאר המציאות כמקרה בעצם.
+כותרת 5 מספר 3 - מציאות דברים נפרדים
+כמו שאמרנו המציאות הכוללת את כל הדברים הקיימים תהיה בעלת משמעות אחידה מבחינת קיום דברים, והיינו, שלגבי מה שהדברים קיימים אין במציאות משמעות מחולקת, וכל המציאות היא דבר אחד של קיום, וכל הדברים הקיימים בה יהיו מציאות אחת. אך אחר שנגדיר חלק מהמציאות כקיום של דבר נפרד תיפרד המציאות ביחס לדבר הנפרד הנמצא בה וקיומו יהיה חלק מציאות נפרד.
+כותרת 5 מספר 4 - מושג דבר בעל צורה
+היינו מה שדבר הוא בעל צורה, וביחס לקיומו הוא מציאות אחת עם כל שאר דברים כאמור, וביחס לנפרדותו הוא קיים בנפרד משאר דברים, אך ביחס לצורה הוא מושג מציאותי נוסף, וביחס לקיומו יש משמעות שהוא נמצא בגבול, וביחס לנפרדותו יש משמעות שהוא נפרד מסיבת צורתו, והוא משמעות קיום נוספת ועל כן לא יפרד מצורה השווה לו.
+כותרת 6 מספר 1 - דין שתהיה גדורה לעצמה
+כותרת 7 מספר 3 - גדרי מחיצה חריץ ותל
+דין רשות היחיד שתהיה גדורה לעצמה איתא בכמה מקומות, ומקרה הפשוט הוא שגדורה במחיצות, ואמנם בברייתא דד' רשויות הובאו שני מקרי רשות היחיד אחרים, וסה"כ שלושה והם: חריץ שהוא עמוק עשרה ורחב ארבעה על ארבעה, ותל שהוא גבוה עשרה ורחב ארבעה על ארבעה, ועוד דין בו רשות נקראת גדורה הוא כשיש לה מחיצות הסובבות את המקום הנרצה.
+כותרת 1 מספר 2 - רשויות - סוגיות
+כותרת 2 מספר 2 - מלאכת הוצאה
+כותרת 3 מספר 2 - גדרי מלאכת הוצאה
+כותרת 7 מספר 4 - הוצאה כמלאכת שינוי מקום
+מלאכת הוצאה היא מלאכה הנוגעת לשינוי מצב של חפץ מבחינת מקומו, ולא במשמעות עשיית המצב החדש, והיינו, שהרי הוצאה כוללת גם הוצאה לרה"ר וגם הכנסה לרה"י, ובהכרח שאין עדיפות למצב אחד על משנהו שנאמר שהמלאכה היא עשיית המצב החדש, וא"כ בהכרח שהמלאכה היא עצם שינוי מקום החפץ. וכיון ששינוי כולל את המצב הקודם, והמצב הבא, הרי שההתעסקות בשינוי תחייב התעסקות גם במצב הקודם וגם במצב הבא. והיינו, שמלאכת הוצאה היא מהיות החפץ מונח ברשות זו ועד היות החפץ מונח ברשות השניה, ותוצאת המלאכה היא היות החפץ במקום חדש.`;
+
+      typesetDocument();
+    };
+  </script>
+</body>
+</html>

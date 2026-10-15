@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TorahType Studio - עורך נכסים</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=David+Libre:wght@400;700&family=Frank+Ruhl+Libre:wght@400;700&display=swap');
+
+  :root {
+    --primary: #2c3e50;
+    --secondary: #b8860b;
+    --bg: #ecf0f1;
+    --panel-bg: #ffffff;
+    --border: #bdc3c7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Assistant', sans-serif;
+    background-color: var(--bg);
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  header {
+    background-color: var(--primary);
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 10;
+  }
+
+  header h1 { font-size: 1.5rem; margin: 0; }
+  
+  .header-actions { display: flex; gap: 10px; }
+  
+  .btn {
+    background: var(--secondary);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: inherit;
+    transition: background 0.2s;
+  }
+  .btn:hover { background: #9a7009; }
+  .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+  .btn-sys-fonts { background: #34495e; }
+  .btn-sys-fonts:hover { background: #2c3e50; }
+
+  .main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    width: 380px;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px;
+    cursor: pointer;
+    background: #f8f9fa;
+    font-weight: bold;
+    border-bottom: 3px solid transparent;
+  }
+  .tab.active {
+    background: var(--panel-bg);
+    border-bottom-color: var(--secondary);
+    color: var(--primary);
+  }
+
+  .tab-content {
+    display: none;
+    padding: 20px;
+  }
+  .tab-content.active { display: block; }
+
+  .form-group { margin-bottom: 15px; }
+  .form-group label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px; }
+  .form-group input[type="text"], .form-group input[type="number"], .form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+  }
+  .form-group input[type="color"] {
+    width: 100%;
+    height: 35px;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .item-list {
+    list-style: none;
+    margin-bottom: 20px;
+  }
+  .item-list li {
+    background: #f8f9fa;
+    border: 1px solid var(--border);
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .item-list li:hover { border-color: var(--secondary); }
+
+  .workspace {
+    flex: 1;
+    background: #7f8c8d;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow: auto;
+  }
+
+  /* A4 Preview */
+  .a4-preview {
+    width: 210mm;
+    height: 297mm;
+    background-color: white;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    position: relative;
+    transform-origin: top center;
+    transform: scale(0.6);
+    overflow: hidden;
+  }
+
+  .preview-bg {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: fill;
+    z-index: 1;
+  }
+
+  .preview-element {
+    position: absolute;
+    z-index: 2;
+    background: rgba(52, 152, 219, 0.05);
+    display: flex;
+    align-items: center;
+    padding: 5px;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+  .preview-element::before {
+    content: attr(data-label);
+    position: absolute;
+    top: -20px; right: 0;
+    font-size: 12px;
+    background: #3498db;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 3px;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+    color: var(--primary);
+    border-bottom: 2px solid var(--secondary);
+    padding-bottom: 5px;
+    margin: 20px 0 15px 0;
+  }
+
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>TorahType Studio 🛠️</h1>
+    <div class="header-actions">
+      <button class="btn btn-sys-fonts" onclick="loadSystemFonts()">📂 טען גופני Windows</button>
+      <button class="btn" onclick="exportAssets()">💾 ייצא נכסים לקובץ (.ttasset)</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    
+    <div class="sidebar">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('pages')">סוגי עמודים</div>
+        <div class="tab" onclick="switchTab('styles')">סגנונות טקסט</div>
+      </div>
+
+      <!-- PAGE BUILDER TAB -->
+      <div id="tab-pages" class="tab-content active">
+        <button class="btn btn-outline" style="width:100%; margin-bottom:15px;" onclick="createNewPage()">+ צור עמוד חדש</button>
+        <ul class="item-list" id="page-list"></ul>
+
+        <div id="page-editor" style="display:none; border-top: 1px solid #ccc; padding-top: 15px;">
+          <div class="form-group">
+            <label>שם העמוד (למשל: עמוד הסכמה)</label>
+            <input type="text" id="p-name" oninput="updateCurrentPage()">
+          </div>
+          <div class="form-group">
+            <label>מיקום ברירת מחדל בספר</label>
+            <select id="p-position" onchange="updateCurrentPage()">
+              <option value="before_shaar">לפני שער ראשי</option>
+              <option value="after_shaar">אחרי שער ראשי</option>
+              <option value="end_of_book">בסוף הספר</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>תמונת רקע (A4)</label>
+            <input type="file" accept="image/*" onchange="handleBgUpload(event)">
+          </div>
+
+          <div class="section-title">תיבות טקסט בעמוד</div>
+          <ul class="item-list" id="element-list"></ul>
+          <button class="btn btn-outline" style="width:100%; font-size:0.9rem;" onclick="addElement()">+ הוסף תיבת טקסט</button>
+
+          <div id="element-editor" style="display:none; background:#f1f2f6; padding:10px; margin-top:15px; border-radius:5px;">
+            <div class="form-group">
+              <label>קידומת לזיהוי בטקסט (למשל: "הסכמה:")</label>
+              <input type="text" id="e-prefix" oninput="updateCurrentElement()">
+            </div>
+            
+            <div class="section-title" style="font-size: 0.95rem; margin-top: 10px;">מיקום ומידות</div>
+            <div class="grid-2">
+              <div class="form-group"><label>מיקום מלמעלה (%)</label><input type="number" id="e-top" oninput="updateCurrentElement()"></div>
+              <div class="form-group"><label>מיקום מימין (%)</label><input type="number" id="e-right" oninput="updateCurrentElement()"></div>
+              <div class="form-group"><label>רוחב (%)</label><input type="number" id="e-width" oninput="updateCurrentElement()"></div>
+              <div class="form-group"><label>גובה (%)</label><input type="number" id="e-height" oninput="updateCurrentElement()"></div>
+            </div>
+            
+            <div class="section-title" style="font-size: 0.95rem; margin-top: 5px;">עיצוב טקסט ומסגרת</div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label>גופן</label>
+                <select id="e-font" class="font-picker" onchange="updateCurrentElement()">
+                  <optgroup label="ברירת מחדל">
+                    <option value="'David Libre', serif">David Libre</option>
+                    <option value="'Frank Ruhl Libre', serif">Frank Ruhl Libre</option>
+                    <option value="'Assistant', sans-serif">Assistant</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="form-group"><label>גודל (pt)</label><input type="number" id="e-size" oninput="updateCurrentElement()"></div>
+            </div>
+            <div class="grid-2">
+              <div class="form-group"><label>צבע טקסט</label><input type="color" id="e-color" oninput="updateCurrentElement()"></div>
+              <div class="form-group">
+                <label>יישור טקסט</label>
+                <select id="e-align" onchange="updateCurrentElement()">
+                  <option value="center">מרכז</option>
+                  <option value="right">ימין</option>
+                  <option value="left">שמאל</option>
+                  <option value="justify">מיושר לשוליים</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="grid-2">
+              <div class="form-group"><label>צבע מסגרת</label><input type="color" id="e-border-color" oninput="updateCurrentElement()"></div>
+              <div class="form-group"><label>עובי מסגרת (px)</label><input type="number" id="e-border-width" oninput="updateCurrentElement()"></div>
+            </div>
+            <div class="form-group"><label>עיגול פינות (px)</label><input type="number" id="e-border-radius" oninput="updateCurrentElement()"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STYLE BUILDER TAB -->
+      <div id="tab-styles" class="tab-content">
+        <button class="btn btn-outline" style="width:100%; margin-bottom:15px;" onclick="createNewStyle()">+ צור סגנון טקסט חדש</button>
+        <ul class="item-list" id="style-list"></ul>
+
+        <div id="style-editor" style="display:none; border-top: 1px solid #ccc; padding-top: 15px;">
+          <div class="form-group">
+            <label>שם הסגנון (למשל: ציטוט מודגש)</label>
+            <input type="text" id="s-name" oninput="updateCurrentStyle()">
+          </div>
+          
+          <div class="section-title">זיהוי בטקסט</div>
+          <div class="form-group">
+            <label>סוג זיהוי</label>
+            <select id="s-trigger-type" onchange="toggleTriggerUI(); updateCurrentStyle()">
+              <option value="prefix">קידומת בתחילת שורה (פסקה שלמה)</option>
+              <option value="wrapper">עטיפה בין תווים (Inline - בתוך שורה)</option>
+            </select>
+          </div>
+          
+          <div id="ui-prefix">
+            <div class="form-group">
+              <label>קידומת לזיהוי (למשל: "הערה:")</label>
+              <input type="text" id="s-prefix" oninput="updateCurrentStyle()">
+            </div>
+          </div>
+          
+          <div id="ui-wrapper" style="display:none;" class="grid-2">
+            <div class="form-group">
+              <label>תו פותח (למשל: <code>(</code> )</label>
+              <input type="text" id="s-start-marker" oninput="updateCurrentStyle()">
+            </div>
+            <div class="form-group">
+              <label>תו סוגר (למשל: <code>)</code> )</label>
+              <input type="text" id="s-end-marker" oninput="updateCurrentStyle()">
+            </div>
+          </div>
+
+          <div class="form-group" id="ui-layout-mode">
+            <label>התנהגות עימוד (Layout Mode)</label>
+            <select id="s-mode" onchange="updateCurrentStyle()">
+              <option value="inline_2col">רציף בתוך הטורים (כמו פסקה)</option>
+              <option value="span_1col">רציף על פני 2 הטורים (כמו כותרת 3)</option>
+              <option value="new_page_1col">עמוד חדש טור 1 (כמו שער/פרק)</option>
+              <option value="side_note">הערת שוליים בצד</option>
+            </select>
+          </div>
+          
+          <div class="section-title">עיצוב (CSS)</div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>גופן</label>
+              <select id="s-font" class="font-picker" onchange="updateCurrentStyle()">
+                <optgroup label="ברירת מחדל">
+                  <option value="'David Libre', serif">David Libre</option>
+                  <option value="'Frank Ruhl Libre', serif">Frank Ruhl Libre</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="form-group"><label>גודל (pt)</label><input type="number" id="s-size" oninput="updateCurrentStyle()"></div>
+          </div>
+          
+          <div class="grid-2">
+            <div class="form-group"><label>צבע טקסט</label><input type="color" id="s-color" oninput="updateCurrentStyle()"></div>
+            <div class="form-group">
+              <label>משקל (Bold)</label>
+              <select id="s-weight" onchange="updateCurrentStyle()">
+                <option value="normal">רגיל</option>
+                <option value="bold">מודגש</option>
+                <option value="900">מודגש מאוד (Black)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="grid-2" id="ui-margins">
+            <div class="form-group"><label>מרווח עליון (px)</label><input type="number" id="s-mt" oninput="updateCurrentStyle()"></div>
+            <div class="form-group"><label>מרווח תחתון (px)</label><input type="number" id="s-mb" oninput="updateCurrentStyle()"></div>
+          </div>
+          
+          <div class="form-group" id="ui-align">
+            <label>יישור טקסט</label>
+            <select id="s-align" onchange="updateCurrentStyle()">
+              <option value="justify">מיושר לשוליים (Justify)</option>
+              <option value="center">מרכז</option>
+              <option value="right">ימין</option>
+            </select>
+          </div>
+          
+          <div class="section-title" style="font-size: 0.95rem;">מסגרת / רקע</div>
+          <div class="grid-2">
+            <div class="form-group"><label>צבע מסגרת</label><input type="color" id="s-border-color" oninput="updateCurrentStyle()"></div>
+            <div class="form-group"><label>עובי מסגרת (px)</label><input type="number" id="s-border-width" oninput="updateCurrentStyle()"></div>
+          </div>
+          <div class="form-group"><label>עיגול פינות (px)</label><input type="number" id="s-border-radius" oninput="updateCurrentStyle()"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="workspace">
+      <!-- Preview only relevant for Page Builder -->
+      <div class="a4-preview" id="preview-canvas" style="display:none;">
+        <img id="preview-bg-img" class="preview-bg" style="display:none;">
+        <div id="preview-elements-container"></div>
+      </div>
+      <div id="style-preview-msg" style="color:white; font-size:1.2rem; display:none; text-align:center;">
+        התצוגה המקדימה לסגנונות טקסט תתבצע במערכת הראשית.<br>
+        <span style="font-size:0.9rem; opacity:0.8;">(הגדרות צבע ומסגרת נשמרות ויוחלו אוטומטית)</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- System Fonts Loading ---
+    async function loadSystemFonts() {
+      if ('queryLocalFonts' in window) {
+        try {
+          const availableFonts = await window.queryLocalFonts();
+          const fontFamilies = [...new Set(availableFonts.map(f => f.family))].sort((a, b) => a.localeCompare(b, 'he'));
+          
+          if (fontFamilies.length > 0) {
+            document.querySelectorAll('.font-picker').forEach(select => {
+              const currentVal = select.value;
+              select.innerHTML = '';
+              
+              const sysGroup = document.createElement('optgroup');
+              sysGroup.label = `גופני מחשב (${fontFamilies.length} נמצאו)`;
+              
+              fontFamilies.forEach(family => {
+                const opt = document.createElement('option');
+                opt.value = `'${family}', serif`;
+                opt.textContent = family;
+                if (currentVal.includes(family)) opt.selected = true;
+                sysGroup.appendChild(opt);
+              });
+              
+              select.appendChild(sysGroup);
+            });
+            alert(`נטענו בהצלחה ${fontFamilies.length} גופנים מהמחשב!`);
+          }
+        } catch (err) {
+          alert('לא ניתנה הרשאה לגישה לגופני המחשב.');
+        }
+      } else {
+        alert('הדפדפן אינו תומך בגישה ישירה לגופני המערכת.');
+      }
+    }
+
+    // --- State Management ---
+    let appData = {
+      version: "1.1",
+      customPages: [],
+      customStyles: []
+    };
+
+    let currentPageId = null;
+    let currentElementId = null;
+    let currentStyleId = null;
+
+    // --- UI Tabs ---
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tabName).classList.add('active');
+
+      if(tabName === 'pages') {
+        document.getElementById('preview-canvas').style.display = 'block';
+        document.getElementById('style-preview-msg').style.display = 'none';
+        renderPageList();
+      } else {
+        document.getElementById('preview-canvas').style.display = 'none';
+        document.getElementById('style-preview-msg').style.display = 'block';
+        renderStyleList();
+      }
+    }
+
+    // --- Page Builder Logic ---
+    function createNewPage() {
+      const newPage = {
+        id: 'page_' + Date.now(),
+        name: 'עמוד חדש',
+        insertPosition: 'before_shaar',
+        bgImage: '',
+        elements: []
+      };
+      appData.customPages.push(newPage);
+      selectPage(newPage.id);
+      renderPageList();
+    }
+
+    function renderPageList() {
+      const list = document.getElementById('page-list');
+      list.innerHTML = '';
+      appData.customPages.forEach(p => {
+        const li = document.createElement('li');
+        li.textContent = p.name;
+        li.onclick = () => selectPage(p.id);
+        if(p.id === currentPageId) li.style.borderColor = 'var(--secondary)';
+        list.appendChild(li);
+      });
+    }
+
+    function selectPage(id) {
+      currentPageId = id;
+      currentElementId = null;
+      renderPageList();
+      
+      const page = appData.customPages.find(p => p.id === id);
+      if(!page) return;
+
+      document.getElementById('page-editor').style.display = 'block';
+      document.getElementById('element-editor').style.display = 'none';
+      
+      document.getElementById('p-name').value = page.name;
+      document.getElementById('p-position').value = page.insertPosition;
+      
+      renderPreview();
+      renderElementList();
+    }
+
+    function updateCurrentPage() {
+      const page = appData.customPages.find(p => p.id === currentPageId);
+      if(!page) return;
+      page.name = document.getElementById('p-name').value;
+      page.insertPosition = document.getElementById('p-position').value;
+      renderPageList();
+    }
+
+    function handleBgUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const page = appData.customPages.find(p => p.id === currentPageId);
+        if(page) {
+          page.bgImage = e.target.result;
+          renderPreview();
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // --- Element Builder Logic ---
+    function addElement() {
+      const page = appData.customPages.find(p => p.id === currentPageId);
+      if(!page) return;
+      
+      const newEl = {
+        id: 'el_' + Date.now(),
+        prefix: 'טקסט:',
+        top: 20, right: 10, width: 80, height: 10,
+        fontFamily: "'David Libre', serif",
+        fontSize: 24,
+        textAlign: 'center',
+        color: '#000000',
+        borderWidth: 0,
+        borderColor: '#000000',
+        borderRadius: 0
+      };
+      page.elements.push(newEl);
+      selectElement(newEl.id);
+      renderElementList();
+      renderPreview();
+    }
+
+    function renderElementList() {
+      const page = appData.customPages.find(p => p.id === currentPageId);
+      const list = document.getElementById('element-list');
+      list.innerHTML = '';
+      if(!page) return;
+
+      page.elements.forEach(e => {
+        const li = document.createElement('li');
+        li.textContent = e.prefix || 'ללא קידומת';
+        li.onclick = () => selectElement(e.id);
+        if(e.id === currentElementId) li.style.borderColor = 'var(--secondary)';
+        list.appendChild(li);
+      });
+    }
+
+    function selectElement(id) {
+      currentElementId = id;
+      renderElementList();
+      
+      const page = appData.customPages.find(p => p.id === currentPageId);
+      const el = page.elements.find(e => e.id === id);
+      if(!el) return;
+
+      document.getElementById('element-editor').style.display = 'block';
+      document.getElementById('e-prefix').value = el.prefix;
+      document.getElementById('e-top').value = el.top;
+      document.getElementById('e-right').value = el.right;
+      document.getElementById('e-width').value = el.width;
+      document.getElementById('e-height').value = el.height;
+      document.getElementById('e-font').value = el.fontFamily;
+      document.getElementById('e-size').value = el.fontSize;
+      document.getElementById('e-align').value = el.textAlign;
+      document.getElementById('e-color').value = el.color || '#000000';
+      document.getElementById('e-border-color').value = el.borderColor || '#000000';
+      document.getElementById('e-border-width').value = el.borderWidth || 0;
+      document.getElementById('e-border-radius').value = el.borderRadius || 0;
+    }
+
+    function updateCurrentElement() {
+      const page = appData.customPages.find(p => p.id === currentPageId);
+      const el = page.elements.find(e => e.id === currentElementId);
+      if(!el) return;
+
+      el.prefix = document.getElementById('e-prefix').value;
+      el.top = parseFloat(document.getElementById('e-top').value) || 0;
+      el.right = parseFloat(document.getElementById('e-right').value) || 0;
+      el.width = parseFloat(document.getElementById('e-width').value) || 0;
+      el.height = parseFloat(document.getElementById('e-height').value) || 0;
+      el.fontFamily = document.getElementById('e-font').value;
+      el.fontSize = parseFloat(document.getElementById('e-size').value) || 12;
+      el.textAlign = document.getElementById('e-align').value;
+      el.color = document.getElementById('e-color').value;
+      el.borderColor = document.getElementById('e-border-color').value;
+      el.borderWidth = parseFloat(document.getElementById('e-border-width').value) || 0;
+      el.borderRadius = parseFloat(document.getElementById('e-border-radius').value) || 0;
+
+      renderElementList();
+      renderPreview();
+    }
+
+    function renderPreview() {
+      const page = appData.customPages.find(p => p.id === currentPageId);
+      if(!page) return;
+
+      const bgImg = document.getElementById('preview-bg-img');
+      if(page.bgImage) {
+        bgImg.src = page.bgImage;
+        bgImg.style.display = 'block';
+      } else {
+        bgImg.style.display = 'none';
+      }
+
+      const container = document.getElementById('preview-elements-container');
+      container.innerHTML = '';
+
+      page.elements.forEach(el => {
+        const div = document.createElement('div');
+        div.className = 'preview-element';
+        div.setAttribute('data-label', el.prefix);
+        
+        // Apply styles
+        div.style.top = el.top + '%';
+        div.style.right = el.right + '%';
+        div.style.width = el.width + '%';
+        div.style.height = el.height + '%';
+        div.style.fontFamily = el.fontFamily;
+        div.style.fontSize = el.fontSize + 'pt';
+        div.style.textAlign = el.textAlign;
+        div.style.color = el.color || '#000000';
+        div.style.justifyContent = el.textAlign === 'center' ? 'center' : (el.textAlign === 'left' ? 'flex-end' : 'flex-start');
+        
+        if (el.borderWidth > 0) {
+          div.style.border = `${el.borderWidth}px solid ${el.borderColor}`;
+          div.style.borderRadius = `${el.borderRadius}px`;
+        } else {
+          div.style.border = '1px dashed #3498db'; // Default editor border
+        }
+        
+        div.textContent = "טקסט לדוגמה";
+        
+        if(el.id === currentElementId) {
+          div.style.boxShadow = '0 0 0 3px rgba(231, 76, 60, 0.5)';
+          div.style.zIndex = 10;
+        }
+
+        div.onclick = () => selectElement(el.id);
+        container.appendChild(div);
+      });
+    }
+
+    // --- Style Builder Logic ---
+    function createNewStyle() {
+      const newStyle = {
+        id: 'style_' + Date.now(),
+        name: 'סגנון חדש',
+        triggerType: 'prefix', // 'prefix' or 'wrapper'
+        prefix: 'סגנון מיוחד - ',
+        startMarker: '(',
+        endMarker: ')',
+        layoutMode: 'inline_2col',
+        css: {
+          fontFamily: "'David Libre', serif",
+          fontSize: 12,
+          color: '#000000',
+          marginTop: 10,
+          marginBottom: 10,
+          fontWeight: 'bold',
+          textAlign: 'justify',
+          borderWidth: 0,
+          borderColor: '#000000',
+          borderRadius: 0
+        }
+      };
+      appData.customStyles.push(newStyle);
+      selectStyle(newStyle.id);
+      renderStyleList();
+    }
+
+    function renderStyleList() {
+      const list = document.getElementById('style-list');
+      list.innerHTML = '';
+      appData.customStyles.forEach(s => {
+        const li = document.createElement('li');
+        li.textContent = s.name;
+        li.onclick = () => selectStyle(s.id);
+        if(s.id === currentStyleId) li.style.borderColor = 'var(--secondary)';
+        list.appendChild(li);
+      });
+    }
+
+    function selectStyle(id) {
+      currentStyleId = id;
+      renderStyleList();
+      
+      const style = appData.customStyles.find(s => s.id === id);
+      if(!style) return;
+
+      document.getElementById('style-editor').style.display = 'block';
+      document.getElementById('s-name').value = style.name;
+      
+      document.getElementById('s-trigger-type').value = style.triggerType || 'prefix';
+      toggleTriggerUI();
+
+      document.getElementById('s-prefix').value = style.prefix || '';
+      document.getElementById('s-start-marker').value = style.startMarker || '';
+      document.getElementById('s-end-marker').value = style.endMarker || '';
+      
+      document.getElementById('s-mode').value = style.layoutMode;
+      
+      document.getElementById('s-font').value = style.css.fontFamily;
+      document.getElementById('s-size').value = style.css.fontSize;
+      document.getElementById('s-color').value = style.css.color || '#000000';
+      document.getElementById('s-mt').value = style.css.marginTop;
+      document.getElementById('s-mb').value = style.css.marginBottom;
+      document.getElementById('s-weight').value = style.css.fontWeight;
+      document.getElementById('s-align').value = style.css.textAlign;
+      
+      document.getElementById('s-border-color').value = style.css.borderColor || '#000000';
+      document.getElementById('s-border-width').value = style.css.borderWidth || 0;
+      document.getElementById('s-border-radius').value = style.css.borderRadius || 0;
+    }
+
+    function toggleTriggerUI() {
+      const type = document.getElementById('s-trigger-type').value;
+      if (type === 'wrapper') {
+        document.getElementById('ui-prefix').style.display = 'none';
+        document.getElementById('ui-wrapper').style.display = 'grid';
+        // Inline wrappers shouldn't control layout mode, margins, or alignment easily
+        document.getElementById('ui-layout-mode').style.opacity = '0.5';
+        document.getElementById('ui-margins').style.opacity = '0.5';
+        document.getElementById('ui-align').style.opacity = '0.5';
+      } else {
+        document.getElementById('ui-prefix').style.display = 'block';
+        document.getElementById('ui-wrapper').style.display = 'none';
+        document.getElementById('ui-layout-mode').style.opacity = '1';
+        document.getElementById('ui-margins').style.opacity = '1';
+        document.getElementById('ui-align').style.opacity = '1';
+      }
+    }
+
+    function updateCurrentStyle() {
+      const style = appData.customStyles.find(s => s.id === currentStyleId);
+      if(!style) return;
+
+      style.name = document.getElementById('s-name').value;
+      style.triggerType = document.getElementById('s-trigger-type').value;
+      style.prefix = document.getElementById('s-prefix').value;
+      style.startMarker = document.getElementById('s-start-marker').value;
+      style.endMarker = document.getElementById('s-end-marker').value;
+      style.layoutMode = document.getElementById('s-mode').value;
+      
+      style.css.fontFamily = document.getElementById('s-font').value;
+      style.css.fontSize = parseFloat(document.getElementById('s-size').value) || 12;
+      style.css.color = document.getElementById('s-color').value;
+      style.css.marginTop = parseFloat(document.getElementById('s-mt').value) || 0;
+      style.css.marginBottom = parseFloat(document.getElementById('s-mb').value) || 0;
+      style.css.fontWeight = document.getElementById('s-weight').value;
+      style.css.textAlign = document.getElementById('s-align').value;
+      
+      style.css.borderColor = document.getElementById('s-border-color').value;
+      style.css.borderWidth = parseFloat(document.getElementById('s-border-width').value) || 0;
+      style.css.borderRadius = parseFloat(document.getElementById('s-border-radius').value) || 0;
+      
+      renderStyleList();
+    }
+
+    // --- Export Logic ---
+    function exportAssets() {
+      const dataStr = JSON.stringify(appData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'my-torah-assets.ttasset';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Init
+    switchTab('pages');
+  </script>
+</body>
+</html>

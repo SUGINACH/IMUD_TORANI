@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עורך תוספים — סוגי עמוד וסגנונות טקסט</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=David+Libre:wght@400;500;700&family=Frank+Ruhl+Libre:wght@400;500;700&family=Noto+Serif+Hebrew:wght@400;500;700&display=swap');
+
+  :root{ --fn-body:'Frank Ruhl Libre',serif; }
+  *{box-sizing:border-box}
+  html,body{height:100%;width:100%;overflow:hidden;margin:0}
+  body{background:#555555;display:flex;flex-direction:row;color:#000}
+
+  #sidebar{
+    width:460px;min-width:380px;max-width:640px;height:100vh;background:#fff;
+    display:flex;flex-direction:column;padding:10px 14px;box-shadow:-3px 0 15px rgba(0,0,0,.3);
+    z-index:100;font-family:'David Libre',serif;flex-shrink:0;
+  }
+  .sidebar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0}
+  .sidebar-title{font-size:12.5pt;font-weight:700}
+  .btn-load-fonts{background:#2c3e50;color:#fff;border:none;padding:4px 9px;font-size:8.5pt;font-weight:700;cursor:pointer;border-radius:3px}
+
+  .mode-tabs{display:flex;gap:4px;margin-bottom:8px;flex-shrink:0}
+  .mode-tab{flex:1;text-align:center;padding:7px 4px;font-size:9.5pt;font-weight:700;background:#eaeaea;border:1px solid #ccc;border-radius:4px;cursor:pointer;color:#555}
+  .mode-tab.active{background:#2c3e50;color:#fff;border-color:#2c3e50}
+
+  .sidebar-scrollable{flex:1;overflow-y:auto;padding-right:2px}
+
+  .panel-static{background:#fbfbfb;border:1px solid #ddd;border-radius:4px;margin-bottom:10px;padding:8px 10px}
+  .panel-header{font-size:10pt;font-weight:700;background:#eaeaea;padding:4px 8px;border-radius:3px;margin:-8px -10px 8px -10px;color:#111;border-bottom:1px solid #ccc}
+
+  .inline-cfg-row{display:flex;align-items:center;gap:4px;margin-bottom:5px;font-size:8.5pt}
+  .inline-cfg-row label{font-weight:700;width:98px;flex-shrink:0;font-size:8pt}
+  .inline-cfg-row input[type="text"],.inline-cfg-row input[type="number"]{flex:1;min-width:60px;padding:2px 4px;font-size:8.5pt;border:1px solid #aaa;border-radius:2px}
+  .inline-cfg-row select{padding:2px 3px;font-size:8pt;border:1px solid #aaa;border-radius:2px;flex:1}
+  .inline-cfg-row select.font-picker{flex:1}
+  .inline-cfg-row input.size-input{width:42px;text-align:center;font-size:8pt;padding:2px;border:1px solid #aaa;border-radius:2px;flex:none}
+
+  .def-row{display:flex;align-items:center;gap:5px;margin-bottom:4px;font-size:8pt}
+  .def-row input[type="checkbox"].def-cb{flex-shrink:0}
+  .def-row label.def-label{width:60px;flex-shrink:0;font-weight:700;color:#333}
+  .def-row .def-control{flex:1;display:flex;gap:4px;align-items:center}
+  .def-row.disabled .def-control{opacity:.35;pointer-events:none}
+  .style-block-title{font-size:8pt;font-weight:700;color:#8a5a00;margin:6px 0 4px;border-top:1px dashed #ccc;padding-top:6px}
+
+  .element-card{border:1px solid #cfcfcf;border-radius:4px;padding:7px 8px 4px;margin-bottom:8px;background:#fff;position:relative}
+  .element-card .el-remove{position:absolute;left:6px;top:6px;background:#a33;color:#fff;border:none;border-radius:3px;width:18px;height:18px;font-size:9pt;line-height:1;cursor:pointer}
+  .element-card .el-title{font-size:8.5pt;font-weight:700;margin-bottom:5px;color:#2c3e50}
+
+  .scope-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 6px;font-size:7.6pt;margin:4px 0}
+  .scope-grid label{display:flex;align-items:center;gap:3px;font-weight:400;white-space:nowrap}
+
+  .add-el-btn{width:100%;padding:6px;background:#f0f0f0;border:1px dashed #999;border-radius:4px;cursor:pointer;font-size:8.5pt;font-weight:700;color:#333;margin-bottom:4px}
+  .export-btn{width:100%;padding:9px;background:#8a5a00;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:10pt;font-weight:700;margin-top:6px}
+  .export-btn:hover{background:#734b00}
+
+  .radio-row{display:flex;gap:14px;font-size:8.5pt;margin-bottom:6px}
+  .radio-row label{display:flex;align-items:center;gap:4px;font-weight:700}
+
+  /* preview pane */
+  #preview{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px}
+  .mock-a4{width:420px;min-height:594px;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.5);position:relative;font-family:var(--fn-body);overflow:hidden}
+  .mock-el-label{position:absolute;white-space:nowrap;padding:2px 6px}
+  .preview-caption{position:absolute;bottom:-26px;right:0;left:0;text-align:center;color:#ddd;font-size:9pt;font-family:'David Libre',serif}
+
+  .ts-sample-card{width:460px;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.5);padding:26px 30px;font-family:var(--fn-body);font-size:13.5pt;line-height:2}
+  .ts-sample-card .ctx-label{font-size:8.5pt;color:#888;font-family:'David Libre',serif;margin-bottom:3px;border-bottom:1px dotted #ccc;padding-bottom:6px}
+  .ts-sample-card .ctx-block{margin-bottom:18px}
+  .ts-sample-card .out-of-scope{opacity:.4}
+  .ts-sample-card .out-of-scope::after{content:" (מחוץ לתחום שנבחר)";font-size:8pt;font-family:'David Libre',serif;color:#a33}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-title">🧩 עורך תוספים</div>
+    <button class="btn-load-fonts" onclick="loadSystemFonts()">📂 טען גופני Windows</button>
+  </div>
+
+  <div class="mode-tabs">
+    <div class="mode-tab active" id="tab-pagetype" onclick="switchMode('pagetype')">📄 סוג עמוד</div>
+    <div class="mode-tab" id="tab-textstyle" onclick="switchMode('textstyle')">🅰️ סגנון טקסט</div>
+  </div>
+
+  <div class="sidebar-scrollable">
+
+    <!-- ======================= PAGE TYPE PANEL ======================= -->
+    <div id="panel-pagetype">
+
+      <div class="panel-static">
+        <div class="panel-header">כללי</div>
+        <div class="inline-cfg-row"><label>שם סוג העמוד:</label><input type="text" id="pt-name" value="עמוד פרטי מחבר והוצאה לאור" oninput="renderPreview()"></div>
+      </div>
+
+      <div class="panel-static">
+        <div class="panel-header">רקע העמוד</div>
+        <div class="inline-cfg-row"><label>מצב:</label>
+          <select id="pt-bg-defer" onchange="togglePtBgDefer(this.value)">
+            <option value="fixed" selected="selected">קבוע כאן</option>
+            <option value="deferred">להשאיר לבחירה בקובץ הראשי</option>
+          </select>
+        </div>
+        <div id="pt-bg-fixed-block">
+          <div class="inline-cfg-row"><label>סגנון:</label>
+            <select id="pt-bg-mode" onchange="togglePtBgSub(this.value); renderPreview()">
+              <option value="none" selected="selected">ללא</option>
+              <option value="color">צבע אחיד</option>
+              <option value="texture">מרקם עדין</option>
+              <option value="image">תמונה מותאמת</option>
+            </select>
+          </div>
+          <div class="inline-cfg-row" id="pt-bg-color-row" style="display:none;"><label>צבע:</label><input type="color" id="pt-bg-color" value="#f4f1e8" oninput="renderPreview()"></div>
+          <div class="inline-cfg-row" id="pt-bg-img-row" style="display:none;">
+            <label>קובץ:</label>
+            <input type="file" accept="image/*" style="flex:1;font-size:8pt;" onchange="handleImgFile(event, 'pt-bg-data', renderPreview)">
+            <input type="hidden" id="pt-bg-data" value="">
+          </div>
+          <div class="inline-cfg-row" id="pt-bg-op-row" style="display:none;"><label>שקיפות:</label><input type="range" id="pt-bg-opacity" min="0" max="100" value="15" oninput="renderPreview()"></div>
+        </div>
+      </div>
+
+      <div class="panel-static">
+        <div class="panel-header">אלמנטי טקסט</div>
+        <div id="pt-elements-container"></div>
+        <div class="add-el-btn" onclick="addElementCard()">+ הוסף אלמנט טקסט</div>
+      </div>
+
+      <div class="panel-static">
+        <div class="panel-header">הגדרות עמוד נוספות</div>
+        <div class="inline-cfg-row"><label>מספר עמוד:</label>
+          <select id="pt-shownum"><option value="no" selected="selected">לא מוצג</option><option value="yes">מוצג</option></select>
+        </div>
+        <div class="inline-cfg-row"><label>בתוכן עניינים:</label>
+          <select id="pt-toc-include" onchange="document.getElementById('pt-toc-level-row').style.display=this.value==='yes'?'flex':'none'">
+            <option value="no" selected="selected">לא נכלל</option><option value="yes">נכלל</option>
+          </select>
+        </div>
+        <div class="inline-cfg-row" id="pt-toc-level-row" style="display:none;"><label>ברמת כותרת:</label>
+          <select id="pt-toc-level">
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option>
+          </select>
+        </div>
+        <div class="inline-cfg-row"><label>מיקום בסדר:</label>
+          <select id="pt-anchor" onchange="document.getElementById('pt-repeat-row').style.display=(this.value.indexOf('Part')>-1)?'flex':'none'">
+            <option value="beforeAll">לפני הכל</option>
+            <option value="afterMainShaar" selected="selected">אחרי השער הראשי</option>
+            <option value="afterGeneralToc">אחרי תוכן העניינים הכללי</option>
+            <option value="beforeEachPart">לפני כל שער-חלק</option>
+            <option value="afterEachPart">מיד אחרי כל שער-חלק</option>
+            <option value="endOfEachPart">בסוף כל חלק</option>
+            <option value="afterAll">אחרי הכל</option>
+          </select>
+        </div>
+        <div class="inline-cfg-row" id="pt-repeat-row" style="display:none;"><label>חזרה:</label>
+          <select id="pt-repeat"><option value="perPart" selected="selected">אוטומטית לכל חלק</option><option value="once">פעם אחת בלבד</option></select>
+        </div>
+      </div>
+
+      <button class="export-btn" onclick="exportPageType()">⬇ ייצוא כקובץ .pagetype.json</button>
+    </div>
+
+    <!-- ======================= TEXT STYLE PANEL ======================= -->
+    <div id="panel-textstyle" style="display:none;">
+
+      <div class="panel-static">
+        <div class="panel-header">כללי</div>
+        <div class="inline-cfg-row"><label>שם הסגנון:</label><input type="text" id="ts-name" value="הערת קולופון" oninput="renderPreview()"></div>
+      </div>
+
+      <div class="panel-static">
+        <div class="panel-header">הפעלה (טריגר)</div>
+        <div class="radio-row">
+          <label><input type="radio" name="ts-trigger" value="linePrefix" checked onchange="onTriggerTypeChange()"> קידומת בתחילת שורה</label>
+          <label><input type="radio" name="ts-trigger" value="delimiterPair" onchange="onTriggerTypeChange()"> טקסט בין שני סימונים</label>
+        </div>
+        <div id="ts-prefix-row" class="inline-cfg-row"><label>קידומת:</label><input type="text" id="ts-prefix" value="כותרת-קולופון" oninput="renderPreview()"></div>
+        <div id="ts-delim-row" style="display:none;">
+          <div class="inline-cfg-row"><label>סימן פתיחה:</label><input type="text" id="ts-open" value="(" maxlength="3" oninput="renderPreview()" style="flex:0 0 50px;"></div>
+          <div class="inline-cfg-row"><label>סימן סגירה:</label><input type="text" id="ts-close" value=")" maxlength="3" oninput="renderPreview()" style="flex:0 0 50px;"></div>
+          <div style="font-size:8pt;font-weight:700;margin:8px 0 3px;color:#2c3e50;">חל בסגנונות הטקסט הבאים:</div>
+          <div class="scope-grid" id="ts-scope-styles"></div>
+          <div style="font-size:8pt;font-weight:700;margin:8px 0 3px;color:#2c3e50;">חל בסוגי העמוד הבאים:</div>
+          <div class="scope-grid" id="ts-scope-pages"></div>
+        </div>
+      </div>
+
+      <div class="panel-static" id="ts-parse-panel">
+        <div class="panel-header">פענוח ופריסה</div>
+        <div class="inline-cfg-row"><label>מצב פענוח:</label>
+          <select id="ts-parsemode" onchange="togglePmSub(this.value); renderPreview()">
+            <option value="plain">ללא פיצול</option>
+            <option value="splitFirstDash" selected="selected">פיצול במקף ראשון</option>
+            <option value="splitCustomDelimiter">פיצול במפריד מותאם</option>
+            <option value="regexGroups">מתקדם — regex עם קבוצות</option>
+          </select>
+        </div>
+        <div class="inline-cfg-row" id="ts-pm-delim-row" style="display:none;"><label>מפריד:</label><input type="text" id="ts-pm-delim" value="::" style="flex:0 0 60px;"></div>
+        <div class="inline-cfg-row" id="ts-pm-regex-row" style="display:none;"><label>ביטוי:</label><input type="text" id="ts-pm-regex" value="" placeholder="^(?&lt;a&gt;.+)-(?&lt;b&gt;.+)$"></div>
+        <div class="inline-cfg-row"><label>מצב פריסה:</label>
+          <select id="ts-layoutmode" onchange="onLayoutModeChange()">
+            <option value="new_page_1col">עמוד חדש, טור בודד</option>
+            <option value="sub_shaar">שער משנה נפרד</option>
+            <option value="span_1col" selected="selected">רוחב מלא, ללא עמוד חדש</option>
+            <option value="inline_2col">בתוך הזרימה הדו-טורית</option>
+            <option value="side_note">הערת שוליים</option>
+          </select>
+        </div>
+        <div class="inline-cfg-row" id="ts-odd-page-row" style="display:none;"><label>עמוד אי-זוגי:</label>
+          <select id="ts-odd-page"><option value="no" selected="selected">לא</option><option value="yes">כן — הוסף דף ריק אם צריך</option></select>
+        </div>
+      </div>
+
+      <div class="panel-static">
+        <div class="panel-header">טיפוגרפיה</div>
+        <div id="ts-style-block"></div>
+      </div>
+
+      <div class="panel-static">
+        <div class="panel-header">יעד ההתאמה</div>
+        <div class="inline-cfg-row"><label>הטקסט הופך ל:</label>
+          <select id="ts-target" onchange="onTargetChange()">
+            <option value="inline" selected="selected">עיצוב במקום (ברירת מחדל)</option>
+            <option value="footnote">הערת שוליים (תחתית עמוד)</option>
+            <option value="endnote">הערת סיום (סוף פרק)</option>
+          </select>
+        </div>
+        <div id="ts-note-config-rows" style="display:none;">
+          <div class="inline-cfg-row"><label>סגנון מספור:</label>
+            <select id="ts-note-numstyle"><option value="numeric" selected="selected">מספרים (1,2,3)</option><option value="alphabetic">אותיות (א,ב,ג)</option></select>
+          </div>
+          <div class="inline-cfg-row"><label>איפוס מספור:</label>
+            <select id="ts-note-reset">
+              <option value="page">לכל עמוד</option>
+              <option value="part">לכל חלק</option>
+              <option value="never">לעולם לא (רציף)</option>
+            </select>
+          </div>
+          <div class="inline-cfg-row"><label>עימוד אזור ההערות:</label>
+            <select id="ts-note-columns"><option value="1" selected="selected">טור אחד</option><option value="2">שני טורים</option></select>
+          </div>
+          <div style="font-size:7.5pt;color:#888;padding-top:2px;">עיצוב הסימון (סוג/גודל), המפריד וקו ההערות נקבעים כעת בפאנל גלובלי בקובץ הראשי — כך שינוי אחד חל על כל ההערות בספר.</div>
+        </div>
+      </div>
+
+      <div class="panel-static" id="ts-extra-panel">
+        <div class="panel-header">מרווחים, תוכן עניינים והערת שוליים</div>
+        <div class="inline-cfg-row"><label>מרווח לפני:</label><input type="number" id="ts-margin-top" value="14" class="size-input" style="flex:0 0 42px;"></div>
+        <div class="inline-cfg-row"><label>מרווח אחרי:</label><input type="number" id="ts-margin-bottom" value="6" class="size-input" style="flex:0 0 42px;"></div>
+        <div class="inline-cfg-row"><label>בתוכן עניינים:</label>
+          <select id="ts-toc-include" onchange="document.getElementById('ts-toc-level-row').style.display=this.value==='yes'?'flex':'none'">
+            <option value="no">לא נכלל</option><option value="yes" selected="selected">נכלל</option>
+          </select>
+        </div>
+        <div class="inline-cfg-row" id="ts-toc-level-row"><label>ברמת כותרת:</label>
+          <select id="ts-toc-level"><option>1</option><option>2</option><option>3</option><option>4</option><option selected="selected">5</option><option>6</option><option>7</option></select>
+        </div>
+        <div class="inline-cfg-row"><label>קיבוץ ב-TOC:</label>
+          <select id="ts-toc-grouping"><option value="no" selected="selected">לא</option><option value="yes">כן</option></select>
+        </div>
+        <div class="inline-cfg-row"><label>הערת שוליים:</label>
+          <select id="ts-allow-sidenote"><option value="no" selected="selected">לא ניתן לצרף</option><option value="yes">ניתן לצרף (כמו כותרת 7)</option></select>
+        </div>
+      </div>
+
+      <button class="export-btn" onclick="exportTextStyle()">⬇ ייצוא כקובץ .textstyle.json</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="preview"></div>
+
+<script>
+/* ============================ shared: style-block generator ============================ */
+// בונה HTML של 'בלוק עיצוב' משותף (גופן/גודל/משקל/צבע/יישור/מסגרת) —
+// בשימוש גם באלמנטי טקסט של סוג-עמוד וגם בטיפוגרפיה של סגנון-טקסט.
+// לכל שדה תיבת-סימון נפרדת ('הגדר') — כדי לאפשר הגדרה חלקית (שאר השדות
+// יורשים מהטקסט הסובב). includeAlign=false משמיט את שורת יישור-הטקסט
+// (לא רלוונטי לסגנון בין-סימונים, שהוא טקסט מוטבע ולא בלוק).
+function createStyleBlockHTML(idPrefix, defaultChecked, includeAlign) {
+  const dc = defaultChecked ? 'checked' : '';
+  const dis = defaultChecked ? '' : 'disabled';
+  const rowCls = defaultChecked ? '' : 'disabled';
+  const alignRow = (includeAlign === false) ? '' : `
+    <div class="def-row ${rowCls}" data-role="align" id="${idPrefix}-align-row">
+      <input type="checkbox" class="def-cb" ${dc} onchange="onDefToggle('${idPrefix}','align',this.checked)">
+      <label class="def-label">יישור טקסט</label>
+      <div class="def-control"><select id="${idPrefix}-align" ${dis} onchange="renderPreview()">
+        <option value="right" selected="selected">ימין</option><option value="left">שמאל</option><option value="center">מרכז</option><option value="justify">לשני הצדדים</option>
+      </select></div>
+    </div>`;
+  return `
+    <div class="def-row ${rowCls}" data-role="family">
+      <input type="checkbox" class="def-cb" ${dc} onchange="onDefToggle('${idPrefix}','family',this.checked)">
+      <label class="def-label">גופן</label>
+      <div class="def-control"><select class="font-picker" id="${idPrefix}-family" ${dis} onchange="renderPreview()">
+        <option value="'David Libre', serif" selected="selected">David Libre</option>
+      </select></div>
+    </div>
+    <div class="def-row ${rowCls}" data-role="size">
+      <input type="checkbox" class="def-cb" ${dc} onchange="onDefToggle('${idPrefix}','size',this.checked)">
+      <label class="def-label">גודל</label>
+      <div class="def-control">
+        <select id="${idPrefix}-size-mode" ${dis} onchange="renderPreview()" style="flex:0 0 auto;">
+          <option value="absolute">מוחלט</option>
+          <option value="relative">יחסי (±pt מהפסקה)</option>
+        </select>
+        <input type="number" id="${idPrefix}-size" value="12" ${dis} oninput="renderPreview()" style="width:44px;">
+      </div>
+    </div>
+    <div class="def-row ${rowCls}" data-role="weight">
+      <input type="checkbox" class="def-cb" ${dc} onchange="onDefToggle('${idPrefix}','weight',this.checked)">
+      <label class="def-label">משקל</label>
+      <div class="def-control"><select id="${idPrefix}-weight" ${dis} onchange="renderPreview()">
+        <option value="400">רגיל</option><option value="700" selected="selected">מודגש</option>
+      </select></div>
+    </div>
+    <div class="def-row ${rowCls}" data-role="color">
+      <input type="checkbox" class="def-cb" ${dc} onchange="onDefToggle('${idPrefix}','color',this.checked)">
+      <label class="def-label">צבע</label>
+      <div class="def-control"><input type="color" id="${idPrefix}-color" value="#3b1f2b" ${dis} oninput="renderPreview()"></div>
+    </div>
+    ${alignRow}
+    <div class="def-row" data-role="border">
+      <input type="checkbox" class="def-cb" id="${idPrefix}-border-def" onchange="onBorderToggle('${idPrefix}',this.checked)">
+      <label class="def-label">מסגרת</label>
+      <div class="def-control" id="${idPrefix}-border-controls" style="opacity:.35;pointer-events:none;">
+        צבע <input type="color" id="${idPrefix}-border-color" value="#3b1f2b" oninput="renderPreview()" style="width:26px;">
+        עובי <input type="number" id="${idPrefix}-border-width" value="1" oninput="renderPreview()" style="width:34px;">
+        עיגול <input type="number" id="${idPrefix}-border-radius" value="4" oninput="renderPreview()" style="width:34px;">
+      </div>
+    </div>`;
+}
+// מפעילה/מנטרלת שדה בודד בבלוק העיצוב כשתיבת 'הגדר' שלו משתנה.
+function onDefToggle(idPrefix, role, checked) {
+  const el = document.getElementById(idPrefix + '-' + role);
+  if (el) el.disabled = !checked;
+  if (role === 'size') {
+    const modeEl = document.getElementById(idPrefix + '-size-mode');
+    if (modeEl) modeEl.disabled = !checked;
+  }
+  const row = el ? el.closest('.def-row') : null;
+  if (row) row.classList.toggle('disabled', !checked);
+  renderPreview();
+}
+// מפעילה/מנטרלת את שורת פרטי המסגרת (צבע/עובי/עיגול) לפי תיבת הסימון שלה.
+function onBorderToggle(idPrefix, checked) {
+  const box = document.getElementById(idPrefix + '-border-controls');
+  if (box) { box.style.opacity = checked ? '1' : '.35'; box.style.pointerEvents = checked ? 'auto' : 'none'; }
+  renderPreview();
+}
+// אוספת מבלוק עיצוב רק את השדות שסומנו כ'מוגדרים' (לא מנוטרלים),
+// ומחזירה אובייקט חלקי — בדיוק מה שהמנוע הראשי יודע לפרש כ'הגדרה חלקית'.
+function collectStyleBlock(idPrefix) {
+  const out = {};
+  ['family','weight','color'].forEach(role => {
+    const cb = document.querySelector(`#${CSS.escape(idPrefix)}-${role}`);
+    const row = cb ? cb.closest('.def-row') : null;
+    const isOn = row && !row.classList.contains('disabled');
+    if (isOn && cb) out[role] = cb.value;
+  });
+  const sizeCb = document.getElementById(idPrefix + '-size');
+  const sizeRow = sizeCb ? sizeCb.closest('.def-row') : null;
+  if (sizeRow && !sizeRow.classList.contains('disabled')) {
+    const mode = document.getElementById(idPrefix + '-size-mode').value;
+    if (mode === 'relative') out.sizeDelta = parseFloat(sizeCb.value);
+    else out.size = parseFloat(sizeCb.value);
+  }
+  const alignCb = document.getElementById(idPrefix + '-align');
+  if (alignCb) {
+    const alignRow = alignCb.closest('.def-row');
+    if (alignRow && !alignRow.classList.contains('disabled')) out.align = alignCb.value;
+  }
+  const borderDef = document.getElementById(idPrefix + '-border-def');
+  if (borderDef && borderDef.checked) {
+    out.border = {
+      color: document.getElementById(idPrefix + '-border-color').value,
+      width: parseFloat(document.getElementById(idPrefix + '-border-width').value),
+      radius: parseFloat(document.getElementById(idPrefix + '-border-radius').value)
+    };
+  }
+  return out;
+}
+// מיישמת אובייקט עיצוב (מ-collectStyleBlock) על אלמנט בתצוגה המקדימה,
+// כולל חישוב גודל יחסי (sizeDelta) ביחס לגופן ההורה בפועל.
+function applyStyleToEl(el, style) {
+  if (style.family) el.style.fontFamily = style.family;
+  if (typeof style.size === 'number') el.style.fontSize = style.size + 'pt';
+  if (typeof style.sizeDelta === 'number') {
+    const hostPx = parseFloat(getComputedStyle(el.parentElement).fontSize) || 16;
+    el.style.fontSize = (hostPx + style.sizeDelta * (96/72)) + 'px';
+  }
+  if (style.weight) el.style.fontWeight = style.weight;
+  if (style.color) el.style.color = style.color;
+  if (style.align) el.style.textAlign = style.align;
+  if (style.border) {
+    el.style.border = style.border.width + 'px solid ' + style.border.color;
+    el.style.borderRadius = style.border.radius + 'px';
+    el.style.padding = '1px 5px';
+  }
+}
+
+/* ============================ shared: image upload ============================ */
+// קוראת קובץ תמונה שהועלה וממירה אותו ל-data URL, לשימוש כרקע.
+function handleImgFile(event, targetInputId, cb) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById(targetInputId).value = e.target.result;
+    if (cb) cb();
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ============================ shared: system fonts ============================ */
+// טוענת את רשימת הגופנים המותקנים במחשב (Local Font Access API) וממלאת
+// בה את כל בוררי הגופן בעורך.
+async function loadSystemFonts() {
+  if (!('queryLocalFonts' in window)) { alert('הדפדפן שלך לא תומך בטעינת גופני מערכת (נדרש Chrome/Edge).'); return; }
+  try {
+    const fonts = await window.queryLocalFonts();
+    const families = [...new Set(fonts.map(f => f.family))].sort((a,b)=>a.localeCompare(b,'he'));
+    document.querySelectorAll('.font-picker').forEach(sel => {
+      const cur = sel.value;
+      sel.innerHTML = '';
+      const grp = document.createElement('optgroup');
+      grp.label = `גופני מחשב (${families.length} נמצאו)`;
+      families.forEach(fam => {
+        const opt = document.createElement('option');
+        opt.value = `'${fam}', serif`; opt.textContent = fam;
+        if (cur.indexOf(fam) > -1) opt.selected = true;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    });
+    alert(`נטענו בהצלחה ${families.length} גופנים מהמחשב!`);
+    renderPreview();
+  } catch(e) { alert('לא ניתנה הרשאה לגישה לגופני המחשב.'); }
+}
+
+/* ============================ mode switching ============================ */
+let currentMode = 'pagetype';
+// מחליפה בין מצב 'סוג עמוד' למצב 'סגנון טקסט' — מציגה/מסתירה את הפאנלים
+// המתאימים ומרעננת את התצוגה המקדימה.
+function switchMode(m) {
+  currentMode = m;
+  document.getElementById('tab-pagetype').classList.toggle('active', m==='pagetype');
+  document.getElementById('tab-textstyle').classList.toggle('active', m==='textstyle');
+  document.getElementById('panel-pagetype').style.display = m==='pagetype' ? 'block' : 'none';
+  document.getElementById('panel-textstyle').style.display = m==='textstyle' ? 'block' : 'none';
+  renderPreview();
+}
+
+/* ============================ page-type: background ============================ */
+// מציגה/מסתירה את בקרות הרקע הקבוע, לפי אם נבחר 'קבוע כאן' או 'נדחה לכלי הראשי'.
+function togglePtBgDefer(v) {
+  document.getElementById('pt-bg-fixed-block').style.display = (v === 'fixed') ? 'block' : 'none';
+  renderPreview();
+}
+// מציגה/מסתירה את שורות המשנה (צבע/קובץ/שקיפות) של רקע סוג-העמוד.
+function togglePtBgSub(mode) {
+  document.getElementById('pt-bg-color-row').style.display = (mode==='color') ? 'flex' : 'none';
+  document.getElementById('pt-bg-img-row').style.display = (mode==='image') ? 'flex' : 'none';
+  document.getElementById('pt-bg-op-row').style.display = (mode==='image') ? 'flex' : 'none';
+}
+const PT_TEXTURE_SVG = "data:image/svg+xml,%3Csvg width='32' height='55' viewBox='0 0 32 55' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M16,27 C10,22 5,14 5,5 C5,0 10,0 16,5 C22,0 27,0 27,5 C27,14 22,22 16,27 Z M16,27 C10,32 5,40 5,49 C5,55 10,55 16,49 C22,55 27,55 27,49 C27,40 22,32 16,27 Z M16,14 A3.5,3.5 0 1,0 16,21 A3.5,3.5 0 1,0 16,14 Z' fill='%239e9e9e' fill-opacity='0.18'/%3E%3C/svg%3E";
+// מחזירה אובייקט סגנון CSS לרקע התצוגה המקדימה של סוג העמוד, לפי הבקרות הנוכחיות.
+function getPtBgStyle() {
+  if (document.getElementById('pt-bg-defer').value === 'deferred') return {};
+  const mode = document.getElementById('pt-bg-mode').value;
+  if (mode === 'color') return { background: document.getElementById('pt-bg-color').value };
+  if (mode === 'texture') return { background: '#fdfcf6 url("'+PT_TEXTURE_SVG+'") repeat' };
+  if (mode === 'image') {
+    const img = document.getElementById('pt-bg-data').value;
+    if (!img) return {};
+    const op = parseInt(document.getElementById('pt-bg-opacity').value,10)/100;
+    const fade = 1-op;
+    return { backgroundImage: `linear-gradient(rgba(244,241,232,${fade}),rgba(244,241,232,${fade})),url("${img}")`, backgroundSize:'cover', backgroundPosition:'center' };
+  }
+  return {};
+}
+
+/* ============================ page-type: elements ============================ */
+let elCounter = 0;
+// מוסיפה 'כרטיס' אלמנט-טקסט חדש לסוג העמוד: תווית, קידומת, מיקום (5
+// אפשרויות בכל ציר) ובלוק עיצוב — כל אלמנט מקבל מזהה ייחודי משלו.
+function addElementCard(presetLabel, presetPrefix) {
+  const id = 'pt-el-' + (elCounter++);
+  const wrap = document.createElement('div');
+  wrap.className = 'element-card';
+  wrap.id = id + '-card';
+  wrap.innerHTML = `
+    <button class="el-remove" onclick="document.getElementById('${id}-card').remove(); renderPreview();">✕</button>
+    <div class="el-title">אלמנט טקסט</div>
+    <div class="inline-cfg-row"><label>תווית:</label><input type="text" id="${id}-label" value="${presetLabel || 'שם המחבר המלא'}" oninput="renderPreview()"></div>
+    <div class="inline-cfg-row"><label>קידומת מזהה:</label><input type="text" id="${id}-prefix" value="${presetPrefix || presetLabel || 'שם המחבר המלא'}" oninput="renderPreview()"></div>
+    <div class="inline-cfg-row"><label>ברירת מחדל:</label><input type="text" id="${id}-default" value="" oninput="renderPreview()"></div>
+    <div class="inline-cfg-row"><label>עוגן אנכי:</label>
+      <select id="${id}-vanchor" onchange="renderPreview()">
+        <option value="top">עליון</option>
+        <option value="upperMid">עליון-אמצעי</option>
+        <option value="center" selected="selected">מרכז</option>
+        <option value="lowerMid">תחתון-אמצעי</option>
+        <option value="bottom">תחתון</option>
+      </select>
+    </div>
+    <div class="inline-cfg-row"><label>יישור אופקי:</label>
+      <select id="${id}-halign" onchange="renderPreview()">
+        <option value="right">ימין</option>
+        <option value="rightMid">ימין-אמצעי</option>
+        <option value="center" selected="selected">מרכז</option>
+        <option value="leftMid">שמאל-אמצעי</option>
+        <option value="left">שמאל</option>
+      </select>
+    </div>
+    <div class="inline-cfg-row"><label>היסט עדין (px):</label><input type="number" id="${id}-offset" value="0" oninput="renderPreview()"></div>
+    <div class="style-block-title">עיצוב הטקסט</div>
+    <div id="${id}-style"></div>
+  `;
+  document.getElementById('pt-elements-container').appendChild(wrap);
+  document.getElementById(id + '-style').innerHTML = createStyleBlockHTML(id + '-style', true);
+  renderPreview();
+}
+
+/* ============================ text-style: trigger / scope ============================ */
+const BUILTIN_STYLES = [['body','טקסט רגיל'],['h0','כותרת 0'],['h1','כותרת 1'],['h2','כותרת 2'],['h3','כותרת 3'],['h4','כותרת 4'],['h5','כותרת 5'],['h6','כותרת 6'],['h7','כותרת 7 (הערת שוליים)']];
+const BUILTIN_PAGES = [['regular','עמוד רגיל'],['h0page','עמוד כותרת 0'],['h2page','עמוד כותרת 2'],['shaar','שער (ראשי/חלק)'],['toc','תוכן עניינים']];
+// בונה רשת תיבות-סימון (לדוגמה: רשימת רמות הכותרות) לבחירת ההיקף שסגנון
+// בין-סימונים חל עליו.
+function buildScopeGrid(containerId, list, prefix) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = list.map(([val,label]) => `<label><input type="checkbox" class="${prefix}-scope-cb" value="${val}" checked onchange="renderPreview()"> ${label}</label>`).join('');
+}
+// הפונקציה המרכזת שמחליטה אילו פאנלים מוצגים בסגנון-טקסט, לפי שילוב
+// סוג הטריגר (קידומת/בין-סימונים) והיעד (עיצוב-במקום/הערת-שוליים/סיום) —
+// כי גם טריגר וגם יעד משפיעים על אילו הגדרות בכלל רלוונטיות.
+function updateTsPanelVisibility() {
+  const triggerType = document.querySelector('input[name="ts-trigger"]:checked').value;
+  const target = document.getElementById('ts-target').value;
+  const showLayoutParse = (triggerType === 'linePrefix' && target === 'inline');
+  document.getElementById('ts-parse-panel').style.display = showLayoutParse ? 'block' : 'none';
+  document.getElementById('ts-extra-panel').style.display = showLayoutParse ? 'block' : 'none';
+  document.getElementById('ts-note-config-rows').style.display = (target !== 'inline') ? 'block' : 'none';
+  const alignRow = document.getElementById('ts-style-block-style-align-row');
+  if (alignRow) {
+    alignRow.style.display = showLayoutParse ? 'flex' : 'none';
+    if (!showLayoutParse) {
+      const cb = alignRow.querySelector('.def-cb');
+      if (cb && cb.checked) { cb.checked = false; onDefToggle('ts-style-block-style','align',false); }
+    }
+  }
+  renderPreview();
+}
+// מציגה את שורת 'עמוד אי-זוגי' רק כשמצב הפריסה שנבחר יוצר עמוד חדש בפועל
+// (עמוד-חדש או שער-משנה).
+function onLayoutModeChange() {
+  const mode = document.getElementById('ts-layoutmode').value;
+  document.getElementById('ts-odd-page-row').style.display = (mode === 'new_page_1col' || mode === 'sub_shaar') ? 'flex' : 'none';
+  renderPreview();
+}
+// מופעלת כשמשתנה שדה 'יעד ההתאמה' — מאצילה לפונקציה המרכזת.
+function onTargetChange() { updateTsPanelVisibility(); }
+// מופעלת כשמשתנה סוג הטריגר (קידומת/בין-סימונים) — מציגה/מסתירה את שדה
+// הקידומת מול שדות הסימונים+היקף, ומאצילה לפונקציה המרכזת.
+function onTriggerTypeChange() {
+  const type = document.querySelector('input[name="ts-trigger"]:checked').value;
+  document.getElementById('ts-prefix-row').style.display = (type==='linePrefix') ? 'flex' : 'none';
+  document.getElementById('ts-delim-row').style.display = (type==='delimiterPair') ? 'block' : 'none';
+  updateTsPanelVisibility();
+}
+// מציגה את שדה המפריד המותאם או שדה ה-regex, לפי מצב הפענוח שנבחר.
+function togglePmSub(mode) {
+  document.getElementById('ts-pm-delim-row').style.display = (mode==='splitCustomDelimiter') ? 'flex' : 'none';
+  document.getElementById('ts-pm-regex-row').style.display = (mode==='regexGroups') ? 'flex' : 'none';
+}
+
+/* ============================ preview ============================ */
+// מפנה לפונקציית התצוגה המקדימה המתאימה, לפי המצב הנוכחי (סוג עמוד/סגנון טקסט).
+function renderPreview() {
+  const host = document.getElementById('preview');
+  host.innerHTML = '';
+  if (currentMode === 'pagetype') renderPageTypePreview(host); else renderTextStylePreview(host);
+}
+// מציירת עמוד A4 מדומה עם הרקע והאלמנטים הנוכחיים, כדי לראות בפועל איך
+// סוג העמוד ייראה לפני הייצוא.
+function renderPageTypePreview(host) {
+  const wrap = document.createElement('div'); wrap.style.position='relative';
+  const page = document.createElement('div'); page.className = 'mock-a4';
+  const bg = getPtBgStyle();
+  Object.assign(page.style, bg);
+  document.querySelectorAll('#pt-elements-container .element-card').forEach(card => {
+    const id = card.id.replace('-card','');
+    const label = document.getElementById(id+'-label').value;
+    const def = document.getElementById(id+'-default').value;
+    const vAnchor = document.getElementById(id+'-vanchor').value;
+    const hAlign = document.getElementById(id+'-halign').value;
+    const offset = parseFloat(document.getElementById(id+'-offset').value)||0;
+    const lbl = document.createElement('div'); lbl.className = 'mock-el-label';
+    lbl.textContent = def || ('[' + label + ']');
+    const vMap = { top:'30px', upperMid:'25%', center:'calc(50% - 8px)', lowerMid:'62%', bottom:'auto' };
+    const bMap = { bottom:'26px' };
+    lbl.style.top = (vAnchor in vMap) ? `calc(${vMap[vAnchor]} + ${offset}px)` : 'auto';
+    lbl.style.bottom = (vAnchor === 'bottom') ? `calc(${bMap.bottom} - ${offset}px)` : 'auto';
+    const hMap = { right:'20px', rightMid:'25%', left:'20px', leftMid:'25%' };
+    lbl.style.right = (hAlign==='right'||hAlign==='rightMid') ? hMap[hAlign] : 'auto';
+    lbl.style.left = (hAlign==='left'||hAlign==='leftMid') ? hMap[hAlign] : (hAlign==='center' ? '50%' : 'auto');
+    if (hAlign==='center') lbl.style.transform = 'translateX(50%)';
+    applyStyleToEl(lbl, collectStyleBlock(id+'-style'));
+    page.appendChild(lbl);
+  });
+  wrap.appendChild(page);
+  const cap = document.createElement('div'); cap.className='preview-caption';
+  cap.textContent = 'תצוגה מקדימה — ' + (document.getElementById('pt-name').value || 'סוג עמוד ללא שם');
+  wrap.appendChild(cap);
+  host.appendChild(wrap);
+}
+// מציירת דוגמה חיה לסגנון הטקסט: אם יעד הוא הערה — דוגמת סימון+רשימת
+// הערות; אם קידומת — דוגמת כותרת עם הפיצול שנבחר; אם בין-סימונים —
+// משפט לדוגמה בשני הקשרים (טקסט רגיל/כותרת) שמראה אם הסגנון חל שם.
+function renderTextStylePreview(host) {
+  const type = document.querySelector('input[name="ts-trigger"]:checked').value;
+  const target = document.getElementById('ts-target').value;
+  const card = document.createElement('div'); card.className = 'ts-sample-card';
+  const style = collectStyleBlock('ts-style-block-style');
+
+  if (target !== 'inline') {
+    const block = document.createElement('div'); block.className='ctx-block';
+    const capt = document.createElement('div'); capt.className='ctx-label';
+    capt.textContent = (target === 'footnote' ? 'הערת שוליים' : 'הערת סיום-פרק') + ' — תצוגת עקרון (העיצוב הסופי של הסימון נקבע בקובץ הראשי)';
+    block.appendChild(capt);
+    const line = document.createElement('div');
+    const before = document.createElement('span'); before.textContent = 'תחילת המשפט ';
+    const marker = document.createElement('sup'); marker.textContent = '1'; marker.style.fontWeight='700';
+    const after = document.createElement('span'); after.textContent = ' וסוף המשפט.';
+    line.appendChild(before); line.appendChild(marker); line.appendChild(after);
+    block.appendChild(line);
+    const ruleDiv = document.createElement('div'); ruleDiv.style.cssText='border-top:1px solid #999;width:30%;margin:14px 0 4px;';
+    const noteLine = document.createElement('div'); noteLine.style.fontSize='.75em'; noteLine.style.color='#666';
+    const numSpan = document.createElement('span'); numSpan.textContent = '1. '; numSpan.style.fontWeight='700';
+    const textSpan = document.createElement('span'); textSpan.textContent = 'כאן יופיע תוכן ההערה שחולץ מהטקסט';
+    applyStyleToEl(textSpan, style);
+    noteLine.appendChild(numSpan); noteLine.appendChild(textSpan);
+    block.appendChild(ruleDiv); block.appendChild(noteLine);
+    card.appendChild(block);
+    host.appendChild(card);
+    return;
+  }
+
+  if (type === 'linePrefix') {
+    const layout = document.getElementById('ts-layoutmode').value;
+    const pm = document.getElementById('ts-parsemode').value;
+    const block = document.createElement('div'); block.className='ctx-block';
+    const capt = document.createElement('div'); capt.className='ctx-label';
+    capt.textContent = 'מצב פריסה: ' + layout + ' · פענוח: ' + pm;
+    block.appendChild(capt);
+    const sample = document.createElement('div');
+    if (pm === 'splitFirstDash') {
+      sample.innerHTML = '<div style="font-size:1.4em;">חלק ראשון לדוגמה</div><div style="font-size:.8em;color:#666;">חלק שני (תת-כותרת) לדוגמה</div>';
+    } else {
+      sample.textContent = 'טקסט הכותרת המלא לדוגמה';
+    }
+    applyStyleToEl(sample, style);
+    block.appendChild(sample);
+    card.appendChild(block);
+  } else {
+    const openC = document.getElementById('ts-open').value || '(';
+    const closeC = document.getElementById('ts-close').value || ')';
+    const styleScopes = Array.from(document.querySelectorAll('.ts-scope-cb')).filter(c=>c.checked).map(c=>c.value);
+    const contexts = [['body','דוגמה לפסקת טקסט רגיל'], ['h3','דוגמה בתוך כותרת 3']];
+    contexts.forEach(([key, label]) => {
+      const block = document.createElement('div'); block.className='ctx-block';
+      const capt = document.createElement('div'); capt.className='ctx-label'; capt.textContent = label;
+      block.appendChild(capt);
+      const inScope = styleScopes.indexOf(key) > -1;
+      const line = document.createElement('div');
+      const before = document.createElement('span'); before.textContent = 'תחילת המשפט ';
+      const marked = document.createElement('span');
+      marked.textContent = openC + ' דוגמה ' + closeC;
+      if (inScope) applyStyleToEl(marked, style); else marked.className = 'out-of-scope';
+      const after = document.createElement('span'); after.textContent = ' וסוף המשפט.';
+      line.appendChild(before); line.appendChild(marked); line.appendChild(after);
+      block.appendChild(line);
+      card.appendChild(block);
+    });
+  }
+  host.appendChild(card);
+}
+
+/* ============================ export ============================ */
+// פונקציית עזר גנרית: יוצרת קובץ מתוכן JSON ומורידה אותו בשם נתון.
+function download(filename, obj) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+// הופכת שם חופשי למזהה בטוח לשימוש כשם-קובץ (רק אותיות/ספרות/מקף).
+function slug(s) { return (s||'style').trim().replace(/\s+/g,'-').replace(/[^\w\u0590-\u05FF-]/g,''); }
+
+// אוספת את כל שדות סוג-העמוד (כולל כל אלמנטי הטקסט) ומייצאת כקובץ
+// ‎.pagetype.json בסכימה שהכלי הראשי יודע לקרוא.
+function exportPageType() {
+  const name = document.getElementById('pt-name').value.trim();
+  if (!name) { alert('נא למלא שם לסוג העמוד.'); return; }
+  const elements = [];
+  document.querySelectorAll('#pt-elements-container .element-card').forEach(cardEl => {
+    const id = cardEl.id.replace('-card','');
+    elements.push({
+      id: id,
+      label: document.getElementById(id+'-label').value,
+      prefix: document.getElementById(id+'-prefix').value,
+      defaultText: document.getElementById(id+'-default').value,
+      position: {
+        vAnchor: document.getElementById(id+'-vanchor').value,
+        hAlign: document.getElementById(id+'-halign').value,
+        offsetY: parseFloat(document.getElementById(id+'-offset').value)||0
+      },
+      style: collectStyleBlock(id+'-style')
+    });
+  });
+  const deferred = document.getElementById('pt-bg-defer').value === 'deferred';
+  const bgMode = document.getElementById('pt-bg-mode').value;
+  const obj = {
+    kind: 'pageType',
+    id: slug(name),
+    name: name,
+    version: 1,
+    background: deferred ? { mode:'deferred' } : {
+      mode:'fixed', style:bgMode,
+      color: bgMode==='color' ? document.getElementById('pt-bg-color').value : undefined,
+      image: bgMode==='image' ? document.getElementById('pt-bg-data').value : undefined,
+      opacity: bgMode==='image' ? parseInt(document.getElementById('pt-bg-opacity').value,10)/100 : undefined
+    },
+    elements: elements,
+    showPageNumber: document.getElementById('pt-shownum').value === 'yes',
+    includeInToc: document.getElementById('pt-toc-include').value === 'yes',
+    tocLevel: document.getElementById('pt-toc-include').value === 'yes' ? parseInt(document.getElementById('pt-toc-level').value,10) : undefined,
+    insertionAnchor: document.getElementById('pt-anchor').value,
+    repeatMode: document.getElementById('pt-repeat-row').style.display === 'flex' ? document.getElementById('pt-repeat').value : 'once'
+  };
+  download(slug(name) + '.pagetype.json', obj);
+}
+
+// אוספת את כל שדות סגנון-הטקסט — כולל היעד וה-noteConfig אם רלוונטי, או
+// מצב-הפענוח/פריסה/תוכן-עניינים אם זה טריגר-קידומת רגיל — ומייצאת כ-
+// ‎.textstyle.json.
+function exportTextStyle() {
+  const name = document.getElementById('ts-name').value.trim();
+  if (!name) { alert('נא למלא שם לסגנון.'); return; }
+  const type = document.querySelector('input[name="ts-trigger"]:checked').value;
+  let trigger;
+  if (type === 'linePrefix') {
+    trigger = { type:'linePrefix', prefix: document.getElementById('ts-prefix').value };
+  } else {
+    trigger = {
+      type:'delimiterPair',
+      open: document.getElementById('ts-open').value,
+      close: document.getElementById('ts-close').value,
+      appliesWithin: {
+        textStyles: Array.from(document.querySelectorAll('.ts-scope-cb')).filter(c=>c.checked).map(c=>c.value),
+        pageTypes: Array.from(document.querySelectorAll('.tp-scope-cb')).filter(c=>c.checked).map(c=>c.value)
+      }
+    };
+  }
+  const obj = {
+    kind:'textStyle', id: slug(name), name: name, version: 1,
+    trigger: trigger,
+    target: document.getElementById('ts-target').value,
+    style: collectStyleBlock('ts-style-block-style')
+  };
+  if (obj.target !== 'inline') {
+    obj.noteConfig = {
+      numberingStyle: document.getElementById('ts-note-numstyle').value,
+      resetAt: document.getElementById('ts-note-reset').value,
+      columns: parseInt(document.getElementById('ts-note-columns').value, 10)
+    };
+  }
+  if (type === 'linePrefix' && obj.target === 'inline') {
+    obj.parseMode = document.getElementById('ts-parsemode').value;
+    if (obj.parseMode === 'splitCustomDelimiter') obj.parseDelimiter = document.getElementById('ts-pm-delim').value;
+    if (obj.parseMode === 'regexGroups') obj.parseRegex = document.getElementById('ts-pm-regex').value;
+    obj.layoutMode = document.getElementById('ts-layoutmode').value;
+    if (obj.layoutMode === 'new_page_1col' || obj.layoutMode === 'sub_shaar') {
+      obj.startOnOddPage = document.getElementById('ts-odd-page').value === 'yes';
+    }
+    obj.spacing = { marginTop: parseFloat(document.getElementById('ts-margin-top').value), marginBottom: parseFloat(document.getElementById('ts-margin-bottom').value) };
+    obj.toc = { include: document.getElementById('ts-toc-include').value==='yes', level: parseInt(document.getElementById('ts-toc-level').value,10), grouping: document.getElementById('ts-toc-grouping').value==='yes' };
+    obj.allowSideNote = document.getElementById('ts-allow-sidenote').value === 'yes';
+  }
+  download(slug(name) + '.textstyle.json', obj);
+}
+
+/* ============================ init ============================ */
+document.getElementById('ts-style-block').innerHTML = createStyleBlockHTML('ts-style-block-style', false);
+buildScopeGrid('ts-scope-styles', BUILTIN_STYLES, 'ts');
+buildScopeGrid('ts-scope-pages', BUILTIN_PAGES, 'tp');
+addElementCard('שם המחבר המלא');
+updateTsPanelVisibility();
+</script>
+</body>
+</html>

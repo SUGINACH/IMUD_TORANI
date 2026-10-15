@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>גלריית 11 סטי שערים ועיטורים תורניים לדפי A4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bellefair&family=David+Libre:wght@400;700&family=Frank+Ruhl+Libre:wght@400;700;900&family=Noto+Serif+Hebrew:wght@400;700;900&family=Assistant:wght@400;600;700&display=swap');
+
+  :root {
+    --fn-sh-title: 'Bellefair', 'Frank Ruhl Libre', serif;
+    --sz-sh-title: 44pt;
+    --fn-sh-sub: 'David Libre', serif;
+    --sz-sh-sub: 20pt;
+    --fn-sh-desc: 'Frank Ruhl Libre', serif;
+    --sz-sh-desc: 11.5pt;
+    --fn-sh-sec: 'David Libre', serif;
+    --sz-sh-sec: 11pt;
+    --fn-sh-author: 'David Libre', serif;
+    --sz-sh-author: 14pt;
+    --fn-sh-year: 'David Libre', serif;
+    --sz-sh-year: 11.5pt;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background-color: #2b2b2b;
+    color: #333;
+    font-family: 'David Libre', 'Frank Ruhl Libre', serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Header Bar */
+  #top-nav {
+    background: #1e242b;
+    color: #f1f5f9;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #b8860b;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    z-index: 1000;
+  }
+  .nav-title {
+    font-size: 15pt;
+    font-weight: 700;
+    color: #e2c07a;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .set-picker {
+    background: #2d3748;
+    color: #fff;
+    border: 1px solid #b8860b;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 11pt;
+    font-family: 'David Libre', serif;
+    cursor: pointer;
+    outline: none;
+  }
+  .btn-action {
+    background: #b8860b;
+    color: #fff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 4px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 10pt;
+    transition: 0.2s;
+  }
+  .btn-action:hover {
+    background: #d4a017;
+  }
+
+  /* Main Workspace */
+  #main-workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Sidebar info & switcher */
+  #sets-sidebar {
+    width: 320px;
+    background: #ffffff;
+    border-left: 1px solid #cbd5e1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+  }
+  .sidebar-section-title {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e293b;
+    border-bottom: 2px solid #b8860b;
+    padding-bottom: 4px;
+    margin-bottom: 12px;
+  }
+  .set-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #f8fafc;
+  }
+  .set-card:hover {
+    border-color: #b8860b;
+    background: #fefce8;
+  }
+  .set-card.active {
+    border-color: #b8860b;
+    background: #fef9c3;
+    box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.3);
+  }
+  .set-card-title {
+    font-weight: 700;
+    font-size: 11pt;
+    color: #0f172a;
+    display: flex;
+    justify-content: space-between;
+  }
+  .set-card-desc {
+    font-size: 9pt;
+    color: #64748b;
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+
+  /* Preview Pane */
+  #preview-pane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    background-color: #475569;
+  }
+
+  /* Tab strip */
+  .preview-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: -15px;
+    z-index: 10;
+  }
+  .preview-tab {
+    padding: 6px 16px;
+    background: #334155;
+    color: #cbd5e1;
+    border-radius: 6px 6px 0 0;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 10.5pt;
+    border: 1px solid #475569;
+    border-bottom: none;
+  }
+  .preview-tab.active {
+    background: #ffffff;
+    color: #0f172a;
+    border-color: #ffffff;
+  }
+
+  /* A4 Page Representation */
+  .a4-page {
+    width: 210mm;
+    height: 297mm;
+    min-height: 297mm;
+    max-height: 297mm;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    padding: 0;
+    margin-bottom: 20px;
+  }
+
+  /* Main Shaar Framework */
+  .shaar-main-content {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+    padding: 22mm 16mm 18mm 16mm;
+  }
+  .bsd-header { font-size: 11pt; font-weight: 700; color: #333; }
+  .sefer-label { font-size: 16pt; letter-spacing: 5px; font-weight: 700; margin-top: 5px; }
+  .book-title-main { font-family: var(--fn-sh-title); font-size: var(--sz-sh-title); line-height: 1.05; margin: 10px 0 6px 0; font-weight: 900; }
+  .book-subtitle { font-family: var(--fn-sh-sub); font-size: var(--sz-sh-sub); font-weight: 700; line-height: 1.25; }
+  .book-description { font-family: var(--fn-sh-desc); font-size: var(--sz-sh-desc); line-height: 1.45; max-width: 72%; margin: 8px auto; }
+  .book-sections-summary { font-family: var(--fn-sh-sec); font-size: var(--sz-sh-sec); line-height: 1.4; border-top: 1px solid #bbb; border-bottom: 1px solid #bbb; padding: 6px 14px; margin: 8px 0; font-weight: 700; width: 75%; }
+  .author-block { font-family: var(--fn-sh-author); font-size: calc(var(--sz-sh-author) * 0.88); line-height: 1.3; }
+  .author-name { font-size: var(--sz-sh-author); font-weight: 700; }
+  .publication-footer { font-family: var(--fn-sh-year); font-size: var(--sz-sh-year); font-weight: 700; letter-spacing: 1px; }
+
+  /* Sub Shaar Layout */
+  .sub-shaar-page {
+    position: relative;
+    padding: 0;
+  }
+  .sub-shaar-bg-right {
+    position: absolute;
+    top: 0; bottom: 0;
+    right: 0; left: 55%;
+    background: #f8fafc;
+  }
+  .sub-shaar-col {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 0; width: 55%;
+    background: #ffffff;
+    border-right: 1.5px solid #cbd5e1;
+    box-shadow: 4px 0 16px rgba(0,0,0,0.06);
+    display: flex;
+    z-index: 10;
+  }
+  .sub-shaar-content-centered {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 25mm 14mm;
+  }
+
+  /* Section Divider Container Showcase */
+  .component-preview-card {
+    background: #ffffff;
+    width: 210mm;
+    padding: 25px 30px;
+    border-radius: 6px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    margin-bottom: 15px;
+  }
+  .card-label {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 15px;
+    border-bottom: 1px dashed #cbd5e1;
+    padding-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Vector Framework Overlays */
+  .svg-bg-full {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  @media print {
+    body { background: none; overflow: visible; }
+    #top-nav, #sets-sidebar, .preview-tabs { display: none !important; }
+    #preview-pane { padding: 0; background: none; }
+    .a4-page { box-shadow: none; margin: 0; page-break-after: always; break-after: page; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div id="top-nav">
+    <div class="nav-title">
+      <span>👑</span>
+      <span>מערכת 11 סטי שערים ועיטורים תורניים (A4)</span>
+    </div>
+    <div class="nav-controls">
+      <label style="font-size:10pt;">בחר סט:</label>
+      <select id="theme-select" class="set-picker" onchange="selectTheme(parseInt(this.value))">
+        <!-- populated by JS -->
+      </select>
+      <button class="btn-action" onclick="toggleGalleryView()">👁️ הצג את כל 11 הסטים בגלריה</button>
+      <button class="btn-action" onclick="window.print()">🖨️ הדפס / שמור PDF</button>
+    </div>
+  </div>
+
+  <div id="main-workspace">
+    <!-- Sidebar -->
+    <div id="sets-sidebar">
+      <div class="sidebar-section-title">רשימת 11 הסטים המושלמים</div>
+      <div id="sets-list-container">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- Main Preview Workspace -->
+    <div id="preview-pane">
+      <div class="preview-tabs" id="preview-tabs-bar">
+        <div class="preview-tab active" onclick="switchTab('all')">כל ארבעת האלמנטים בסט</div>
+        <div class="preview-tab" onclick="switchTab('main')">שער ראשי (A4)</div>
+        <div class="preview-tab" onclick="switchTab('sub')">שער משנה (A4)</div>
+        <div class="preview-tab" onclick="switchTab('elements')">עיטור סיום פרק וכותרת</div>
+      </div>
+
+      <div id="display-container" style="display:flex; flex-direction:column; align-items:center; width:100%;">
+        <!-- Generated Preview Elements Will Appear Here -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Definition of all 11 Authentic Torah Sets */
+    const TORAH_SETS = [
+      {
+        id: 1,
+        name: "עמודי ספירלה וגמלון שבור",
+        origin: "בהשראת תמונה 0 (אגרתא דחדוותא)",
+        desc: "עמודים קורינתיים עטופים בסרט ספירלי מתלפף בתלת-מימד, גמלון שבור עליון עם קשת פנימית וכרכוב מדורג.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="grad-pillar-1" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#cccccc"/>
+                  <stop offset="30%" stop-color="#ffffff"/>
+                  <stop offset="70%" stop-color="#eeeeee"/>
+                  <stop offset="100%" stop-color="#999999"/>
+                </linearGradient>
+                <linearGradient id="grad-ribbon-1" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#555555"/>
+                  <stop offset="50%" stop-color="#222222"/>
+                  <stop offset="100%" stop-color="#444444"/>
+                </linearGradient>
+              </defs>
+
+              <!-- Outer Border -->
+              <rect x="25" y="25" width="744" height="1073" fill="none" stroke="#222" stroke-width="1.5"/>
+              <rect x="30" y="30" width="734" height="1063" fill="none" stroke="#666" stroke-width="0.75" stroke-dasharray="4,2"/>
+
+              <!-- Pediment Top (Broken Triangular Arch) -->
+              <path d="M 50 160 L 290 40 L 370 120 C 370 120 340 140 340 160 Z" fill="#f8fafc" stroke="#222" stroke-width="2"/>
+              <path d="M 744 160 L 504 40 L 424 120 C 424 120 454 140 454 160 Z" fill="#f8fafc" stroke="#222" stroke-width="2"/>
+              
+              <!-- Upper Arch Medallion -->
+              <path d="M 340 160 C 340 100, 454 100, 454 160" fill="none" stroke="#222" stroke-width="2.5"/>
+              <circle cx="397" cy="115" r="18" fill="none" stroke="#333" stroke-width="1.5"/>
+              <circle cx="397" cy="115" r="6" fill="#333"/>
+
+              <!-- Architrave / Upper Crossbeam -->
+              <rect x="50" y="160" width="694" height="36" fill="#ffffff" stroke="#222" stroke-width="2"/>
+              <rect x="55" y="165" width="684" height="26" fill="none" stroke="#777" stroke-width="1"/>
+              
+              <!-- Right Pillar (Spiral Column) -->
+              <g id="spiral-pillar-r">
+                <!-- Base -->
+                <rect x="45" y="980" width="85" height="50" fill="#f1f5f9" stroke="#222" stroke-width="2"/>
+                <rect x="55" y="990" width="65" height="30" fill="none" stroke="#888" stroke-width="1"/>
+                <circle cx="87" cy="1005" r="8" fill="none" stroke="#444" stroke-width="1"/>
+
+                <!-- Shaft -->
+                <rect x="60" y="240" width="55" height="740" fill="url(#grad-pillar-1)" stroke="#333" stroke-width="1.5"/>
+                <!-- Fluting lines -->
+                <line x1="72" y1="240" x2="72" y2="980" stroke="#aaa" stroke-width="1"/>
+                <line x1="87" y1="240" x2="87" y2="980" stroke="#ffffff" stroke-width="1.5"/>
+                <line x1="102" y1="240" x2="102" y2="980" stroke="#888" stroke-width="1"/>
+
+                <!-- 3D Spiraling Ribbon -->
+                <path d="M 50 320 Q 87 360 125 330 L 125 380 Q 87 410 50 370 Z" fill="url(#grad-ribbon-1)" stroke="#111" stroke-width="1"/>
+                <path d="M 50 470 Q 87 510 125 480 L 125 530 Q 87 560 50 520 Z" fill="url(#grad-ribbon-1)" stroke="#111" stroke-width="1"/>
+                <path d="M 50 620 Q 87 660 125 630 L 125 680 Q 87 710 50 670 Z" fill="url(#grad-ribbon-1)" stroke="#111" stroke-width="1"/>
+                <path d="M 50 770 Q 87 810 125 780 L 125 830 Q 87 860 50 820 Z" fill="url(#grad-ribbon-1)" stroke="#111" stroke-width="1"/>
+                <path d="M 50 910 Q 87 950 125 920 L 125 965 Q 87 995 50 955 Z" fill="url(#grad-ribbon-1)" stroke="#111" stroke-width="1"/>
+
+                <!-- Capital (Corinthian Style) -->
+                <path d="M 45 196 L 130 196 L 115 240 L 60 240 Z" fill="#ffffff" stroke="#222" stroke-width="2"/>
+                <path d="M 50 206 C 70 235, 105 235, 125 206" fill="none" stroke="#333" stroke-width="1.5"/>
+              </g>
+
+              <!-- Left Pillar (Mirrored) -->
+              <use href="#spiral-pillar-r" transform="translate(794, 0) scale(-1, 1)" />
+
+              <!-- Inner Center Arch -->
+              <path d="M 125 280 C 125 220, 669 220, 669 280 L 669 980 L 125 980 Z" fill="none" stroke="#222" stroke-width="1.5"/>
+              <path d="M 135 285 C 135 235, 659 235, 659 285 L 659 970 L 135 970 Z" fill="none" stroke="#999" stroke-width="0.8"/>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="25" y="25" width="744" height="1073" fill="none" stroke="#222" stroke-width="1.5"/>
+              <!-- Single Left Pillar on column border -->
+              <rect x="400" y="60" width="35" height="1000" fill="#f1f5f9" stroke="#333" stroke-width="1"/>
+              <path d="M 395 180 Q 417 210 440 190 L 440 220 Q 417 240 395 210 Z" fill="#333"/>
+              <path d="M 395 380 Q 417 410 440 390 L 440 420 Q 417 440 395 410 Z" fill="#333"/>
+              <path d="M 395 580 Q 417 610 440 590 L 440 620 Q 417 640 395 610 Z" fill="#333"/>
+              <path d="M 395 780 Q 417 810 440 790 L 440 820 Q 417 840 395 810 Z" fill="#333"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:220px; height:26px; margin:auto;" viewBox="0 0 400 40"><g stroke="#222" fill="none" stroke-width="2"><path d="M10,20 L160,20"/><path d="M240,20 L390,20"/><circle cx="200" cy="20" r="12" fill="#fff" stroke="#222" stroke-width="2.5"/><circle cx="200" cy="20" r="5" fill="#222"/><path d="M175,10 Q200,20 175,30" stroke-width="2"/><path d="M225,10 Q200,20 225,30" stroke-width="2"/></g></svg>`,
+        headerSVG: `<svg style="height:11px; width:48px;" viewBox="0 0 100 24"><path d="M5,12 L40,12 M60,12 L95,12" stroke="#444" stroke-width="2"/><polygon points="50,4 58,12 50,20 42,12" fill="#444"/></svg>`
+      },
+
+      {
+        id: 2,
+        name: "פסי תחרה וילנאית רחבים",
+        origin: "בהשראת תמונה 1 (ספר ברכת הלוי)",
+        desc: "שולי תחרה וילנאית עשירים ורחבים בשני צדי הדף עם תבנית סלסולים צפופה ומסגרת מרכזית עדינה.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="vilna-lace-pat" width="80" height="90" patternUnits="userSpaceOnUse">
+                  <path d="M 40 0 C 20 15, 10 35, 10 50 C 10 75, 40 90, 40 90 C 40 90, 70 75, 70 50 C 70 35, 60 15, 40 0 Z" fill="none" stroke="#555" stroke-width="1.2"/>
+                  <circle cx="40" cy="45" r="14" fill="none" stroke="#777" stroke-width="1"/>
+                  <circle cx="40" cy="45" r="5" fill="#888"/>
+                  <path d="M 0 45 C 15 35, 25 35, 40 45 C 55 55, 65 55, 80 45" fill="none" stroke="#aaa" stroke-width="1"/>
+                  <path d="M 10 15 Q 40 30 70 15" fill="none" stroke="#999" stroke-width="0.8"/>
+                  <path d="M 10 75 Q 40 60 70 75" fill="none" stroke="#999" stroke-width="0.8"/>
+                </pattern>
+              </defs>
+
+              <!-- Outer Frame Lines -->
+              <rect x="20" y="20" width="754" height="1083" fill="none" stroke="#222" stroke-width="2"/>
+              <rect x="25" y="25" width="744" height="1073" fill="none" stroke="#777" stroke-width="0.8"/>
+
+              <!-- Right Lace Flank -->
+              <rect x="35" y="35" width="95" height="1053" fill="url(#vilna-lace-pat)" stroke="#444" stroke-width="1.5"/>
+              
+              <!-- Left Lace Flank -->
+              <rect x="664" y="35" width="95" height="1053" fill="url(#vilna-lace-pat)" stroke="#444" stroke-width="1.5"/>
+
+              <!-- Inner Content Box Framing -->
+              <rect x="145" y="45" width="504" height="1033" fill="none" stroke="#333" stroke-width="1.2"/>
+              <rect x="150" y="50" width="494" height="1023" fill="none" stroke="#bbb" stroke-width="0.8"/>
+
+              <!-- Corner Cartouches -->
+              <path d="M 145 75 L 175 45 M 649 75 L 619 45 M 145 1048 L 175 1078 M 649 1048 L 619 1078" stroke="#333" stroke-width="1.5"/>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="20" y="20" width="754" height="1083" fill="none" stroke="#222" stroke-width="2"/>
+              <rect x="375" y="25" width="60" height="1073" fill="#f8fafc" stroke="#444" stroke-width="1.2"/>
+              <!-- Repeating lace dots down the spine -->
+              <line x1="405" y1="35" x2="405" y2="1085" stroke="#777" stroke-dasharray="10,10" stroke-width="2"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:240px; height:24px; margin:auto;" viewBox="0 0 300 30"><g fill="#333"><circle cx="150" cy="15" r="6"/><circle cx="130" cy="15" r="4"/><circle cx="170" cy="15" r="4"/><circle cx="115" cy="15" r="2.5"/><circle cx="185" cy="15" r="2.5"/><path d="M 20 15 Q 70 8 100 15 Q 70 22 20 15 Z"/><path d="M 280 15 Q 230 8 200 15 Q 230 22 280 15 Z"/></g></svg>`,
+        headerSVG: `<svg style="height:12px; width:50px;" viewBox="0 0 100 24"><path d="M5,12 C25,4 35,20 50,12 C65,4 75,20 95,12" fill="none" stroke="#444" stroke-width="2"/><circle cx="50" cy="12" r="3" fill="#444"/></svg>`
+      },
+
+      {
+        id: 3,
+        name: "קשת בארוק משוננת וכרכובים",
+        origin: "בהשראת תמונה 2 (ספר הפטרות המבואר)",
+        desc: "קשתות כפולות מעוטרות בסלסולי קצוות וכרכובים גותיים, שושנות בפינות ומסגרת רבת-שכבות.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Outer Moldings -->
+              <rect x="30" y="30" width="734" height="1063" rx="8" fill="none" stroke="#222" stroke-width="3"/>
+              <rect x="40" y="40" width="714" height="1043" rx="6" fill="none" stroke="#888" stroke-width="1"/>
+              
+              <!-- Scalloped Baroque Arch -->
+              <path d="M 85 240 
+                       C 85 100, 240 70, 397 70 
+                       C 554 70, 709 100, 709 240 
+                       L 709 950 
+                       C 709 1040, 554 1050, 397 1050 
+                       C 240 1050, 85 1040, 85 950 Z" 
+                    fill="none" stroke="#222" stroke-width="2.5"/>
+              
+              <path d="M 100 250 
+                       C 100 120, 250 90, 397 90 
+                       C 544 90, 694 120, 694 250 
+                       L 694 935 
+                       C 694 1025, 544 1030, 397 1030 
+                       C 250 1030, 100 1025, 100 935 Z" 
+                    fill="none" stroke="#666" stroke-width="1.2" stroke-dasharray="6,3"/>
+
+              <!-- Corner Acanthus Ornaments -->
+              <g stroke="#333" fill="none" stroke-width="1.8">
+                <!-- Top Right -->
+                <path d="M 45 45 Q 80 45 85 85 Q 45 80 45 45 Z"/>
+                <!-- Top Left -->
+                <path d="M 749 45 Q 714 45 709 85 Q 749 80 749 45 Z"/>
+                <!-- Bottom Right -->
+                <path d="M 45 1078 Q 80 1078 85 1038 Q 45 1043 45 1078 Z"/>
+                <!-- Bottom Left -->
+                <path d="M 749 1078 Q 714 1078 709 1038 Q 749 1043 749 1078 Z"/>
+              </g>
+
+              <!-- Central Crest Top -->
+              <circle cx="397" cy="70" r="14" fill="#ffffff" stroke="#222" stroke-width="2"/>
+              <path d="M 387 70 Q 397 58 407 70 Q 397 82 387 70 Z" fill="#222"/>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="30" y="30" width="734" height="1063" rx="8" fill="none" stroke="#222" stroke-width="2.5"/>
+              <path d="M 436 40 L 436 1083" stroke="#222" stroke-width="1.8"/>
+              <path d="M 430 40 L 430 1083" stroke="#888" stroke-width="0.8"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:200px; height:24px; margin:auto;" viewBox="0 0 260 30"><path d="M10,15 C60,5 90,25 130,15 C170,5 200,25 250,15" fill="none" stroke="#222" stroke-width="2"/><circle cx="130" cy="15" r="5" fill="#222"/><circle cx="70" cy="15" r="3" fill="#666"/><circle cx="190" cy="15" r="3" fill="#666"/></svg>`,
+        headerSVG: `<svg style="height:12px; width:44px;" viewBox="0 0 100 24"><path d="M10,12 Q30,2 50,12 Q70,22 90,12" fill="none" stroke="#333" stroke-width="2"/><circle cx="50" cy="12" r="3.5" fill="#333"/></svg>`
+      },
+
+      {
+        id: 4,
+        name: "כתר מלכות ועלי אקנתוס",
+        origin: "בהשראת תמונה 3 (ספר שלחן מלכים)",
+        desc: "כתר תורה מלכותי בראש הדף, מסגרת עלי אקנתוס עשירה בסגנון דפוסי איטליה הקדומים ומדליון חותם בבסיס.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Outer Border -->
+              <rect x="35" y="35" width="724" height="1053" fill="none" stroke="#222" stroke-width="2"/>
+              <rect x="45" y="45" width="704" height="1033" fill="none" stroke="#555" stroke-width="0.8"/>
+
+              <!-- Royal Crown at Top -->
+              <g id="royal-crown" transform="translate(337, 55)">
+                <!-- Crown Base -->
+                <rect x="10" y="55" width="100" height="12" rx="3" fill="#ffffff" stroke="#222" stroke-width="2"/>
+                <circle cx="25" cy="61" r="3" fill="#222"/>
+                <circle cx="60" cy="61" r="3" fill="#222"/>
+                <circle cx="95" cy="61" r="3" fill="#222"/>
+                <!-- Crown Spikes -->
+                <path d="M 10 55 L 20 20 L 40 42 L 60 10 L 80 42 L 100 20 L 110 55 Z" fill="#ffffff" stroke="#222" stroke-width="2"/>
+                <!-- Jewels on Spikes -->
+                <circle cx="20" cy="18" r="4" fill="#222"/>
+                <circle cx="60" cy="8" r="5" fill="#222"/>
+                <circle cx="100" cy="18" r="4" fill="#222"/>
+              </g>
+
+              <!-- Acanthus Leaf Side Borders -->
+              <g stroke="#333" fill="none" stroke-width="1.5">
+                <!-- Right Border Swags -->
+                <path d="M 60 140 C 90 200, 40 300, 70 400 C 100 500, 40 600, 70 700 C 100 800, 40 900, 60 980"/>
+                <!-- Left Border Swags -->
+                <path d="M 734 140 C 704 200, 754 300, 724 400 C 694 500, 754 600, 724 700 C 694 800, 754 900, 734 980"/>
+              </g>
+
+              <!-- Bottom Medallion Seal -->
+              <g transform="translate(357, 980)">
+                <circle cx="40" cy="40" r="36" fill="#ffffff" stroke="#222" stroke-width="2"/>
+                <circle cx="40" cy="40" r="30" fill="none" stroke="#777" stroke-width="1" stroke-dasharray="4,2"/>
+                <path d="M 25 40 Q 40 25 55 40 Q 40 55 25 40 Z" fill="#222"/>
+              </g>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="35" y="35" width="724" height="1053" fill="none" stroke="#222" stroke-width="2"/>
+              <use href="#royal-crown" transform="translate(100, 100) scale(0.6)"/>
+              <line x1="436" y1="45" x2="436" y2="1078" stroke="#333" stroke-width="1.5"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:180px; height:28px; margin:auto;" viewBox="0 0 200 35"><path d="M 85 25 L 90 12 L 95 20 L 100 8 L 105 20 L 110 12 L 115 25 Z" fill="#222"/><line x1="10" y1="25" x2="80" y2="25" stroke="#222" stroke-width="2"/><line x1="120" y1="25" x2="190" y2="25" stroke="#222" stroke-width="2"/></svg>`,
+        headerSVG: `<svg style="height:14px; width:40px;" viewBox="0 0 100 30"><path d="M 30 25 L 40 10 L 50 18 L 60 10 L 70 25 Z" fill="#333"/><circle cx="50" cy="6" r="3" fill="#333"/></svg>`
+      },
+
+      {
+        id: 5,
+        name: "תבנית רשת גיאומטרית וסרט עליון",
+        origin: "בהשראת תמונה 4 (תנא דבי אליהו המבואר)",
+        desc: "תחרת מעויינים גיאומטרית אלגנטית במסגרת, סרט עליון מקומר ("מהדורא מפוארת") ושושנות פינה.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="mesh-pattern" width="24" height="24" patternUnits="userSpaceOnUse">
+                  <path d="M 0 12 L 12 0 L 24 12 L 12 24 Z" fill="none" stroke="#bbb" stroke-width="0.8"/>
+                  <circle cx="12" cy="12" r="1.5" fill="#888"/>
+                </pattern>
+              </defs>
+
+              <!-- Outer Frame with Lattice -->
+              <rect x="25" y="25" width="744" height="1073" fill="none" stroke="#222" stroke-width="2"/>
+              <rect x="35" y="35" width="724" height="1053" fill="url(#mesh-pattern)" stroke="#333" stroke-width="1.2"/>
+              
+              <!-- Inner White Shield -->
+              <rect x="95" y="95" width="604" height="933" rx="12" fill="#ffffff" stroke="#222" stroke-width="2"/>
+              <rect x="105" y="105" width="584" height="913" rx="8" fill="none" stroke="#777" stroke-width="1"/>
+
+              <!-- Ribbon Header at Top -->
+              <g transform="translate(267, 70)">
+                <path d="M 0 25 Q 130 5 260 25 L 245 60 Q 130 40 15 60 Z" fill="#ffffff" stroke="#222" stroke-width="2"/>
+                <text x="130" y="44" font-family="'David Libre', serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#111">מהדורה מפוארת</text>
+              </g>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="25" y="25" width="744" height="1073" fill="none" stroke="#222" stroke-width="2"/>
+              <rect x="400" y="25" width="40" height="1073" fill="url(#mesh-pattern)" stroke="#333" stroke-width="1"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:220px; height:24px; margin:auto;" viewBox="0 0 280 30"><rect x="125" y="5" width="30" height="20" fill="none" stroke="#222" stroke-width="2"/><line x1="10" y1="15" x2="115" y2="15" stroke="#222" stroke-width="2"/><line x1="165" y1="15" x2="270" y2="15" stroke="#222" stroke-width="2"/><circle cx="140" cy="15" r="3" fill="#222"/></svg>`,
+        headerSVG: `<svg style="height:12px; width:45px;" viewBox="0 0 90 24"><polygon points="45,2 55,12 45,22 35,12" fill="#333"/><line x1="5" y1="12" x2="30" y2="12" stroke="#333" stroke-width="2"/><line x1="60" y1="12" x2="85" y2="12" stroke="#333" stroke-width="2"/></svg>`
+      },
+
+      {
+        id: 6,
+        name: "גווילי ספר תורה וכתר עליון",
+        origin: "בהשראת תמונה 5 (נביאים וכתובים - מקראות גדולות)",
+        desc: "שני גווילי ספרי תורה פתוחים באלכסון המהווים עמודים ומסגרת, כתר עליון וסרטי קלף מסולסלים.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Outer Molded Frame -->
+              <rect x="30" y="30" width="734" height="1063" rx="10" fill="none" stroke="#222" stroke-width="2"/>
+
+              <!-- Archway Support -->
+              <path d="M 150 250 C 150 120, 644 120, 644 250 L 644 950 L 150 950 Z" fill="none" stroke="#444" stroke-width="2"/>
+
+              <!-- Top Crown -->
+              <g transform="translate(347, 65)">
+                <path d="M 10 50 L 25 20 L 50 40 L 75 10 L 90 50 Z" fill="#ffffff" stroke="#222" stroke-width="2"/>
+                <circle cx="50" cy="10" r="5" fill="#222"/>
+                <circle cx="25" cy="20" r="4" fill="#222"/>
+                <circle cx="75" cy="20" r="4" fill="#222"/>
+                <rect x="5" y="50" width="90" height="8" rx="2" fill="#222"/>
+              </g>
+
+              <!-- Right Torah Scroll (Angled) -->
+              <g id="torah-scroll-r" transform="translate(60, 200) rotate(-15)">
+                <!-- Scroll Body -->
+                <rect x="0" y="40" width="80" height="240" rx="4" fill="#ffffff" stroke="#222" stroke-width="2"/>
+                <!-- Upper Roller Handle -->
+                <polygon points="40,0 25,40 55,40" fill="#222"/>
+                <circle cx="40" cy="0" r="6" fill="#222"/>
+                <!-- Lower Roller Handle -->
+                <polygon points="40,320 25,280 55,280" fill="#222"/>
+                <circle cx="40" cy="320" r="6" fill="#222"/>
+              </g>
+
+              <!-- Left Torah Scroll (Mirrored) -->
+              <use href="#torah-scroll-r" transform="translate(794, 0) scale(-1, 1)" />
+
+              <!-- Lower Seal Emblem -->
+              <g transform="translate(347, 940)">
+                <circle cx="50" cy="50" r="40" fill="#ffffff" stroke="#222" stroke-width="2"/>
+                <path d="M 30 50 L 50 30 L 70 50 L 50 70 Z" fill="#222"/>
+              </g>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="30" y="30" width="734" height="1063" fill="none" stroke="#222" stroke-width="2"/>
+              <line x1="436" y1="30" x2="436" y2="1093" stroke="#222" stroke-width="1.8"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:200px; height:24px; margin:auto;" viewBox="0 0 260 30"><circle cx="130" cy="15" r="8" fill="none" stroke="#222" stroke-width="2"/><line x1="20" y1="15" x2="115" y2="15" stroke="#222" stroke-width="2"/><line x1="145" y1="15" x2="240" y2="15" stroke="#222" stroke-width="2"/></svg>`,
+        headerSVG: `<svg style="height:12px; width:45px;" viewBox="0 0 90 24"><path d="M 35 12 Q 45 4 55 12 Q 45 20 35 12 Z" fill="#333"/><line x1="5" y1="12" x2="30" y2="12" stroke="#333" stroke-width="2"/><line x1="60" y1="12" x2="85" y2="12" stroke="#333" stroke-width="2"/></svg>`
+      },
+
+      {
+        id: 7,
+        name: "היכל תורני - עמודים קלאסיים וקשת רומית",
+        origin: "בהשראת תמונה 6 (ספר תהלים המבואר - מתיבתא)",
+        desc: "שער היכל מונומנטלי מפואר: עמודים קלאסיים עם חריצים עמוקים, קשת רומית עליונה ואטיקה מדורגת.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Outer Boundary -->
+              <rect x="30" y="30" width="734" height="1063" fill="none" stroke="#222" stroke-width="2.5"/>
+
+              <!-- Heavy Entablature Top -->
+              <rect x="50" y="60" width="694" height="40" fill="#f1f5f9" stroke="#222" stroke-width="2"/>
+              <rect x="80" y="100" width="634" height="25" fill="#e2e8f0" stroke="#222" stroke-width="1.5"/>
+
+              <!-- Central Attic Shield -->
+              <path d="M 337 40 L 457 40 L 437 100 L 357 100 Z" fill="#ffffff" stroke="#222" stroke-width="2"/>
+              <circle cx="397" cy="70" r="15" fill="#ffffff" stroke="#222" stroke-width="1.5"/>
+
+              <!-- Roman Arch Frame -->
+              <path d="M 160 300 C 160 160, 634 160, 634 300 L 634 940 L 160 940 Z" fill="none" stroke="#222" stroke-width="2"/>
+
+              <!-- Right Classical Column -->
+              <g id="classic-column-r">
+                <rect x="60" y="940" width="100" height="70" fill="#f1f5f9" stroke="#222" stroke-width="2"/>
+                <rect x="75" y="200" width="70" height="740" fill="#ffffff" stroke="#222" stroke-width="1.5"/>
+                <!-- Flutings -->
+                <line x1="90" y1="200" x2="90" y2="940" stroke="#777" stroke-width="1.5"/>
+                <line x1="110" y1="200" x2="110" y2="940" stroke="#777" stroke-width="1.5"/>
+                <line x1="130" y1="200" x2="130" y2="940" stroke="#777" stroke-width="1.5"/>
+                <!-- Capital -->
+                <path d="M 65 150 L 155 150 L 145 200 L 75 200 Z" fill="#f1f5f9" stroke="#222" stroke-width="2"/>
+              </g>
+
+              <!-- Left Classical Column -->
+              <use href="#classic-column-r" transform="translate(794, 0) scale(-1, 1)" />
+
+              <!-- Bottom Plinth Base -->
+              <rect x="50" y="1010" width="694" height="40" fill="#f1f5f9" stroke="#222" stroke-width="2"/>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="30" y="30" width="734" height="1063" fill="none" stroke="#222" stroke-width="2"/>
+              <line x1="436" y1="30" x2="436" y2="1093" stroke="#222" stroke-width="2"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:230px; height:24px; margin:auto;" viewBox="0 0 300 30"><rect x="135" y="5" width="30" height="20" fill="#333"/><line x1="20" y1="15" x2="125" y2="15" stroke="#333" stroke-width="2.5"/><line x1="175" y1="15" x2="280" y2="15" stroke="#333" stroke-width="2.5"/></svg>`,
+        headerSVG: `<svg style="height:12px; width:45px;" viewBox="0 0 90 24"><path d="M 40 4 L 50 4 L 50 20 L 40 20 Z" fill="#333"/><line x1="5" y1="12" x2="35" y2="12" stroke="#333" stroke-width="2"/><line x1="55" y1="12" x2="85" y2="12" stroke="#333" stroke-width="2"/></svg>`
+      },
+
+      {
+        id: 8,
+        name: "פורטל מונומנטלי תלת-מימדי עם מדרגות",
+        origin: "בהשראת תמונה 7 (נביאים וכתובים - מקרא מפורש)",
+        desc: "שער אדריכלי כבד עם כרכוב שיניים קלאסי, עמודי תלת-מימד עגולים ומדרגות כניסה מדורגות בבסיס.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Giant Header Architrave -->
+              <rect x="40" y="40" width="714" height="60" fill="#e2e8f0" stroke="#222" stroke-width="2.5"/>
+              <!-- Dentils -->
+              <g fill="#333">
+                <rect x="60" y="75" width="15" height="15"/>
+                <rect x="90" y="75" width="15" height="15"/>
+                <rect x="120" y="75" width="15" height="15"/>
+                <rect x="660" y="75" width="15" height="15"/>
+                <rect x="690" y="75" width="15" height="15"/>
+                <rect x="720" y="75" width="15" height="15"/>
+              </g>
+
+              <!-- Central Arched Niche -->
+              <path d="M 180 280 C 180 140, 614 140, 614 280 L 614 880 L 180 880 Z" fill="none" stroke="#222" stroke-width="2"/>
+
+              <!-- 3D Massive Steps at Bottom -->
+              <g stroke="#222" stroke-width="2">
+                <polygon points="120,960 674,960 694,990 100,990" fill="#cbd5e1"/>
+                <polygon points="100,990 694,990 714,1025 80,1025" fill="#94a3b8"/>
+                <polygon points="80,1025 714,1025 744,1065 50,1065" fill="#64748b"/>
+              </g>
+
+              <!-- Side Columns -->
+              <rect x="60" y="160" width="85" height="740" rx="6" fill="#f8fafc" stroke="#222" stroke-width="2"/>
+              <rect x="649" y="160" width="85" height="740" rx="6" fill="#f8fafc" stroke="#222" stroke-width="2"/>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="40" y="40" width="714" height="1043" fill="none" stroke="#222" stroke-width="2"/>
+              <line x1="436" y1="40" x2="436" y2="1083" stroke="#222" stroke-width="2"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:220px; height:24px; margin:auto;" viewBox="0 0 280 30"><polygon points="140,5 155,25 125,25" fill="#222"/><line x1="10" y1="20" x2="115" y2="20" stroke="#222" stroke-width="2"/><line x1="165" y1="20" x2="270" y2="20" stroke="#222" stroke-width="2"/></svg>`,
+        headerSVG: `<svg style="height:12px; width:45px;" viewBox="0 0 90 24"><polygon points="45,4 55,20 35,20" fill="#333"/><line x1="5" y1="16" x2="30" y2="16" stroke="#333" stroke-width="2"/><line x1="60" y1="16" x2="85" y2="16" stroke="#333" stroke-width="2"/></svg>`
+      },
+
+      {
+        id: 9,
+        name: "שטיח ערבסקה ופילגרין מלא",
+        origin: "בהשראת תמונה 8 (משניות עוז והדר)",
+        desc: "מסגרת ערבסקה ושטיח פילגרין עשיר המכסה את כל שולי הדף בסגנון עתיק ומלכותי עם לוחות צד.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="arabesque-pat" width="60" height="60" patternUnits="userSpaceOnUse">
+                  <path d="M 30 0 C 45 15, 45 45, 30 60 C 15 45, 15 15, 30 0 Z" fill="none" stroke="#777" stroke-width="1"/>
+                  <path d="M 0 30 C 15 45, 45 45, 60 30 C 45 15, 15 15, 0 30 Z" fill="none" stroke="#777" stroke-width="1"/>
+                  <circle cx="30" cy="30" r="4" fill="#666"/>
+                </pattern>
+              </defs>
+
+              <!-- Full Carpet Frame -->
+              <rect x="25" y="25" width="744" height="1073" fill="url(#arabesque-pat)" stroke="#222" stroke-width="3"/>
+              
+              <!-- Inner Clean Text Shield -->
+              <rect x="80" y="80" width="634" height="963" rx="10" fill="#ffffff" stroke="#222" stroke-width="2"/>
+              <rect x="90" y="90" width="614" height="943" rx="6" fill="none" stroke="#999" stroke-width="1"/>
+
+              <!-- Side Shas Sedarim Panels -->
+              <g fill="#f8fafc" stroke="#333" stroke-width="1">
+                <rect x="100" y="380" width="70" height="250"/>
+                <rect x="624" y="380" width="70" height="250"/>
+              </g>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="25" y="25" width="744" height="1073" fill="none" stroke="#222" stroke-width="2"/>
+              <rect x="390" y="25" width="40" height="1073" fill="url(#arabesque-pat)" stroke="#333" stroke-width="1"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:210px; height:24px; margin:auto;" viewBox="0 0 260 30"><path d="M10,15 Q65,0 130,15 Q195,30 250,15" fill="none" stroke="#222" stroke-width="2"/><circle cx="130" cy="15" r="5" fill="#222"/></svg>`,
+        headerSVG: `<svg style="height:12px; width:45px;" viewBox="0 0 90 24"><path d="M 10 12 C 30 2, 60 22, 80 12" fill="none" stroke="#333" stroke-width="2"/><circle cx="45" cy="12" r="3.5" fill="#333"/></svg>`
+      },
+
+      {
+        id: 10,
+        name: "שער דפוס וילנא הקלאסי",
+        origin: "בהשראת תמונה 9 (תלמוד בבלי - מהדורת פריעדמאן)",
+        desc: "שער ש\"ס וילנא המסורתי והאותנטי – עמודי סדרי המשנה, מזבח אש תמיד בבסיס וקשת ענפים עליונה.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Outer Triple Borders -->
+              <rect x="20" y="20" width="754" height="1083" fill="none" stroke="#111" stroke-width="2"/>
+              <rect x="26" y="26" width="742" height="1071" fill="none" stroke="#111" stroke-width="1"/>
+
+              <!-- Large Arch Header -->
+              <path d="M 80 340 C 80 100, 714 100, 714 340 L 714 980 L 80 980 Z" fill="none" stroke="#111" stroke-width="2.5"/>
+
+              <!-- Side Seder Panels (Columns) -->
+              <!-- Right Side -->
+              <g id="vilna-side-col">
+                <rect x="35" y="440" width="85" height="420" fill="#ffffff" stroke="#222" stroke-width="1.5"/>
+                <line x1="35" y1="510" x2="120" y2="510" stroke="#444" stroke-width="1"/>
+                <line x1="35" y1="580" x2="120" y2="580" stroke="#444" stroke-width="1"/>
+                <line x1="35" y1="650" x2="120" y2="650" stroke="#444" stroke-width="1"/>
+                <line x1="35" y1="720" x2="120" y2="720" stroke="#444" stroke-width="1"/>
+                <line x1="35" y1="790" x2="120" y2="790" stroke="#444" stroke-width="1"/>
+              </g>
+
+              <!-- Left Side -->
+              <use href="#vilna-side-col" transform="translate(794, 0) scale(-1, 1)"/>
+
+              <!-- Altar with Eternal Flame at Bottom -->
+              <g transform="translate(317, 920)">
+                <rect x="20" y="40" width="120" height="50" fill="#ffffff" stroke="#222" stroke-width="2"/>
+                <circle cx="80" cy="20" r="16" fill="none" stroke="#222" stroke-width="2"/>
+                <path d="M 75 22 Q 80 8 85 22 Z" fill="#222"/>
+              </g>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="20" y="20" width="754" height="1083" fill="none" stroke="#111" stroke-width="2"/>
+              <line x1="436" y1="20" x2="436" y2="1103" stroke="#111" stroke-width="2"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:200px; height:24px; margin:auto;" viewBox="0 0 240 30"><g fill="#222"><polygon points="120,4 128,15 120,26 112,15"/><polygon points="90,7 96,15 90,23 84,15"/><polygon points="150,7 156,15 150,23 144,15"/><line x1="10" y1="15" x2="75" y2="15" stroke="#222" stroke-width="2"/><line x1="165" y1="15" x2="230" y2="15" stroke="#222" stroke-width="2"/></g></svg>`,
+        headerSVG: `<svg style="height:12px; width:45px;" viewBox="0 0 90 24"><polygon points="45,4 52,12 45,20 38,12" fill="#222"/><line x1="5" y1="12" x2="30" y2="12" stroke="#222" stroke-width="2"/><line x1="60" y1="12" x2="85" y2="12" stroke="#222" stroke-width="2"/></svg>`
+      },
+
+      {
+        id: 11,
+        name: "אכסדרת ארמון בפרספקטיבה עם עומק ורצפת שיש",
+        origin: "בהשראת תמונה 10 (שולחן ערוך המבואר - מתיבתא)",
+        desc: "שער פרספקטיבה תלת-מימדי מהודר עם רצפת שיש מדורגת, עמודי שיש כפולים, וילונות קשורים וקשת מקומרת.",
+        renderMainSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Perspective Tiled Floor -->
+              <g stroke="#888" stroke-width="1" fill="#f8fafc">
+                <polygon points="200,820 594,820 744,980 50,980"/>
+                <!-- Floor grid lines -->
+                <line x1="397" y1="820" x2="397" y2="980"/>
+                <line x1="330" y1="820" x2="220" y2="980"/>
+                <line x1="464" y1="820" x2="574" y2="980"/>
+                <line x1="265" y1="820" x2="70" y2="980"/>
+                <line x1="529" y1="820" x2="724" y2="980"/>
+              </g>
+
+              <!-- Deep Vaulted Arch -->
+              <path d="M 200 320 C 200 150, 594 150, 594 320 L 594 820 L 200 820 Z" fill="#ffffff" stroke="#222" stroke-width="2"/>
+              <path d="M 230 340 C 230 190, 564 190, 564 340 L 564 820 L 230 820 Z" fill="none" stroke="#777" stroke-width="1.2"/>
+
+              <!-- Outer Giant Portico -->
+              <rect x="40" y="40" width="714" height="80" fill="#f1f5f9" stroke="#222" stroke-width="2.5"/>
+
+              <!-- Left & Right Massive Columns -->
+              <rect x="70" y="160" width="85" height="700" fill="#ffffff" stroke="#222" stroke-width="2"/>
+              <rect x="639" y="160" width="85" height="700" fill="#ffffff" stroke="#222" stroke-width="2"/>
+
+              <!-- Bottom Steps Base -->
+              <rect x="40" y="980" width="714" height="70" fill="#e2e8f0" stroke="#222" stroke-width="2.5"/>
+            </svg>
+          `;
+        },
+        renderSubSVG: function() {
+          return `
+            <svg class="svg-bg-full" viewBox="0 0 794 1123" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="40" y="40" width="714" height="1043" fill="none" stroke="#222" stroke-width="2"/>
+              <line x1="436" y1="40" x2="436" y2="1083" stroke="#222" stroke-width="2"/>
+            </svg>
+          `;
+        },
+        dividerSVG: `<svg style="width:230px; height:26px; margin:auto;" viewBox="0 0 300 35"><g stroke="#222" fill="none" stroke-width="2"><path d="M20,17 Q150,0 280,17"/><path d="M20,17 Q150,34 280,17"/><circle cx="150" cy="17" r="6" fill="#222"/></g></svg>`,
+        headerSVG: `<svg style="height:12px; width:48px;" viewBox="0 0 100 24"><path d="M10,18 Q50,4 90,18" fill="none" stroke="#333" stroke-width="2.5"/><circle cx="50" cy="11" r="3.5" fill="#333"/></svg>`
+      }
+    ];
+
+    let currentSetId = 1;
+    let currentTab = 'all'; // 'all', 'main', 'sub', 'elements'
+    let isGalleryMode = false;
+
+    function init() {
+      const select = document.getElementById('theme-select');
+      const listContainer = document.getElementById('sets-list-container');
+      
+      select.innerHTML = '';
+      listContainer.innerHTML = '';
+
+      TORAH_SETS.forEach(set => {
+        // Option
+        const opt = document.createElement('option');
+        opt.value = set.id;
+        opt.textContent = `${set.id}. ${set.name}`;
+        select.appendChild(opt);
+
+        // Sidebar Card
+        const card = document.createElement('div');
+        card.className = `set-card ${set.id === 1 ? 'active' : ''}`;
+        card.id = `card-set-${set.id}`;
+        card.onclick = () => selectTheme(set.id);
+        card.innerHTML = `
+          <div class="set-card-title">
+            <span>סט ${set.id}: ${set.name}</span>
+          </div>
+          <div class="set-card-desc">${set.origin}</div>
+        `;
+        listContainer.appendChild(card);
+      });
+
+      renderCurrentView();
+    }
+
+    function selectTheme(id) {
+      currentSetId = id;
+      document.getElementById('theme-select').value = id;
+      
+      document.querySelectorAll('.set-card').forEach(c => c.classList.remove('active'));
+      const activeCard = document.getElementById(`card-set-${id}`);
+      if (activeCard) activeCard.classList.add('active');
+
+      isGalleryMode = false;
+      document.getElementById('preview-tabs-bar').style.display = 'flex';
+      renderCurrentView();
+    }
+
+    function switchTab(tabName) {
+      currentTab = tabName;
+      document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      renderCurrentView();
+    }
+
+    function toggleGalleryView() {
+      isGalleryMode = !isGalleryMode;
+      document.getElementById('preview-tabs-bar').style.display = isGalleryMode ? 'none' : 'flex';
+      renderCurrentView();
+    }
+
+    function generateMainShaarHTML(set) {
+      return `
+        <div class="a4-page">
+          ${set.renderMainSVG()}
+          <div class="shaar-main-content">
+            <div>
+              <div class="bsd-header">בס"ד</div>
+              <div class="sefer-label">ספר</div>
+              <div class="book-title-main">ברכת המלך</div>
+              <div class="book-subtitle">חידושים וביאורים עמוקים בסוגיות הש"ס והפוסקים</div>
+              <div style="margin: 12px 0;">
+                ${set.dividerSVG}
+              </div>
+            </div>
+            
+            <div class="book-description">
+              בירור שיטות הראשונים והאחרונים ובירורי הלכות למעשה בעיון נמרץ ובסברא ישרה
+            </div>
+
+            <div class="book-sections-summary">
+              מהדורא חדשה ומפוארת | חלק ראשון: ענייני תפילה ומועדים
+            </div>
+
+            <div class="author-block">
+              חובר ונערך בס"ד ע"י<br>
+              <span class="author-name">הרב ידידיה בר אבא זצוק"ל</span>
+            </div>
+
+            <div class="publication-footer">
+              ירושלים עיה"ק תובב"א — שנת ה'תשפ"ו לפ"ק
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function generateSubShaarHTML(set) {
+      return `
+        <div class="a4-page sub-shaar-page">
+          ${set.renderSubSVG()}
+          <div class="sub-shaar-bg-right"></div>
+          <div class="sub-shaar-col">
+            <div class="sub-shaar-content-centered">
+              <div class="sefer-label">חלק</div>
+              <div class="book-title-main" style="font-size: 36pt;">חלק ראשון</div>
+              <div style="margin: 15px auto;">
+                ${set.dividerSVG}
+              </div>
+              <div class="book-subtitle" style="font-size: 20pt;">ענייני תפילה וקריאת שמע</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function generateElementsHTML(set) {
+      return `
+        <div class="component-preview-card">
+          <div class="card-label">
+            <span>1. עיטור סיום פרק (Section Divider)</span>
+            <span style="color:#64748b; font-weight:normal;">רוחב מלא מעל גריד 2 טורים</span>
+          </div>
+          <div style="padding: 15px 0; text-align: center;">
+            ${set.dividerSVG}
+          </div>
+        </div>
+
+        <div class="component-preview-card">
+          <div class="card-label">
+            <span>2. עיטור מרכזי בכותרת העליונה (Top Header Central Gutter)</span>
+            <span style="color:#64748b; font-weight:normal;">ממוקם במרכז השורה מעל הרווח המרכזי</span>
+          </div>
+          <div style="padding: 15px 0; display: flex; justify-content: center; align-items: center; gap: 20px; font-weight: bold;">
+            <span>חלק ראשון - ענייני תפילה</span>
+            <span>${set.headerSVG}</span>
+            <span>סימן א' - דיני שחרית</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCurrentView() {
+      const container = document.getElementById('display-container');
+      container.innerHTML = '';
+
+      if (isGalleryMode) {
+        // Render All 11 Sets in Gallery Mode
+        TORAH_SETS.forEach(set => {
+          const wrapper = document.createElement('div');
+          wrapper.style.marginBottom = '50px';
+          wrapper.style.display = 'flex';
+          wrapper.style.flexDirection = 'column';
+          wrapper.style.alignItems = 'center';
+          wrapper.style.width = '100%';
+          wrapper.innerHTML = `
+            <div style="background:#1e293b; color:#f8fafc; padding:8px 20px; border-radius:6px; margin-bottom:15px; font-weight:bold; font-size:13pt; border:1px solid #b8860b;">
+              סט ${set.id}: ${set.name} (${set.origin})
+            </div>
+            ${generateMainShaarHTML(set)}
+          `;
+          container.appendChild(wrapper);
+        });
+        return;
+      }
+
+      const activeSet = TORAH_SETS.find(s => s.id === currentSetId) || TORAH_SETS[0];
+
+      if (currentTab === 'all' || currentTab === 'main') {
+        container.insertAdjacentHTML('beforeend', generateMainShaarHTML(activeSet));
+      }
+      if (currentTab === 'all' || currentTab === 'sub') {
+        container.insertAdjacentHTML('beforeend', generateSubShaarHTML(activeSet));
+      }
+      if (currentTab === 'all' || currentTab === 'elements') {
+        container.insertAdjacentHTML('beforeend', generateElementsHTML(activeSet));
+      }
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>

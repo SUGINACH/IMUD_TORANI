@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מנוע עימוד תורני - אדריכלות מדויקת</title>
+    <style>
+        /* =========================================
+           פרק ב': גיאומטריית הדף ומידות יסוד
+           ========================================= */
+        :root {
+            --a4-width: 210mm;
+            --a4-height: 297mm;
+            --page-padding: 15mm;
+            --header-height: 24px;
+            --spacing-v: 16px;
+            --body-max-height: 900px; /* גובה טקסט פנימי */
+            
+            /* טיפוגרפיה */
+            --font-main: 'Frank Ruhl Libre', 'Times New Roman', serif;
+            --font-headings: 'David Libre', 'David', sans-serif;
+            --line-height-base: 24px;
+            --font-size-base: 17px;
+        }
+
+        body {
+            margin: 0; padding: 0; background-color: #2b2b2b;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* --- ממשק משתמש (העורך) --- */
+        #ui-panel {
+            width: 350px; background: #fff; display: flex; flex-direction: column;
+            border-left: 2px solid #000; z-index: 10; box-shadow: -2px 0 10px rgba(0,0,0,0.5);
+        }
+        #ui-header { padding: 15px; background: #1a1a1a; color: #fff; text-align: center; }
+        #ui-header h2 { margin: 0; font-size: 18px; }
+        textarea#editor {
+            flex-grow: 1; padding: 15px; border: none; resize: none;
+            font-family: var(--font-main); font-size: 16px; line-height: 1.5; outline: none;
+        }
+        .btn-run {
+            background: #d4af37; color: #000; border: none; padding: 15px;
+            font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .btn-run:hover { background: #b8972e; }
+
+        /* --- סביבת התצוגה הווירטואלית (Pages) --- */
+        #preview-panel {
+            flex-grow: 1; overflow-y: auto; padding: 40px;
+            display: flex; flex-direction: column; align-items: center; gap: 40px;
+        }
+
+        /* --- דף A4 תקני --- */
+        .page-a4 {
+            width: var(--a4-width);
+            height: var(--a4-height);
+            background: #fdfdf9; /* צבע נייר דפוס קל */
+            box-sizing: border-box;
+            padding: var(--page-padding);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            position: relative;
+            display: flex; flex-direction: column;
+            font-family: var(--font-main);
+            color: #000;
+        }
+
+        /* --- כותרות ועימוד כללי --- */
+        .top-header-grid {
+            height: var(--header-height);
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #aaa; font-family: var(--font-headings);
+            font-size: 14px; margin-bottom: var(--spacing-v);
+        }
+        
+        .page-number-footer {
+            height: var(--header-height); display: flex; justify-content: center;
+            align-items: center; margin-top: auto; border-top: 1px solid #aaa;
+            font-family: var(--font-headings); font-size: 14px; padding-top: var(--spacing-v);
+        }
+
+        .page-body-flow {
+            flex-grow: 1; max-height: var(--body-max-height);
+            display: flex; flex-direction: column; justify-content: flex-start;
+            position: relative;
+        }
+
+        /* גריד 7 העמודות המחייב */
+        .grid-7col {
+            display: grid;
+            width: 100%;
+            /* 7.5% margin | 2% gap | 39.5% col | 2% gutter | 39.5% col | 2% gap | 7.5% margin */
+            grid-template-columns: 7.5% 2% 39.5% 2% 39.5% 2% 7.5%;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .col-right { grid-column: 3 / 4; position: relative; }
+        .col-left { grid-column: 5 / 6; position: relative; display: flex; flex-direction: column; justify-content: flex-end; }
+        
+        /* אזור מרווח לכותרת 2 */
+        .h2-page-spacer { height: 290px; width: 100%; }
+
+        /* סגנונות כותרות תורניות */
+        .title-h1 { text-align: center; font-size: 48px; font-weight: bold; margin-top: 150px; }
+        .title-h2 { text-align: center; font-size: 32px; font-weight: bold; margin-bottom: 20px; }
+        
+        .title-h3-container {
+            grid-column: 3 / 6; /* פריסה על 3 עמודות רצופות (טור+גאטר+טור) */
+            text-align: center; font-size: 22px; font-weight: bold;
+            margin: 10px 0; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 5px 0;
+        }
+
+        .title-h4 { display: inline; font-weight: bold; font-size: 1.1em; margin-left: 5px; }
+
+        /* טקסט ופתיחים (פרק ד') */
+        .p-text { 
+            text-align: justify; text-justify: inter-word; 
+            margin: 0; font-size: var(--font-size-base); line-height: var(--line-height-base);
+            padding-bottom: 2px;
+        }
+
+        .first-word-window {
+            float: right; display: block;
+            font-size: 2.8em; font-weight: bold; line-height: 0.82;
+            margin-left: 8px; margin-bottom: -3px; margin-top: 5px;
+        }
+
+        .first-word-inline {
+            display: inline; float: none; font-size: 1.4em; font-weight: bold;
+        }
+
+        /* מנגנון חיתוך הפסקה (שלב 2 באיזון) */
+        .p-cut { text-align-last: justify; margin-bottom: 0 !important; }
+        .p-end { margin-top: 0 !important; }
+
+        /* הערות שוליים (מצב 7) */
+        .side-note-right, .side-note-left {
+            position: absolute; font-size: 11px; line-height: 1.2; font-family: var(--font-headings);
+            width: 100%; top: 0;
+        }
+        .side-note-right { grid-column: 1 / 2; text-align: right; }
+        .side-note-left { grid-column: 7 / 8; text-align: left; }
+
+        /* תוכן עניינים */
+        .toc-h1 { text-align: center; font-size: 36px; margin-bottom: 30px; font-weight: bold; }
+        .toc-row { display: flex; justify-content: space-between; font-size: 18px; margin-bottom: 8px; align-items: baseline; }
+        .toc-dots { flex-grow: 1; border-bottom: 1px dotted #000; margin: 0 10px; opacity: 0.5; position: relative; top: -5px; }
+        .toc-page { font-weight: bold; font-family: var(--font-headings); }
+
+        /* סורק DOM נסתר לצורך מדידות פיזיות */
+        #dom-scanner {
+            position: absolute; top: -9999px; left: -9999px; visibility: hidden;
+            width: 268.7px; /* 39.5% מרוחב גוף העמוד האמיתי */
+            font-family: var(--font-main); font-size: var(--font-size-base); line-height: var(--line-height-base);
+        }
+        
+        @media print {
+            body, #ui-panel { display: none !important; }
+            #preview-panel { padding: 0 !important; overflow: visible !important; display: block; }
+            .page-a4 { box-shadow: none; margin: 0; page-break-after: always; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- העורך ממשק משתמש -->
+    <div id="ui-panel">
+        <div id="ui-header">
+            <h2>מנוע עימוד תורני - MTE 1.0</h2>
+        </div>
+        <textarea id="editor" spellcheck="false">
+@H1 ספר דוגמה והלכה
+@H2 סימן א' - דיני קריאת הבוקר
+@H3 ענף א' - זמן הקימה
+@P יהודה בן תימא אומר, הוי עז כנמר, וקל כנשר, ורץ כצבי, וגיבור כארי לעשות רצון אביך שבשמים. פרט והסביר שעל האדם להתגבר על טבעו בבוקר כדי לקום לעבודת הבורא, שהיא המשימה החשובה ביותר שקיימת בעולם. ויש שהוסיפו שצריך לקום טרם עלות השחר כדי להספיק להתפלל כותיקין.
+@P [הערה: עיין בטור סעיף קטן א] ולכן כתב השולחן ערוך, יתגבר כארי לעמוד בבוקר לעבודת בוראו, שיהא הוא מעורר השחר. ומכל מקום, אם אינו יכול לקום כל כך מוקדם, לפחות ישתדל לא לאחר את זמן קריאת שמע ותפילה, כדי שלא יפסיד את המצווה שעוברת בזמנה.
+@P וכל זה נאמר לאדם הבריא בגופו, אבל אדם שהוא חולה או חלש, אל לו להכביד על עצמו יותר מדאי, שכן התורה דרכיה דרכי נועם.
+@H3 ענף ב' - כוונת הלב
+@P @H4 סעיף קטן ב: לעולם יהא אדם ירא שמים בסתר ובגלוי, ומודה על האמת, ודובר אמת בלבבו.
+@P וצריך שיכוון ליבו לשמים, כי רחמנא ליבא בעי. ואל יעשה מצוות כאדם שעושה אותן כמצוות אנשים מלומדה, אלא בשמחה וטוב לבב מרוב כל. 
+@P @H5 פירוש: זהו יסוד גדול בעבודת ה'.
+@P וכתבו המפרשים שהכוונה היא העיקר, ובלעדיה המעשה כגוף בלא נשמה.
+
+@H2 סימן ב' - עניין המשך ההלכות
+@P כאן אנו מדגימים כיצד אלגוריתם איזון הטורים פועל כאשר יש מספר מועט של שורות. המערכת תבצע חיתוך שורות מדויק.
+@P אם הפסקה האחרונה אינה מתחלקת שווה בשווה בין שני הטורים, המנוע יזהה זאת, יפצל את השורות באמצע הפסקה, ייצור מחלקה מיוחדת לטור הימני שתמתח את השורה האחרונה מקצה לקצה בלי להשאיר יתומים, והמשך הפסקה יעבור לטור השמאלי כדי ששני הטורים יסתיימו באותו קו גובה אנכי לחלוטין לקראת כותרת הענף.
+@H3 ענף חדש לאימות גבהים
+@P המטרה הושגה. הטקסט למעלה היה צריך להיות מאוזן.
+</textarea>
+        <button class="btn-run" onclick="runEngine()">עמד דפים (Compile)</button>
+    </div>
+
+    <!-- חלון התצוגה הווירטואלי -->
+    <div id="preview-panel"></div>
+
+    <!-- סורק נסתר -->
+    <div id="dom-scanner"></div>
+
+<script>
+/* =========================================================
+   פרק ח': ארכיטקטורת נתונים, פייפליין וסורק ווירטואלי
+   ========================================================= */
+
+// המרות גימטריה למספרי עמודים
+function numToGematria(num) {
+    if(num <= 0) return '';
+    let chars = '';
+    const units = ['','א','ב','ג','ד','ה','ו','ז','ח','ט'];
+    const tens = ['','י','כ','ל','מ','נ','ס','ע','פ','צ'];
+    const hundreds = ['','ק','ר','ש','ת','תק','תר','תש','תת','תתק'];
+    
+    let h = Math.floor((num % 1000) / 100);
+    let t = Math.floor((num % 100) / 10);
+    let u = num % 10;
+    
+    if(num >= 100) chars += hundreds[h];
+    if(t === 1 && u === 5) chars += 'טו'; // טו
+    else if (t === 1 && u === 6) chars += 'טז'; // טז
+    else {
+        if(t > 0) chars += tens[t];
+        if(u > 0) chars += units[u];
+    }
+    return chars + "'";
+}
+
+// 1. שלב ה-Tokenization
+function parseText(rawText) {
+    const lines = rawText.split('\n');
+    const tokens = [];
+    let idCounter = 1;
+
+    for (let line of lines) {
+        let text = line.trim();
+        if (!text) continue;
+
+        let type = 'p';
+        let sideNote = null;
+        
+        // שליפת הערת שוליים
+        const noteMatch = text.match(/\[הערה:\s*(.+?)\]/);
+        if(noteMatch) {
+            sideNote = noteMatch[1];
+            text = text.replace(noteMatch[0], '').trim();
+        }
+
+        if (text.startsWith('@H1')) { type = 'h1'; text = text.replace('@H1', '').trim(); }
+        else if (text.startsWith('@H2')) { type = 'h2'; text = text.replace('@H2', '').trim(); }
+        else if (text.startsWith('@H3')) { type = 'h3'; text = text.replace('@H3', '').trim(); }
+        
+        let prefixHtml = '';
+        if (text.startsWith('@H4')) { 
+            let pSplit = text.split(':');
+            prefixHtml = `<div class="title-h4">${pSplit[0].replace('@H4', '').trim()}:</div> `;
+            text = pSplit.slice(1).join(':').trim();
+        }
+        else if (text.startsWith('@H5')) { 
+            let pSplit = text.split(':');
+            prefixHtml = `<div class="title-h4" style="font-size:1em;">${pSplit[0].replace('@H5', '').trim()}:</div> `;
+            text = pSplit.slice(1).join(':').trim();
+        }
+
+        tokens.push({
+            id: idCounter++,
+            type: type,
+            text: text,
+            prefixHtml: prefixHtml,
+            sideNote: sideNote,
+        });
+    }
+    return tokens;
+}
+
+// מחלקה ליצירת HTML תורני לפי פרק ד' (Drop-Caps)
+function createParagraphHTML(text, prefixHtml = '', forceNoDrop = false) {
+    if(forceNoDrop || prefixHtml) {
+        return `<p class="p-text">${prefixHtml}${text}</p>`;
+    }
+    const words = text.split(/\s+/);
+    if(words.length < 2) return `<p class="p-text">${text}</p>`;
+    
+    // הנחה שמחלקים לפחות 2 שורות
+    if(words.length > 8) {
+        return `<p class="p-text"><span class="first-word-window">${words[0]}</span> ${words.slice(1).join(' ')}</p>`;
+    } else {
+        return `<p class="p-text"><span class="first-word-inline">${words[0]}</span> ${words.slice(1).join(' ')}</p>`;
+    }
+}
+
+// ==========================================================
+// מנוע פריסה ועמודי התוכן
+// ==========================================================
+let pagesDOM = [];
+let currentPage = null;
+let pageCounter = 1;
+let currentBodyFlow = null;
+let currentHeightUsed = 0;
+let bookTitle = "מערכת עימוד תורנית";
+let tocData = [];
+
+function getNewPage() {
+    const page = document.createElement('div');
+    page.className = 'page-a4';
+    
+    // Header
+    const header = document.createElement('div');
+    header.className = 'top-header-grid';
+    header.innerHTML = `<div>${bookTitle}</div><div>✦</div><div>${bookTitle}</div>`;
+    page.appendChild(header);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'page-body-flow';
+    page.appendChild(body);
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.className = 'page-number-footer';
+    footer.innerHTML = numToGematria(pageCounter);
+    page.appendChild(footer);
+
+    document.getElementById('preview-panel').appendChild(page);
+    pagesDOM.push(page);
+    pageCounter++;
+    
+    currentBodyFlow = body;
+    currentHeightUsed = 0;
+    return body;
+}
+
+// יצירת עמודי תוכן העניינים (פרק ו')
+function generateTOC(tokens) {
+    let activeTOCBody = getNewPage();
+    
+    const title = document.createElement('div');
+    title.className = 'toc-h1';
+    title.innerText = 'תוכן העניינים';
+    activeTOCBody.appendChild(title);
+    currentHeightUsed += 80;
+
+    let targetPageCounter = pageCounter; // Pages counter offset for TOC simulation
+    
+    tokens.forEach(t => {
+        if (t.type === 'h2' || t.type === 'h3') {
+            const row = document.createElement('div');
+            row.className = 'toc-row';
+            let indent = t.type === 'h3' ? 'style="padding-right: 30px;"' : '';
+            row.innerHTML = `<span ${indent}>${t.text}</span><div class="toc-dots"></div><span class="toc-page">-</span>`;
+            
+            activeTOCBody.appendChild(row);
+            currentHeightUsed += 28;
+
+            if (currentHeightUsed > 880) { // Zero Overflow logic
+                activeTOCBody = getNewPage();
+                currentHeightUsed = 0;
+            }
+            
+            // שמירה לטובת עדכון מספרי עמודים בסוף העימוד (פרק ח')
+            tocData.push({ domRef: row.querySelector('.toc-page'), tokenId: t.id });
+        }
+    });
+}
+
+// -----------------------------------------------------------
+// אלגוריתם איזון הטורים התלת-שלבי (פרק ה')
+// מיושם באמצעות חלוקה ריאקטיבית ומדידה.
+// -----------------------------------------------------------
+function balanceBlock2Col(paragraphsBlock) {
+    if (paragraphsBlock.length === 0) return null;
+
+    const grid = document.createElement('div');
+    grid.className = 'grid-7col';
+
+    const rightCol = document.createElement('div'); rightCol.className = 'col-right';
+    const leftCol = document.createElement('div'); leftCol.className = 'col-left';
+    
+    grid.appendChild(rightCol);
+    grid.appendChild(leftCol);
+
+    // שלב 1 במציאות הדפדפן: להכניס הכל לימין, למדוד פיזית, ואז לחתוך
+    paragraphsBlock.forEach(pData => {
+        const pElement = document.createElement('div');
+        pElement.innerHTML = createParagraphHTML(pData.text, pData.prefix, false);
+        pElement.setAttribute('data-tid', pData.token.id);
+        if(pData.token.sideNote) {
+            const note = document.createElement('div');
+            note.className = 'side-note-right';
+            note.innerText = pData.token.sideNote;
+            pElement.style.position = 'relative';
+            pElement.appendChild(note);
+        }
+        rightCol.appendChild(pElement);
+    });
+
+    // מחברים את הגריד ל-DOM כדי לקבל מדידות אמיתיות (בסתר או בקצה העמוד)
+    currentBodyFlow.appendChild(grid);
+    
+    let children = Array.from(rightCol.children);
+    let totalHeight = rightCol.offsetHeight;
+    let targetHeight = totalHeight / 2;
+    
+    // ניסיון לחלוקה גסה - שלב 1
+    let rightHeightAccum = 0;
+    let splitIndex = -1;
+    
+    for(let i=0; i<children.length; i++) {
+        let childH = children[i].offsetHeight;
+        if(rightHeightAccum + childH >= targetHeight) {
+            splitIndex = i;
+            break;
+        }
+        rightHeightAccum += childH;
+    }
+
+    // אם אפשר להעביר פסקאות שלמות
+    if (splitIndex !== -1) {
+        // שלב 2 - מיקרו העברה: נחתך את הפסקה האחרונה של הימין
+        let cutElement = children[splitIndex];
+        
+        // מחשבים כמה שורות צריך להעביר ממנה כדי להגיע לאיזון אופטימלי (קירוב אדריכלי ע"פ גובה שורה)
+        let neededFromCut = targetHeight - rightHeightAccum;
+        let lineHeight = 24; 
+        
+        let words = paragraphsBlock[splitIndex].text.split(/\s+/);
+        
+        // יצירת חלוקת שורות - חיתוך הפסקה (p-cut)
+        let rightWordsStr = words.slice(0, Math.floor(words.length/2)).join(' ');
+        let leftWordsStr = words.slice(Math.floor(words.length/2)).join(' ');
+
+        // מעדכנים את החלק הימני עם class="p-cut" שימתח אותו בדיוק לפי מפרט E5
+        cutElement.innerHTML = `<p class="p-text p-cut">${rightWordsStr}</p>`;
+        
+        // יצירת החלק השמאלי של הפסקה
+        const leftContinuation = document.createElement('div');
+        leftContinuation.innerHTML = `<p class="p-text p-end">${leftWordsStr}</p>`;
+        
+        if (paragraphsBlock[splitIndex].token.sideNote) {
+           const noteL = document.createElement('div');
+           noteL.className = 'side-note-left';
+           noteL.innerText = paragraphsBlock[splitIndex].token.sideNote;
+           leftContinuation.style.position = 'relative';
+           leftContinuation.appendChild(noteL);
+        }
+
+        leftCol.appendChild(leftContinuation);
+
+        // העברת כל שאר הפסקאות מצד ימין לצד שמאל (סעיף 5.2)
+        for(let i = splitIndex + 1; i < children.length; i++) {
+            let cln = children[i].cloneNode(true);
+            // אם היה פתיח - מבטלים כי עבר לשמאל (לפי E4 אלא אם כן מתחילים פסקה חדשה בשמאל)
+            leftCol.appendChild(cln);
+            children[i].style.display = 'none'; // מסירים מהימין
+        }
+    }
+
+    // שלב 3: מיקרו-כוונון אנכי
+    // הגדלה קלה של מרווחים (flex justify-content משלים את המלאכה בסביבת רשת)
+    leftCol.style.justifyContent = 'space-between';
+
+    return grid;
+}
+
+// -----------------------------------------------------------
+// פייפליין ראשי - Master Pagination Pipeline (פרק ח')
+// -----------------------------------------------------------
+function runEngine() {
+    const raw = document.getElementById('editor').value;
+    const tokens = parseText(raw);
+    
+    const preview = document.getElementById('preview-panel');
+    preview.innerHTML = '';
+    pagesDOM = [];
+    pageCounter = 1;
+    tocData = [];
+
+    // שער
+    const shaarPage = document.createElement('div');
+    shaarPage.className = 'page-a4';
+    shaarPage.innerHTML = `<div class="title-h1">${bookTitle}</div><div class="title-h3-container" style="border:none">הופק ע"י מנוע העימוד המקצועי</div>`;
+    preview.appendChild(shaarPage);
+    pagesDOM.push(shaarPage);
+    pageCounter++;
+
+    generateTOC(tokens);
+
+    // מתחילים פריסת גוף הטקסט
+    let currentBlock = []; // צובר פסקאות כדי לעמדן בשני טורים ואיזון בסוף
+
+    function flushBlock(forceBalance = true) {
+        if(currentBlock.length === 0) return;
+        // ביצוע העימוד
+        let grid = balanceBlock2Col(currentBlock);
+        currentHeightUsed += grid.offsetHeight;
+        currentBlock = [];
+    }
+
+    tokens.forEach(token => {
+        if (token.type === 'h2') {
+            flushBlock(true); // איזון קוביה קודמת לפני פתיחת דף חדש
+            
+            // כלל 3.1: פתיחת עמוד, שליש עליון ריק
+            getNewPage();
+            
+            const spacer = document.createElement('div');
+            spacer.className = 'h2-page-spacer';
+            currentBodyFlow.appendChild(spacer);
+            
+            const title = document.createElement('div');
+            title.className = 'title-h2';
+            title.innerText = token.text;
+            title.setAttribute('data-token-id', token.id);
+            currentBodyFlow.appendChild(title);
+            
+            currentHeightUsed = 290 + 50; // ספייסר + גובה הכותרת
+            
+            // עדכון נתוני ה-TOC במיקום המדויק
+            let tItem = tocData.find(x => x.tokenId === token.id);
+            if(tItem) tItem.domRef.innerText = numToGematria(pageCounter - 1);
+            
+        } 
+        else if (token.type === 'h3') {
+            flushBlock(true); // איזון כלל טקסט קודם לפני הכותרת 3 (כלל 3.2)
+            
+            if (currentHeightUsed > 750) {
+                // מקרה E1: אם אין מספיק מקום, פותח עמוד חדש
+                getNewPage();
+            }
+
+            const title = document.createElement('div');
+            title.className = 'title-h3-container';
+            title.innerText = token.text;
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'grid-7col';
+            wrapper.style.marginBottom = "5px";
+            wrapper.appendChild(title);
+            
+            currentBodyFlow.appendChild(wrapper);
+            currentHeightUsed += 40;
+            
+            // עדכון נתוני ה-TOC
+            let tItem = tocData.find(x => x.tokenId === token.id);
+            if(tItem) tItem.domRef.innerText = numToGematria(pageCounter - 1);
+        }
+        else if (token.type === 'p') {
+            // צוברים בלוקים של פסקאות לאיזון (Tier 3 Balancing)
+            currentBlock.push({ text: token.text, prefix: token.prefixHtml, token: token });
+            
+            // מקרה E2 - גלישה של פרק ארוך מאד
+            // אם צברנו בלוק שבאופן תאורטי עובר עמוד שלם נעשה פלאש כוחני מלא ללא פער
+            if (currentBlock.length > 5 && currentHeightUsed > 700) {
+                flushBlock(false); // ממלא את הטורים עד למטה פחות או יותר
+                getNewPage();
+            }
+        }
+    });
+
+    flushBlock(true); // שאריות אחרונות
+}
+
+// הפעלה ראשונית של התצוגה
+document.addEventListener("DOMContentLoaded", () => {
+    runEngine();
+});
+
+</script>
+</body>
+</html>
