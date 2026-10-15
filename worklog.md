@@ -779,3 +779,45 @@ tradeoff טבעי של KP — פיזור אחיד של רווחים על חשב�
 - הוחלט: מנוע העימוד יוחלף לגרסה הפשוטה מ-`עדכון_ממשק_9` (2,553 שורות במקום 7,311)
 - כל קבצי הבדיקות/הגדרות/גופנים זהים בין הענפים — אין קונפליקט צפוי שם
 - הקבצים שעשויים לדרוש התאמה: app.js (קריאות ל-typesetter), style.css (מחלקות p-cut/p-end), decorations.js
+
+---
+
+## Task ID: v19-engine-swap-2026-10-16
+**Agent:** main (Super Z)
+**Date:** 2026-10-16 (continuation)
+**Task:** החלפת מנוע העימוד לגרסה הפשוטה + בניית כלי בדיקה היררכי
+
+### Work Log:
+- מיפוי API: השוויתי 100 פונקציות ב-v18 מול 42 פונקציות ב-`עדכון_ממשק_9`
+- זיהוי פערים קריטיים:
+  - 58 פונקציות ב-v18 שאינן בגרסה הפשוטה: KP, Canvas API, LayoutCandidate, P1-P5 priority, tightenRunts, fixWidowContinuation, pushBackSmart, intraLineCut, enforceBlockColumnsWithinCeiling, ועוד
+  - 6 פונקציות בגרסה הפשוטה שאינן ב-v18: justifyColumnVertically, resolveParagraphCut, trailingHeadingCount, popTrailingHeadings, joinMeasuredLine, estimateSectionFillRatio
+- החלפת typesetter.js בגרסה הפשוטה (2,553 שורות במקום 7,311)
+- יצירת typesetter-compat.js — שכבת תאימות עם stub ל:
+  - Canvas API (measureWordWidth, measureLineWidthCanvas, estimateLineCountCanvas) — מימושים אמיתיים פשוטים
+  - Knuth-Plass stubs (knuthPlassBreak עם greedy fallback, isKnuthPlassAvailable→false)
+  - Stub לפונקציות LayoutCandidate/measure* למניעת קריסת trace-manager
+  - trace hooks (__traceOnChaptersBuilt, __traceOnChapterStart, __traceOnStopped)
+  - דגל `window.__engineMode = 'simple'`
+- בדיקה מקומית (Playwright + http://localhost:8765):
+  - ✅ המערכת עולה
+  - ✅ מעמדת טקסט seeded → 43 עמודים, 43 בלוקים, 535 פסקאות
+  - ⚠️ trace-manager מדפיס warning על 11 פונקציות שלא קיימות (צפוי, לא קריטי)
+  - ⚠️ Canvas2D willReadFrequently warnings (לא קריטי)
+- יצירת report-data.js — כלי בדיקה היררכי חדש עם:
+  - `window.getLayoutReportData(opts)` — אובייקט מלא: pages→blocks→columns→paragraphs→lines→words
+  - `window.getLayoutReportJSON(opts)` — JSON מיניפלת
+  - `window.getLayoutReportSummary()` — סיכום בלבד + ספירה לפי type/severity
+  - `window.getPageData(pageNum)`, `window.getBlockData(pageNum, blockIdx)` — ניווט ישיר
+  - `window.getIssueList(filterOpts)` — רשימת בעיות מפולטרת
+- בדיקת report-data.js: מצא 43 עמודים, 1 בעיה (imbalanced בעמוד 26)
+  - הסיבה שרק בעיה אחת: רוב הבדיקות דורשות קונטקסט של cross-column/cross-page שעדיין לא מומש בכלי
+  - צריך להרחיב את הזיהוי (orphan, sparse cross-column, heading+insufficient body ועוד)
+
+### Commit:
+- `0c62e0f` — v19: swap typesetting engine to simple version from עדכון_ממשק_9
+
+### Stage Summary:
+- מנוע העימוד הוחלף לגרסה הפשוטה בהצלחה (מערכת מעמדת טקסט)
+- נוצר כלי בדיקה היררכי ראשוני (report-data.js)
+- נדרש: להרחיב את זיהוי הבעיות בכלי + לבנות ממשק ויזואלי + סקריפט Playwright חיצוני
