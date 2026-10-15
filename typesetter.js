@@ -2534,22 +2534,69 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
 
             if (rWords.length === 0 || lWords.length === 0) return;
 
-            // השתמש ב-getLinesFromParagraph כדי לספור מילים בשורה האחרונה
-            let lastLineWordCount = 99;
-            try {
-                const rLinesInfo = getLinesFromParagraph(rText, colRect.width, styleObj, false);
-                if (rLinesInfo.lines.length > 0) {
-                    const lastLine = rLinesInfo.lines[rLinesInfo.lines.length - 1];
-                    lastLineWordCount = lastLine.trim().split(/\s+/).filter(w => w.length > 0).length;
-                }
-            } catch(e) { return; }
+            // בדוק את השורה האחרונה בפועל על ידי מדידת רווחים בין spans
+            // אם יש רווח גדול (>30px) בין שני spans באותה שורה, זו שורה דלילה
+            const range2 = document.createRange();
+            range2.selectNodeContents(pCut);
+            const allRects = range2.getClientRects();
+            if (allRects.length < 2) return;
 
-            // אם השורה האחרונה דלילה (פחות מ-4 מילים), דחוף את המילים האחרונות ל-p-end
-            if (lastLineWordCount < 4) {
-                // חשב כמה מילים לדחוף — את כל השורה האחרונה
-                const rLinesInfo = getLinesFromParagraph(rText, colRect.width, styleObj, false);
-                const lastLine = rLinesInfo.lines[rLinesInfo.lines.length - 1];
-                const wordsToPush = lastLine.trim().split(/\s+/).filter(w => w.length > 0);
+            // קבץ rects לפי שורה (y)
+            const lineMap = {};
+            for (let i = 0; i < allRects.length; i++) {
+                const y = Math.round(allRects[i].top);
+                if (!lineMap[y]) lineMap[y] = [];
+                lineMap[y].push({
+                    x0: allRects[i].left - colRect.left,
+                    x1: allRects[i].right - colRect.left,
+                    width: allRects[i].width
+                });
+            }
+            const sortedLineYs = Object.keys(lineMap).sort((a,b) => parseFloat(a) - parseFloat(b));
+            if (sortedLineYs.length < 2) return;
+
+            // בדוק את השורה האחרונה — האם יש בה רווח גדול?
+            const lastLineRects = lineMap[sortedLineYs[sortedLineYs.length - 1]];
+            let hasLargeGap = false;
+            let lastLineFillPct = 100;
+            if (lastLineRects.length > 0) {
+                const lastLineMaxX = Math.max(...lastLineRects.map(r => r.x1));
+                lastLineFillPct = Math.round(lastLineMaxX / colRect.width * 100);
+                // בדוק רווחים בין rects באותה שורה
+                if (lastLineRects.length > 1) {
+                    const sorted = lastLineRects.sort((a,b) => b.x0 - a.x0);
+                    for (let i = 0; i < sorted.length - 1; i++) {
+                        const gap = sorted[i].x0 - sorted[i+1].x1;
+                        if (gap > 30) {
+                            hasLargeGap = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // דליל = רווח גדול או מילוי נמוך מ-60%
+            const isSparse = hasLargeGap || lastLineFillPct < 60;
+
+            if (isSparse) {
+                // דחוף את המילים האחרונות ל-p-end
+                // נשתמש ב-getLinesFromParagraph כדי לאמוד כמה מילים בשורה האחרונה,
+                // אבל ניקח יותר מילים כדי להיות בטוחים
+                let wordsToPush = [];
+                try {
+                    const rLinesInfo = getLinesFromParagraph(rText, colRect.width, styleObj, false);
+                    if (rLinesInfo.lines.length > 0) {
+                        const lastLine = rLinesInfo.lines[rLinesInfo.lines.length - 1];
+                        wordsToPush = lastLine.trim().split(/\s+/).filter(w => w.length > 0);
+                    }
+                } catch(e) { return; }
+                
+                // אם getLinesFromParagraph אומר שיש 6 מילים אבל בפועל יש רווח גדול,
+                // ניקח רק את המילים שאחרי הרווח הגדול
+                if (wordsToPush.length > 4) {
+                    // נסה לקחת רק 3-4 מילים אחרונות
+                    wordsToPush = wordsToPush.slice(-4);
+                }
                 
                 // הסר את המילים האחרונות מה-p-cut
                 const newRWords = rWords.slice(0, rWords.length - wordsToPush.length);
