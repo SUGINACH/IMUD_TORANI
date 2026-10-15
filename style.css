@@ -8,7 +8,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Rubik:wght@400;500;600;700&display=swap');
 
 /* טעינת כל הגופנים המקומיים מ-GitHub SUGINACH/IMUD_TORANI + Guttman Rashi */
-@import url('_fonts.css');
+@import url('fonts-def.css');
 
 /* ==========================================================================
    גופנים מקומיים ייעודיים — Guttman Rashi (גוף הטקסט)
@@ -224,6 +224,7 @@ body {
 
 .text-actions-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     align-items: center;
 }
@@ -295,7 +296,7 @@ body {
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     padding: 14px 16px;
-    font-family: 'David Libre', 'Frank Ruhl Libre', serif;
+    font-family: 'פרנק רוהל ליברה רגיל', serif;
     font-size: 11pt;
     line-height: 1.6;
     color: #1e293b;
@@ -916,7 +917,7 @@ body {
 }
 
 .bsd-header {
-    font-family: 'David Libre', serif;
+    font-family: 'פרנק רוהל ליברה רגיל', serif;
     font-size: 15pt;
     letter-spacing: 5px;
     font-weight: 700;
@@ -924,7 +925,7 @@ body {
 }
 
 .sefer-label {
-    font-family: 'David Libre', serif;
+    font-family: 'פרנק רוהל ליברה רגיל', serif;
     font-size: 15pt;
     letter-spacing: 5px;
     font-weight: 700;
@@ -1677,7 +1678,7 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
     align-items: baseline;
     justify-content: space-between;
     margin-bottom: 2px;
-    font-family: 'David Libre', serif;
+    font-family: 'פרנק רוהל ליברה רגיל', serif;
     font-size: 10.5pt;
     text-decoration: none !important;
     color: inherit !important;
@@ -1705,7 +1706,7 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
 .toc-page-num {
     flex-shrink: 0;
     font-weight: 700;
-    font-family: 'David Libre', serif;
+    font-family: 'פרנק רוהל ליברה רגיל', serif;
     font-size: 10.5pt;
     min-width: 25px;
     text-align: left;
@@ -1726,12 +1727,12 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
     line-height: 1.5;
     margin: 2px 0 5px 0;
     text-align: right;
-    font-family: 'David Libre', serif;
+    font-family: 'פרנק רוהל ליברה רגיל', serif;
 }
 
 .grp-item { font-size: inherit; white-space: normal; }
 .grp-title { font-weight: 600; color: #111; }
-.grp-page { font-weight: 700; color: #4a5568 !important; font-family: 'David Libre', serif; }
+.grp-page { font-weight: 700; color: #4a5568 !important; font-family: 'פרנק רוהל ליברה רגיל', serif; }
 .grp-sep { color: #888; margin: 0 6px; font-weight: bold; white-space: nowrap; }
 
 /* התאמת גופנים וגדלים לתוכן עניינים כללי ומפורט */
