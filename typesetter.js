@@ -2557,9 +2557,12 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
             const sortedLineYs = Object.keys(lineMap).sort((a,b) => parseFloat(a) - parseFloat(b));
 
             // בדוק את השורה האחרונה — מה הרוחב האמיתי (בלי justify)?
+            // עם text-align-last: right, הטקסט מיושר לימין.
+            // שורה מלאה: x0 ≈ 0 (מתחיל משמאל)
+            // שורה דלילה: x0 > 50 (מתחיל רחוק משמאל)
             const lastLineRects = lineMap[sortedLineYs[sortedLineYs.length - 1]];
-            const lastLineMaxX = Math.max(...lastLineRects.map(r => r.x1));
-            const lastLineFillPct = colRect.width > 0 ? lastLineMaxX / colRect.width : 1;
+            const lastLineMinX = Math.min(...lastLineRects.map(r => r.x0));
+            const lastLineFillPct = colRect.width > 0 ? 1 - (lastLineMinX / colRect.width) : 1;
 
             // החזר את text-align-last
             pCut.classList.remove('measure-align-right');
