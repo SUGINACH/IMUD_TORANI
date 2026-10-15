@@ -1160,3 +1160,67 @@ tradeoff טבעי של KP — פיזור אחיד של רווחים על חשב�
 - תוקנה גלישת הכפתורים (flex-wrap: wrap)
 - נוספו כפתורי ייבוא/ייצוא הגדרות עם פונקציות עצמאיות
 - ברירת המחדל של עדכון_ממשק_9 נשמרה (שמות גופנים אנגליים)
+
+---
+
+## Task ID: v19-settings-from-json-2026-10-16
+**Agent:** main (Super Z)
+**Date:** 2026-10-16 (later)
+**Task:** טעינת ברירת מחדל מ-default_settings.json + העברת כפתורי ייבוא/ייצוא לכרטיסיית הגדרות
+
+### Work Log:
+
+#### 1. עדכון default_settings.json לברירת המחדל של עדכון_ממשק_9:
+- החלפת כל שמות הגופנים מעברית לאנגלית (43 הגדרות):
+  - `'אלפא שחור'` → `'AlphaBlack'`
+  - `'ליבורנה מודגש'` → `'Livorna'`
+  - `'פרנק רוהל ליברה רגיל'` → `'Frank Ruhl Libre'`
+  - `'גוטמן רש"י רגיל'` → `'Guttman Rashi'`
+  - `'הדסה פרידלנדר מודגש'` → `'Hadassah Friedlaender'`
+  - `'פרנק ריל מודגש'` → `'FrankReal'`
+  - `'ליה סגולה'` → `'Lia Sgula'`
+  - וכו' (ראה pickerDefaults ב-app.js של עדכון_ממשק_9)
+- תיקון s-note-body: 8.5 → 9 (כמו ב-HTML)
+- הוספת avoid-runt-word: true (היה חסר)
+- עדכון ערכי הספר לערכי עדכון_ממשק_9:
+  - inp-book-title: 'מקום בינה' → 'ספר מלכי המלוכה'
+  - inp-book-author: 'נתנאל דיינובסקי' → 'הצעיר ידידיה בר אבא הלוי'
+  - inp-book-subtitle, inp-book-desc, inp-book-sections, inp-book-year
+
+#### 2. טעינת settings-manager.js:
+- הוספת `<script src="settings-manager.js">` ל-index.html (אחרי typesetter.js, לפני app.js)
+- הוספת קריאה ל-`loadDefaultSettings()` ב-window.onload (אחרי initFontPickers)
+- הסרת הפונקציות העצמאיות מ-app.js (collectCurrentSettings, applySettingsToDOM, exportSettings, importSettings) — כעת מגיעות מ-settings-manager.js
+
+#### 3. העברת כפתורי ייבוא/ייצוא הגדרות לכרטיסיית הגדרות:
+- הסרת btn-export-settings ו-btn-import-settings מ-text-actions-bar (כרטיסיית עורך)
+- הוספתם ל-settings-quick-actions (כרטיסיית הגדרות):
+  - 📤 ייצוא הגדרות (class=btn-export-settings)
+  - 📥 ייבוא הגדרות (class=btn-import-settings)
+  - file-settings-input (נסתר)
+
+### אימות:
+| מדד | ערך צפוי | ערך בפועל | סטטוס |
+|------|----------|-----------|-------|
+| f-h0 | 'AlphaBlack', 'David Libre', serif | ✓ | ✅ |
+| f-h1 | 'Lia Sgula', 'Bellefair', serif | ✓ | ✅ |
+| font-body | 'Guttman Rashi', 'Frank Ruhl Libre', serif | ✓ | ✅ |
+| f-h7 | 'Hadassah Friedlaender', 'David Libre', serif | ✓ | ✅ |
+| f-hdr-r | 'Livorna', 'David Libre', serif | ✓ | ✅ |
+| --fn-h0 (CSS) | 'AlphaBlack', 'David Libre', serif | ✓ | ✅ |
+| --fn-body (CSS) | 'Guttman Rashi', 'Frank Ruhl Libre', serif | ✓ | ✅ |
+| inp-book-title | ספר מלכי המלוכה | ✓ | ✅ |
+| inp-book-author | הצעיר ידידיה בר אבא הלוי | ✓ | ✅ |
+| כפתור ייצוא בעורך | false (לא אמור להיות) | false | ✅ |
+| כפתור ייבוא בעורך | false | false | ✅ |
+| כפתור ייצוא בהגדרות | true | true | ✅ |
+| כפתור ייבוא בהגדרות | true | true | ✅ |
+| loadDefaultSettings | function | function | ✅ |
+| exportSettings | function | function | ✅ |
+| שגיאות JS | 0 | 0 | ✅ |
+
+### Stage Summary:
+- default_settings.json עודכן לברירת המחדל של עדכון_ממשק_9 (שמות אנגליים)
+- settings-manager.js נטען ומפעיל את default_settings.json אוטומטית
+- כפתורי ייבוא/ייצוא הגדרות הועברו לכרטיסיית הגדרות
+- כל הגדרות הגופנים נכונות (אנגליות, כמו עדכון_ממשק_9)

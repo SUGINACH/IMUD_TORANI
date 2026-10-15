@@ -2015,92 +2015,6 @@ if (document.fonts && document.fonts.ready) {
 window.exportRenderedHTML = exportRenderedHTML;
 
 /* ==========================================================================
-   14ג2. ייבוא/ייצוא הגדרות — פונקציות עצמאיות (לא תלויות ב-settings-manager.js)
-   ==========================================================================
-   חשוב: אלו פונקציות ייבוא/ייצוא ידניות בלבד. הן אינן טוענות את default_settings.json
-   אוטומטית, כדי לשמור על ברירת המחדל של עדכון_ממשק_9 (הגדרות הגופנים בשמות אנגליים).
-   ========================================================================== */
-function collectCurrentSettings() {
-    var settings = {};
-    document.querySelectorAll('#settings-pane select[id], #settings-pane input[id], #settings-pane textarea[id]').forEach(function(el) {
-        if (!el.id || el.type === 'file') return;
-        if (el.type === 'checkbox') {
-            settings[el.id] = el.checked;
-        } else {
-            settings[el.id] = el.value;
-        }
-    });
-    // הגדרות נוספות שאינן ב-settings-pane (נמצאות ב-text-pane)
-    ['font-body', 'font-first-word', 'size-body', 'size-first-word', 'line-height-body'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) {
-            settings[id] = el.type === 'checkbox' ? el.checked : el.value;
-        }
-    });
-    return settings;
-}
-
-function applySettingsToDOM(settings, triggerTypeset) {
-    if (typeof triggerTypeset === 'undefined') triggerTypeset = true;
-    Object.keys(settings).forEach(function(key) {
-        var el = document.getElementById(key);
-        if (!el) return;
-        var val = settings[key];
-        if (el.type === 'checkbox') {
-            el.checked = !!val;
-        } else if (el.tagName === 'SELECT') {
-            el.value = val;
-        } else {
-            el.value = val;
-        }
-        // עורר אירוע change כדי שהמערכת תגיב
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    if (triggerTypeset) {
-        if (typeof updateGrid === 'function') updateGrid();
-        if (typeof updateStyles === 'function') updateStyles();
-        if (typeof typesetDocument === 'function') typesetDocument();
-    }
-}
-
-function exportSettings() {
-    var settings = collectCurrentSettings();
-    var json = JSON.stringify(settings, null, 2);
-    var blob = new Blob([json], { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = 'settings.json';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
-    console.log('✓ הגדרות יוצאו (' + Object.keys(settings).length + ' ערכים)');
-}
-
-function importSettings(event) {
-    var file = event.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            var settings = JSON.parse(e.target.result);
-            applySettingsToDOM(settings, true);
-            // שמור את ההגדרות המיובאות ב-localStorage כדי שלא יאופסו בריענון
-            localStorage.setItem('imported_settings', JSON.stringify(settings));
-            console.log('✓ הגדרות יובאו (' + Object.keys(settings).length + ' ערכים)');
-        } catch (err) {
-            alert('שגיאת ייבוא: ' + err.message);
-        }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
-}
-
-window.collectCurrentSettings = collectCurrentSettings;
-window.applySettingsToDOM = applySettingsToDOM;
-window.exportSettings = exportSettings;
-window.importSettings = importSettings;
-
-/* ==========================================================================
    14ד. מערכת טאבים לסרגל הצידי — הוספה מ-v18
    ==========================================================================
    3 טאבים: עורך | הגדרות | בדיקה
@@ -2281,6 +2195,11 @@ window.switchTab = switchTab;
    ========================================================================== */
 window.onload = async function() {
     initFontPickers();
+    // טען הגדרות ברירת מחדל מ-default_settings.json דרך settings-manager.js
+    // חשוב: default_settings.json כעת מכיל את ברירת המחדל של עדכון_ממשק_9 (שמות גופנים אנגליים)
+    if (typeof loadDefaultSettings === 'function') {
+        await loadDefaultSettings();
+    }
     refreshCustomThemesUI();
     rehydrateExtImports();
 

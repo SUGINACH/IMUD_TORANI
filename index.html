@@ -48,10 +48,7 @@
           <button type="button" class="btn-tool btn-secondary" onclick="window.print()">🖨️ הדפסה / PDF</button>
           <button type="button" id="btn-load-extended-fonts" class="btn-tool btn-secondary" onclick="loadExtendedFonts()">📚 טען גופנים נוספים</button>
           <button type="button" id="btn-export-html" class="btn-tool btn-secondary" onclick="exportRenderedHTML()">💾 ייצוא HTML</button>
-          <button type="button" id="btn-export-settings" class="btn-tool btn-secondary" onclick="exportSettings()" title="ייצא את כל הגדרות המערכת לקובץ JSON">⚙️ ייצוא הגדרות</button>
-          <button type="button" id="btn-import-settings" class="btn-tool btn-secondary" onclick="document.getElementById('file-settings-import').click()" title="ייבא הגדרות מערכת מקובץ JSON">📥 ייבוא הגדרות</button>
           <input type="file" id="file-txt-import" accept=".txt,.text,.md" style="display:none" onchange="handleTxtFileImport(event)">
-          <input type="file" id="file-settings-import" accept=".json,application/json" style="display:none" onchange="importSettings(event)">
         </div>
       </div>
       <div class="editor-wrapper">
@@ -76,6 +73,9 @@
           <div class="settings-quick-actions">
             <button type="button" class="btn-header-action btn-save" onclick="saveAsDefaultTemplate()">💾 שמור תבנית</button>
             <button type="button" class="btn-header-action btn-fonts" onclick="loadSystemFonts()">📂 גופני מחשב</button>
+            <button type="button" class="btn-header-action btn-export-settings" onclick="exportSettings()" title="ייצא את כל הגדרות המערכת לקובץ JSON">📤 ייצוא הגדרות</button>
+            <button type="button" class="btn-header-action btn-import-settings" onclick="document.getElementById('file-settings-import').click()" title="ייבא הגדרות מערכת מקובץ JSON">📥 ייבוא הגדרות</button>
+            <input type="file" id="file-settings-import" accept=".json,application/json" style="display:none" onchange="importSettings(event)">
             <button type="button" class="btn-close-settings" onclick="toggleSettingsPane()" title="סגור">✕</button>
           </div>
         </div>
@@ -1324,6 +1324,7 @@
 
   <script src="decorations.js"></script>
   <script src="typesetter.js"></script>
+  <script src="settings-manager.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
