@@ -2511,6 +2511,9 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
     // אם ה-p-cut מסתיים בשורה עם מעט מילים (פחות מ-4), ויש רווחים עצומים
     // מ-text-align-last: justify, נדחוף את המילים האחרונות לתחילת ה-p-end.
     // כך ה-p-cut יסתיים בשורה מלאה, והמילים הדלילות יעברו להמשך.
+    //
+    // טריק: כדי לזהות רווחים, נכבה זמנית את text-align-last: justify
+    // ונמדוד את הרוחב האמיתי של הטקסט (בלי המתיחה).
     // ==================================================================
     try {
         [rCol, lCol].forEach(function(sourceCol, sourceIdx) {
@@ -2520,12 +2523,6 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
             const pEnd = targetCol.querySelector('p.p-end, p.p-cut');
             if (!pEnd) return;
 
-            void pCut.offsetHeight;
-            const range = document.createRange();
-            range.selectNodeContents(pCut);
-            const rects = range.getClientRects();
-            if (rects.length < 2) return;
-
             const colRect = sourceCol.getBoundingClientRect();
             const rText = pCut.getAttribute('data-raw-text') || '';
             const lText = pEnd.getAttribute('data-raw-text') || '';
@@ -2534,51 +2531,42 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
 
             if (rWords.length === 0 || lWords.length === 0) return;
 
-            // בדוק את השורה האחרונה בפועל על ידי מדידת רווחים בין spans
-            // אם יש רווח גדול (>30px) בין שני spans באותה שורה, זו שורה דלילה
-            const range2 = document.createRange();
-            range2.selectNodeContents(pCut);
-            const allRects = range2.getClientRects();
-            if (allRects.length < 2) return;
+            // טריק: כבה זמנית את text-align-last כדי למדוד את הרוחב האמיתי
+            const origAlignLast = pCut.style.textAlignLast;
+            pCut.style.textAlignLast = 'right';
+            void pCut.offsetHeight; // אלץ reflow
+
+            const range = document.createRange();
+            range.selectNodeContents(pCut);
+            const rects = range.getClientRects();
+            if (rects.length < 2) {
+                pCut.style.textAlignLast = origAlignLast;
+                return;
+            }
 
             // קבץ rects לפי שורה (y)
             const lineMap = {};
-            for (let i = 0; i < allRects.length; i++) {
-                const y = Math.round(allRects[i].top);
+            for (let i = 0; i < rects.length; i++) {
+                const y = Math.round(rects[i].top);
                 if (!lineMap[y]) lineMap[y] = [];
                 lineMap[y].push({
-                    x0: allRects[i].left - colRect.left,
-                    x1: allRects[i].right - colRect.left,
-                    width: allRects[i].width
+                    x0: rects[i].left - colRect.left,
+                    x1: rects[i].right - colRect.left
                 });
             }
             const sortedLineYs = Object.keys(lineMap).sort((a,b) => parseFloat(a) - parseFloat(b));
-            if (sortedLineYs.length < 2) return;
 
-            // בדוק את השורה האחרונה — האם יש בה רווח גדול?
+            // בדוק את השורה האחרונה — מה הרוחב האמיתי (בלי justify)?
             const lastLineRects = lineMap[sortedLineYs[sortedLineYs.length - 1]];
-            let hasLargeGap = false;
-            let lastLineFillPct = 100;
-            if (lastLineRects.length > 0) {
-                const lastLineMaxX = Math.max(...lastLineRects.map(r => r.x1));
-                lastLineFillPct = Math.round(lastLineMaxX / colRect.width * 100);
-                // בדוק רווחים בין rects באותה שורה
-                if (lastLineRects.length > 1) {
-                    const sorted = lastLineRects.sort((a,b) => b.x0 - a.x0);
-                    for (let i = 0; i < sorted.length - 1; i++) {
-                        const gap = sorted[i].x0 - sorted[i+1].x1;
-                        if (gap > 30) {
-                            hasLargeGap = true;
-                            break;
-                        }
-                    }
-                }
-            }
+            const lastLineMaxX = Math.max(...lastLineRects.map(r => r.x1));
+            const lastLineFillPct = colRect.width > 0 ? lastLineMaxX / colRect.width : 1;
 
-            // דליל = רווח גדול או מילוי נמוך מ-60%
-            const isSparse = hasLargeGap || lastLineFillPct < 60;
+            // החזר את text-align-last
+            pCut.style.textAlignLast = origAlignLast;
+            void pCut.offsetHeight;
 
-            if (isSparse) {
+            // דליל = הרוחב האמיתי פחות מ-60% מרוחב הטור
+            if (lastLineFillPct < 0.6) {
                 // דחוף את המילים האחרונות ל-p-end
                 // נשתמש ב-getLinesFromParagraph כדי לאמוד כמה מילים בשורה האחרונה,
                 // אבל ניקח יותר מילים כדי להיות בטוחים
