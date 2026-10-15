@@ -1369,8 +1369,8 @@ p {
     box-sizing: border-box;
 }
 p.p-end { text-align-last: var(--last-line-align, center) !important; }
-p.p-cut.measure-align-right { text-align-last: right !important; }
 p.p-cut { text-align-last: justify !important; }
+p.p-cut.measure-align-right { text-align-last: right !important; }
 
 /* ============================================================
    מילה ראשונה (Drop Word) ודיבור המתחיל (ד"ה)
