@@ -301,10 +301,37 @@ function syncCursorToPreview() {
         }
 
         if (tokenId !== null && tokenId !== undefined) {
-            const targetEl = document.querySelector(`[data-token-id="${tokenId}"]`);
-            if (targetEl) {
-                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // תיקון: השתמש ב-querySelectorAll כדי למצוא את כל האלמנטים עם אותו token-id.
+            // פסקאות מפוצלות (p-cut) יכולות להופיע בשני מקומות — נבחר את הקרוב ביותר
+            // למיקום הגלילה הנוכחי של התצוגה המקדימה.
+            const allMatches = document.querySelectorAll(`[data-token-id="${tokenId}"]`);
+            if (allMatches.length === 0) return;
+            
+            if (allMatches.length === 1) {
+                // מקרה רגיל — אלמנט אחד
+                allMatches[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
             }
+            
+            // מקרה מפוצל — מצא את האלמנט הקרוב ביותר למיקום הגלילה הנוכחי
+            const previewPane = document.getElementById('preview-pane');
+            const viewportCenter = previewPane 
+                ? previewPane.scrollTop + previewPane.clientHeight / 2 
+                : window.scrollY + window.innerHeight / 2;
+            
+            let closestEl = allMatches[0];
+            let closestDist = Infinity;
+            allMatches.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                // חשב מיקום יחסי במסמך (לא יחסית לviewport)
+                const absTop = rect.top + window.scrollY;
+                const dist = Math.abs(absTop - viewportCenter);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestEl = el;
+                }
+            });
+            closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
 }
@@ -1130,7 +1157,7 @@ function initFontPickers() {
 }
 
 async function ensureBuiltinFontsLoaded() {
-    const families = ['Assistant', 'Rubik', 'Bellefair', 'David Libre', 'Frank Ruhl Libre', 'Noto Serif Hebrew'];
+    const families = ['Assistant', 'Rubik']; // רק גופני UI מ-Google Fonts — שאר הגופנים נטענים מ-fonts-def.css (רשימה 1) ו-fonts-extended.css (רשימה 2, על-ידי לחצן)
     const weights = ['400', '700', '900'];
     try {
         const loads = [];
@@ -1177,35 +1204,102 @@ async function loadSystemFonts() {
 }
 
 async function loadExternalFonts() {
+    // רשימה 1 (priority): מאכלס את ה-pickers מ-fonts-priority.json.
+    // ה-@font-face כבר נטענו דרך fonts-def.css (שמיובא ב-style.css).
+    // הדפדפן יוריד את קבצי ה-woff2 בפועל רק כשהגופן בשימוש (font-display: swap).
     try {
-        const res = await fetch('fonts/fonts.json');
+        const res = await fetch('fonts-priority.json');
         if (!res.ok) return;
         const fonts = await res.json();
         if (!Array.isArray(fonts)) return;
 
-        for (const font of fonts) {
-            try {
-                const fontFace = new FontFace(font.family, `url(fonts/${encodeURIComponent(font.file)})`);
-                await fontFace.load();
-                document.fonts.add(fontFace);
+        document.querySelectorAll('.font-picker').forEach(select => {
+            const currentVal = select.value;
+            let grp = select.querySelector('optgroup[label="גופנים מקומיים — רשימה 1"]');
+            if (!grp) {
+                grp = document.createElement('optgroup');
+                grp.label = 'גופנים מקומיים — רשימה 1';
+                select.prepend(grp);
+            }
+            fonts.forEach(font => {
+                const opt = document.createElement('option');
+                opt.value = `'${font.family}', serif`;
+                opt.textContent = font.family;
+                grp.appendChild(opt);
+            });
+            select.value = currentVal;
+        });
+        console.log(`✓ רשימה 1: ${fonts.length} גופנים נוספו ל-pickers`);
+    } catch (e) {
+        console.warn('loadExternalFonts (רשימה 1) נכשל:', e);
+    }
+}
 
-                document.querySelectorAll('.font-picker').forEach(select => {
-                    const currentVal = select.value;
-                    let grp = select.querySelector('optgroup[label="גופנים מקומיים (תיקיית fonts)"]');
-                    if (!grp) {
-                        grp = document.createElement('optgroup');
-                        grp.label = 'גופנים מקומיים (תיקיית fonts)';
-                        select.prepend(grp);
-                    }
-                    const opt = document.createElement('option');
-                    opt.value = `'${font.family}', serif`;
-                    opt.textContent = font.family;
-                    grp.appendChild(opt);
-                    select.value = currentVal;
-                });
-            } catch (err) {}
+/**
+ * loadExtendedFonts — טוען את רשימה 2 של הגופנים (~1300 גופנים).
+ * מופעלת על-ידי לחצן "📚 טען גופנים נוספים" בסרגל העליון.
+ */
+let _extendedFontsLoaded = false;
+async function loadExtendedFonts() {
+    if (_extendedFontsLoaded) {
+        alert('רשימה 2 של הגופנים כבר נטענה.');
+        return;
+    }
+    const btn = document.getElementById('btn-load-extended-fonts');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ טוען גופנים...';
+    }
+
+    try {
+        // 1) הזרקת fonts-extended.css
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'fonts-extended.css';
+        link.id = 'fonts-extended-stylesheet';
+        document.head.appendChild(link);
+        await new Promise((resolve, reject) => {
+            link.onload = resolve;
+            link.onerror = reject;
+            setTimeout(resolve, 5000);
+        });
+
+        // 2) אכלוס ה-pickers מ-fonts-extended.json
+        const res = await fetch('fonts-extended.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const fonts = await res.json();
+        if (!Array.isArray(fonts)) throw new Error('פורמט שגוי');
+
+        document.querySelectorAll('.font-picker').forEach(select => {
+            const currentVal = select.value;
+            let grp = select.querySelector('optgroup[label="גופנים מקומיים — רשימה 2"]');
+            if (!grp) {
+                grp = document.createElement('optgroup');
+                grp.label = 'גופנים מקומיים — רשימה 2';
+                select.appendChild(grp);
+            }
+            fonts.forEach(font => {
+                const opt = document.createElement('option');
+                opt.value = `'${font.family}', serif`;
+                opt.textContent = font.family;
+                grp.appendChild(opt);
+            });
+            select.value = currentVal;
+        });
+
+        _extendedFontsLoaded = true;
+        if (btn) {
+            btn.textContent = `✓ נטענו ${fonts.length} גופנים נוספים`;
         }
-    } catch (e) {}
+        console.log(`✓ רשימה 2: ${fonts.length} גופנים נטענו`);
+    } catch (e) {
+        console.error('loadExtendedFonts נכשל:', e);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '📚 טען גופנים נוספים';
+        }
+        alert('טעינת רשימה 2 נכשלה. בדוק את הקונסול לפרטים.');
+    }
 }
 
 /* ==========================================================================
@@ -1897,16 +1991,41 @@ window.addEventListener('load', async function() {
     await loadExternalFonts();
     await ensureBuiltinFontsLoaded();
     
-    // FIX: המתנה נוספת ל-document.fonts.ready לפני העימוד הראשון.
-    // מונע מדידות שגויות על בסיס גופני fallback (FOUT) שגורמות לפסקאות
-    // לגלות מעבר לגבולות הדפים כשהגופנים התורניים נטענים שנייה לאחר מכן.
+    // תיקון: טעינת גופנים בשני שלבים.
+    // שלב א': טען רק את הגופנים הנחוצים לעמודי טקסט רגילים (12 גופנים).
+    // שלב ב': שאר הגופנים ייטענו ברקע תוך כדי עבודה.
+    const PRIORITY_FONTS = [
+        "12pt 'גוטמן רש\"י רגיל'",
+        "12pt 'פרנק ריל מודגש'",
+        "12pt 'אלפא שחור'",
+        "12pt 'אלפא מודגש'",
+        "12pt 'ליבורנה רגיל'",
+        "12pt 'ליבורנה מודגש'",
+        "12pt 'הדסה פרידלנדר מודגש'",
+        "12pt 'פרנק רוהל ליברה רגיל'",
+        "12pt 'פרנק רוהל ליברה מודגש'",
+        "12pt 'פרנק רוהל ליברה שחור'",
+        "12pt 'נוטו סריף עברית מודגש'",
+        "12pt 'נוטו סריף עברית שחור'",
+    ];
     try {
-        if (document.fonts && document.fonts.ready) {
-            await document.fonts.ready;
+        if (document.fonts && document.fonts.load) {
+            // טען רק את הגופנים העיקריים וחכה להם
+            await Promise.all(PRIORITY_FONTS.map(f => document.fonts.load(f).catch(() => {})));
+            console.log('✓ גופנים עיקריים נטענו — מתחיל עימוד');
         }
     } catch (e) {
-        console.warn('document.fonts.ready failed (non-critical):', e);
+        console.warn('Priority font loading failed (non-critical):', e);
     }
+    
+    // שלב ב': טען את שאר הגופנים ברקע (לא חיוני לעימוד)
+    try {
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(() => {
+                console.log('✓ כל הגופנים נטענו ברקע');
+            }).catch(() => {});
+        }
+    } catch (e) { /* non-critical */ }
 
     if (document.getElementById('section-divider-style')?.value === 'custom_img') {
         const row = document.getElementById('row-sec-div-img');

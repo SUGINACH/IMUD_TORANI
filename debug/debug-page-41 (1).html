@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>דוח דיאגנוסטיקה ודיבאג — עמוד מא</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background: #1e293b; color: #f8fafc; font-family: 'Assistant', sans-serif; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+    .diag-header { background: #0f172a; border: 1px solid #334155; padding: 15px 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .diag-title { font-size: 16pt; font-weight: 800; color: #38bdf8; }
+    .diag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .diag-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 15px; overflow: hidden; display: flex; flex-direction: column; }
+    .diag-card h3 { color: #94a3b8; font-size: 11pt; border-bottom: 1px solid #334155; padding-bottom: 6px; margin-bottom: 10px; }
+    .page-preview-box { background: #475569; padding: 20px; border-radius: 6px; display: flex; justify-content: center; overflow: auto; max-height: 800px; }
+    .page-preview-box .a4-page { transform: scale(0.8); transform-origin: top center; margin-bottom: 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    pre { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 8.5pt; color: #38bdf8; overflow-x: auto; max-height: 400px; }
+    .warn-badge { background: #7f1d1d; border: 1px solid #ef4444; color: #fecaca; padding: 6px 12px; border-radius: 6px; font-size: 9pt; margin-bottom: 6px; font-weight: bold; }
+    .ok-badge { background: #064e3b; border: 1px solid #10b981; color: #a7f3d0; padding: 6px 12px; border-radius: 6px; font-size: 9pt; margin-bottom: 6px; }
+    .step-log-item { font-size: 8pt; padding: 4px 6px; border-bottom: 1px dashed #334155; color: #cbd5e1; }
+    .btn-copy { background: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+    .btn-copy:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="diag-header">
+    <div>
+      <div class="diag-title">🐛 דוח דיאגנוסטיקה לעימוד — עמוד מא (41)</div>
+      <div style="font-size:9pt; color:#94a3b8; margin-top:3px;">הופק אוטומטית ע"י מנוע העימוד | תפקיד: regular</div>
+    </div>
+    <button class="btn-copy" onclick="copyFullJSON()">📋 העתק JSON מלא</button>
+  </div>
+
+  <div class="ok-badge">✅ לא זוהו חריגות גובה או שגיאות קריטיות בעמוד זה</div>
+
+  <div class="diag-grid">
+    <div class="diag-card">
+      <h3>🖼️ תצוגה חיה של העמוד</h3>
+      <div class="page-preview-box">
+        <div class="a4-page page-focused" data-page-index="41" data-first-line-idx="332">
+    
+    <div class="page-content-wrapper">
+      <div class="top-header-grid">
+        <div class="header-col-r" style="text-align:right; justify-content:right; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;">הקדמות וכללים</div>
+        <div class="header-col-c" style="text-align:center; justify-content:center;"><svg style="height:9px; width:48px;" viewBox="0 0 400 40"><circle cx="200" cy="20" r="10" fill="none" stroke="#444" stroke-width="4.5"></circle><circle cx="200" cy="20" r="4.5" fill="#444"></circle><path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#444"></path><path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#444"></path></svg></div>
+        <div class="header-col-l" style="text-align:left; justify-content:left; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;">סימן ג - איסור עשיית מלאכה</div>
+      </div>
+      <div class="page-body-flow ">
+        
+      <div class="block-2col">
+          <div class="margin-notes-column right-margin"></div>
+          <div></div>
+          <div class="main-column right-col"><p class="p-end" data-token-id="238" data-raw-text="שלושה חלקים. האחד, בדברים האמורים בפרשת תרומה, הוא מלאכה שעשו העם, ונקראת מלאכה דכתיב אל יעשו עוד מלאכה, ובזה כלול סידורא דסממנין ודצמר ודעור והמוציא. והשני, במעשה רוקם וחרש וכו' שעשו כל חכם לב, ובזה כלול סידורא דבגד וקרשים וכלים. והשלישי, במה שעשה משה בבניית המשכן כדכתיב ויכל את המלאכה, ובזה כלול בונה וסותר), אבל פרטי מלאכות אלו לא נכתבו בתורה בפירוש כולם (שאף שנאמר על תרומת תכלת ושש וכו' מלאכה, והיינו, צמר צבוע לא נתפרשו כל המלאכות המביאות לזה כזורע וגוזז וכו')." data-is-cont="true" style="letter-spacing: -0.01em;">שלושה חלקים. האחד, בדברים האמורים בפרשת תרומה, הוא מלאכה שעשו העם, ונקראת מלאכה דכתיב אל יעשו עוד מלאכה, ובזה כלול סידורא דסממנין ודצמר ודעור והמוציא. והשני, במעשה רוקם וחרש וכו' שעשו כל חכם לב, ובזה כלול סידורא דבגד וקרשים וכלים. והשלישי, במה שעשה משה בבניית המשכן כדכתיב ויכל את המלאכה, ובזה כלול בונה וסותר), אבל פרטי מלאכות אלו לא נכתבו בתורה בפירוש כולם (שאף שנאמר על תרומת תכלת ושש וכו' מלאכה, והיינו, צמר צבוע לא נתפרשו כל המלאכות המביאות לזה כזורע וגוזז וכו').</p><p class="p-end" data-token-id="239" data-raw-text="וזה גדר הלימוד השני, היינו, מה נחשב למלאכה. וזה יליף אף דלא כתיבא המלאכה בפירוש, דכיון דידעינן דהכי הוה במשכן, והרי נקרא מלאכה כדלעיל חשיב מלאכה לשבת (כמו סידורא דפת מסממנין, וסידורא דחוט מצמר, וטוויתם וסידורא דבגד מיריעות, וסידורא דעור מתחשים, וכותב ומוחק מקרשים, ובונה וסותר מבנית המשכן, ומכבה ומבעיר מבישול סממנין, ומכה בפטיש מטסים, ומוציא מהבאה)." data-is-cont="false"><span class="first-word-window">וזה</span> גדר הלימוד השני, היינו, מה נחשב למלאכה. וזה יליף אף דלא כתיבא המלאכה בפירוש, דכיון דידעינן דהכי הוה במשכן, והרי נקרא מלאכה כדלעיל חשיב מלאכה לשבת (כמו סידורא דפת מסממנין, וסידורא דחוט מצמר, וטוויתם וסידורא דבגד מיריעות, וסידורא דעור מתחשים, וכותב ומוחק מקרשים, ובונה וסותר מבנית המשכן, ומכבה ומבעיר מבישול סממנין, ומכה בפטיש מטסים, ומוציא מהבאה).</p></div>
+          <div class="col-gutter-divider col-rule-none" style="align-self: start; height: 483px;"></div>
+          <div class="main-column left-col"><p class="p-end" data-token-id="240" data-raw-text="והגדר השלישי, הוא מה דיליף בגדר המלאכות עצמם, ובזה לא בעי שיהיה הגדר נלמד ממקום שנלמדה המלאכה (כמו מלאכת הוצאה דילפי מהבאת ישראל, אך גדרי המלאכה כהוצאה והושטה ילפי מעגלות, וזריקה ממחטין (או ממושיט דעגלות), והעברה למעלה מי' ממשא בני קהת, ורשויות מעגלות, וגובה רשות מארון, ומה שרצו למילף ד&quot;א. והרי לא נאמר מלאכה בעגלות דבני מררי אלא עבודה, וגם לא יליף מלשון מלאכה דאיתא בבני קהת, ומשמע שאין מלאכה זו כמלאכה דעשיית המשכן. ונחלקו רש&quot;י והתוספת אם פת איתא במשכן, ומשמע דדעת רש&quot;י שאין ללמוד מעבודת המשכן שאינה נוגעת לבנייתו), וכן גדרי מלאכה הכלליים (כמו גדר מלאכת קילקול שהיא צורך תיקון שמצאנו שלמדו דין מכבה מגדר ע&quot;מ לבנות דסותר, אף דמכבה דמשכן יליף מכיבוי אש שתחת דוד דסממנין, וכמו דכתב רש&quot;י שם, שהוא גדר אחד של קלקול שיש בו תיקון. ונחלקו שם איזה תיקון יחשיב הקלקול למלאכה, והיינו, דלא ילפינן בהיפך מקורע דהוה במקומו)." data-is-cont="false" style="line-height: 1.35191;"><span class="first-word-window">והגדר</span> השלישי, הוא מה דיליף בגדר המלאכות עצמם, ובזה לא בעי שיהיה הגדר נלמד ממקום שנלמדה המלאכה (כמו מלאכת הוצאה דילפי מהבאת ישראל, אך גדרי המלאכה כהוצאה והושטה ילפי מעגלות, וזריקה ממחטין (או ממושיט דעגלות), והעברה למעלה מי' ממשא בני קהת, ורשויות מעגלות, וגובה רשות מארון, ומה שרצו למילף ד"א. והרי לא נאמר מלאכה בעגלות דבני מררי אלא עבודה, וגם לא יליף מלשון מלאכה דאיתא בבני קהת, ומשמע שאין מלאכה זו כמלאכה דעשיית המשכן. ונחלקו רש"י והתוספת אם פת איתא במשכן, ומשמע דדעת רש"י שאין ללמוד מעבודת המשכן שאינה נוגעת לבנייתו), וכן גדרי מלאכה הכלליים (כמו גדר מלאכת קילקול שהיא צורך תיקון שמצאנו שלמדו דין מכבה מגדר ע"מ לבנות דסותר, אף דמכבה דמשכן יליף מכיבוי אש שתחת דוד דסממנין, וכמו דכתב רש"י שם, שהוא גדר אחד של קלקול שיש בו תיקון. ונחלקו שם איזה תיקון יחשיב הקלקול למלאכה, והיינו, דלא ילפינן בהיפך מקורע דהוה במקומו).</p></div>
+          <div></div>
+          <div class="margin-notes-column left-margin"></div>
+        </div><div class="block-h3-span"><div class="h3-title-text" data-token-id="241" id="heading-tok-241">מעשה מלאכה</div></div><div class="block-2col">
+          <div class="margin-notes-column right-margin"><div class="side-note-anchor" style="top: 268px;">גרימת הדבר במלאכות שבת - התעסקות בתוצאה בזורה ברוח, בשניים שעשאוה, ובשני מעשים</div></div>
+          <div></div>
+          <div class="main-column right-col"><p data-token-id="242" data-is-cont="false" class="p-end" data-raw-text="איסור עשיית מלאכה נחלק למלאכות נפרדות, ומימלא למעשים נפרדים. ויחולקו זו מזו ע&quot;י תוצאת המעשה, וצורתו בגדר התוצאה. ויתחברו על ידיו להיות תולדות. שאמנם עשיית המעשה היא הדבר האסור שיש בו ביטול שביתה, אך משמעות העשייה היא מחמת הנעשה, שהתעסקות (היינו מה שהיא גדר בעושה בחילוק מן המעשה) בעשייה חשובה הוא איסור מלאכה, ושם המלאכה להיחשב מלאכות נפרדות, הוא בשם הנעשה. ועל כן שייך שיתחייב בעשיית אחת על שתי מלאכות, כי יהיה על התעסקותו שם שתי תוצאות."><span class="first-word-window">איסור</span> עשיית מלאכה נחלק למלאכות נפרדות, ומימלא למעשים נפרדים. ויחולקו זו מזו ע"י תוצאת המעשה, וצורתו בגדר התוצאה. ויתחברו על ידיו להיות תולדות. שאמנם עשיית המעשה היא הדבר האסור שיש בו ביטול שביתה, אך משמעות העשייה היא מחמת הנעשה, שהתעסקות (היינו מה שהיא גדר בעושה בחילוק מן המעשה) בעשייה חשובה הוא איסור מלאכה, ושם המלאכה להיחשב מלאכות נפרדות, הוא בשם הנעשה. ועל כן שייך שיתחייב בעשיית אחת על שתי מלאכות, כי יהיה על התעסקותו שם שתי תוצאות.</p><p data-token-id="243" data-is-cont="false" class="p-cut" data-raw-text="ועל כן מה שיהיה העושה גורם הדבר במלאכות שבת, יתייחס להתעסקות הנ&quot;ל, והיינו, שאם יהיה ההתעסקות הנ&quot;ל מוגדרת כהתעסקות בתוצאה, ואף שלא יהיה גורם התוצאה, כיון שגרם ההתעסקות שהיא" data-side-note="גרימת הדבר במלאכות שבת - התעסקות בתוצאה בזורה ברוח, בשניים שעשאוה, ובשני מעשים"><span class="first-word-window">ועל</span> כן מה שיהיה העושה גורם הדבר במלאכות שבת, יתייחס להתעסקות הנ"ל, והיינו, שאם יהיה ההתעסקות הנ"ל מוגדרת כהתעסקות בתוצאה, ואף שלא יהיה גורם התוצאה, כיון שגרם ההתעסקות שהיא</p></div>
+          <div class="col-gutter-divider col-rule-none" style="align-self: start; height: 353px;"></div>
+          <div class="main-column left-col"><p data-token-id="243" data-is-cont="true" class="p-cut" data-raw-text="התעסקות בתוצאה גם יהיה חייב. ועל כן אף במעשים שלגבי נזיקין לא יחשבו העושה כגורם דוגמת זורה, לגבי שבת יחשבו שהרי לגבי ההתעסקות, זוהי צורת ההתעסקות של האדם בתוצאה, אף שנדרשת פעולת הרוח לגרום התוצאה. וכן לגבי שנים שעשאוה שלגבי נזיקין פטור ולגבי שבת חייב, ואם היה דין הגרימה ביחס לתוצאה היו פטורים כי לא גרמו (היינו, שלא היה בעשיית האחד סיבה מספקת לקיום התוצאה), אבל כיון שהוא דין בהתעסקות שייך לחייב, כי יש משמעות של התעסקות בתוצאה גם כשהמעשה הוא חלק ממעשה של כמה אנשים. וכן הוא במי שגרם את התוצאה בשני מעשים שונים, שבנזיקין יש מי שפוטר, ואף מי שמחייב לא מחבר את שני המעשים, אלא מגדיר את אחד המעשים כהמחייב, ובשבת יהיה חייב," style="line-height: 1.35221;">התעסקות בתוצאה גם יהיה חייב. ועל כן אף במעשים שלגבי נזיקין לא יחשבו העושה כגורם דוגמת זורה, לגבי שבת יחשבו שהרי לגבי ההתעסקות, זוהי צורת ההתעסקות של האדם בתוצאה, אף שנדרשת פעולת הרוח לגרום התוצאה. וכן לגבי שנים שעשאוה שלגבי נזיקין פטור ולגבי שבת חייב, ואם היה דין הגרימה ביחס לתוצאה היו פטורים כי לא גרמו (היינו, שלא היה בעשיית האחד סיבה מספקת לקיום התוצאה), אבל כיון שהוא דין בהתעסקות שייך לחייב, כי יש משמעות של התעסקות בתוצאה גם כשהמעשה הוא חלק ממעשה של כמה אנשים. וכן הוא במי שגרם את התוצאה בשני מעשים שונים, שבנזיקין יש מי שפוטר, ואף מי שמחייב לא מחבר את שני המעשים, אלא מגדיר את אחד המעשים כהמחייב, ובשבת יהיה חייב,</p></div>
+          <div></div>
+          <div class="margin-notes-column left-margin"></div>
+        </div></div>
+      <div class="page-number-footer pos-center">מא</div>
+    </div>
+  </div>
+      </div>
+    </div>
+
+    <div class="diag-card">
+      <h3>📊 מדדי DOM ונתוני גובה מדויקים</h3>
+      <pre id="json-dom">{
+  "rightCol": {
+    "scrollHeight": 486,
+    "offsetHeight": 486,
+    "childrenCount": 2,
+    "children": [
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "שלושה חלקים. האחד, בדברים האמורים בפרשת תרומה, הוא",
+        "offsetHeight": 257,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      },
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "וזה גדר הלימוד השני, היינו, מה נחשב למלאכה. וזה יל",
+        "offsetHeight": 214,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.44px"
+      }
+    ]
+  },
+  "leftCol": {
+    "scrollHeight": 483,
+    "offsetHeight": 483,
+    "childrenCount": 1,
+    "children": [
+      {
+        "tag": "P",
+        "className": "p-end",
+        "textSnippet": "והגדר השלישי, הוא מה דיליף בגדר המלאכות עצמם, ובזה",
+        "offsetHeight": 476,
+        "marginTop": "0px",
+        "marginBottom": "7px",
+        "lineHeight": "21.6305px"
+      }
+    ]
+  },
+  "footnoteArea": null,
+  "bodyFlow": {
+    "clientHeight": 915,
+    "scrollHeight": 915
+  }
+}</pre>
+
+      <h3 style="margin-top:15px;">📜 יומן שלבי עימוד (Trace Log)</h3>
+      <div style="max-height:220px; overflow-y:auto; background:#020617; border-radius:6px; padding:6px;">
+        <div class="step-log-item">אין שלבים מיוחדים מתועדים</div>
+      </div>
+
+      <h3 style="margin-top:15px;">⚖️ פירוט יישור ואיזון טורים (Justification & Balancing)</h3>
+      <pre>{
+  "balanceLog": {
+    "totalItems": 3,
+    "bestSplit": {
+      "itemIndex": 2,
+      "lineIndex": 0
+    },
+    "rHeightBefore": 507,
+    "lHeightBefore": 482,
+    "diff": 28,
+    "availableHeight": 913
+  },
+  "justificationLog": {
+    "neededGrowth": 25,
+    "heightCeiling": 381,
+    "tiersApplied": {
+      "priority4_lineHeight": 3,
+      "priority5_wordSpacing": 0
+    }
+  }
+}</pre>
+    </div>
+  </div>
+
+  <div class="diag-card">
+    <h3>📄 קוד ה-HTML של העמוד (OuterHTML)</h3>
+    <pre>&lt;div class="a4-page page-focused" data-page-index="41" data-first-line-idx="332"&gt;
+    
+    &lt;div class="page-content-wrapper"&gt;
+      &lt;div class="top-header-grid"&gt;
+        &lt;div class="header-col-r" style="text-align:right; justify-content:right; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;"&gt;הקדמות וכללים&lt;/div&gt;
+        &lt;div class="header-col-c" style="text-align:center; justify-content:center;"&gt;&lt;svg style="height:9px; width:48px;" viewBox="0 0 400 40"&gt;&lt;circle cx="200" cy="20" r="10" fill="none" stroke="#444" stroke-width="4.5"&gt;&lt;/circle&gt;&lt;circle cx="200" cy="20" r="4.5" fill="#444"&gt;&lt;/circle&gt;&lt;path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#444"&gt;&lt;/path&gt;&lt;path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#444"&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/div&gt;
+        &lt;div class="header-col-l" style="text-align:left; justify-content:left; font-family:'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif; font-size:15pt;"&gt;סימן ג - איסור עשיית מלאכה&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class="page-body-flow "&gt;
+        
+      &lt;div class="block-2col"&gt;
+          &lt;div class="margin-notes-column right-margin"&gt;&lt;/div&gt;
+          &lt;div&gt;&lt;/div&gt;
+          &lt;div class="main-column right-col"&gt;&lt;p class="p-end" data-token-id="238" data-raw-text="שלושה חלקים. האחד, בדברים האמורים בפרשת תרומה, הוא מלאכה שעשו העם, ונקראת מלאכה דכתיב אל יעשו עוד מלאכה, ובזה כלול סידורא דסממנין ודצמר ודעור והמוציא. והשני, במעשה רוקם וחרש וכו' שעשו כל חכם לב, ובזה כלול סידורא דבגד וקרשים וכלים. והשלישי, במה שעשה משה בבניית המשכן כדכתיב ויכל את המלאכה, ובזה כלול בונה וסותר), אבל פרטי מלאכות אלו לא נכתבו בתורה בפירוש כולם (שאף שנאמר על תרומת תכלת ושש וכו' מלאכה, והיינו, צמר צבוע לא נתפרשו כל המלאכות המביאות לזה כזורע וגוזז וכו')." data-is-cont="true" style="letter-spacing: -0.01em;"&gt;שלושה חלקים. האחד, בדברים האמורים בפרשת תרומה, הוא מלאכה שעשו העם, ונקראת מלאכה דכתיב אל יעשו עוד מלאכה, ובזה כלול סידורא דסממנין ודצמר ודעור והמוציא. והשני, במעשה רוקם וחרש וכו' שעשו כל חכם לב, ובזה כלול סידורא דבגד וקרשים וכלים. והשלישי, במה שעשה משה בבניית המשכן כדכתיב ויכל את המלאכה, ובזה כלול בונה וסותר), אבל פרטי מלאכות אלו לא נכתבו בתורה בפירוש כולם (שאף שנאמר על תרומת תכלת ושש וכו' מלאכה, והיינו, צמר צבוע לא נתפרשו כל המלאכות המביאות לזה כזורע וגוזז וכו').&lt;/p&gt;&lt;p class="p-end" data-token-id="239" data-raw-text="וזה גדר הלימוד השני, היינו, מה נחשב למלאכה. וזה יליף אף דלא כתיבא המלאכה בפירוש, דכיון דידעינן דהכי הוה במשכן, והרי נקרא מלאכה כדלעיל חשיב מלאכה לשבת (כמו סידורא דפת מסממנין, וסידורא דחוט מצמר, וטוויתם וסידורא דבגד מיריעות, וסידורא דעור מתחשים, וכותב ומוחק מקרשים, ובונה וסותר מבנית המשכן, ומכבה ומבעיר מבישול סממנין, ומכה בפטיש מטסים, ומוציא מהבאה)." data-is-cont="false"&gt;&lt;span class="first-word-window"&gt;וזה&lt;/span&gt; גדר הלימוד השני, היינו, מה נחשב למלאכה. וזה יליף אף דלא כתיבא המלאכה בפירוש, דכיון דידעינן דהכי הוה במשכן, והרי נקרא מלאכה כדלעיל חשיב מלאכה לשבת (כמו סידורא דפת מסממנין, וסידורא דחוט מצמר, וטוויתם וסידורא דבגד מיריעות, וסידורא דעור מתחשים, וכותב ומוחק מקרשים, ובונה וסותר מבנית המשכן, ומכבה ומבעיר מבישול סממנין, ומכה בפטיש מטסים, ומוציא מהבאה).&lt;/p&gt;&lt;/div&gt;
+          &lt;div class="col-gutter-divider col-rule-none" style="align-self: start; height: 483px;"&gt;&lt;/div&gt;
+          &lt;div class="main-column left-col"&gt;&lt;p class="p-end" data-token-id="240" data-raw-text="והגדר השלישי, הוא מה דיליף בגדר המלאכות עצמם, ובזה לא בעי שיהיה הגדר נלמד ממקום שנלמדה המלאכה (כמו מלאכת הוצאה דילפי מהבאת ישראל, אך גדרי המלאכה כהוצאה והושטה ילפי מעגלות, וזריקה ממחטין (או ממושיט דעגלות), והעברה למעלה מי' ממשא בני קהת, ורשויות מעגלות, וגובה רשות מארון, ומה שרצו למילף ד&quot;א. והרי לא נאמר מלאכה בעגלות דבני מררי אלא עבודה, וגם לא יליף מלשון מלאכה דאיתא בבני קהת, ומשמע שאין מלאכה זו כמלאכה דעשיית המשכן. ונחלקו רש&quot;י והתוספת אם פת איתא במשכן, ומשמע דדעת רש&quot;י שאין ללמוד מעבודת המשכן שאינה נוגעת לבנייתו), וכן גדרי מלאכה הכלליים (כמו גדר מלאכת קילקול שהיא צורך תיקון שמצאנו שלמדו דין מכבה מגדר ע&quot;מ לבנות דסותר, אף דמכבה דמשכן יליף מכיבוי אש שתחת דוד דסממנין, וכמו דכתב רש&quot;י שם, שהוא גדר אחד של קלקול שיש בו תיקון. ונחלקו שם איזה תיקון יחשיב הקלקול למלאכה, והיינו, דלא ילפינן בהיפך מקורע דהוה במקומו)." data-is-cont="false" style="line-height: 1.35191;"&gt;&lt;span class="first-word-window"&gt;והגדר&lt;/span&gt; השלישי, הוא מה דיליף בגדר המלאכות עצמם, ובזה לא בעי שיהיה הגדר נלמד ממקום שנלמדה המלאכה (כמו מלאכת הוצאה דילפי מהבאת ישראל, אך גדרי המלאכה כהוצאה והושטה ילפי מעגלות, וזריקה ממחטין (או ממושיט דעגלות), והעברה למעלה מי' ממשא בני קהת, ורשויות מעגלות, וגובה רשות מארון, ומה שרצו למילף ד"א. והרי לא נאמר מלאכה בעגלות דבני מררי אלא עבודה, וגם לא יליף מלשון מלאכה דאיתא בבני קהת, ומשמע שאין מלאכה זו כמלאכה דעשיית המשכן. ונחלקו רש"י והתוספת אם פת איתא במשכן, ומשמע דדעת רש"י שאין ללמוד מעבודת המשכן שאינה נוגעת לבנייתו), וכן גדרי מלאכה הכלליים (כמו גדר מלאכת קילקול שהיא צורך תיקון שמצאנו שלמדו דין מכבה מגדר ע"מ לבנות דסותר, אף דמכבה דמשכן יליף מכיבוי אש שתחת דוד דסממנין, וכמו דכתב רש"י שם, שהוא גדר אחד של קלקול שיש בו תיקון. ונחלקו שם איזה תיקון יחשיב הקלקול למלאכה, והיינו, דלא ילפינן בהיפך מקורע דהוה במקומו).&lt;/p&gt;&lt;/div&gt;
+          &lt;div&gt;&lt;/div&gt;
+          &lt;div class="margin-notes-column left-margin"&gt;&lt;/div&gt;
+        &lt;/div&gt;&lt;div class="block-h3-span"&gt;&lt;div class="h3-title-text" data-token-id="241" id="heading-tok-241"&gt;מעשה מלאכה&lt;/div&gt;&lt;/div&gt;&lt;div class="block-2col"&gt;
+          &lt;div class="margin-notes-column right-margin"&gt;&lt;div class="side-note-anchor" style="top: 268px;"&gt;גרימת הדבר במלאכות שבת - התעסקות בתוצאה בזורה ברוח, בשניים שעשאוה, ובשני מעשים&lt;/div&gt;&lt;/div&gt;
+          &lt;div&gt;&lt;/div&gt;
+          &lt;div class="main-column right-col"&gt;&lt;p data-token-id="242" data-is-cont="false" class="p-end" data-raw-text="איסור עשיית מלאכה נחלק למלאכות נפרדות, ומימלא למעשים נפרדים. ויחולקו זו מזו ע&quot;י תוצאת המעשה, וצורתו בגדר התוצאה. ויתחברו על ידיו להיות תולדות. שאמנם עשיית המעשה היא הדבר האסור שיש בו ביטול שביתה, אך משמעות העשייה היא מחמת הנעשה, שהתעסקות (היינו מה שהיא גדר בעושה בחילוק מן המעשה) בעשייה חשובה הוא איסור מלאכה, ושם המלאכה להיחשב מלאכות נפרדות, הוא בשם הנעשה. ועל כן שייך שיתחייב בעשיית אחת על שתי מלאכות, כי יהיה על התעסקותו שם שתי תוצאות."&gt;&lt;span class="first-word-window"&gt;איסור&lt;/span&gt; עשיית מלאכה נחלק למלאכות נפרדות, ומימלא למעשים נפרדים. ויחולקו זו מזו ע"י תוצאת המעשה, וצורתו בגדר התוצאה. ויתחברו על ידיו להיות תולדות. שאמנם עשיית המעשה היא הדבר האסור שיש בו ביטול שביתה, אך משמעות העשייה היא מחמת הנעשה, שהתעסקות (היינו מה שהיא גדר בעושה בחילוק מן המעשה) בעשייה חשובה הוא איסור מלאכה, ושם המלאכה להיחשב מלאכות נפרדות, הוא בשם הנעשה. ועל כן שייך שיתחייב בעשיית אחת על שתי מלאכות, כי יהיה על התעסקותו שם שתי תוצאות.&lt;/p&gt;&lt;p data-token-id="243" data-is-cont="false" class="p-cut" data-raw-text="ועל כן מה שיהיה העושה גורם הדבר במלאכות שבת, יתייחס להתעסקות הנ&quot;ל, והיינו, שאם יהיה ההתעסקות הנ&quot;ל מוגדרת כהתעסקות בתוצאה, ואף שלא יהיה גורם התוצאה, כיון שגרם ההתעסקות שהיא" data-side-note="גרימת הדבר במלאכות שבת - התעסקות בתוצאה בזורה ברוח, בשניים שעשאוה, ובשני מעשים"&gt;&lt;span class="first-word-window"&gt;ועל&lt;/span&gt; כן מה שיהיה העושה גורם הדבר במלאכות שבת, יתייחס להתעסקות הנ"ל, והיינו, שאם יהיה ההתעסקות הנ"ל מוגדרת כהתעסקות בתוצאה, ואף שלא יהיה גורם התוצאה, כיון שגרם ההתעסקות שהיא&lt;/p&gt;&lt;/div&gt;
+          &lt;div class="col-gutter-divider col-rule-none" style="align-self: start; height: 353px;"&gt;&lt;/div&gt;
+          &lt;div class="main-column left-col"&gt;&lt;p data-token-id="243" data-is-cont="true" class="p-cut" data-raw-text="התעסקות בתוצאה גם יהיה חייב. ועל כן אף במעשים שלגבי נזיקין לא יחשבו העושה כגורם דוגמת זורה, לגבי שבת יחשבו שהרי לגבי ההתעסקות, זוהי צורת ההתעסקות של האדם בתוצאה, אף שנדרשת פעולת הרוח לגרום התוצאה. וכן לגבי שנים שעשאוה שלגבי נזיקין פטור ולגבי שבת חייב, ואם היה דין הגרימה ביחס לתוצאה היו פטורים כי לא גרמו (היינו, שלא היה בעשיית האחד סיבה מספקת לקיום התוצאה), אבל כיון שהוא דין בהתעסקות שייך לחייב, כי יש משמעות של התעסקות בתוצאה גם כשהמעשה הוא חלק ממעשה של כמה אנשים. וכן הוא במי שגרם את התוצאה בשני מעשים שונים, שבנזיקין יש מי שפוטר, ואף מי שמחייב לא מחבר את שני המעשים, אלא מגדיר את אחד המעשים כהמחייב, ובשבת יהיה חייב," style="line-height: 1.35221;"&gt;התעסקות בתוצאה גם יהיה חייב. ועל כן אף במעשים שלגבי נזיקין לא יחשבו העושה כגורם דוגמת זורה, לגבי שבת יחשבו שהרי לגבי ההתעסקות, זוהי צורת ההתעסקות של האדם בתוצאה, אף שנדרשת פעולת הרוח לגרום התוצאה. וכן לגבי שנים שעשאוה שלגבי נזיקין פטור ולגבי שבת חייב, ואם היה דין הגרימה ביחס לתוצאה היו פטורים כי לא גרמו (היינו, שלא היה בעשיית האחד סיבה מספקת לקיום התוצאה), אבל כיון שהוא דין בהתעסקות שייך לחייב, כי יש משמעות של התעסקות בתוצאה גם כשהמעשה הוא חלק ממעשה של כמה אנשים. וכן הוא במי שגרם את התוצאה בשני מעשים שונים, שבנזיקין יש מי שפוטר, ואף מי שמחייב לא מחבר את שני המעשים, אלא מגדיר את אחד המעשים כהמחייב, ובשבת יהיה חייב,&lt;/p&gt;&lt;/div&gt;
+          &lt;div&gt;&lt;/div&gt;
+          &lt;div class="margin-notes-column left-margin"&gt;&lt;/div&gt;
+        &lt;/div&gt;&lt;/div&gt;
+      &lt;div class="page-number-footer pos-center"&gt;מא&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;</pre>
+  </div>
+
+  <script>
+    const fullDebugPayload = {
+      pageIndex: 41,
+      trace: {"pageIndex":41,"gematria":"מא","pageRole":"regular","pageContext":{"simanBadge":"סימן ג","rawH2WithoutSiman":"איסור עשיית מלאכה","h4Title":"עשיית מלאכה"},"h2Text":"","initialBudget":915,"tokensPlaced":[{"id":238,"type":"p","col":"right","linesPlaced":13,"totalLines":13,"isEndOfP":true},{"id":239,"type":"p","col":"right","linesPlaced":10,"totalLines":10,"isEndOfP":true},{"id":240,"type":"p","col":"right","linesPlaced":18,"totalLines":22,"isEndOfP":false},{"id":240,"type":"p","col":"left","linesPlaced":4,"totalLines":4,"isEndOfP":true},{"id":241,"type":"h-span","text":"מעשה מלאכה"},{"id":242,"type":"p","col":"right","linesPlaced":12,"totalLines":12,"isEndOfP":true},{"id":243,"type":"p","col":"right","linesPlaced":5,"totalLines":23,"isEndOfP":false},{"id":243,"type":"p","col":"left","linesPlaced":16,"totalLines":18,"isEndOfP":false}],"steps":[],"justificationLog":{"neededGrowth":25,"heightCeiling":381,"tiersApplied":{"priority4_lineHeight":3,"priority5_wordSpacing":0}},"balanceLog":{"totalItems":3,"bestSplit":{"itemIndex":2,"lineIndex":0},"rHeightBefore":507,"lHeightBefore":482,"diff":28,"availableHeight":913},"domMetrics":{"bodyFlowClientHeight":915,"bodyFlowScrollHeight":915,"finalBudget":11,"footnotesQueuedCount":0,"footnotesHeightMeasured":0}},
+      domInspection: {"rightCol":{"scrollHeight":486,"offsetHeight":486,"childrenCount":2,"children":[{"tag":"P","className":"p-end","textSnippet":"שלושה חלקים. האחד, בדברים האמורים בפרשת תרומה, הוא","offsetHeight":257,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"},{"tag":"P","className":"p-end","textSnippet":"וזה גדר הלימוד השני, היינו, מה נחשב למלאכה. וזה יל","offsetHeight":214,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.44px"}]},"leftCol":{"scrollHeight":483,"offsetHeight":483,"childrenCount":1,"children":[{"tag":"P","className":"p-end","textSnippet":"והגדר השלישי, הוא מה דיליף בגדר המלאכות עצמם, ובזה","offsetHeight":476,"marginTop":"0px","marginBottom":"7px","lineHeight":"21.6305px"}]},"footnoteArea":null,"bodyFlow":{"clientHeight":915,"scrollHeight":915}},
+      warnings: []
+    };
+
+    function copyFullJSON() {
+      navigator.clipboard.writeText(JSON.stringify(fullDebugPayload, null, 2)).then(() => {
+        alert('נתוני הדיבאג הועתקו ללוח בהצלחה!');
+      });
+    }
+  </script>
+</body>
+</html>
