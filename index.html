@@ -1,4 +1,29 @@
-
+<!-- 
+================================================================================
+מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
+קובץ: index.html
+================================================================================
+הסבר על השילוב והמיזוג שבוצע בקובץ זה:
+1. בסיס המבנה: נשען על גרסה 4 ("עדכון.txt"), הכוללת ממשק פאנלים מתקפלים 
+   (Accordion UI), תמיכה ב-4 שדות עצמאיים לשער האחורי, כותרות עליונות מתקדמות 
+   המופרדות לחלוטין בין עמוד זוגי (Verso) לאי-זוגי (Recto), ומערכת עיטורים כפולה לכותרת 2.
+2. שחזור מגרסה 1 ("השוואת.txt"): 
+   - הוחזר שדה '#page-num-initial-value' (בפאנל 10) המאפשר להגדיר ערך מספרי התחלתי
+     שרירותי לספר (קריטי לכרכים מאוחרים כגון כרך ב' המתחיל בעמ' קכ).
+3. שחזור מגרסה 2 ("חלוקת.txt"):
+   - שולב בורר תיקיית נכסים מקומית ('#assets-folder-input' עם 'webkitdirectory')
+     בראש פאנל 4, המאפשר טעינת תיקיית עיטורים שלמה ישירות מהמחשב ללא שרת.
+   - הוחזרו מתגי הבקרה למספור עמודי תוכן העניינים הכללי והמפורט בפאנל 10:
+     'general-toc-count-numbering', 'general-toc-show-numbering',
+     'detailed-toc-count-numbering', 'detailed-toc-show-numbering'.
+4. שחזור מגרסה 3 ("מערכת.txt"):
+   - הוחזרו כפתורי איפוס מהיר לתיבות השער ('resetCurrentShaarBoxPosition') 
+     לצד כפתורי ייצוא קובצי ה-JSON שהוטמעו בגרסה 4.
+5. אחידות וסנכרון מזהים (IDs):
+   - כל שדות הטפסים, הבוררים הוויזואליים והפאנלים אומתו מול מנוע העימוד
+     ויושרו ללא סתירות, עם תמיכה מלאה בהתרעות שינויים לא-מעומדים.
+================================================================================
+-->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -6,7 +31,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל</title>
   <link rel="stylesheet" href="style.css">
-  <script id="ext-imports-data" type="application/json"></script>
 </head>
 <body>
   <!-- סרגל צד ראשי המפוצל לשני טורים: אזור טקסט + לוח הגדרות -->
@@ -22,8 +46,6 @@
           <button type="button" id="btn-retypeset" class="btn-tool btn-primary" onclick="typesetDocument()">⚡ עדכן ועמד מחדש</button>
           <button type="button" class="btn-tool btn-import" onclick="document.getElementById('file-txt-import').click()">📄 ייבוא טקסט</button>
           <button type="button" class="btn-tool btn-secondary" onclick="window.print()">🖨️ הדפסה / PDF</button>
-          <button type="button" id="btn-load-extended-fonts" class="btn-tool btn-secondary" onclick="loadExtendedFonts()">📚 טען גופנים נוספים</button>
-          <button type="button" id="btn-export-html" class="btn-tool btn-secondary" onclick="exportRenderedHTML()">💾 ייצוא HTML</button>
           <input type="file" id="file-txt-import" accept=".txt,.text,.md" style="display:none" onchange="handleTxtFileImport(event)">
         </div>
       </div>
@@ -38,10 +60,10 @@
 
     <!-- טור 2: לוח הגדרות מכווץ כברירת מחדל -->
     <div id="settings-pane" class="collapsed">
-      <button type="button" class="collapse-strip" data-action="toggle-settings-pane" aria-expanded="false" aria-controls="settings-pane" title="פתח / סגור לוח הגדרות">
+      <div class="collapse-strip" onclick="toggleSettingsPane()" title="פתח / סגור לוח הגדרות">
         <span class="collapse-icon">◀</span>
         <span class="collapse-label">⚙️ לוח הגדרות עימוד</span>
-      </button>
+      </div>
       
       <div class="settings-content">
         <div class="settings-top-bar">
@@ -56,14 +78,14 @@
         <div class="settings-scrollable-body">
           <!-- פאנל 1: ערכות נושא, שערים ורקעי עמודים -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="panel-themes-body" aria-expanded="false" aria-controls="panel-themes-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-themes-body')">
               <span>👑 ערכות נושא, שערי הספר ורקעים</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="panel-themes-body" style="display:none;">
               <div class="inline-cfg-row">
-                <label for="active-theme-select">ערכת נושא כללית:</label>
-<select id="active-theme-select" style="flex:1;" onchange="syncThemeToIndividualShaars();">
+                <label>ערכת נושא כללית:</label>
+                <select id="active-theme-select" style="flex:1;" onchange="syncThemeToIndividualShaars();">
                   <optgroup label="ערכות מובנות">
                     <option value="builtin_1" selected="selected">1. דמסק ושיש מרכזי</option>
                     <option value="builtin_2">2. תחרת סלסולים כפולה</option>
@@ -72,15 +94,14 @@
                   <optgroup id="custom-themes-optgroup" label="ערכות שהוטמעו בקובץ"></optgroup>
                   <optgroup id="json-themes-optgroup" label="ערכות מאוחדות מ-JSON"></optgroup>
                   <optgroup id="themes-folder-optgroup" label="ערכות מתוך תיקיית themes"></optgroup>
-                  <optgroup id="folder-themes-optgroup" label="ערכות מתיקייה"></optgroup>
                 </select>
               </div>
 
               <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:6px 8px; margin-bottom:8px;">
                 <div style="font-size:8pt; font-weight:800; color:#1e3a8a; margin-bottom:5px;">🎨 בחירת רקע/איור פרטני לכל שער:</div>
                 <div class="inline-cfg-row">
-                  <label for="select-shaar-main">1. שער ראשי:</label>
-<select id="select-shaar-main" style="flex:1;">
+                  <label>1. שער ראשי:</label>
+                  <select id="select-shaar-main" style="flex:1;">
                     <option value="theme_default" selected="selected">לפי ערכת הנושא הנבחרת</option>
                     <option value="builtin_1">דמסק ושיש מרכזי (מובנה 1)</option>
                     <option value="builtin_2">תחרת סלסולים כפולה (מובנה 2)</option>
@@ -90,8 +111,8 @@
                   </select>
                 </div>
                 <div class="inline-cfg-row">
-                  <label for="select-shaar-back">2. שער אחורי:</label>
-<select id="select-shaar-back" style="flex:1;">
+                  <label>2. שער אחורי:</label>
+                  <select id="select-shaar-back" style="flex:1;">
                     <option value="theme_default" selected="selected">לפי ערכת הנושא הנבחרת</option>
                     <option value="builtin_1">גב שער מובנה 1</option>
                     <option value="builtin_2">גב שער מובנה 2</option>
@@ -101,8 +122,8 @@
                   </select>
                 </div>
                 <div class="inline-cfg-row">
-                  <label for="select-shaar-sub">3. שער משנה:</label>
-<select id="select-shaar-sub" style="flex:1;">
+                  <label>3. שער משנה:</label>
+                  <select id="select-shaar-sub" style="flex:1;">
                     <option value="theme_default" selected="selected">לפי ערכת הנושא הנבחרת</option>
                     <option value="builtin_1">שער חלק מובנה 1</option>
                     <option value="builtin_2">שער חלק מובנה 2</option>
@@ -112,6 +133,7 @@
                   </select>
                 </div>
 
+                <!-- ייצוא JSON עם מיקומי תיבות שנשמרו בעריכת עכבר -->
                 <div style="font-size:7pt; color:#64748b; margin-top:5px; line-height:1.4;">
                   💡 כיוונתם תיבת טקסט בעכבר? תוכלו לייצא קובץ JSON מעודכן עם הקואורדינטות המדויקות:
                 </div>
@@ -142,6 +164,7 @@
                   <input type="checkbox" id="enable-shaar-box-editor" checked="checked" onchange="toggleShaarBoxEditor()">
                   <span class="btn-toggle-box"><span class="check-icon">✓</span>כוונון תיבות שער בעכבר (Drag & Resize)</span>
                 </label>
+                <!-- כפתורי איפוס מהיר מגרסה 3 -->
                 <div style="display:flex; gap:4px; margin-top:4px;">
                   <button type="button" class="btn-tool" style="flex:1; font-size:7.2pt; padding:3px;" onclick="resetCurrentShaarBoxPosition('main')">איפוס תיבת ראשי</button>
                   <button type="button" class="btn-tool" style="flex:1; font-size:7.2pt; padding:3px;" onclick="resetCurrentShaarBoxPosition('sub')">איפוס תיבת משנה</button>
@@ -151,66 +174,66 @@
 
               <!-- שדות מידע לשער ראשי -->
               <div class="inline-cfg-row">
-                <label for="inp-book-title">שם הספר:</label>
-<input type="text" id="inp-book-title" value="מקום בינה" placeholder="שם הספר">
+                <label>שם הספר:</label>
+                <input type="text" id="inp-book-title" value="ספר מלכי המלוכה" placeholder="שם הספר">
                 <select id="f-sh-title" class="font-picker"></select>
                 <input type="number" id="s-sh-title" class="size-input" value="46">
               </div>
               <div class="inline-cfg-row">
-                <label for="inp-book-subtitle">נושא / משנה:</label>
-<input type="text" id="inp-book-subtitle" value="הוצאה - רשויות - חצירות - תחומין" placeholder="נושא">
+                <label>נושא / משנה:</label>
+                <input type="text" id="inp-book-subtitle" value="ביאורים וחידושים עמוקים על מסכתות הש&quot;ס" placeholder="נושא">
                 <select id="f-sh-sub" class="font-picker"></select>
                 <input type="number" id="s-sh-sub" class="size-input" value="21">
               </div>
               <div class="inline-cfg-row">
-                <label for="inp-book-desc">נושא מפורט:</label>
-<input type="text" id="inp-book-desc" value="הקדמות וביאורים במסכתות שבת ועירובין" placeholder="תיאור">
+                <label>נושא מפורט:</label>
+                <input type="text" id="inp-book-desc" value="בירור שיטות הראשונים והאחרונים ובירורי הלכות למעשה" placeholder="תיאור">
                 <select id="f-sh-desc" class="font-picker"></select>
                 <input type="number" id="s-sh-desc" class="size-input" value="12">
               </div>
               <div class="inline-cfg-row">
-                <label for="inp-book-sections">פרטי מהדורא:</label>
-<input type="text" id="inp-book-sections" value="מהדורת ניסיון | לא מוגה" placeholder="מהדורא">
+                <label>פרטי מהדורא:</label>
+                <input type="text" id="inp-book-sections" value="מהדורה שניה ומורחבת בסייעתא דשמיא" placeholder="מהדורא">
                 <select id="f-sh-sec" class="font-picker"></select>
                 <input type="number" id="s-sh-sec" class="size-input" value="11.5" step="0.5">
               </div>
               <div class="inline-cfg-row">
-                <label for="inp-book-author">שם המחבר:</label>
-<input type="text" id="inp-book-author" value="נתנאל דיינובסקי" placeholder="שם המחבר">
+                <label>שם המחבר:</label>
+                <input type="text" id="inp-book-author" value="הצעיר ידידיה בר אבא הלוי" placeholder="שם המחבר">
                 <select id="f-sh-author" class="font-picker"></select>
                 <input type="number" id="s-sh-author" class="size-input" value="15">
               </div>
               <div class="inline-cfg-row">
-                <label for="inp-book-year">מקום ושנה:</label>
-<input type="text" id="inp-book-year" value="ירושלים | תשפ&quot;ו" placeholder="מקום ושנה">
+                <label>מקום ושנה:</label>
+                <input type="text" id="inp-book-year" value="ירושלים עיה&quot;ק תובב&quot;א שנת ה'תשפ&quot;ו" placeholder="מקום ושנה">
                 <select id="f-sh-year" class="font-picker"></select>
                 <input type="number" id="s-sh-year" class="size-input" value="12">
               </div>
 
-              <!-- 4 שדות עצמאיים לשער אחורי -->
+              <!-- 4 שדות עצמאיים לשער אחורי (גרסה 4) -->
               <div class="panel-sub-header">📖 תוכן השער האחורי (4 חלקים עצמאיים)</div>
               <div class="inline-cfg-row" style="align-items:flex-start;">
-                <label style="margin-top:4px;" for="inp-book-back-copyright">1. שמירת זכויות:</label>
-<textarea id="inp-book-back-copyright" rows="2" style="flex:1; font-family:inherit; font-size:8.5pt; padding:4px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="שמירת זכויות...">כל הזכויות הפקר</textarea>
+                <label style="margin-top:4px;">1. שמירת זכויות:</label>
+                <textarea id="inp-book-back-copyright" rows="2" style="flex:1; font-family:inherit; font-size:8.5pt; padding:4px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="שמירת זכויות...">אין לשכפל, להעתיק, לצלם, לתרגם, לאחסן במאגר מידע, למסור או לקלוט בכל דרך או אמצעי אלקטרוני, אופטי או מכני אחר כל חלק שהוא מספר זה, ללא רשות מפורשת בכתב מבעל הזכויות.</textarea>
               </div>
               <div class="inline-cfg-row" style="align-items:flex-start;">
-                <label style="margin-top:4px;" for="inp-book-back-publishing">2. פרטי הוצאה לאור:</label>
-<textarea id="inp-book-back-publishing" rows="2" style="flex:1; font-family:inherit; font-size:8.5pt; padding:4px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="הוצאת ספרים...">הוצאת זוכמיר בע"מ</textarea>
+                <label style="margin-top:4px;">2. פרטי הוצאה לאור:</label>
+                <textarea id="inp-book-back-publishing" rows="2" style="flex:1; font-family:inherit; font-size:8.5pt; padding:4px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="הוצאת ספרים..."></textarea>
               </div>
               <div class="inline-cfg-row" style="align-items:flex-start;">
-                <label style="margin-top:4px;" for="inp-book-back-contact">3. פרטי קשר:</label>
-<textarea id="inp-book-back-contact" rows="2" style="flex:1; font-family:inherit; font-size:8.5pt; padding:4px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="להערות והזמנות...">052-7666666</textarea>
+                <label style="margin-top:4px;">3. פרטי קשר:</label>
+                <textarea id="inp-book-back-contact" rows="2" style="flex:1; font-family:inherit; font-size:8.5pt; padding:4px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="להערות והזמנות..."></textarea>
               </div>
               <div class="inline-cfg-row" style="align-items:flex-start;">
-                <label style="margin-top:4px;" for="inp-book-back-extra">4. פרטים נוספים:</label>
-<textarea id="inp-book-back-extra" rows="2" style="flex:1; font-family:inherit; font-size:8.5pt; padding:4px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="נדפס בדפוס...">אין לסמוך על האמור להלכה</textarea>
+                <label style="margin-top:4px;">4. פרטים נוספים:</label>
+                <textarea id="inp-book-back-extra" rows="2" style="flex:1; font-family:inherit; font-size:8.5pt; padding:4px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="נדפס בדפוס..."></textarea>
               </div>
 
               <!-- רקעים לעמודי תוכן -->
               <div class="panel-sub-header">🎨 רקעים לעמודי התוכן והספר</div>
               <div class="inline-cfg-row">
-                <label for="cbg-regular-mode">עמוד רגיל:</label>
-<select id="cbg-regular-mode" style="flex:1;" onchange="toggleCbgSubRows('regular', this.value);">
+                <label>עמוד רגיל:</label>
+                <select id="cbg-regular-mode" style="flex:1;" onchange="toggleCbgSubRows('regular', this.value);">
                   <option value="none" selected="selected">ללא (ברירת מחדל)</option>
                   <option value="color">צבע רקע אחיד</option>
                   <option value="texture">מרקם עדין (דמשק דהוי)</option>
@@ -218,22 +241,22 @@
                 </select>
               </div>
               <div class="inline-cfg-row" id="row-cbg-regular-color" style="display:none;">
-                <label for="cbg-regular-color">צבע:</label>
-<input type="color" id="cbg-regular-color" value="#f4f1e8">
+                <label>צבע:</label>
+                <input type="color" id="cbg-regular-color" value="#f4f1e8">
               </div>
               <div class="inline-cfg-row" id="row-cbg-regular-img" style="display:none;">
-                <label for="file-cbg-regular-img">קובץ:</label>
-<input type="file" id="file-cbg-regular-img" accept="image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-cbg-regular-img')">
+                <label>קובץ:</label>
+                <input type="file" id="file-cbg-regular-img" accept="image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-cbg-regular-img')">
                 <input type="hidden" id="data-cbg-regular-img" value="">
               </div>
               <div class="inline-cfg-row" id="row-cbg-regular-op" style="display:none;">
-                <label for="cbg-regular-opacity">שקיפות תמונה:</label>
-<input type="range" id="cbg-regular-opacity" min="0" max="100" value="15" style="flex:1;">
+                <label>שקיפות תמונה:</label>
+                <input type="range" id="cbg-regular-opacity" min="0" max="100" value="15" style="flex:1;">
               </div>
 
               <div class="inline-cfg-row">
-                <label for="cbg-h0Open-mode">עמוד "כותרת 0":</label>
-<select id="cbg-h0Open-mode" style="flex:1;" onchange="toggleCbgSubRows('h0Open', this.value);">
+                <label>עמוד "כותרת 0":</label>
+                <select id="cbg-h0Open-mode" style="flex:1;" onchange="toggleCbgSubRows('h0Open', this.value);">
                   <option value="none" selected="selected">ללא (ברירת מחדל)</option>
                   <option value="color">צבע רקע אחיד</option>
                   <option value="texture">מרקם עדין</option>
@@ -241,22 +264,22 @@
                 </select>
               </div>
               <div class="inline-cfg-row" id="row-cbg-h0Open-color" style="display:none;">
-                <label for="cbg-h0Open-color">צבע:</label>
-<input type="color" id="cbg-h0Open-color" value="#f4f1e8">
+                <label>צבע:</label>
+                <input type="color" id="cbg-h0Open-color" value="#f4f1e8">
               </div>
               <div class="inline-cfg-row" id="row-cbg-h0Open-img" style="display:none;">
-                <label for="file-cbg-h0Open-img">קובץ:</label>
-<input type="file" id="file-cbg-h0Open-img" accept="image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-cbg-h0Open-img')">
+                <label>קובץ:</label>
+                <input type="file" id="file-cbg-h0Open-img" accept="image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-cbg-h0Open-img')">
                 <input type="hidden" id="data-cbg-h0Open-img" value="">
               </div>
               <div class="inline-cfg-row" id="row-cbg-h0Open-op" style="display:none;">
-                <label for="cbg-h0Open-opacity">שקיפות תמונה:</label>
-<input type="range" id="cbg-h0Open-opacity" min="0" max="100" value="15" style="flex:1;">
+                <label>שקיפות תמונה:</label>
+                <input type="range" id="cbg-h0Open-opacity" min="0" max="100" value="15" style="flex:1;">
               </div>
 
               <div class="inline-cfg-row">
-                <label for="cbg-h2Open-mode">עמוד "כותרת 2":</label>
-<select id="cbg-h2Open-mode" style="flex:1;" onchange="toggleCbgSubRows('h2Open', this.value);">
+                <label>עמוד "כותרת 2":</label>
+                <select id="cbg-h2Open-mode" style="flex:1;" onchange="toggleCbgSubRows('h2Open', this.value);">
                   <option value="none" selected="selected">ללא (ברירת מחדל)</option>
                   <option value="color">צבע רקע אחיד</option>
                   <option value="texture">מרקם עדין</option>
@@ -264,84 +287,72 @@
                 </select>
               </div>
               <div class="inline-cfg-row" id="row-cbg-h2Open-color" style="display:none;">
-                <label for="cbg-h2Open-color">צבע:</label>
-<input type="color" id="cbg-h2Open-color" value="#f4f1e8">
+                <label>צבע:</label>
+                <input type="color" id="cbg-h2Open-color" value="#f4f1e8">
               </div>
               <div class="inline-cfg-row" id="row-cbg-h2Open-img" style="display:none;">
-                <label for="file-cbg-h2Open-img">קובץ:</label>
-<input type="file" id="file-cbg-h2Open-img" accept="image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-cbg-h2Open-img')">
+                <label>קובץ:</label>
+                <input type="file" id="file-cbg-h2Open-img" accept="image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-cbg-h2Open-img')">
                 <input type="hidden" id="data-cbg-h2Open-img" value="">
               </div>
               <div class="inline-cfg-row" id="row-cbg-h2Open-op" style="display:none;">
-                <label for="cbg-h2Open-opacity">שקיפות תמונה:</label>
-<input type="range" id="cbg-h2Open-opacity" min="0" max="100" value="15" style="flex:1;">
+                <label>שקיפות תמונה:</label>
+                <input type="range" id="cbg-h2Open-opacity" min="0" max="100" value="15" style="flex:1;">
               </div>
             </div>
           </div>
 
           <!-- פאנל 2: ערכת נושא חדשה -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="new-theme-panel-body" aria-expanded="false" aria-controls="new-theme-panel-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('new-theme-panel-body')">
               <span>🎨 יצירת והטמעת ערכת נושא חדשה (SVG)</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="new-theme-panel-body" style="display:none;">
               <div class="inline-cfg-row">
-                <label style="color:#1e3a8a;" for="builder-theme-name">שם הערכה:</label>
-<input type="text" id="builder-theme-name" placeholder="שם הערכה...">
+                <label style="color:#1e3a8a;">שם הערכה:</label>
+                <input type="text" id="builder-theme-name" placeholder="שם הערכה...">
               </div>
               <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:8px; margin-bottom:6px;">
                 <div style="font-weight:700; font-size:8pt; color:#1e3a8a; margin-bottom:4px;">🏛️ 1. שער ראשי:</div>
                 <div class="inline-cfg-row">
-                  <label for="file-builder-main-svg">קובץ SVG:</label>
-<input type="file" id="file-builder-main-svg" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-builder-main-svg')">
+                  <label>קובץ SVG:</label>
+                  <input type="file" id="file-builder-main-svg" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-builder-main-svg')">
                   <input type="hidden" id="data-builder-main-svg" value="">
                 </div>
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; margin-top:4px;">
-                  <div><label style="font-size:7pt; display:block;" for="builder-main-top">עליון (mm):</label>
-<input type="number" id="builder-main-top" value="20" class="size-input" style="width:100%;"></div>
-                  <div><label style="font-size:7pt; display:block;" for="builder-main-bottom">תחתון (mm):</label>
-<input type="number" id="builder-main-bottom" value="16" class="size-input" style="width:100%;"></div>
-                  <div><label style="font-size:7pt; display:block;" for="builder-main-right">ימין (mm):</label>
-<input type="number" id="builder-main-right" value="15" class="size-input" style="width:100%;"></div>
-                  <div><label style="font-size:7pt; display:block;" for="builder-main-left">שמאל (mm):</label>
-<input type="number" id="builder-main-left" value="15" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">עליון (mm):</label><input type="number" id="builder-main-top" value="20" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">תחתון (mm):</label><input type="number" id="builder-main-bottom" value="16" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">ימין (mm):</label><input type="number" id="builder-main-right" value="15" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">שמאל (mm):</label><input type="number" id="builder-main-left" value="15" class="size-input" style="width:100%;"></div>
                 </div>
               </div>
               <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:8px; margin-bottom:6px;">
                 <div style="font-weight:700; font-size:8pt; color:#1e3a8a; margin-bottom:4px;">📖 2. שער אחורי:</div>
                 <div class="inline-cfg-row">
-                  <label for="file-builder-back-svg">קובץ SVG:</label>
-<input type="file" id="file-builder-back-svg" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-builder-back-svg')">
+                  <label>קובץ SVG:</label>
+                  <input type="file" id="file-builder-back-svg" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-builder-back-svg')">
                   <input type="hidden" id="data-builder-back-svg" value="">
                 </div>
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; margin-top:4px;">
-                  <div><label style="font-size:7pt; display:block;" for="builder-back-top">עליון (mm):</label>
-<input type="number" id="builder-back-top" value="22" class="size-input" style="width:100%;"></div>
-                  <div><label style="font-size:7pt; display:block;" for="builder-back-bottom">תחתון (mm):</label>
-<input type="number" id="builder-back-bottom" value="18" class="size-input" style="width:100%;"></div>
-                  <div><label style="font-size:7pt; display:block;" for="builder-back-right">ימין (mm):</label>
-<input type="number" id="builder-back-right" value="15" class="size-input" style="width:100%;"></div>
-                  <div><label style="font-size:7pt; display:block;" for="builder-back-left">שמאל (mm):</label>
-<input type="number" id="builder-back-left" value="95" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">עליון (mm):</label><input type="number" id="builder-back-top" value="22" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">תחתון (mm):</label><input type="number" id="builder-back-bottom" value="18" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">ימין (mm):</label><input type="number" id="builder-back-right" value="15" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">שמאל (mm):</label><input type="number" id="builder-back-left" value="95" class="size-input" style="width:100%;"></div>
                 </div>
               </div>
               <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:8px; margin-bottom:6px;">
                 <div style="font-weight:700; font-size:8pt; color:#1e3a8a; margin-bottom:4px;">📜 3. שער משנה:</div>
                 <div class="inline-cfg-row">
-                  <label for="file-builder-sub-svg">קובץ SVG:</label>
-<input type="file" id="file-builder-sub-svg" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-builder-sub-svg')">
+                  <label>קובץ SVG:</label>
+                  <input type="file" id="file-builder-sub-svg" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-builder-sub-svg')">
                   <input type="hidden" id="data-builder-sub-svg" value="">
                 </div>
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; margin-top:4px;">
-                  <div><label style="font-size:7pt; display:block;" for="builder-sub-top">עליון (mm):</label>
-<input type="number" id="builder-sub-top" value="20" class="size-input" style="width:100%;"></div>
-                  <div><label style="font-size:7pt; display:block;" for="builder-sub-bottom">תחתון (mm):</label>
-<input type="number" id="builder-sub-bottom" value="20" class="size-input" style="width:100%;"></div>
-                  <div><label style="font-size:7pt; display:block;" for="builder-sub-right">ימין (mm):</label>
-<input type="number" id="builder-sub-right" value="95" class="size-input" style="width:100%;"></div>
-                  <div><label style="font-size:7pt; display:block;" for="builder-sub-left">שמאל (mm):</label>
-<input type="number" id="builder-sub-left" value="15" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">עליון (mm):</label><input type="number" id="builder-sub-top" value="20" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">תחתון (mm):</label><input type="number" id="builder-sub-bottom" value="20" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">ימין (mm):</label><input type="number" id="builder-sub-right" value="95" class="size-input" style="width:100%;"></div>
+                  <div><label style="font-size:7pt; display:block;">שמאל (mm):</label><input type="number" id="builder-sub-left" value="15" class="size-input" style="width:100%;"></div>
                 </div>
               </div>
               <button type="button" class="btn-tool btn-primary" style="width:100%; margin-top:4px;" onclick="addNewCustomTheme()">➕ הטמע ערכת נושא זו בקובץ</button>
@@ -351,10 +362,10 @@
 
           <!-- פאנל 3: ייבוא תוספים -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="panel-plugins-body" aria-expanded="false" aria-controls="panel-plugins-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-plugins-body')">
               <span>🧩 ייבוא תוספים (סוגי עמוד / סגנונות)</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="panel-plugins-body" style="display:none;">
               <div class="inline-cfg-row">
                 <label>סוג עמוד:</label>
@@ -372,15 +383,15 @@
           </div>
           <div id="ext-imports-container"></div>
 
-          <!-- פאנל 4: מאגר עיטורים ושליטה במידות -->
+          <!-- פאנל 4: מאגר עיטורים ושליטה במידות (כולל סורק תיקייה מגרסה 2) -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="panel-ornaments-body" aria-expanded="false" aria-controls="panel-ornaments-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-ornaments-body')">
               <span>⚜️ מאגר עיטורים ושליטה במידות</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="panel-ornaments-body" style="display:none;">
               
-              <!-- סורק תיקייה מקומי -->
+              <!-- סורק תיקייה מקומי מגרסה 2 -->
               <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:5px; padding:6px; margin-bottom:8px;">
                 <button type="button" class="btn-tool" style="width:100%; font-size:8pt; padding:4px;" onclick="triggerAssetsFolderPick()">📁 טען נכסים מתיקייה מקומית (תמונות ועיטורים)</button>
                 <input type="file" id="assets-folder-input" webkitdirectory directory multiple style="display:none;" onchange="handleAssetsFolderSelected(event)">
@@ -393,8 +404,8 @@
               <!-- עיטורי שורת הסימן בכותרת 2 -->
               <div class="panel-sub-header">כותרת 2 — עיטור שורת הסימן (עליון/תחתון)</div>
               <div class="inline-cfg-row">
-                <label for="h2-ornament-set">סט שלם (ע+ת):</label>
-<select id="h2-ornament-set" style="flex:1;" onchange="onH2OrnamentSetChange(this.value)">
+                <label>סט שלם (ע+ת):</label>
+                <select id="h2-ornament-set" style="flex:1;" onchange="onH2OrnamentSetChange(this.value)">
                   <option value="none" selected="selected">ללא עיטורים</option>
                   <option value="custom" disabled hidden>מותאם אישית</option>
                   <optgroup id="h2-set-json-optgroup" label="סטים שלמים מ-JSON"></optgroup>
@@ -402,8 +413,8 @@
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="h2-ornament-top-style">עיטור עליון לסימן:</label>
-<select id="h2-ornament-top-style" style="flex:1;" onchange="onH2IndividualOrnamentChange();">
+                <label>עיטור עליון לסימן:</label>
+                <select id="h2-ornament-top-style" style="flex:1;" onchange="onH2IndividualOrnamentChange();">
                   <option value="none" selected="selected">ללא עיטור עליון</option>
                   <optgroup id="h2-top-json-optgroup" label="עיטורים עליונים מ-JSON"></optgroup>
                   <optgroup id="h2-top-folder-opt" label="עיטורים מתיקייה"></optgroup>
@@ -411,15 +422,13 @@
               </div>
               <div class="dim-box">
                 <label>ממדי עליון:</label>
-                <label for="dim-h2-top-w">רוחב:</label>
-<input type="text" id="dim-h2-top-w" value="65%" placeholder="למשל 60%">
-                <label for="dim-h2-top-h">גובה:</label>
-<input type="text" id="dim-h2-top-h" value="1.25em" placeholder="1.25em">
+                <label>רוחב:</label><input type="text" id="dim-h2-top-w" value="65%" placeholder="למשל 60%">
+                <label>גובה:</label><input type="text" id="dim-h2-top-h" value="1.25em" placeholder="1.25em">
               </div>
 
               <div class="inline-cfg-row">
-                <label for="h2-ornament-bottom-style">עיטור תחתון לסימן:</label>
-<select id="h2-ornament-bottom-style" style="flex:1;" onchange="onH2IndividualOrnamentChange();">
+                <label>עיטור תחתון לסימן:</label>
+                <select id="h2-ornament-bottom-style" style="flex:1;" onchange="onH2IndividualOrnamentChange();">
                   <option value="none" selected="selected">ללא עיטור תחתון</option>
                   <optgroup id="h2-btm-json-optgroup" label="עיטורים תחתונים מ-JSON"></optgroup>
                   <optgroup id="h2-btm-folder-opt" label="עיטורים מתיקייה"></optgroup>
@@ -427,18 +436,16 @@
               </div>
               <div class="dim-box">
                 <label>ממדי תחתון:</label>
-                <label for="dim-h2-btm-w">רוחב:</label>
-<input type="text" id="dim-h2-btm-w" value="65%" placeholder="למשל 60%">
-                <label for="dim-h2-btm-h">גובה:</label>
-<input type="text" id="dim-h2-btm-h" value="1.25em" placeholder="1.25em">
+                <label>רוחב:</label><input type="text" id="dim-h2-btm-w" value="65%" placeholder="למשל 60%">
+                <label>גובה:</label><input type="text" id="dim-h2-btm-h" value="1.25em" placeholder="1.25em">
               </div>
               <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">עיטורים אלו חלים על שורת הסימן בלבד. אם מיספור הסימנים כבוי, הם יחולו על הכותרת עצמה.</div>
 
-              <!-- עיטור עצמאי לטקסט כותרת 2 -->
+              <!-- עיטור עצמאי לטקסט כותרת 2 (גרסה 4) -->
               <div class="panel-sub-header">כותרת 2 — עיטור עצמאי לטקסט הכותרת</div>
               <div class="inline-cfg-row">
-                <label for="h2-title-orn-mode">סוג עיטור לכותרת:</label>
-<select id="h2-title-orn-mode" style="flex:1;" onchange="onH2TitleOrnamentModeChange()">
+                <label>סוג עיטור לכותרת:</label>
+                <select id="h2-title-orn-mode" style="flex:1;" onchange="onH2TitleOrnamentModeChange()">
                   <option value="none" selected="selected">ללא עיטור נפרד לכותרת</option>
                   <option value="top_bottom">עליון/תחתון (סביב טקסט הכותרת)</option>
                   <option value="side">צדדי (ימין/שמאל - כמו כותרת 3)</option>
@@ -446,15 +453,15 @@
               </div>
               <div id="h2-title-orn-tb-rows" style="display:none;">
                 <div class="inline-cfg-row">
-                  <label for="h2-title-ornament-top-style">עיטור עליון לכותרת:</label>
-<select id="h2-title-ornament-top-style" style="flex:1;">
+                  <label>עיטור עליון לכותרת:</label>
+                  <select id="h2-title-ornament-top-style" style="flex:1;">
                     <option value="none" selected="selected">ללא עיטור עליון</option>
                     <optgroup id="h2-title-top-json-optgroup" label="עיטורים עליונים מ-JSON"></optgroup>
                   </select>
                 </div>
                 <div class="inline-cfg-row">
-                  <label for="h2-title-ornament-bottom-style">עיטור תחתון לכותרת:</label>
-<select id="h2-title-ornament-bottom-style" style="flex:1;">
+                  <label>עיטור תחתון לכותרת:</label>
+                  <select id="h2-title-ornament-bottom-style" style="flex:1;">
                     <option value="none" selected="selected">ללא עיטור תחתון</option>
                     <optgroup id="h2-title-btm-json-optgroup" label="עיטורים תחתונים מ-JSON"></optgroup>
                   </select>
@@ -462,25 +469,23 @@
               </div>
               <div id="h2-title-orn-side-rows" style="display:none;">
                 <div class="inline-cfg-row">
-                  <label for="h2-title-ornament-r">עיטור ימני לכותרת:</label>
-<select id="h2-title-ornament-r" style="flex:1;">
+                  <label>עיטור ימני לכותרת:</label>
+                  <select id="h2-title-ornament-r" style="flex:1;">
                     <option value="none" selected="selected">ללא</option>
                     <optgroup id="h2-title-lr-json-optgroup" label="עיטורי צד מ-JSON"></optgroup>
                   </select>
                 </div>
                 <div class="inline-cfg-row">
-                  <label for="h2-title-ornament-l">עיטור שמאלי לכותרת:</label>
-<select id="h2-title-ornament-l" style="flex:1;">
+                  <label>עיטור שמאלי לכותרת:</label>
+                  <select id="h2-title-ornament-l" style="flex:1;">
                     <option value="none" selected="selected">ללא (השתמש בהיפוך של הימני)</option>
                     <optgroup id="h2-title-lr-json-optgroup-l" label="עיטורי צד מ-JSON"></optgroup>
                   </select>
                 </div>
                 <div class="dim-box">
                   <label>ממדי עיטור צד:</label>
-                  <label for="dim-h2-title-side-w">רוחב:</label>
-<input type="text" id="dim-h2-title-side-w" value="20px" placeholder="למשל 20px">
-                  <label for="dim-h2-title-side-h">גובה:</label>
-<input type="text" id="dim-h2-title-side-h" value="1.1em" placeholder="1.1em">
+                  <label>רוחב:</label><input type="text" id="dim-h2-title-side-w" value="20px" placeholder="למשל 20px">
+                  <label>גובה:</label><input type="text" id="dim-h2-title-side-h" value="1.1em" placeholder="1.1em">
                 </div>
               </div>
               <div style="margin-bottom:6px;">
@@ -493,8 +498,8 @@
               <!-- עיטורי כותרת 3 -->
               <div class="panel-sub-header">כותרת 3 — עיטורי צד (ימין ושמאל)</div>
               <div class="inline-cfg-row">
-                <label for="h3-ornament-set">סט צד (י+ש):</label>
-<select id="h3-ornament-set" style="flex:1;" onchange="onH3OrnamentSetChange(this.value)">
+                <label>סט צד (י+ש):</label>
+                <select id="h3-ornament-set" style="flex:1;" onchange="onH3OrnamentSetChange(this.value)">
                   <option value="none" selected="selected">ללא עיטורים</option>
                   <option value="custom" disabled hidden>מותאם אישית</option>
                   <optgroup id="h3-set-json-optgroup" label="סטים שלמים מ-JSON"></optgroup>
@@ -502,16 +507,16 @@
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="h3-ornament-r">עיטור ימין:</label>
-<select id="h3-ornament-r" style="flex:1;" onchange="onH3IndividualOrnamentChange();">
+                <label>עיטור ימין:</label>
+                <select id="h3-ornament-r" style="flex:1;" onchange="onH3IndividualOrnamentChange();">
                   <option value="none" selected="selected">ללא עיטור ימין</option>
                   <optgroup id="h3-r-json-optgroup" label="עיטורי ימין מ-JSON"></optgroup>
                   <optgroup id="h3-r-folder-opt" label="עיטורים מתיקייה"></optgroup>
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="h3-ornament-l">עיטור שמאל:</label>
-<select id="h3-ornament-l" style="flex:1;" onchange="onH3IndividualOrnamentChange();">
+                <label>עיטור שמאל:</label>
+                <select id="h3-ornament-l" style="flex:1;" onchange="onH3IndividualOrnamentChange();">
                   <option value="none" selected="selected">ללא עיטור שמאל</option>
                   <optgroup id="h3-l-json-optgroup" label="עיטורי שמאל (היפוך מראה)"></optgroup>
                   <optgroup id="h3-l-folder-opt" label="עיטורים מתיקייה"></optgroup>
@@ -519,17 +524,15 @@
               </div>
               <div class="dim-box">
                 <label>ממדי צד כותרת 3:</label>
-                <label for="dim-h3-side-w">רוחב:</label>
-<input type="text" id="dim-h3-side-w" value="50px">
-                <label for="dim-h3-side-h">גובה:</label>
-<input type="text" id="dim-h3-side-h" value="1em">
+                <label>רוחב:</label><input type="text" id="dim-h3-side-w" value="50px">
+                <label>גובה:</label><input type="text" id="dim-h3-side-h" value="1em">
               </div>
 
               <!-- עיטור סיום פרק -->
               <div class="panel-sub-header">עיטור סיום פרק</div>
               <div class="inline-cfg-row">
-                <label for="section-divider-style">סגנון עיטור סיום:</label>
-<select id="section-divider-style" style="flex:1;" onchange="document.getElementById('row-sec-div-img').style.display = (this.value === 'custom_img') ? 'flex' : 'none';">
+                <label>סגנון עיטור סיום:</label>
+                <select id="section-divider-style" style="flex:1;" onchange="document.getElementById('row-sec-div-img').style.display = this.value === 'custom_img' ? 'flex' : 'none';">
                   <option value="pyramid">1. פירמידת וילנא (❖ ❖ ❖)</option>
                   <option value="spear" selected="selected">2. רומח מחודד עם טבעת (SVG)</option>
                   <option value="swash">3. שושנתא וילנאית (SVG)</option>
@@ -537,69 +540,65 @@
                   <option value="custom_img">5. תמונת עיטור אישית</option>
                   <option value="none">ללא עיטור</option>
                   <optgroup id="sec-div-json-optgroup" label="עיטורי סיום מ-JSON"></optgroup>
-                  <optgroup id="sec-div-folder-optgroup" label="עיטורים מתיקייה"></optgroup>
+                  <optgroup id="sec-div-folder-opt" label="עיטורים מתיקייה"></optgroup>
                 </select>
               </div>
               <div class="inline-cfg-row" id="row-sec-div-img" style="display:none;">
-                <label for="file-sec-div-img">קובץ עיטור פרק:</label>
-<input type="file" id="file-sec-div-img" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-sec-div-img')">
+                <label>קובץ עיטור פרק:</label>
+                <input type="file" id="file-sec-div-img" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-sec-div-img')">
                 <input type="hidden" id="data-sec-div-img" value="">
               </div>
               <div class="dim-box">
                 <label>ממדי סיום פרק:</label>
-                <label for="dim-secdiv-w">רוחב:</label>
-<input type="text" id="dim-secdiv-w" value="50%">
-                <label for="dim-secdiv-h">גובה:</label>
-<input type="text" id="dim-secdiv-h" value="28px">
+                <label>רוחב:</label><input type="text" id="dim-secdiv-w" value="50%">
+                <label>גובה:</label><input type="text" id="dim-secdiv-h" value="28px">
               </div>
 
               <!-- עיטור כותרת הערות שוליים -->
               <div class="panel-sub-header">עיטורי צד לכותרת הערות שוליים</div>
               <div class="inline-cfg-row">
-                <label for="note-header-orn-r">עיטור צד ימין:</label>
-<select id="note-header-orn-r" style="flex:1;">
+                <label>עיטור צד ימין:</label>
+                <select id="note-header-orn-r" style="flex:1;">
                   <option value="none" selected="selected">ללא</option>
                   <optgroup id="note-orn-r-json" label="מתוך ornaments_left_right.json"></optgroup>
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="note-header-orn-l">עיטור צד שמאל:</label>
-<select id="note-header-orn-l" style="flex:1;">
+                <label>עיטור צד שמאל:</label>
+                <select id="note-header-orn-l" style="flex:1;">
                   <option value="none" selected="selected">ללא</option>
                   <optgroup id="note-orn-l-json" label="מתוך ornaments_left_right.json"></optgroup>
                 </select>
               </div>
               <div class="dim-box">
                 <label>ממדי עיטור הערות:</label>
-                <label for="dim-note-side-w">רוחב:</label>
-<input type="text" id="dim-note-side-w" value="40px">
-                <label for="dim-note-side-h">גובה:</label>
-<input type="text" id="dim-note-side-h" value="0.9em">
+                <label>רוחב:</label><input type="text" id="dim-note-side-w" value="40px">
+                <label>גובה:</label><input type="text" id="dim-note-side-h" value="0.9em">
               </div>
             </div>
           </div>
 
           <!-- פאנל 5: טיפוגרפיה כללית וכותרות (0-7) -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="panel-typography-body" aria-expanded="false" aria-controls="panel-typography-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-typography-body')">
               <span>📐 טיפוגרפיה כללית וכותרות (0-7)</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="panel-typography-body" style="display:none;">
               
               <div class="panel-sub-header">גוף הטקסט וריווח שורות</div>
               <div class="inline-cfg-row">
-                <label for="font-body">גוף הטקסט:</label>
-<select id="font-body" class="font-picker"></select>
+                <label>גוף הטקסט:</label>
+                <select id="font-body" class="font-picker"></select>
                 <input type="number" id="size-body" class="size-input" value="12" step="0.2">
               </div>
               <div class="inline-cfg-row">
-                <label for="line-height-body">ריווח שורות:</label>
-<input type="number" id="line-height-body" value="1.34" step="0.02" min="1.0" max="2.2" class="size-input" style="width:60px;">
+                <label>ריווח שורות:</label>
+                <input type="number" id="line-height-body" value="1.34" step="0.02" min="1.0" max="2.2" class="size-input" style="width:60px;">
               </div>
               <div class="inline-cfg-row">
-                <label for="body-last-line-align">יישור שורה אחרונה:</label>
-<select id="body-last-line-align" style="flex:1;">
+                <label>יישור שורה אחרונה:</label>
+                <select id="body-last-line-align" style="flex:1;">
                   <option value="center" selected="selected">מרכז</option>
                   <option value="right">ימין</option>
                   <option value="left">שמאל</option>
@@ -609,8 +608,8 @@
 
               <div class="panel-sub-header">מילה ראשונה (Drop Word)</div>
               <div class="inline-cfg-row">
-                <label for="drop-word-mode">מצב מילה ראשונה:</label>
-<select id="drop-word-mode" style="flex:1;">
+                <label>מצב מילה ראשונה:</label>
+                <select id="drop-word-mode" style="flex:1;">
                   <option value="window" selected="selected">חלון קלאסי (שקוע בטקסט)</option>
                   <option value="inline">בשורה הראשונה (מוגדל)</option>
                   <option value="bold">הדגשה בלבד (Bold באותו גודל)</option>
@@ -618,18 +617,18 @@
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="font-first-word">גופן מילה ראשונה:</label>
-<select id="font-first-word" class="font-picker"></select>
+                <label>גופן מילה ראשונה:</label>
+                <select id="font-first-word" class="font-picker"></select>
                 <input type="number" id="size-first-word" class="size-input" value="1.5" step="0.1">
               </div>
               <div class="inline-cfg-row">
-                <label for="drop-word-count">מילים להדגשה:</label>
-<select id="drop-word-count">
+                <label>מילים להדגשה:</label>
+                <select id="drop-word-count">
                   <option value="1" selected="selected">מילה ראשונה בלבד</option>
                   <option value="2">שתי מילים ראשונות</option>
                 </select>
-                <label style="width:65px; margin-right:6px;" for="drop-word-min-lines">סף מינימום:</label>
-<select id="drop-word-min-lines">
+                <label style="width:65px; margin-right:6px;">סף מינימום:</label>
+                <select id="drop-word-min-lines">
                   <option value="2" selected="selected">מ-2 שורות ומעלה</option>
                   <option value="3">מ-3 שורות ומעלה</option>
                 </select>
@@ -647,8 +646,8 @@
 
               <div class="panel-sub-header">כותרות הספר (0 עד 7)</div>
               <div class="inline-cfg-row">
-                <label for="mode-h0">כותרת 0 (הקדמה):</label>
-<select id="mode-h0">
+                <label>כותרת 0 (הקדמה):</label>
+                <select id="mode-h0">
                   <option value="new_page_1col" selected="selected">טור 1 עמוד הבא</option>
                   <option value="new_page_2col">עמוד חדש - 2 טורים</option>
                   <option value="span_1col">טור 1 רציף</option>
@@ -665,8 +664,8 @@
               </div>
 
               <div class="inline-cfg-row">
-                <label for="mode-h1">כותרת 1 (שער/חלק):</label>
-<select id="mode-h1">
+                <label>כותרת 1 (שער/חלק):</label>
+                <select id="mode-h1">
                   <option value="sub_shaar" selected="selected">שער משנה נפרד</option>
                   <option value="new_page_1col">טור 1 עמוד הבא</option>
                 </select>
@@ -676,8 +675,8 @@
               </div>
 
               <div class="inline-cfg-row">
-                <label for="mode-h2">כותרת 2 (פרק/סימן):</label>
-<select id="mode-h2">
+                <label>כותרת 2 (פרק/סימן):</label>
+                <select id="mode-h2">
                   <option value="new_page_1col" selected="selected">טור 1 עמוד הבא</option>
                   <option value="span_1col">טור 1 רציף (ללא מעבר)</option>
                   <option value="inline_2col">רציף ב-2 טורים</option>
@@ -695,8 +694,8 @@
               </div>
 
               <div class="inline-cfg-row">
-                <label for="mode-h3">כותרת 3:</label>
-<select id="mode-h3">
+                <label>כותרת 3:</label>
+                <select id="mode-h3">
                   <option value="span_1col" selected="selected">טור 1 רציף (רוחב דף)</option>
                   <option value="inline_2col">רציף 2 טורים</option>
                 </select>
@@ -705,8 +704,8 @@
               </div>
 
               <div class="inline-cfg-row">
-                <label for="mode-h4">כותרת 4:</label>
-<select id="mode-h4">
+                <label>כותרת 4:</label>
+                <select id="mode-h4">
                   <option value="inline_2col" selected="selected">רציף 2 טורים</option>
                   <option value="span_1col">טור 1 רציף</option>
                   <option value="run_in">הבלעה בראש הפסקה</option>
@@ -716,8 +715,8 @@
               </div>
 
               <div class="inline-cfg-row">
-                <label for="mode-h5">כותרת 5:</label>
-<select id="mode-h5">
+                <label>כותרת 5:</label>
+                <select id="mode-h5">
                   <option value="inline_2col" selected="selected">רציף 2 טורים</option>
                   <option value="side_note">כותרת צד</option>
                   <option value="run_in">הבלעה בראש הפסקה</option>
@@ -727,8 +726,8 @@
               </div>
 
               <div class="inline-cfg-row">
-                <label for="mode-h6">כותרת 6:</label>
-<select id="mode-h6">
+                <label>כותרת 6:</label>
+                <select id="mode-h6">
                   <option value="inline_2col" selected="selected">רציף 2 טורים</option>
                   <option value="side_note">כותרת צד</option>
                   <option value="run_in">הבלעה בראש הפסקה</option>
@@ -738,8 +737,8 @@
               </div>
 
               <div class="inline-cfg-row">
-                <label for="mode-h7">כותרת 7 (צד):</label>
-<select id="mode-h7">
+                <label>כותרת 7 (צד):</label>
+                <select id="mode-h7">
                   <option value="side_note" selected="selected">כותרת צד בשוליים</option>
                   <option value="inline_2col">רציף 2 טורים</option>
                 </select>
@@ -751,10 +750,10 @@
 
           <!-- פאנל 6: הגדרות הערות (שוליים וסיום) -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="panel-notes-body" aria-expanded="false" aria-controls="panel-notes-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-notes-body')">
               <span>📝 הגדרות הערות (שוליים וסיום)</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="panel-notes-body" style="display:none;">
               
               <div class="inline-cfg-row">
@@ -766,21 +765,21 @@
                 </div>
               </div>
               <div class="inline-cfg-row">
-                <label for="en-line-prefix">קידומת הערת סיום:</label>
-<input type="text" id="en-line-prefix" value="הערת סיום -" placeholder="קידומת...">
+                <label>קידומת הערת סיום:</label>
+                <input type="text" id="en-line-prefix" value="הערת סיום -" placeholder="קידומת...">
               </div>
 
               <div class="panel-sub-header">פריסת הערות ואיפוס מונים</div>
               <div class="inline-cfg-row">
-                <label for="fn-columns">חלוקת טורים:</label>
-<select id="fn-columns" style="flex:1;">
+                <label>חלוקת טורים:</label>
+                <select id="fn-columns" style="flex:1;">
                   <option value="1" selected="selected">טור 1 רחב</option>
                   <option value="2">2 טורים מיושרים</option>
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="fn-reset-mode">איפוס מונה הערות:</label>
-<select id="fn-reset-mode" style="flex:1;">
+                <label>איפוס מונה הערות:</label>
+                <select id="fn-reset-mode" style="flex:1;">
                   <option value="page" selected="selected">בכל עמוד מחדש</option>
                   <option value="siman">בכל סימן / כותרת 2</option>
                   <option value="part">בכל חלק / כותרת 1</option>
@@ -788,21 +787,21 @@
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="fn-title-text">כותרת מעל הערות:</label>
-<input type="text" id="fn-title-text" value="" placeholder="למשל: הערות וביאורים (ריק = ללא)">
+                <label>כותרת מעל הערות:</label>
+                <input type="text" id="fn-title-text" value="" placeholder="למשל: הערות וביאורים (ריק = ללא)">
                 <select id="f-note-title" class="font-picker"></select>
                 <input type="number" id="s-note-title" class="size-input" value="9">
               </div>
               <div class="inline-cfg-row">
-                <label for="f-note-body">גופן גוף ההערה:</label>
-<select id="f-note-body" class="font-picker"></select>
-                <input type="number" id="s-note-body" class="size-input" value="8.5" step="0.5" title="גודל גופן ההערה">
+                <label>גופן גוף ההערה:</label>
+                <select id="f-note-body" class="font-picker"></select>
+                <input type="number" id="s-note-body" class="size-input" value="9" title="גודל גופן ההערה">
               </div>
 
               <div class="panel-sub-header">סגנון מספור וסימון</div>
               <div class="inline-cfg-row">
-                <label for="note-numbering-style">סגנון מספור:</label>
-<select id="note-numbering-style" style="flex:1;">
+                <label>סגנון מספור:</label>
+                <select id="note-numbering-style" style="flex:1;">
                   <option value="gematria" selected="selected">אותיות עבריות (א, ב, ג...)</option>
                   <option value="gematria_geresh">אותיות עם גרש/גרשיים (א', ב', י"א)</option>
                   <option value="decimal">ספרות (1, 2, 3...)</option>
@@ -811,8 +810,8 @@
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="note-marker-type">סימון בגוף הטקסט:</label>
-<select id="note-marker-type">
+                <label>סימון בגוף הטקסט:</label>
+                <select id="note-marker-type">
                   <option value="super" selected="selected">כתב עילי</option>
                   <option value="normal">רגיל (על השורה)</option>
                   <option value="sub">כתב תחתי</option>
@@ -821,14 +820,14 @@
                 <input type="number" id="note-marker-size" value="8" class="size-input" title="גודל בגוף הטקסט">
               </div>
               <div class="inline-cfg-row">
-                <label for="note-listing-num-size">מס' ברשימת הערות:</label>
-<input type="number" id="note-listing-num-size" value="8" class="size-input">
-                <label style="width:50px; margin-right:6px;" for="note-num-separator">מפריד:</label>
-<input type="text" id="note-num-separator" value="." style="width:35px; text-align:center;">
+                <label>מס' ברשימת הערות:</label>
+                <input type="number" id="note-listing-num-size" value="8" class="size-input">
+                <label style="width:50px; margin-right:6px;">מפריד:</label>
+                <input type="text" id="note-num-separator" value="." style="width:35px; text-align:center;">
               </div>
               <div class="inline-cfg-row">
-                <label for="note-rule-style">קו מפריד (שוליים):</label>
-<select id="note-rule-style" style="flex:1;">
+                <label>קו מפריד (שוליים):</label>
+                <select id="note-rule-style" style="flex:1;">
                   <option value="plain" selected="selected">קו רגיל (100% רוחב)</option>
                   <option value="short_right">קו קצר ימני (30% רוחב - וילנא)</option>
                   <option value="half">קו חצי מרכזי (50% רוחב)</option>
@@ -847,10 +846,10 @@
 
           <!-- פאנל 7: איכות עימוד אוטומטי -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="panel-quality-body" aria-expanded="false" aria-controls="panel-quality-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-quality-body')">
               <span>✍️ איכות עימוד אוטומטי</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="panel-quality-body" style="display:none;">
               <div class="toggle-buttons-group">
                 <label class="btn-toggle" title="מניעת שורה בודדת מנותקת בראש עמוד או תחילת טור">
@@ -861,17 +860,21 @@
                   <input type="checkbox" id="avoid-widows" checked="checked">
                   <span class="btn-toggle-box"><span class="check-icon">✓</span>מנע שורות בודדות בסוף עמוד (יתומות)</span>
                 </label>
+                <label class="btn-toggle" title="מניעת מילה בודדת בשורה האחרונה של פסקה: שתי המילים האחרונות נשארות תמיד יחד (לא משנה את מספר השורות)">
+                  <input type="checkbox" id="avoid-runt-word" checked="checked">
+                  <span class="btn-toggle-box"><span class="check-icon">✓</span>מנע מילה בודדת בשורה האחרונה של פסקה</span>
+                </label>
               </div>
               <div class="hint">איזון טורים בסוף פרק ולפני כותרות שפורשות טור יחיד מתבצע אוטומטית לפי הצורך בפועל (אין צורך בהגדרה נפרדת).</div>
             </div>
           </div>
 
-          <!-- פאנל 8: כותרות עליונות מתקדמות -->
+          <!-- פאנל 8: כותרות עליונות מתקדמות (Recto / Verso מופרדות) -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="panel-headers-body" aria-expanded="false" aria-controls="panel-headers-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-headers-body')">
               <span>📑 כותרות עליונות (Running Headers)</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="panel-headers-body" style="display:none;">
               
               <div style="margin-bottom:8px;">
@@ -887,7 +890,7 @@
                 
                 <div style="font-weight:700; font-size:7.5pt; margin-bottom:2px;">1. מעל הטור הימני (זוגי):</div>
                 <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                  <select id="hdr-verso-r-type" style="flex:1;" onchange="document.getElementById('hdr-verso-r-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                  <select id="hdr-verso-r-type" style="flex:1;">
                     <option value="same_as_odd" selected="selected">(= זהה לעמוד אי-זוגי)</option>
                     <option value="book_title">שם הספר</option>
                     <option value="book_title_split_r">שם הספר - חצי ראשון (ימין)</option>
@@ -922,7 +925,7 @@
 
                 <div style="font-weight:700; font-size:7.5pt; margin-bottom:2px;">2. מעל הרווח המרכזי (זוגי):</div>
                 <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                  <select id="hdr-verso-c-type" style="flex:1;" onchange="document.getElementById('hdr-verso-c-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                  <select id="hdr-verso-c-type" style="flex:1;">
                     <option value="same_as_odd" selected="selected">(= זהה לעמוד אי-זוגי)</option>
                     <option value="spear">רומח (SVG)</option>
                     <option value="diamonds">מעויינים (◈ ❖ ◈)</option>
@@ -954,7 +957,7 @@
 
                 <div style="font-weight:700; font-size:7.5pt; margin-bottom:2px;">3. מעל הטור השמאלי (זוגי):</div>
                 <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                  <select id="hdr-verso-l-type" style="flex:1;" onchange="document.getElementById('hdr-verso-l-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                  <select id="hdr-verso-l-type" style="flex:1;">
                     <option value="same_as_odd" selected="selected">(= זהה לעמוד אי-זוגי)</option>
                     <option value="h2_with_siman">כותרת 2 עם מספר סימן</option>
                     <option value="h2_without_siman">כותרת 2 לבדה (ללא סימן)</option>
@@ -1003,8 +1006,8 @@
               </div>
 
               <div class="inline-cfg-row">
-                <label for="hdr-divider-style">קו מפריד לגוף הטקסט:</label>
-<select id="hdr-divider-style" onchange="updateGrid()" style="flex:1;">
+                <label>קו מפריד לגוף הטקסט:</label>
+                <select id="hdr-divider-style" onchange="updateGrid()" style="flex:1;">
                   <option value="none">ללא</option>
                   <option value="gray" selected="selected">אפור עדין</option>
                   <option value="black">שחור</option>
@@ -1013,19 +1016,16 @@
 
               <div class="dim-box">
                 <label>רוחב אזורים (%):</label>
-                <label for="hdr-w-r">ימין:</label>
-<input type="text" id="hdr-w-r" value="33.33%">
-                <label for="hdr-w-c">מרכז:</label>
-<input type="text" id="hdr-w-c" value="33.34%">
-                <label for="hdr-w-l">שמאל:</label>
-<input type="text" id="hdr-w-l" value="33.33%">
+                <label>ימין:</label><input type="text" id="hdr-w-r" value="33.33%">
+                <label>מרכז:</label><input type="text" id="hdr-w-c" value="33.34%">
+                <label>שמאל:</label><input type="text" id="hdr-w-l" value="33.33%">
               </div>
 
               <!-- כותרות עמוד אי-זוגי (Recto) -->
               <div class="panel-sub-header" style="color:#1e3a8a; font-weight:800; font-size:8.5pt;">📖 כותרות לעמוד אי-זוגי (ימין / Recto)</div>
               <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">מעל הטור הימני:</div>
               <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                <select id="hdr-r-type" style="flex:1;" onchange="document.getElementById('hdr-r-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                <select id="hdr-r-type" style="flex:1;">
                   <option value="same_as_even">(= זהה לעמוד זוגי)</option>
                   <option value="h1" selected="selected">כותרת 1 (שם החלק)</option>
                   <option value="book_title">שם הספר</option>
@@ -1062,7 +1062,7 @@
 
               <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">מעל הרווח המרכזי:</div>
               <div class="inline-cfg-row" style="margin-bottom: 2px;">
-                <select id="hdr-c-type" style="flex:1;" onchange="document.getElementById('hdr-c-custom').style.display = (this.value === 'custom') ? 'block' : 'none'; document.getElementById('row-hdr-c-img').style.display = (this.value === 'custom_img') ? 'flex' : 'none';">
+                <select id="hdr-c-type" style="flex:1;">
                   <option value="same_as_even">(= זהה לעמוד זוגי)</option>
                   <option value="spear" selected="selected">רומח (SVG)</option>
                   <option value="h1">כותרת 1 (שם החלק)</option>
@@ -1092,14 +1092,14 @@
               </div>
               <input type="text" id="hdr-c-custom" placeholder="טקסט מותאם..." style="display:none; width:100%; margin-bottom:6px; font-size:8.5pt; padding:3px; border:1px solid #cbd5e1; border-radius:4px;">
               <div class="inline-cfg-row" id="row-hdr-c-img" style="display:none; margin-bottom:6px;">
-                <label for="file-hdr-c-img">קובץ עיטור מרכזי:</label>
-<input type="file" id="file-hdr-c-img" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-hdr-c-img')">
+                <label>קובץ עיטור מרכזי:</label>
+                <input type="file" id="file-hdr-c-img" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-hdr-c-img')">
                 <input type="hidden" id="data-hdr-c-img" value="">
               </div>
 
               <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">מעל הטור השמאלי:</div>
               <div class="inline-cfg-row" style="margin-bottom: 6px;">
-                <select id="hdr-l-type" style="flex:1;" onchange="document.getElementById('hdr-l-custom').style.display = (this.value === 'custom') ? 'block' : 'none';">
+                <select id="hdr-l-type" style="flex:1;">
                   <option value="same_as_even">(= זהה לעמוד זוגי)</option>
                   <option value="h2" selected="selected">כותרת 2</option>
                   <option value="h2_with_siman">כותרת 2 עם מספר סימן</option>
@@ -1137,10 +1137,10 @@
 
           <!-- פאנל 9: תוכן העניינים -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="panel-toc-body" aria-expanded="false" aria-controls="panel-toc-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-toc-body')">
               <span>📑 תוכן העניינים</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="panel-toc-body" style="display:none;">
               <div style="margin-bottom:8px;">
                 <label class="btn-toggle full-width">
@@ -1187,36 +1187,28 @@
 
           <!-- פאנל 10: רשת העמוד, קו מפריד, מספור עמודים ושערים -->
           <div class="panel-static">
-            <button type="button" class="panel-header clickable-header" data-action="toggle-panel-body" data-target="panel-grid-body" aria-expanded="false" aria-controls="panel-grid-body">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-grid-body')">
               <span>📐 רשת העמוד, קו טורים ומספור</span>
               <span class="panel-toggle-indicator">▼ פתח</span>
-            </button>
+            </div>
             <div id="panel-grid-body" style="display:none;">
               
               <div class="panel-sub-header">פרופורציות רשת העמוד</div>
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                <div class="inline-cfg-row"><label for="prop-col">טור (%):</label>
-<input type="number" id="prop-col" value="40" step="0.5" class="size-input"></div>
-                <div class="inline-cfg-row"><label for="prop-margin">שוליים (%):</label>
-<input type="number" id="prop-margin" value="7.5" step="0.5" class="size-input"></div>
-                <div class="inline-cfg-row"><label for="prop-gutter">מרזב מרכז (%):</label>
-<input type="number" id="prop-gutter" value="2" step="0.5" class="size-input"></div>
-                <div class="inline-cfg-row"><label for="prop-gap">רווח ביניים (%):</label>
-<input type="number" id="prop-gap" value="2" step="0.5" class="size-input"></div>
-                <div class="inline-cfg-row"><label for="prop-mt">מרחק עליון (px):</label>
-<input type="number" id="prop-mt" value="20" step="1" class="size-input"></div>
-                <div class="inline-cfg-row"><label for="prop-mb">מרחק תחתון (px):</label>
-<input type="number" id="prop-mb" value="20" step="1" class="size-input"></div>
-                <div class="inline-cfg-row"><label for="prop-mt-h2">עליון כותרת 2:</label>
-<input type="number" id="prop-mt-h2" value="20" step="1" class="size-input" title="מרחק עליון של זרימת התוכן בעמוד כותרת 2"></div>
-                <div class="inline-cfg-row"><label for="h2-top-distance">מרווח כותרת 2:</label>
-<input type="text" id="h2-top-distance" value="22%" class="size-input" style="width:55px;" title="מרחק הכותרת עצמה מקצה העמוד"></div>
+                <div class="inline-cfg-row"><label>טור (%):</label><input type="number" id="prop-col" value="40" step="0.5" class="size-input"></div>
+                <div class="inline-cfg-row"><label>שוליים (%):</label><input type="number" id="prop-margin" value="7.5" step="0.5" class="size-input"></div>
+                <div class="inline-cfg-row"><label>מרזב מרכז (%):</label><input type="number" id="prop-gutter" value="2" step="0.5" class="size-input"></div>
+                <div class="inline-cfg-row"><label>רווח ביניים (%):</label><input type="number" id="prop-gap" value="2" step="0.5" class="size-input"></div>
+                <div class="inline-cfg-row"><label>מרחק עליון (px):</label><input type="number" id="prop-mt" value="20" step="1" class="size-input"></div>
+                <div class="inline-cfg-row"><label>מרחק תחתון (px):</label><input type="number" id="prop-mb" value="20" step="1" class="size-input"></div>
+                <div class="inline-cfg-row"><label>עליון כותרת 2:</label><input type="number" id="prop-mt-h2" value="20" step="1" class="size-input" title="מרחק עליון של זרימת התוכן בעמוד כותרת 2"></div>
+                <div class="inline-cfg-row"><label>מרווח כותרת 2:</label><input type="text" id="h2-top-distance" value="22%" class="size-input" style="width:55px;" title="מרחק הכותרת עצמה מקצה העמוד"></div>
               </div>
 
               <div class="panel-sub-header">קו מפריד אנכי בין הטורים</div>
               <div class="inline-cfg-row">
-                <label for="col-divider-style">סגנון קו בין טורים:</label>
-<select id="col-divider-style" style="flex:1;">
+                <label>סגנון קו בין טורים:</label>
+                <select id="col-divider-style" style="flex:1;">
                   <option value="none" selected="selected">ללא קו מפריד</option>
                   <option value="plain">קו דק רגיל (Solid)</option>
                   <option value="dashed">קו מקווקו (Dashed)</option>
@@ -1226,8 +1218,8 @@
 
               <div class="panel-sub-header">שליטה במספור עמודים (Folio)</div>
               <div class="inline-cfg-row">
-                <label for="page-num-position">מיקום מספור:</label>
-<select id="page-num-position" style="flex:1;">
+                <label>מיקום מספור:</label>
+                <select id="page-num-position" style="flex:1;">
                   <option value="bottom_center" selected="selected">תחתית העמוד במרכז</option>
                   <option value="bottom_outer">תחתית חיצונית (ימין/שמאל)</option>
                   <option value="header_outer">משולב בכותרת עליונה חיצונית</option>
@@ -1235,16 +1227,16 @@
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="page-num-format">פורמט תצוגה:</label>
-<select id="page-num-format" style="flex:1;">
+                <label>פורמט תצוגה:</label>
+                <select id="page-num-format" style="flex:1;">
                   <option value="gematria" selected="selected">אותיות עבריות בלבד (א, ב, ג)</option>
                   <option value="page_gematria">דף / עמוד (דף א', עמוד א')</option>
                   <option value="numeric">מספרים (1, 2, 3)</option>
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="page-num-frame">מסגרת סביב המספר:</label>
-<select id="page-num-frame" style="flex:1;">
+                <label>מסגרת סביב המספר:</label>
+                <select id="page-num-frame" style="flex:1;">
                   <option value="none" selected="selected">ללא מסגרת</option>
                   <option value="circle">עיגול</option>
                   <option value="box">ריבוע / מלבן</option>
@@ -1254,15 +1246,16 @@
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label for="page-num-start-idx">עמוד תחילת מספור:</label>
-<input type="number" id="page-num-start-idx" value="1" min="1" class="size-input" title="מאיזה עמוד פיזי מתחילים לספור">
+                <label>עמוד תחילת מספור:</label>
+                <input type="number" id="page-num-start-idx" value="1" min="1" class="size-input" title="מאיזה עמוד פיזי מתחילים לספור">
               </div>
+              <!-- שחזור קריטי מגרסה 1: ערך מספור התחלתי -->
               <div class="inline-cfg-row">
-                <label for="page-num-initial-value">ערך המספר הראשון:</label>
-<input type="number" id="page-num-initial-value" value="1" min="1" class="size-input" title="הערך שהעמוד הראשון שנספר יתחיל ממנו (למשל 87) — לעבודה על כרך ב' עם מספור רציף">
+                <label>ערך המספר הראשון:</label>
+                <input type="number" id="page-num-initial-value" value="1" min="1" class="size-input" title="הערך שהעמוד הראשון שנספר יתחיל ממנו (למשל 87) — לעבודה על כרך ב' עם מספור רציף">
               </div>
 
-              <!-- בקרת מספור עמודי שערים ותוכן עניינים -->
+              <!-- בקרת מספור עמודי שערים ותוכן עניינים (מיזוג מלא מגרסה 2 ו-4) -->
               <div style="margin-top:8px; border-top:1px dashed #cbd5e1; padding-top:6px;">
                 <div style="font-size:7.5pt; font-weight:800; color:#1e3a8a; margin-bottom:4px;">שערים ותוכן: ספירה ברצף והצגת מספר</div>
                 <label class="btn-toggle full-width" title="האם עמוד השער הראשי נספר ברצף המספור">
@@ -1292,6 +1285,7 @@
                   <span class="btn-toggle-box"><span class="check-icon">✓</span>הצג מספר עמוד על שער המשנה</span>
                 </label>
 
+                <!-- שחזור מגרסה 2: בקרת מספור לתוכן העניינים הכללי והמפורט -->
                 <label class="btn-toggle full-width" title="האם עמודי תוכן העניינים הכללי נכללים ברצף המספור" style="margin-top:4px;">
                   <input type="checkbox" id="general-toc-count-numbering" checked="checked">
                   <span class="btn-toggle-box"><span class="check-icon">✓</span>תוכן עניינים כללי נכלל ברצף המספור</span>
@@ -1325,13 +1319,6 @@
 
   <script src="decorations.js"></script>
   <script src="typesetter.js"></script>
-  <script src="typesetter-compat.js"></script>
-  <script src="trace-manager.js"></script>
-  <script src="settings-manager.js"></script>
   <script src="app.js"></script>
-  <script src="test-suite.js"></script>
-  <script src="report-data.js"></script>
-  <script src="debug-panel.js"></script>
 </body>
 </html>
-

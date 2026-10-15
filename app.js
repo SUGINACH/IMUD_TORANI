@@ -1,7 +1,24 @@
-
 /* ==========================================================================
    מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
    קובץ: app.js
+   ==========================================================================
+   הסבר על השילוב והמיזוג שבוצע בקובץ זה:
+   1. שחזור סורק התיקיות המקומי מגרסה 2 (חלוקת.txt):
+      - הוטמעו הפונקציות 'triggerAssetsFolderPick' ו-'handleAssetsFolderSelected'
+        המאפשרות בחירת תיקייה שלמה מהמחשב וטעינת כל העיטורים והשערים שבה
+        ישירות לבוררים הוויזואליים בזיכרון, ללא תלות בשרת מקומי.
+   2. אבטחת טעינת גופנים מגרסה 4 (עדכון.txt):
+      - הפונקציה 'ensureBuiltinFontsLoaded' מוודאת שכל גופני הרשת נטענו במלואם
+        לפני העימוד הראשון, ובכך מחסלת את באג ה-Layout Shift ומדידות הגובה השגויות.
+   3. ניהול תיבות שער וייצוא JSON:
+      - שילוב כפתורי ייצוא ה-JSON מגרסה 4 ('exportShaarJSONWithPositions') המאפשרים
+        לשמור את מיקומי העכבר כקובץ JSON קבוע להחלפה במאגר המקורי.
+      - שילוב כפתורי האיפוס מגרסה 3 ('resetCurrentShaarBoxPosition').
+   4. בקרת שינויים ממתינים (Pending Changes):
+      - הוטמעו הפונקציות 'markPendingChanges' ו-'clearPendingChanges' המדליקות
+        חיווי פעימה זוהר על כפתור העימוד בעת שינוי הגדרות ללא הקפאת המסך.
+   5. סנכרון ממדים דינמי ('applyHeadingOrnamentTextFit'):
+      - מדידת פיקסלים אמיתית ב-DOM עבור כותרת 2, כותרת 3 ועיטורי צד עצמאיים.
    ========================================================================== */
 
 const resizer = document.getElementById('resizer');
@@ -45,8 +62,15 @@ if (resizer && sidebar) {
 }
 
 function toggleSettingsPane() {
-    // מערכת הטאבים מחליפה את הפאנל המתרחב הישן
-    switchTab('settings-pane');
+    const sp = document.getElementById('settings-pane');
+    if (!sp) return;
+    const isCollapsed = sp.classList.toggle('collapsed');
+    const icon = sp.querySelector('.collapse-icon');
+    if (icon) icon.textContent = isCollapsed ? '◀' : '▶';
+
+    setTimeout(() => {
+        updatePreviewScale();
+    }, 260);
 }
 
 function togglePanelBody(bodyId) {
@@ -70,6 +94,7 @@ function toggleCbgSubRows(role, mode) {
     if (rowOp) rowOp.style.display = (mode === 'image') ? 'flex' : 'none';
 }
 
+/* סימון ויזואלי של שינויי הגדרות הממתינים לעימוד */
 function markPendingChanges() {
     const btn = document.getElementById('btn-retypeset');
     if (btn) btn.classList.add('has-pending-changes');
@@ -124,7 +149,7 @@ function renderEditorContent(text, pageBreaks = []) {
             div.innerHTML = `
         <span class="divider-badge">
           <span class="badge-dot">●</span>
-          <span>מעבר עמוד — עמוד ${escapeHTML(String(pb.gematria || pb.pageNum))} (${escapeHTML(String(pb.pageNum))})</span>
+          <span>מעבר עמוד — עמוד ${pb.gematria || pb.pageNum} (${pb.pageNum})</span>
         </span>
       `;
             frag.appendChild(div);
@@ -179,47 +204,19 @@ if (editorElem) {
     editorElem.addEventListener('paste', (e) => {
         e.preventDefault();
         const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-        // FIX: החלפת document.execCommand('insertText') שהוצא משימוש ב-Ranges API.
-        // execCommand אינו מובטח בדפדפנים עתידיים; Ranges API תקני ומדויק יותר.
-        const sel = window.getSelection();
-        if (!sel || !sel.rangeCount) return;
-        const range = sel.getRangeAt(0);
-        range.deleteContents();
-        range.insertNode(document.createTextNode(text));
-        range.collapse(false);
-        sel.removeAllRanges();
-        sel.addRange(range);
+        document.execCommand('insertText', false, text);
         updateEditorStats();
     });
 
-    // FIX: debounce על אירוע input — updateEditorStats קורא ל-getCleanEditorText
-    // שמבצע cloneNode(true) + innerText (reflow יקר). דביאונס 250ms מונע קפיאת UI.
-    let inputStatsTimer = null;
     editorElem.addEventListener('input', () => {
-        if (inputStatsTimer) clearTimeout(inputStatsTimer);
-        inputStatsTimer = setTimeout(updateEditorStats, 250);
+        updateEditorStats();
     });
 }
 
 function handleTxtFileImport(event) {
-    const file = event.target.files && event.target.files[0];
+    const file = event.target.files[0];
     if (!file) return;
-    // FIX: ולידציה — הגבלת גודל (5MB) וסוג/סיומת.
-    const MAX_TXT_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_TXT_SIZE) {
-        alert('הקובץ גדול מדי (מקסימום 5MB).');
-        return;
-    }
-    const isText = file.type === 'text/plain' || /\.(txt|text|md)$/i.test(file.name);
-    if (!isText) {
-        alert('נא לבחור קובץ טקסט (.txt, .md).');
-        return;
-    }
     const reader = new FileReader();
-    // FIX: הוספת onerror למשוב על כשל קריאה.
-    reader.onerror = function() {
-        alert('שגיאה בקריאת הקובץ: ' + (file.name || ''));
-    };
     reader.onload = function(e) {
         if (editorElem) {
             editorElem.value = e.target.result;
@@ -294,37 +291,10 @@ function syncCursorToPreview() {
         }
 
         if (tokenId !== null && tokenId !== undefined) {
-            // תיקון: השתמש ב-querySelectorAll כדי למצוא את כל האלמנטים עם אותו token-id.
-            // פסקאות מפוצלות (p-cut) יכולות להופיע בשני מקומות — נבחר את הקרוב ביותר
-            // למיקום הגלילה הנוכחי של התצוגה המקדימה.
-            const allMatches = document.querySelectorAll(`[data-token-id="${tokenId}"]`);
-            if (allMatches.length === 0) return;
-            
-            if (allMatches.length === 1) {
-                // מקרה רגיל — אלמנט אחד
-                allMatches[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                return;
+            const targetEl = document.querySelector(`[data-token-id="${tokenId}"]`);
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-            
-            // מקרה מפוצל — מצא את האלמנט הקרוב ביותר למיקום הגלילה הנוכחי
-            const previewPane = document.getElementById('preview-pane');
-            const viewportCenter = previewPane 
-                ? previewPane.scrollTop + previewPane.clientHeight / 2 
-                : window.scrollY + window.innerHeight / 2;
-            
-            let closestEl = allMatches[0];
-            let closestDist = Infinity;
-            allMatches.forEach(el => {
-                const rect = el.getBoundingClientRect();
-                // חשב מיקום יחסי במסמך (לא יחסית לviewport)
-                const absTop = rect.top + window.scrollY;
-                const dist = Math.abs(absTop - viewportCenter);
-                if (dist < closestDist) {
-                    closestDist = dist;
-                    closestEl = el;
-                }
-            });
-            closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
 }
@@ -457,6 +427,7 @@ function initShaarBoxResizer() {
         if (rEl) rEl.value = Math.round(nRight);
         if (lEl) lEl.value = Math.round(nLeft);
 
+        /* שמירה פרטנית ומדויקת לפי מזהה השער הספציפי */
         if (shaarId && window.shaarBoxSavedPositions) {
             if (!window.shaarBoxSavedPositions[shaarType]) window.shaarBoxSavedPositions[shaarType] = {};
             window.shaarBoxSavedPositions[shaarType][shaarId] = {
@@ -508,7 +479,7 @@ function exportShaarJSONWithPositions(typeKey) {
 }
 
 /* ==========================================================================
-   6. סנכרון ממדים דינמי ב-DOM
+   6. סנכרון ממדים דינמי ב-DOM (Text-Fit לרוחב כותרת 2 וגובה עיטורי צד)
    ========================================================================== */
 function applyHeadingOrnamentTextFit() {
     document.querySelectorAll('.h2-ornament-top, .h2-ornament-bottom').forEach(ornWrap => {
@@ -637,12 +608,10 @@ function refreshCustomThemesUI() {
         } else {
             let html = '<div style="font-size:8pt; font-weight:700; margin-bottom:4px; color:#333;">ערכות שהוטמעו בקובץ:</div>';
             customThemes.forEach(t => {
-                const safeId = escapeHTML(t.id);
-                const safeName = escapeHTML(t.name);
                 html += `
           <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #ddd; padding:3px 6px; border-radius:3px; margin-bottom:3px; font-size:8pt;">
-            <span>🏷️ ${safeName}</span>
-            <span style="color:#dc2626; cursor:pointer; font-weight:bold;" data-action="delete-theme" data-theme-id="${safeId}" class="delete-theme-btn">🗑️ מחק</span>
+            <span>🏷️ ${t.name}</span>
+            <span style="color:#dc2626; cursor:pointer; font-weight:bold;" onclick="deleteCustomTheme('${t.id}')">🗑️ מחק</span>
           </div>
         `;
             });
@@ -654,7 +623,7 @@ function refreshCustomThemesUI() {
 }
 
 /* ==========================================================================
-   8. תוספים חיצוניים (Extensions)
+   8. תוספים חיצוניים (Extensions: סוגי עמוד, סגנונות טקסט ותמונות)
    ========================================================================== */
 let importedPageTypes = [];
 let importedTextStyles = [];
@@ -670,14 +639,9 @@ function validateExtJSON(def, expectedKind) {
 }
 
 function handlePageTypeImportFile(event) {
-    const file = event.target.files && event.target.files[0];
+    const file = event.target.files[0];
     if (!file) return;
-    // ולידציה
-    const MAX_JSON_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_JSON_SIZE) { alert('הקובץ גדול מדי (מקסימום 5MB).'); event.target.value = ''; return; }
-    if (!/\.json$/i.test(file.name) && file.type !== 'application/json') { alert('נא לבחור קובץ .json'); event.target.value = ''; return; }
     const reader = new FileReader();
-    reader.onerror = function() { alert('שגיאה בקריאת הקובץ: ' + (file.name || '')); };
     reader.onload = function(e) {
         let def;
         try { def = JSON.parse(e.target.result); } catch (err) { alert('קובץ JSON לא תקין.'); return; }
@@ -698,13 +662,9 @@ function handlePageTypeImportFile(event) {
 }
 
 function handleTextStyleImportFile(event) {
-    const file = event.target.files && event.target.files[0];
+    const file = event.target.files[0];
     if (!file) return;
-    const MAX_JSON_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_JSON_SIZE) { alert('הקובץ גדול מדי (מקסימום 5MB).'); event.target.value = ''; return; }
-    if (!/\.json$/i.test(file.name) && file.type !== 'application/json') { alert('נא לבחור קובץ .json'); event.target.value = ''; return; }
     const reader = new FileReader();
-    reader.onerror = function() { alert('שגיאה בקריאת הקובץ: ' + (file.name || '')); };
     reader.onload = function(e) {
         let def;
         try { def = JSON.parse(e.target.result); } catch (err) { alert('קובץ JSON לא תקין.'); return; }
@@ -721,18 +681,9 @@ function handleTextStyleImportFile(event) {
 }
 
 function handleImagePageImportFile(event) {
-    const file = event.target.files && event.target.files[0];
+    const file = event.target.files[0];
     if (!file) return;
-    // ולידציה
-    const MAX_IMG_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_IMG_SIZE) { alert('התמונה גדולה מדי (מקסימום 5MB).'); event.target.value = ''; return; }
-    if (!/^image\//.test(file.type) && !/\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(file.name)) {
-        alert('נא לבחור קובץ תמונה תקין.');
-        event.target.value = '';
-        return;
-    }
     const reader = new FileReader();
-    reader.onerror = function() { alert('שגיאה בקריאת התמונה: ' + (file.name || '')); };
     reader.onload = function(e) {
         const instanceId = 'ext-img-' + (extImportCounter++);
         importedImagePages.push({
@@ -765,22 +716,13 @@ function buildExtPanel(kind, instanceId, name, def) {
     const icon = kind === 'pageType' ? '📄' : kind === 'textStyle' ? '🅰️' : '🖼️';
     let triggerInfo = '';
     if (kind === 'textStyle' && def && def.trigger) {
-        const safeOpen = escapeHTML(def.trigger.open || '');
-        const safeClose = escapeHTML(def.trigger.close || '');
-        const safePrefix = escapeHTML(def.trigger.prefix || '');
-        triggerInfo = (def.trigger.type === 'delimiterPair')
-            ? `<div style="font-size:7.5pt;color:#888;">טריגר: בין "${safeOpen}" ל-"${safeClose}"</div>`
-            : `<div style="font-size:7.5pt;color:#888;">קידומת: "${safePrefix}"</div>`;
+        triggerInfo = (def.trigger.type === 'delimiterPair') ? `<div style="font-size:7.5pt;color:#888;">טריגר: בין "${def.trigger.open}" ל-"${def.trigger.close}"</div>` : `<div style="font-size:7.5pt;color:#888;">קידומת: "${def.trigger.prefix}"</div>`;
     }
-    const safeKind = escapeHTML(kind);
-    const safeInstanceId = escapeHTML(instanceId);
-    const safeName = escapeHTML(name);
-    const safeIcon = escapeHTML(icon);
-    const anchorRow = (kind !== 'textStyle') ? `<div class="inline-cfg-row"><label>מיקום:</label><select id="${safeInstanceId}-anchor" data-kind="${safeKind}" data-instance="${safeInstanceId}" class="ext-anchor-select">${EXT_ANCHOR_OPTIONS.map(([v,l]) => `<option value="${escapeHTML(v)}">${escapeHTML(l)}</option>`).join('')}</select></div>` : '';
+    const anchorRow = (kind !== 'textStyle') ? `<div class="inline-cfg-row"><label>מיקום:</label><select id="${instanceId}-anchor" onchange="updateExtAnchor('${kind}','${instanceId}', this.value)">${EXT_ANCHOR_OPTIONS.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>` : '';
     panel.innerHTML = `
     <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>${safeIcon} ${safeName}</span>
-      <span style="cursor:pointer;color:#a33;font-weight:700;" data-kind="${safeKind}" data-instance="${safeInstanceId}" class="ext-remove-btn">✕ הסר</span>
+      <span>${icon} ${name}</span>
+      <span style="cursor:pointer;color:#a33;font-weight:700;" onclick="removeExtInstance('${kind}','${instanceId}')">✕ הסר</span>
     </div>
     ${triggerInfo}
     ${anchorRow}
@@ -843,23 +785,13 @@ function renderImportedPage(container, inst, rawSourceText) {
     page.className = 'a4-page';
     if (def.background && def.background.mode === 'fixed') {
         const bs = def.background.style;
-        if (bs === 'color' && def.background.color) {
-            // ולידציה: רק ערכי צבע תקניים (#hex, rgb(), rgba(), named colors)
-            const colorVal = String(def.background.color).trim();
-            if (/^(#[0-9a-f]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|[a-zA-Z]+)$/i.test(colorVal)) {
-                page.style.background = colorVal;
-            }
-        }
+        if (bs === 'color' && def.background.color) page.style.background = def.background.color;
         else if (bs === 'texture') page.style.background = '#fdfcf6 url("' + CBG_TEXTURE_SVG + '") repeat';
         else if (bs === 'image' && def.background.image) {
-            const safeImg = sanitizeURL(def.background.image);
-            if (safeImg) {
-                const op = def.background.opacity != null ? safeNumber(def.background.opacity, 0.15) : 0.15;
-                const fade = (1 - op).toFixed(3);
-                page.style.backgroundImage = `linear-gradient(rgba(244,241,232,${fade}),rgba(244,241,232,${fade})),url("${safeImg}")`;
-                page.style.backgroundSize = 'cover';
-                page.style.backgroundPosition = 'center';
-            }
+            const fade = 1 - (def.background.opacity != null ? def.background.opacity : 0.15);
+            page.style.backgroundImage = `linear-gradient(rgba(244,241,232,${fade}),rgba(244,241,232,${fade})),url("${def.background.image}")`;
+            page.style.backgroundSize = 'cover';
+            page.style.backgroundPosition = 'center';
         }
     } else {
         applyContentBg(page, 'regular');
@@ -907,38 +839,13 @@ function findExtTextStyle(instanceId) {
 }
 
 function handleImageUpload(event, targetInputId) {
-    const file = event.target.files && event.target.files[0];
+    const file = event.target.files[0];
     if (!file) return;
-    // ולידציה: הגבלת גודל (מקסימ 5MB) וסוג MIME
-    const MAX_IMG_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_IMG_SIZE) {
-        alert('הקובץ גדול מדי (מקסימום 5MB).');
-        return;
-    }
-    if (!/^image\//.test(file.type) && !file.name.toLowerCase().endsWith('.svg')) {
-        alert('נא לבחור קובץ תמונה תקין.');
-        return;
-    }
-
     const reader = new FileReader();
-    reader.onerror = function() {
-        alert('שגיאה בקריאת הקובץ: ' + (file.name || ''));
-    };
 
-    if (file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg')) {
+    if (file.type === 'image/svg+xml' || file.name.endsWith('.svg')) {
         reader.onload = function(e) {
-            let svgText = String(e.target.result || '');
-            // סניטציה: הסרת <script>, on* handlers, javascript: URLs, <iframe>, <object>, <embed>
-            if (typeof sanitizeSVG === 'function') {
-                svgText = sanitizeSVG(svgText);
-            } else {
-                // Fallback אם sanitizeSVG לא נטען (decorations.js לא נטען)
-                svgText = svgText
-                    .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
-                    .replace(/<\s*iframe[\s\S]*?<\s*\/\s*iframe\s*>/gi, '')
-                    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, ' ')
-                    .replace(/javascript:/gi, '');
-            }
+            let svgText = e.target.result;
             if (svgText.includes('preserveAspectRatio')) {
                 svgText = svgText.replace(/preserveAspectRatio="[^"]*"/, 'preserveAspectRatio="none"');
             } else {
@@ -967,7 +874,7 @@ function handleImageUpload(event, targetInputId) {
 }
 
 /* ==========================================================================
-   9. שמירת תבנית מלאה (Save Template)
+   9. שמירת תבנית מלאה (Save Template) כולל מיקומי שערים ותוספים
    ========================================================================== */
 function saveAsDefaultTemplate() {
     let dataIsland = document.getElementById('ext-imports-data');
@@ -1060,37 +967,60 @@ function rehydrateExtImports() {
 function initFontPickers() {
     const defaultFonts = [
         { label: "גופנים תורניים נפוצים", fonts: [
-            { name: "גוטמן רש\"י רגיל", val: "'גוטמן רש\"י רגיל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "פרנק רוהל ליברה רגיל", val: "'פרנק רוהל ליברה רגיל', serif" },
-            { name: "פרנק רוהל ליברה מודגש", val: "'פרנק רוהל ליברה מודגש', serif" },
-            { name: "פרנק רוהל ליברה שחור", val: "'פרנק רוהל ליברה שחור', serif" },
-            { name: "פרנק רוהל ליברה קל", val: "'פרנק רוהל ליברה קל', serif" },
-            { name: "פרנק רוהל ליברה בינוני", val: "'פרנק רוהל ליברה בינוני', serif" },
-            { name: "פרנק רוהל רגיל", val: "'פרנק רוהל רגיל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "פרנק רוהל דפ רגיל", val: "'פרנק רוהל דפ רגיל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "פרנק רוהל דפ מודגש", val: "'פרנק רוהל דפ מודגש', 'פרנק רוהל ליברה מודגש', serif" },
-            { name: "נוטו סריף עברית רגיל", val: "'נוטו סריף עברית רגיל', serif" },
-            { name: "נוטו סריף עברית מודגש", val: "'נוטו סריף עברית מודגש', serif" },
-            { name: "נוטו סריף עברית שחור", val: "'נוטו סריף עברית שחור', serif" },
-            { name: "ליבורנה רגיל", val: "'ליבורנה רגיל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "ליבורנה מודגש", val: "'ליבורנה מודגש', 'פרנק רוהל ליברה מודגש', serif" },
-            { name: "ליבורנה ספר רגיל", val: "'ליבורנה ספר רגיל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "אלפא רגיל", val: "'אלפא רגיל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "אלפא מודגש", val: "'אלפא מודגש', 'פרנק רוהל ליברה מודגש', serif" },
-            { name: "אלפא קל", val: "'אלפא קל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "אלפא שחור", val: "'אלפא שחור', 'פרנק רוהל ליברה שחור', serif" },
-            { name: "פרנק ריל רגיל", val: "'פרנק ריל רגיל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "פרנק ריל מודגש", val: "'פרנק ריל מודגש', 'פרנק רוהל ליברה מודגש', serif" },
-            { name: "פרנק ריל קל", val: "'פרנק ריל קל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "פרנק ריל בינוני", val: "'פרנק ריל בינוני', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "הדסה פרידלנדר רגיל", val: "'הדסה פרידלנדר רגיל', 'פרנק רוהל ליברה רגיל', serif" },
-            { name: "הדסה פרידלנדר מודגש", val: "'הדסה פרידלנדר מודגש', 'פרנק רוהל ליברה מודגש', serif" },
+            { name: "גוטמן רש\"י (Guttman Rashi)", val: "'Guttman Rashi', 'Frank Ruhl Libre', serif" },
+            { name: "פרנק-ריהל (Frank Ruhl Libre)", val: "'Frank Ruhl Libre', serif" },
+            { name: "דוד ליברה (David Libre)", val: "'David Libre', serif" },
+            { name: "נוטו סריף (Noto Serif Hebrew)", val: "'Noto Serif Hebrew', serif" },
+            { name: "בלפייר (Bellefair)", val: "'Bellefair', serif" },
+            { name: "ליבורנה (Livorna)", val: "'Livorna', 'David Libre', serif" },
+            { name: "אלפא בלק (AlphaBlack)", val: "'AlphaBlack', 'David Libre', serif" },
+            { name: "אלפא (Alpha)", val: "'Alpha', 'Noto Serif Hebrew', serif" },
+            { name: "אלפא לייט (AlphaLight)", val: "'AlphaLight', 'David Libre', serif" },
+            { name: "ליה סגולה (Lia Sgula)", val: "'Lia Sgula', 'Bellefair', serif" },
+            { name: "פרנקרעאל (FrankReal)", val: "'FrankReal', 'Frank Ruhl Libre', serif" },
+            { name: "הדסה פרידלנדר (Hadassah)", val: "'Hadassah Friedlaender', 'David Libre', serif" },
             { name: "אסיסטנט (Assistant)", val: "'Assistant', sans-serif" },
             { name: "רוביק (Rubik)", val: "'Rubik', sans-serif" }
         ]}
     ];
 
-    // ערכי ברירת המחדל של הגופנים נטענים מ-default_settings.json ע"י settings-manager.js
+    const pickerDefaults = {
+        'font-body': "'Guttman Rashi', 'Frank Ruhl Libre', serif",
+        'font-first-word': "'FrankReal', 'Frank Ruhl Libre', serif",
+        'f-dh': "'AlphaBlack', 'David Libre', serif",
+        'f-hdr-r': "'Livorna', 'David Libre', serif",
+        'f-hdr-c': "'Livorna', 'David Libre', serif",
+        'f-hdr-l': "'Livorna', 'David Libre', serif",
+        'f-hdr-verso-r': "'Livorna', 'David Libre', serif",
+        'f-hdr-verso-c': "'Livorna', 'David Libre', serif",
+        'f-hdr-verso-l': "'Livorna', 'David Libre', serif",
+        'f-h0': "'AlphaBlack', 'David Libre', serif",
+        'f-h0-body': "'Frank Ruhl Libre', serif",
+        'f-h1': "'Lia Sgula', 'Bellefair', serif",
+        'f-h2': "'AlphaBlack', 'David Libre', serif",
+        'f-siman': "'AlphaBlack', 'David Libre', serif",
+        'f-h3': "'Alpha', 'Noto Serif Hebrew', serif",
+        'f-h4': "'Alpha', 'Frank Ruhl Libre', serif",
+        'f-h5': "'AlphaLight', 'David Libre', serif",
+        'f-h6': "'Noto Serif Hebrew', serif",
+        'f-h7': "'Hadassah Friedlaender', 'David Libre', serif",
+        'f-sh-title': "'Lia Sgula', 'Bellefair', serif",
+        'f-sh-sub': "'Livorna', 'David Libre', serif",
+        'f-sh-desc': "'Livorna', 'Frank Ruhl Libre', serif",
+        'f-sh-sec': "'David Libre', serif",
+        'f-sh-author': "'David Libre', serif",
+        'f-sh-year': "'David Libre', serif",
+        'f-note-title': "'David Libre', serif",
+        'f-note-body': "'Frank Ruhl Libre', serif",
+        'f-gtoc-1': "'David Libre', serif", 'f-gtoc-2': "'David Libre', serif",
+        'f-gtoc-3': "'David Libre', serif", 'f-gtoc-4': "'David Libre', serif",
+        'f-gtoc-5': "'David Libre', serif", 'f-gtoc-6': "'David Libre', serif",
+        'f-gtoc-7': "'David Libre', serif",
+        'f-dtoc-1': "'David Libre', serif", 'f-dtoc-2': "'David Libre', serif",
+        'f-dtoc-3': "'David Libre', serif", 'f-dtoc-4': "'David Libre', serif",
+        'f-dtoc-5': "'David Libre', serif", 'f-dtoc-6': "'David Libre', serif",
+        'f-dtoc-7': "'David Libre', serif"
+    };
 
     document.querySelectorAll('.font-picker').forEach(select => {
         if (select.children.length === 0) {
@@ -1105,13 +1035,16 @@ function initFontPickers() {
                 });
                 select.appendChild(optGroup);
             });
-            // ערך ברירת המחדל נקבע ע"י settings-manager.js מתוך default_settings.json
+            const defVal = pickerDefaults[select.id];
+            if (defVal) {
+                select.value = defVal;
+            }
         }
     });
 }
 
 async function ensureBuiltinFontsLoaded() {
-    const families = ['Assistant', 'Rubik']; // רק גופני UI מ-Google Fonts — שאר הגופנים נטענים מ-fonts-def.css (רשימה 1) ו-fonts-extended.css (רשימה 2, על-ידי לחצן)
+    const families = ['Assistant', 'Rubik', 'Bellefair', 'David Libre', 'Frank Ruhl Libre', 'Noto Serif Hebrew'];
     const weights = ['400', '700', '900'];
     try {
         const loads = [];
@@ -1158,106 +1091,39 @@ async function loadSystemFonts() {
 }
 
 async function loadExternalFonts() {
-    // רשימה 1 (priority): מאכלס את ה-pickers מ-fonts-priority.json.
-    // ה-@font-face כבר נטענו דרך fonts-def.css (שמיובא ב-style.css).
-    // הדפדפן יוריד את קבצי ה-woff2 בפועל רק כשהגופן בשימוש (font-display: swap).
     try {
-        const res = await fetch('fonts-priority.json');
+        const res = await fetch('fonts/fonts.json');
         if (!res.ok) return;
         const fonts = await res.json();
         if (!Array.isArray(fonts)) return;
 
-        document.querySelectorAll('.font-picker').forEach(select => {
-            const currentVal = select.value;
-            let grp = select.querySelector('optgroup[label="גופנים מקומיים — רשימה 1"]');
-            if (!grp) {
-                grp = document.createElement('optgroup');
-                grp.label = 'גופנים מקומיים — רשימה 1';
-                select.prepend(grp);
-            }
-            fonts.forEach(font => {
-                const opt = document.createElement('option');
-                opt.value = `'${font.family}', serif`;
-                opt.textContent = font.family;
-                grp.appendChild(opt);
-            });
-            select.value = currentVal;
-        });
-        console.log(`✓ רשימה 1: ${fonts.length} גופנים נוספו ל-pickers`);
-    } catch (e) {
-        console.warn('loadExternalFonts (רשימה 1) נכשל:', e);
-    }
-}
+        for (const font of fonts) {
+            try {
+                const fontFace = new FontFace(font.family, `url(fonts/${encodeURIComponent(font.file)})`);
+                await fontFace.load();
+                document.fonts.add(fontFace);
 
-/**
- * loadExtendedFonts — טוען את רשימה 2 של הגופנים (~1300 גופנים).
- * מופעלת על-ידי לחצן "📚 טען גופנים נוספים" בסרגל העליון.
- */
-let _extendedFontsLoaded = false;
-async function loadExtendedFonts() {
-    if (_extendedFontsLoaded) {
-        alert('רשימה 2 של הגופנים כבר נטענה.');
-        return;
-    }
-    const btn = document.getElementById('btn-load-extended-fonts');
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = '⏳ טוען גופנים...';
-    }
-
-    try {
-        // 1) הזרקת fonts-extended.css
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'fonts-extended.css';
-        link.id = 'fonts-extended-stylesheet';
-        document.head.appendChild(link);
-        await new Promise((resolve, reject) => {
-            link.onload = resolve;
-            link.onerror = reject;
-            setTimeout(resolve, 5000);
-        });
-
-        // 2) אכלוס ה-pickers מ-fonts-extended.json
-        const res = await fetch('fonts-extended.json');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const fonts = await res.json();
-        if (!Array.isArray(fonts)) throw new Error('פורמט שגוי');
-
-        document.querySelectorAll('.font-picker').forEach(select => {
-            const currentVal = select.value;
-            let grp = select.querySelector('optgroup[label="גופנים מקומיים — רשימה 2"]');
-            if (!grp) {
-                grp = document.createElement('optgroup');
-                grp.label = 'גופנים מקומיים — רשימה 2';
-                select.appendChild(grp);
-            }
-            fonts.forEach(font => {
-                const opt = document.createElement('option');
-                opt.value = `'${font.family}', serif`;
-                opt.textContent = font.family;
-                grp.appendChild(opt);
-            });
-            select.value = currentVal;
-        });
-
-        _extendedFontsLoaded = true;
-        if (btn) {
-            btn.textContent = `✓ נטענו ${fonts.length} גופנים נוספים`;
+                document.querySelectorAll('.font-picker').forEach(select => {
+                    const currentVal = select.value;
+                    let grp = select.querySelector('optgroup[label="גופנים מקומיים (תיקיית fonts)"]');
+                    if (!grp) {
+                        grp = document.createElement('optgroup');
+                        grp.label = 'גופנים מקומיים (תיקיית fonts)';
+                        select.prepend(grp);
+                    }
+                    const opt = document.createElement('option');
+                    opt.value = `'${font.family}', serif`;
+                    opt.textContent = font.family;
+                    grp.appendChild(opt);
+                    select.value = currentVal;
+                });
+            } catch (err) {}
         }
-        console.log(`✓ רשימה 2: ${fonts.length} גופנים נטענו`);
-    } catch (e) {
-        console.error('loadExtendedFonts נכשל:', e);
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = '📚 טען גופנים נוספים';
-        }
-        alert('טעינת רשימה 2 נכשלה. בדוק את הקונסול לפרטים.');
-    }
+    } catch (e) {}
 }
 
 /* ==========================================================================
-   11. סריקת תיקיית נכסים מקומית
+   11. סריקת תיקיית נכסים מקומית (שחזור מלא מגרסה 2 - חלוקת.txt)
    ========================================================================== */
 function triggerAssetsFolderPick() {
     const inp = document.getElementById('assets-folder-input');
@@ -1763,7 +1629,7 @@ function refreshVisualPicker(selectId) {
     if (trig) {
         trig.innerHTML = `
       <div class="vp-trig-preview">${getItemPreviewHTML(selectId, curVal, curText)}</div>
-      <span class="vp-trig-label">${escapeHTML(curText)}</span>
+      <span class="vp-trig-label">${curText}</span>
       <span class="vp-trig-arrow">▼</span>
     `;
     }
@@ -1774,14 +1640,12 @@ function refreshVisualPicker(selectId) {
         Array.from(select.options).forEach(opt => {
             const isSel = (opt.value === curVal);
             const prevHTML = getItemPreviewHTML(selectId, opt.value, opt.textContent);
-            const safeVal = escapeHTML(opt.value);
-            const safeText = escapeHTML(opt.textContent);
             cardsHTML += `
         <div class="visual-card ${isSel ? 'selected' : ''} ${isShaar ? 'shaar-card' : 'ornament-card'}"
-             data-val="${safeVal}"
-             data-select-id="${escapeHTML(selectId)}">
+             data-val="${opt.value}"
+             onclick="selectVisualPickerItem('${selectId}', '${opt.value}')">
           <div class="visual-card-preview">${prevHTML}</div>
-          <div class="visual-card-name" title="${safeText}">${safeText}</div>
+          <div class="visual-card-name" title="${opt.textContent}">${opt.textContent}</div>
           ${isSel ? '<div class="visual-card-check">✓</div>' : ''}
         </div>
       `;
@@ -1817,132 +1681,11 @@ document.addEventListener('click', (e) => {
     }
 });
 
-/* ---------------------------------------------------------------------------
-   Event Delegation: כל הכפתורים שהוסרו מ-onclick inline מטופלים כאן.
-   תומך CSP מחמיר (script-src 'self').
-   --------------------------------------------------------------------------- */
-document.addEventListener('click', (e) => {
-    // כפתור דיבאג של עמוד
-    const debugBtn = e.target.closest('.page-debug-btn[data-debug-page]');
-    if (debugBtn) {
-        e.stopPropagation();
-        const pNum = parseInt(debugBtn.dataset.debugPage, 10);
-        if (Number.isFinite(pNum) && typeof window.exportPageDebugReport === 'function') {
-            window.exportPageDebugReport(pNum);
-        }
-        return;
-    }
-
-    // כרטיס בורר ויזואלי
-    const visualCard = e.target.closest('.visual-card[data-val]');
-    if (visualCard) {
-        const selectId = visualCard.dataset.selectId;
-        const val = visualCard.dataset.val;
-        if (selectId && val !== undefined) {
-            selectVisualPickerItem(selectId, val);
-        }
-        return;
-    }
-
-    // כפתור "הסר" של תוסף חיצוני
-    const removeBtn = e.target.closest('.ext-remove-btn');
-    if (removeBtn) {
-        const kind = removeBtn.dataset.kind;
-        const instance = removeBtn.dataset.instance;
-        if (kind && instance) {
-            removeExtInstance(kind, instance);
-        }
-        return;
-    }
-
-    // כפתור "מחק" של ערכת נושא מותאמת
-    const deleteThemeBtn = e.target.closest('.delete-theme-btn');
-    if (deleteThemeBtn) {
-        const themeId = deleteThemeBtn.dataset.themeId;
-        if (themeId && typeof deleteCustomTheme === 'function') {
-            deleteCustomTheme(themeId);
-        }
-        return;
-    }
-});
-
-// Event Delegation עבור שינוי anchor של תוסף חיצוני
-document.addEventListener('change', (e) => {
-    const sel = e.target.closest('.ext-anchor-select');
-    if (sel) {
-        const kind = sel.dataset.kind;
-        const instance = sel.dataset.instance;
-        const val = sel.value;
-        if (kind && instance && typeof updateExtAnchor === 'function') {
-            updateExtAnchor(kind, instance, val);
-        }
-    }
-});
-
-// Event Delegation עבור כפתורי אקורדיון שהוסרו מ-onclick inline ב-HTML.
-// תומך בשני סוגי כפתורים:
-//   1. data-action="toggle-settings-pane" — פותח/סוגר את לוח ההגדרות הראשי.
-//   2. data-action="toggle-panel-body" עם data-target="panel-id" — פותח/סוגר פאנל אקורדיון.
-document.addEventListener('click', (e) => {
-    const toggleSettingsBtn = e.target.closest('[data-action="toggle-settings-pane"]');
-    if (toggleSettingsBtn) {
-        if (typeof toggleSettingsPane === 'function') {
-            toggleSettingsPane();
-        }
-        return;
-    }
-    const togglePanelBtn = e.target.closest('[data-action="toggle-panel-body"]');
-    if (togglePanelBtn) {
-        const target = togglePanelBtn.dataset.target;
-        if (target && typeof togglePanelBody === 'function') {
-            togglePanelBody(target);
-        }
-        return;
-    }
-});
-
-// עדכון aria-expanded לאחר החלפת מצב פאנל/אקורדיון.
-// המקור: togglePanelBody ו-toggleSettingsPane כבר קיימות ב-app.js. אנו רק מוסיפים
-// "Wrapper" שמעדכן את ה-aria. לשם כך נאזין ל-shorthand CSS class במוטציה.
-const _a11yObserver = new MutationObserver((mutations) => {
-    for (const mut of mutations) {
-        if (mut.type !== 'attributes' || mut.attributeName !== 'style') continue;
-        const el = mut.target;
-        // אם אלמנט שינה display, נבדוק אם יש לו כפתור שולט (data-target).
-        if (!el.id) continue;
-        const ctrl = document.querySelector(`[data-action="toggle-panel-body"][data-target="${el.id}"]`);
-        if (ctrl) {
-            const isHidden = (el.style.display === 'none') || (window.getComputedStyle(el).display === 'none');
-            ctrl.setAttribute('aria-expanded', String(!isHidden));
-        }
-    }
-});
-// נרשום את כל הפאנלים המתקפלים לאחר טעינת ה-DOM.
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('[id$="-body"][data-panel-body], .panel-body').forEach(el => {
-            _a11yObserver.observe(el, { attributes: true, attributeFilter: ['style'] });
-        });
-    });
-} else {
-    document.querySelectorAll('[id$="-body"][data-panel-body], .panel-body').forEach(el => {
-        _a11yObserver.observe(el, { attributes: true, attributeFilter: ['style'] });
-    });
-}
-
 /* ==========================================================================
    15. אירוע טעינת הדף הראשי (Window Onload)
    ========================================================================== */
-// FIX: החלפת window.onload = ... ב-addEventListener — מונע דריסה של מאזינים
-// שהוגדרו קודם על-ידי ספריות אחרות (קונפליקט שקט עם analytics/tracking).
-window.addEventListener('load', async function() {
+window.onload = async function() {
     initFontPickers();
-    // טען הגדרות ברירת מחדל מ-default_settings.json (אחרי initFontPickers כדי שה-selects יהיו מאוכלסים)
-    if (typeof loadDefaultSettings === 'function') {
-        await loadDefaultSettings();
-    }
-    // אתחל מערכת טאבים (אחרי טעינת הגדרות כדי שהדרופדאון סגנונות ימצא את settings-content)
-    initTabSystem();
     refreshCustomThemesUI();
     rehydrateExtImports();
 
@@ -1950,42 +1693,6 @@ window.addEventListener('load', async function() {
     await loadFolderAssetsAndThemes();
     await loadExternalFonts();
     await ensureBuiltinFontsLoaded();
-    
-    // תיקון: טעינת גופנים בשני שלבים.
-    // שלב א': טען רק את הגופנים הנחוצים לעמודי טקסט רגילים (12 גופנים).
-    // שלב ב': שאר הגופנים ייטענו ברקע תוך כדי עבודה.
-    const PRIORITY_FONTS = [
-        "12pt 'גוטמן רש\"י רגיל'",
-        "12pt 'פרנק ריל מודגש'",
-        "12pt 'אלפא שחור'",
-        "12pt 'אלפא מודגש'",
-        "12pt 'ליבורנה רגיל'",
-        "12pt 'ליבורנה מודגש'",
-        "12pt 'הדסה פרידלנדר מודגש'",
-        "12pt 'פרנק רוהל ליברה רגיל'",
-        "12pt 'פרנק רוהל ליברה מודגש'",
-        "12pt 'פרנק רוהל ליברה שחור'",
-        "12pt 'נוטו סריף עברית מודגש'",
-        "12pt 'נוטו סריף עברית שחור'",
-    ];
-    try {
-        if (document.fonts && document.fonts.load) {
-            // טען רק את הגופנים העיקריים וחכה להם
-            await Promise.all(PRIORITY_FONTS.map(f => document.fonts.load(f).catch(() => {})));
-            console.log('✓ גופנים עיקריים נטענו — מתחיל עימוד');
-        }
-    } catch (e) {
-        console.warn('Priority font loading failed (non-critical):', e);
-    }
-    
-    // שלב ב': טען את שאר הגופנים ברקע (לא חיוני לעימוד)
-    try {
-        if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(() => {
-                console.log('✓ כל הגופנים נטענו ברקע');
-            }).catch(() => {});
-        }
-    } catch (e) { /* non-critical */ }
 
     if (document.getElementById('section-divider-style')?.value === 'custom_img') {
         const row = document.getElementById('row-sec-div-img');
@@ -1997,480 +1704,38 @@ window.addEventListener('load', async function() {
     }
 
     if (editorElem && !editorElem.value.trim()) {
-        editorElem.value = `שם הספר - מקום בינה
-נושא - הוצאה - רשויות - חצירות - תחומין
-נושא מפורט - הקדמות וביאורים במסכתות שבת ועירובין
-פרטי מהדורא - מהדורת ניסיון | לא מוגה
-שם המחבר - נתנאל דיינובסקי
-מקום ושנת הוצאה - ירושלים | תשפ"ו
-שמירת זכויות - כל הזכויות הפקר
-פרטי הוצאה לאור - הוצאת זוכמיר בע"מ
-פרטי קשר - 052-7666666
-פרטים נוספים - אין לסמוך על האמור להלכה
+        editorElem.value = `שם הספר - ספר מלכי המלוכה
+נושא - ביאורים וחידושים עמוקים על מסכתות הש"ס
+נושא מפורט - בירור שיטות הראשונים והאחרונים ובירורי הלכות למעשה
+פרטי מהדורא - מהדורה שניה ומורחבת בסייעתא דשמיא
+שם המחבר - הצעיר ידידיה בר אבא הלוי
+מקום ושנת הוצאה - ירושלים עיה"ק תובב"א שנת ה'תשפ"ו
 
-כותרת 1 מספר 1 - הקדמות וכללים - יום השבת - גדרי מלאכה - הוצאה - רשויות
-כותרת 0 מספר 1 - הקדמה
-כהקדמה לדיני הוצאה וגדרי רשויות ועל מנת לבאר את הדינים התלויים בגדרים אלו, נצרכים אנו לבאר את גדרי האיסור ואת המציאות שעליה נאמר האיסור, ולראות איזה מהם מזה ואיזה מזה.
-והנה כהרבה מדיני התורה הק' ניתנו לנו איסורי התורה על מציאות מוקדמת הברורה לנו, חלק מהם ברורים לנו מבלי להעמיד בהם גדרים במציאות ושאר שיעורים, ועיקרם של הלכות אלו להאיר עינינו לראות המציאות הקיימת וחילוקיה, לחייב ולפטור, להתיר ולאסור.
+כותרת 0 - הקדמת המחבר
+גוף הטקסט בעימוד של טור אחד נרחב, המשתרע לרוחב כל עמוד ההקדמה. עימוד זה מיועד בדרך כלל להקדמות ופתיחות, שבהן הסגנון הספרותי מורחב ומשתרע כרציף.
 
-כותרת 2 מספר 2 - קדושת יום השבת ומצוותיה
-כותרת 3 מספר 1 - מהות השבת וחלקי מצוותה
-כותרת 4 מספר 1 - חלקי מצוות השבת
-כותרת 7 מספר 1 - חילוקי משמעות בשם שבת
-השבת תבוא בשני משמעויות. א. השבת לעצמה. ב. מצות השבת. מצוות השבת תחלק לשלושה חלקים. א. המצווה. ב. סיבת המצווה. ג. מטרת המצווה. המצווה תחלק לשני חלקים. א. בעשייה. ב. באי עשייה. בחלק העשייה מצאנו שני גדרים. א. הקדושה. ב. השביתה. בחלק הקדושה מצאנו שני גדרים. א. זכירה. ב. שמירה. [כאן הערת שוליים המבארת את יסודות קדושת השבת והשביתה כהלכתם לפי שיטות הראשונים].`;
+כותרת 1 - חלק ראשון - ענייני תפילה וקריאת שמע
+כותרת 2 - דיני תפילת השחר וזמנה
+גוף הטקסט בעימוד שני טורים מסודרים ומפולסים כהלכתם. כאן יבוא הביאור השלם בבירור גבולות הזמן של תפילת השחר עד חצות היום או עד ארבע שעות של היום [כאן הערת שוליים בתחתית העמוד הנלמדת מדברי הראשונים].
+דין זה של קביעת זמן ארבע שעות נלמד בעיקרו מדברי חז"ל והוא הבסיס לכל דיני תפילה של שחרית.
+הערת סיום - כאן הערת סיום מורחבת המרוכזת בסוף החלק.
+
+כותרת 3 - ענף א: שיטת הרמב"ם בדין אונס ועבר זמן תפילה
+גוף הטקסט בטורים המיושרים באופן מושלם. פסקאות אלו מדגימות את מנגנון האיזון המדויק המופעל בכל חיתוך.
+כאשר טור אחד ימני מתמלא הוא מעביר שורות שלמות בלבד אל הטור השמאלי כדי שלא תיווצר מילה בודדת קטועה.
+העימוד התורני מקפיד מאוד על שלמות הפסקאות והשורות כך שהקריאה תהיה רציפה ונעימה לעין הלומד.
+
+כותרת 4 - סעיף א: בירור דעת בעל השאילתות
+גוף הטקסט הבא תחת סעיף א מיועד לבאר את דברי הראשונים. כל פסקה מקבלת חלון מילה ראשונה רק אם היא מחזיקה שתי שורות ומעלה. פסקאות קצרות של שורה אחת אינן מקבלות חלון מילה ראשונה כדי למנוע שיבושים בעימוד הפסקאות הבאות אחריהן.
+פיסקה קצרה.
+
+כותרת 5 - סעיף ב: יישוב קושיית הנודע ביהודה
+גוף הטקסט ממשיך לזרום בטורים שווים.
+
+כותרת 7 - הערה נחוצה בצד העמוד
+גוף הטקסט המכיל הערות צד בשולי הדף. הערות אלו ממוקמות בדיוק מול הפסקה אליה הן מתייחסות, ובכך מאפשרות ללומד לעיין במקורות תוך כדי לימודו הרציף בגוף הספר.`;
     }
 
     typesetDocument();
     initVisualPickers();
-
-    // תיקון קריטי: re-typeset לפני הדפסה.
-    // רינדור הגופנים שונה בין מסך להדפסה (font hinting, subpixel positioning).
-    // לכן האיזון שחושב על מסך לא תקף להדפסה. צריך להריץ מחדש.
-    let isRebalancingForPrint = false;
-    window.addEventListener('beforeprint', () => {
-        if (isRebalancingForPrint) return;
-        isRebalancingForPrint = true;
-        try {
-            // הרץ מחדש את העימוד — ה-layout כעת במצב print (@media print)
-            // והאיזון יחושב על בסיס המדידות האמיתיות של ההדפסה.
-            if (typeof performTypeset === 'function') {
-                performTypeset();
-            }
-        } catch (e) {
-            console.warn('beforeprint re-typeset failed:', e);
-        }
-    });
-    window.addEventListener('afterprint', () => {
-        // אחרי ההדפסה, הרץ מחדש למצב מסך
-        isRebalancingForPrint = false;
-        try {
-            if (typeof performTypeset === 'function') {
-                performTypeset();
-            }
-        } catch (e) {
-            console.warn('afterprint re-typeset failed:', e);
-        }
-    });
-});
-
-
-// ==========================================================================
-// ייצוא HTML מרונדר — לבדיקה ויזואלית מדויקת
-// ==========================================================================
-// פונקציה זו מייצאת את המסמך המרונדר (כפי שהוא מופיע בהדפסה ל-PDF)
-// לקובץ HTML עצמאי, ללא קוד היצירה, עם כל הסגנונות הדרושים.
-
-async function exportRenderedHTML() {
-    const bookContainer = document.getElementById('book-container');
-    if (!bookContainer) {
-        alert('אין מסמך מרונדר. הרץ עימוד קודם.');
-        return;
-    }
-
-    const btn = document.getElementById('btn-export-html');
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = '⏳ מייצא...';
-    }
-
-    try {
-        // 1) שכפול ה-#preview-pane (שמכיל את #book-container) — כך המבנה
-        // ההיררכי נשמר, וה-layout זהה ל-DOM החי.
-        const previewPane = document.getElementById('preview-pane');
-        const clone = previewPane.cloneNode(true);
-
-        // 2) הסרת event handlers
-        clone.querySelectorAll('*').forEach(el => {
-            el.removeAttribute('onclick');
-        });
-
-        // 3) איסוף CSS — fetch style.css + fonts-def.css + fonts-extended.css (אם נטען)
-        const cssFiles = ['style.css', 'fonts-def.css'];
-        const extLink = document.getElementById('fonts-extended-stylesheet');
-        if (extLink) cssFiles.push('fonts-extended.css');
-
-        const cssContents = [];
-        for (const file of cssFiles) {
-            try {
-                const res = await fetch(file);
-                if (res.ok) {
-                    const text = await res.text();
-                    cssContents.push(`/* === ${file} === */\n${text}`);
-                }
-            } catch (e) {
-                console.warn(`לא ניתן לטעון ${file}:`, e);
-            }
-        }
-
-        // 3.5) הטמעת גופני עדיפות כ-base64 — חיוני כדי שה-HTML המיוצא
-        // יציג את הגופנים נכון גם בלי תיקיית fonts/ לידו.
-        // טוענים רק את 12 גופני העדיפות כדי לא להגדיל את הקובץ יותר מדי.
-        const PRIORITY_FONT_FILES = [
-            'Guttman-Rashi-Normal.woff2',
-            'FrankReal-Bold.woff2',
-            'Alpha-Black.woff2',
-            'Alpha-Bold.woff2',
-            'Livorna-Regular.woff2',
-            'Livorna-Bold.woff2',
-            'Hadassah-Friedlaender-Bold.woff2',
-            'FrankRuhlLibre-Regular.woff2',
-            'Frank-Ruhl-Libre-Bold.woff2',
-            'FrankRuhlLibre-Black.woff2',
-            'Noto-Serif-Hebrew-Bold.woff2',
-            'Noto-Serif-Hebrew-Black.woff2'
-        ];
-        const embeddedFonts = [];
-        for (const fontFile of PRIORITY_FONT_FILES) {
-            try {
-                const res = await fetch('fonts/' + fontFile);
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const reader = new FileReader();
-                    const base64 = await new Promise((resolve, reject) => {
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                    });
-                    embeddedFonts.push({ file: fontFile, base64 });
-                }
-            } catch (e) {
-                console.warn(`לא ניתן להטמיע ${fontFile}:`, e);
-            }
-        }
-        if (embeddedFonts.length > 0) {
-            console.log(`exportRenderedHTML: הוטמעו ${embeddedFonts.length} גופנים`);
-        }
-
-        // 4) איסוף CSS variables מ-:root (computed) + inline styles שהוצבו ע"י JS
-        // חיוני: typesetter.js מציב ערכים מדויקים (כמו --w-col: 39.604%)
-        // ישירות על document.documentElement.style, ואנחנו צריכים את הערכים
-        // האלה — לא את הערכים המעוגלים מה-CSS המקורי.
-        // חיוני גם: ה-re-typeset רץ ב-scale=1, ולכן ה-HTML המיוצא צריך
-        // להכיל --preview-scale: 1 (לא את ה-scale המקורי).
-        const rootStyle = getComputedStyle(document.documentElement);
-        const cssVars = [];
-        const seenProps = new Set();
-        
-        // א. אסוף inline styles מ-document.documentElement (הוצבו ע"י JS)
-        const rootEl = document.documentElement;
-        for (let i = 0; i < rootEl.style.length; i++) {
-            const prop = rootEl.style[i];
-            if (prop.startsWith('--')) {
-                const val = rootEl.style.getPropertyValue(prop).trim();
-                if (val) {
-                    cssVars.push(`${prop}: ${val};`);
-                    seenProps.add(prop);
-                }
-            }
-        }
-        
-        // ב. אסוף CSS variables מ-:root rules (רק אלה שלא הוצבו inline)
-        for (const sheet of document.styleSheets) {
-            try {
-                for (const rule of sheet.cssRules) {
-                    if (rule.selectorText === ':root' && rule.style) {
-                        for (let i = 0; i < rule.style.length; i++) {
-                            const prop = rule.style[i];
-                            if (prop.startsWith('--') && !seenProps.has(prop)) {
-                                const val = rootStyle.getPropertyValue(prop).trim();
-                                if (val) {
-                                    cssVars.push(`${prop}: ${val};`);
-                                    seenProps.add(prop);
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (e) {}
-        }
-
-        // 4.5) החלפת src ב-@font-face של גופני העדיפות עם base64
-        let cssText = cssContents.join('\n\n');
-        for (const { file, base64 } of embeddedFonts) {
-            // החלף url('fonts/FILE') או url("fonts/FILE") עם base64
-            const patterns = [
-                `url('fonts/${file}')`,
-                `url("fonts/${file}")`,
-                `url(fonts/${file})`
-            ];
-            for (const pat of patterns) {
-                cssText = cssText.split(pat).join(`url(${base64})`);
-            }
-        }
-
-        // 5) בניית HTML עצמאי
-        const html = `<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>מסמך מרונדר — ייצוא</title>
-<style>
-${cssText}
-
-/* === CSS Variables מהשורש (אחרי ה-CSS כדי לגבור על :root) === */
-:root {
-    ${cssVars.join('\n    ')}
-}
-
-/* === סגנונות ייצוא — מציגים רק את הספר === */
-html, body {
-    margin: 0;
-    padding: 0;
-    background: #334155;
-    font-family: 'Assistant', sans-serif;
-    height: auto !important;
-    overflow: visible !important;
-}
-body {
-    padding: 20px 0;
-}
-#sidebar, #text-pane, #settings-pane, #resizer, #measuring-box {
-    display: none !important;
-}
-#preview-pane {
-    display: flex !important;
-    position: static !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    padding: 20px 0 !important;
-    float: none !important;
-    width: 100% !important;
-    flex: none !important;
-    background: #334155 !important;
-}
-#book-container {
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    will-change: auto !important;
-    transition: none !important;
-}
-.a4-page {
-    margin: 0 auto 25px !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
-    background: #ffffff !important;
-    transform: none !important;
-    flex-shrink: 0;
-}
-/* ביטול @media print — נציג הכל במסך */
-@media print {
-    .a4-page {
-        page-break-after: always;
-    }
-}
-</style>
-</head>
-<body>
-${clone.outerHTML}
-<script>
-// המתן לטעינת כל הגופנים, ואז הכרח את הדפדפן לחשב מחדש את ה-layout.
-// חיוני: בלי זה, הדפדפן עשוי להשתמש ב-fallback זמני ולחשב מדדים שגויים.
-if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(() => {
-        // אלץ reflow
-        document.body.offsetHeight;
-    });
-}
-</script>
-</body>
-</html>`;
-
-        // 6) הורדה
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'rendered-document.html';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-        if (btn) {
-            btn.textContent = '✓ יוצא';
-            setTimeout(() => {
-                btn.textContent = '💾 ייצוא HTML';
-                btn.disabled = false;
-            }, 2000);
-        }
-        console.log('✓ HTML מרונדר יוצא');
-    } catch (e) {
-        console.error('exportRenderedHTML נכשל:', e);
-        if (btn) {
-            btn.textContent = '💾 ייצוא HTML';
-            btn.disabled = false;
-        }
-        alert('ייצוא HTML נכשל: ' + e.message);
-    }
-}
-
-window.exportRenderedHTML = exportRenderedHTML;
-
-/* ==========================================================================
-   מערכת טאבים לסרגל הצידי — חלק קבוע של התוכנה
-   ==========================================================================
-   3 טאבים: עורך | הגדרות | בדיקה
-   ========================================================================== */
-
-function initTabSystem() {
-    if (document.getElementById('tab-bar')) return;
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-
-    const textPane = document.getElementById('text-pane');
-    const settingsPane = document.getElementById('settings-pane');
-    if (!textPane || !settingsPane) return;
-
-    // 1. הסר את ה-collapse-strip של settings-pane
-    const collapseStrip = settingsPane.querySelector('.collapse-strip');
-    if (collapseStrip) collapseStrip.remove();
-
-    // 2. הגדל את text-pane ו-settings-pane לרוחב מלא
-    textPane.style.width = '100%';
-    textPane.style.borderLeft = 'none';
-    textPane.style.flexShrink = '1';
-    textPane.style.height = '100%';
-    settingsPane.style.display = 'none';
-    settingsPane.classList.remove('collapsed');
-    settingsPane.style.width = '100%';
-    settingsPane.style.height = '100%';
-    settingsPane.style.borderLeft = 'none';
-    settingsPane.style.flexShrink = '1';
-    settingsPane.style.flexDirection = 'column';
-
-    // 3. הוסף דרופדאון סגנונות + ייבוא/ייצוא לטאב ההגדרות
-    if (typeof initStyleSetDropdown === 'function') initStyleSetDropdown();
-
-    // 4. צור טאב בדיקה
-    const debugPane = document.createElement('div');
-    debugPane.id = 'tab-debug';
-    debugPane.style.cssText = 'display:none;flex:1;flex-direction:column;overflow-y:auto;padding:8px;background:#f8fafc;';
-    debugPane.innerHTML = `
-        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
-            <button id="btn-seeded" class="btn-tool btn-secondary" style="flex:1;" title="טקסט קבוע">📋 מסמך קבוע</button>
-            <button id="btn-random" class="btn-tool btn-secondary" style="flex:1;" title="טקסט רנדומלי">🎲 מסמך רנדומלי</button>
-            <button id="btn-report-window" class="btn-tool btn-secondary" style="flex:1;" title="דוח עימוד בחלון נפרד">📊 דוח עימוד</button>
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
-            <button id="btn-retypeset-debug" class="btn-tool btn-primary" style="flex:1;" title="עדכן ועמד מחדש">⚡ עדכן ועמד מחדש</button>
-            <button id="btn-import-debug" class="btn-tool btn-import" style="flex:1;" title="ייבוא טקסט">📄 ייבוא טקסט</button>
-            <input type="file" id="file-import-debug" accept=".txt,.text,.md" style="display:none;">
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
-            <button id="btn-refresh-debug" class="btn-tool btn-secondary" style="flex:0.5;" title="רענן דוח">🔄 רענן</button>
-            <button id="btn-export-marked" class="btn-tool btn-primary" style="flex:1;" title="ייצא HTML ממורקר">💾 ייצוא HTML ממורקר</button>
-            <button id="btn-toggle-trace" class="btn-tool btn-secondary" style="flex:1;" title="מעקב אחרי קריאות פונקציות">🔍 מעקב פונקציות</button>
-        </div>
-        <div id="debug-report-view">
-            <div id="debug-summary"></div>
-            <div id="debug-blocks-table" style="margin-top:12px;"></div>
-            <div id="debug-issues-list" style="margin-top:12px;"></div>
-        </div>
-        <div id="trace-view" style="display:none;flex-direction:column;"></div>
-    `;
-    sidebar.appendChild(debugPane);
-
-    // 5. צור שורת טאבים
-    const tabBar = document.createElement('div');
-    tabBar.id = 'tab-bar';
-    tabBar.style.cssText = 'display:flex;flex-direction:row;background:#1e293b;flex-shrink:0;border-bottom:2px solid #334155;';
-    tabBar.innerHTML = `
-        <button class="tab-btn" data-tab="text-pane" style="flex:1;padding:8px 4px;border:none;background:#334155;color:#e2e8f0;cursor:pointer;font-size:9pt;font-family:inherit;">✍️ עורך</button>
-        <button class="tab-btn" data-tab="settings-pane" style="flex:1;padding:8px 4px;border:none;background:#1e293b;color:#94a3b8;cursor:pointer;font-size:9pt;font-family:inherit;">⚙️ הגדרות</button>
-        <button class="tab-btn" data-tab="tab-debug" style="flex:1;padding:8px 4px;border:none;background:#1e293b;color:#94a3b8;cursor:pointer;font-size:9pt;font-family:inherit;">🔬 בדיקה</button>
-    `;
-    sidebar.insertBefore(tabBar, sidebar.firstChild);
-
-    // 6. הגדר את ה-sidebar כ-flex column
-    sidebar.style.flexDirection = 'column';
-    sidebar.style.width = '440px';
-
-    // 7. טפל בלחיצות טאב
-    tabBar.querySelectorAll('.tab-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() { switchTab(this.dataset.tab); });
-    });
-
-    // 8. חבר לחצני טאב הבדיקה
-    document.getElementById('btn-seeded').addEventListener('click', function() {
-        if (typeof generateTestTextSeeded === 'function') {
-            var text = generateTestTextSeeded();
-            if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
-            setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
-        }
-    });
-    document.getElementById('btn-random').addEventListener('click', function() {
-        if (typeof generateTestText === 'function') {
-            var text = generateTestText();
-            if (typeof renderEditorContent === 'function') renderEditorContent(text, []);
-            setTimeout(function() { if (typeof typesetDocument === 'function') typesetDocument(); }, 500);
-        }
-    });
-    document.getElementById('btn-report-window').addEventListener('click', function() {
-        if (typeof generateLayoutReport === 'function') generateLayoutReport();
-    });
-    document.getElementById('btn-retypeset-debug').addEventListener('click', function() {
-        if (typeof typesetDocument === 'function') typesetDocument();
-    });
-    document.getElementById('btn-import-debug').addEventListener('click', function() {
-        document.getElementById('file-import-debug').click();
-    });
-    document.getElementById('file-import-debug').addEventListener('change', function(e) {
-        if (typeof handleTxtFileImport === 'function') handleTxtFileImport(e);
-    });
-    document.getElementById('btn-refresh-debug').addEventListener('click', function() {
-        if (typeof runDebugReport === 'function') runDebugReport();
-    });
-    document.getElementById('btn-export-marked').addEventListener('click', function() {
-        if (typeof exportMarkedHTML === 'function') exportMarkedHTML();
-    });
-    const btnToggleTrace = document.getElementById('btn-toggle-trace');
-    if (btnToggleTrace) {
-        btnToggleTrace.addEventListener('click', function() {
-            if (typeof window.__traceGetState === 'function') {
-                const st = window.__traceGetState();
-                const newMode = (st.viewMode === 'trace') ? 'report' : 'trace';
-                window.__traceSetViewMode(newMode);
-            }
-        });
-    }
-
-    // 9. טאב ברירת מחדל: עורך
-    switchTab('text-pane');
-}
-
-function switchTab(tabId) {
-    const textPane = document.getElementById('text-pane');
-    const settingsPane = document.getElementById('settings-pane');
-    const debugPane = document.getElementById('tab-debug');
-    const tabBar = document.getElementById('tab-bar');
-    if (!textPane || !settingsPane || !tabBar) return;
-
-    textPane.style.display = 'none';
-    settingsPane.style.display = 'none';
-    if (debugPane) debugPane.style.display = 'none';
-
-    const target = document.getElementById(tabId);
-    if (target) target.style.display = 'flex';
-
-    tabBar.querySelectorAll('.tab-btn').forEach(function(b) {
-        b.style.background = '#1e293b';
-        b.style.color = '#94a3b8';
-    });
-    const activeBtn = tabBar.querySelector('[data-tab="' + tabId + '"]');
-    if (activeBtn) {
-        activeBtn.style.background = '#334155';
-        activeBtn.style.color = '#e2e8f0';
-    }
-
-    if (tabId === 'tab-debug') {
-        if (typeof runDebugReport === 'function') runDebugReport();
-    } else {
-        if (typeof clearBlockMarkers === 'function') clearBlockMarkers();
-    }
-}
-
-window.initTabSystem = initTabSystem;
-window.switchTab = switchTab;
+};
