@@ -2570,24 +2570,9 @@ function finalizeTwoColumnBlockLayout(block, bodyFlow, pageEl, styleObj, colWidt
 
             // דליל = הרוחב האמיתי פחות מ-60% מרוחב הטור
             if (lastLineFillPct < 0.6) {
-                // דחוף את המילים האחרונות ל-p-end
-                // נשתמש ב-getLinesFromParagraph כדי לאמוד כמה מילים בשורה האחרונה,
-                // אבל ניקח יותר מילים כדי להיות בטוחים
-                let wordsToPush = [];
-                try {
-                    const rLinesInfo = getLinesFromParagraph(rText, colRect.width, styleObj, false);
-                    if (rLinesInfo.lines.length > 0) {
-                        const lastLine = rLinesInfo.lines[rLinesInfo.lines.length - 1];
-                        wordsToPush = lastLine.trim().split(/\s+/).filter(w => w.length > 0);
-                    }
-                } catch(e) { return; }
-                
-                // אם getLinesFromParagraph אומר שיש 6 מילים אבל בפועל יש רווח גדול,
-                // ניקח רק את המילים שאחרי הרווח הגדול
-                if (wordsToPush.length > 4) {
-                    // נסה לקחת רק 3-4 מילים אחרונות
-                    wordsToPush = wordsToPush.slice(-4);
-                }
+                // דחוף את 3 המילים האחרונות ל-p-end
+                // אנחנו יודעים שהשורה האחרונה דלילה, אז נדחוף מספר קבוע של מילים
+                const wordsToPush = rWords.slice(-3);
                 
                 // הסר את המילים האחרונות מה-p-cut
                 const newRWords = rWords.slice(0, rWords.length - wordsToPush.length);
