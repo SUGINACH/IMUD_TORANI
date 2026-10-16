@@ -1270,3 +1270,37 @@ tradeoff טבעי של KP — פיזור אחיד של רווחים על חשב�
 - כל הסטים (קונטרס/פרשנות/תלמוד) עודכנו לשמות גופנים אנגליים
 - loadStyleSetsList פשוטה ואמינה (בלי GitHub API)
 - ממשק נקי בטעינה (הודעת "טוען" במקום פאנלים ישנים)
+
+---
+
+## Task ID: v19-fix-fonts-settings-review-2026-10-16
+**Agent:** main (Super Z)
+**Date:** 2026-10-16 (later)
+**Task:** תיקון 2 הגדרות לא תואמות + יצירת דף HTML לסקירת הגדרות
+
+### Work Log:
+
+#### תיקון f-sh-desc ו-f-h4:
+- **הבעיה:** הערכים ב-default_settings.json (`'Livorna', 'Frank Ruhl Libre', serif` ו-`'Alpha', 'Frank Ruhl Libre', serif`) לא התאימו לאף option ב-select, כי ה-options הכילו רק `'Livorna', 'David Libre', serif` ו-`'Alpha', 'Noto Serif Hebrew', serif`.
+- **הפתרון:** הוספתי 2 options חדשים ל-initFontPickers ב-app.js:
+  - "ליבורנה (Livorna) + פרנק רוהל" → `'Livorna', 'Frank Ruhl Libre', serif`
+  - "אלפא (Alpha) + פרנק רוהל" → `'Alpha', 'Frank Ruhl Libre', serif`
+- **תוצאה:** f-sh-desc ו-f-h4 כעת נטענים נכון מ-default_settings.json.
+
+#### דף HTML לסקירת הגדרות:
+- נוצר סקריפט `scripts/generate-settings-review.js` ש:
+  1. טוען את המערכת ב-Playwright
+  2. אוסף את כל 233 ההגדרות עם: id, type, label, value, panel
+  3. מייצר דף HTML אינטראקטיבי
+- הדף כולל:
+  - 9 פאנלים ממוינים מ-1 עד 10 (פאנל 3 חסר — אין בו הגדרות)
+  - לכל הגדרה: צ'קבוקס "שמור" (מסומן) + צ'קבוקס "מיידי" (לא מסומן) + תיבת הערות
+  - כפתורי: סמן הכל / בטל הכל / פתח הכל / סגור הכל / ייצוא JSON
+  - סטטיסטיקה חיה: "שמור: X/233 | מיידי: Y"
+  - ייצוא ל-JSON עם: id, label, type, currentValue, keep, immediate, notes
+- הקובץ נשמר ל-`/home/z/my-project/download/settings-review.html` (110KB)
+
+### Stage Summary:
+- תוקנו 2 הגדרות לא תואמות (f-sh-desc, f-h4)
+- נוצר דף HTML אינטראקטיבי לסקירת כל 233 ההגדרות
+- הדף מאפשר: סימון/ביטול הגדרות, הגדרת טעינה מיידית, הערות, ייצוא
