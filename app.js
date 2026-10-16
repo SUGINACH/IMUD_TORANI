@@ -1,24 +1,6 @@
 /* ==========================================================================
-   מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
-   קובץ: app.js
-   ==========================================================================
-   הסבר על השילוב והמיזוג שבוצע בקובץ זה:
-   1. שחזור סורק התיקיות המקומי מגרסה 2 (חלוקת.txt):
-      - הוטמעו הפונקציות 'triggerAssetsFolderPick' ו-'handleAssetsFolderSelected'
-        המאפשרות בחירת תיקייה שלמה מהמחשב וטעינת כל העיטורים והשערים שבה
-        ישירות לבוררים הוויזואליים בזיכרון, ללא תלות בשרת מקומי.
-   2. אבטחת טעינת גופנים מגרסה 4 (עדכון.txt):
-      - הפונקציה 'ensureBuiltinFontsLoaded' מוודאת שכל גופני הרשת נטענו במלואם
-        לפני העימוד הראשון, ובכך מחסלת את באג ה-Layout Shift ומדידות הגובה השגויות.
-   3. ניהול תיבות שער וייצוא JSON:
-      - שילוב כפתורי ייצוא ה-JSON מגרסה 4 ('exportShaarJSONWithPositions') המאפשרים
-        לשמור את מיקומי העכבר כקובץ JSON קבוע להחלפה במאגר המקורי.
-      - שילוב כפתורי האיפוס מגרסה 3 ('resetCurrentShaarBoxPosition').
-   4. בקרת שינויים ממתינים (Pending Changes):
-      - הוטמעו הפונקציות 'markPendingChanges' ו-'clearPendingChanges' המדליקות
-        חיווי פעימה זוהר על כפתור העימוד בעת שינוי הגדרות ללא הקפאת המסך.
-   5. סנכרון ממדים דינמי ('applyHeadingOrnamentTextFit'):
-      - מדידת פיקסלים אמיתית ב-DOM עבור כותרת 2, כותרת 3 ועיטורי צד עצמאיים.
+   app.js - ניהול ממשק משתמש, סרגל צד, עורך טקסט חכם, זום ואתחול
+   חלק א' מתוך ב': עורך, ממשק, תוספים, שמירת תבנית וזום רספונסיבי
    ========================================================================== */
 
 const resizer = document.getElementById('resizer');
@@ -26,12 +8,8 @@ const sidebar = document.getElementById('sidebar');
 const editorElem = document.getElementById('raw-input');
 let isResizing = false;
 
-/* מבנים גלובליים לתיאום מיקומי שערים ונכסים טעונים */
-window.shaarBoxSavedPositions = window.shaarBoxSavedPositions || { main: {}, back: {}, sub: {} };
-window.loadedShaarItems = window.loadedShaarItems || { main: {}, back: {}, sub: {} };
-
 /* ==========================================================================
-   1. סרגל הצד (Sidebar Resizer) ובקרת פאנל הגדרות
+   גרירת שינוי גודל לסרגל הבקרה
    ========================================================================== */
 if (resizer && sidebar) {
     resizer.addEventListener('mousedown', () => {
@@ -61,6 +39,9 @@ if (resizer && sidebar) {
     });
 }
 
+/* ==========================================================================
+   כיווץ והרחבה של לוח ההגדרות
+   ========================================================================== */
 function toggleSettingsPane() {
     const sp = document.getElementById('settings-pane');
     if (!sp) return;
@@ -75,13 +56,8 @@ function toggleSettingsPane() {
 
 function togglePanelBody(bodyId) {
     const body = document.getElementById(bodyId);
-    if (!body) return;
-    const isHidden = (body.style.display === 'none' || getComputedStyle(body).display === 'none');
-    body.style.display = isHidden ? 'block' : 'none';
-    const header = body.previousElementSibling;
-    const indicator = header ? header.querySelector('.panel-toggle-indicator') : null;
-    if (indicator) {
-        indicator.textContent = isHidden ? '▲ סגור' : '▼ פתח';
+    if (body) {
+        body.style.display = (body.style.display === 'none') ? 'block' : 'none';
     }
 }
 
@@ -94,19 +70,8 @@ function toggleCbgSubRows(role, mode) {
     if (rowOp) rowOp.style.display = (mode === 'image') ? 'flex' : 'none';
 }
 
-/* סימון ויזואלי של שינויי הגדרות הממתינים לעימוד */
-function markPendingChanges() {
-    const btn = document.getElementById('btn-retypeset');
-    if (btn) btn.classList.add('has-pending-changes');
-}
-
-function clearPendingChanges() {
-    const btn = document.getElementById('btn-retypeset');
-    if (btn) btn.classList.remove('has-pending-changes');
-}
-
 /* ==========================================================================
-   2. ניהול עורך הטקסט, חילוץ תוכן נקי וחוצצי מעברי עמוד
+   ניהול עורך הטקסט, חילוץ טקסט נקי וחוצצי מעברי עמוד
    ========================================================================== */
 function getCleanEditorText() {
     const el = document.getElementById('raw-input');
@@ -227,9 +192,9 @@ function handleTxtFileImport(event) {
     event.target.value = '';
 }
 
-/* ==========================================================================
-   3. סנכרון תצוגה מקדימה, גלילה ומיקוד עורך
-   ========================================================================== */
+/* ============================================================
+   התמקדות, גלילה וסנכרון תצוגה מקדימה
+   ============================================================ */
 const bookContainerEl = document.getElementById('book-container');
 if (bookContainerEl) {
     bookContainerEl.addEventListener('click', (e) => {
@@ -308,9 +273,9 @@ if (editorElem) {
     });
 }
 
-/* ==========================================================================
-   4. זום רספונסיבי מדויק לדפי A4
-   ========================================================================== */
+/* ============================================================
+   זום רספונסיבי מלא לדפי A4
+   ============================================================ */
 function updatePreviewScale() {
     const previewPane = document.getElementById('preview-pane');
     const bookContainer = document.getElementById('book-container');
@@ -339,196 +304,9 @@ if (window.ResizeObserver && document.getElementById('preview-pane')) {
     ro.observe(document.getElementById('preview-pane'));
 }
 
-/* ==========================================================================
-   5. כוונון תיבות שער בעכבר (Drag & Resize) וייצוא קובצי JSON
-   ========================================================================== */
-function toggleShaarBoxEditor() {
-    const cb = document.getElementById('enable-shaar-box-editor');
-    if (cb && !cb.checked) {
-        document.body.classList.add('hide-shaar-editor');
-    } else {
-        document.body.classList.remove('hide-shaar-editor');
-    }
-}
-
-function initShaarBoxResizer() {
-    let activeDrag = null;
-
-    document.addEventListener('mousedown', (e) => {
-        const dragBar = e.target.closest('.shaar-drag-bar');
-        const handle = e.target.closest('.shaar-resize-handle');
-        if (!dragBar && !handle) return;
-
-        const box = (dragBar || handle).closest('.theme-bounded-content');
-        const page = box ? box.closest('.a4-page') : null;
-        if (!box || !page) return;
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        const pageRect = page.getBoundingClientRect();
-        const boxRect = box.getBoundingClientRect();
-
-        const curTop = ((boxRect.top - pageRect.top) / pageRect.height) * 297;
-        const curBottom = ((pageRect.bottom - boxRect.bottom) / pageRect.height) * 297;
-        const curRight = ((pageRect.right - boxRect.right) / pageRect.width) * 210;
-        const curLeft = ((boxRect.left - pageRect.left) / pageRect.width) * 210;
-
-        activeDrag = {
-            box,
-            page,
-            shaarType: box.getAttribute('data-shaar-type') || 'main',
-            shaarId: box.getAttribute('data-shaar-id') || '',
-            isMove: !!dragBar,
-            handleType: handle ? handle.getAttribute('data-handle') : null,
-            startX: e.clientX,
-            startY: e.clientY,
-            pageW: pageRect.width,
-            pageH: pageRect.height,
-            initTop: curTop,
-            initBottom: curBottom,
-            initRight: curRight,
-            initLeft: curLeft
-        };
-        document.body.style.userSelect = 'none';
-    });
-
-    window.addEventListener('mousemove', (e) => {
-        if (!activeDrag) return;
-        const dx_mm = ((e.clientX - activeDrag.startX) / activeDrag.pageW) * 210;
-        const dy_mm = ((e.clientY - activeDrag.startY) / activeDrag.pageH) * 297;
-
-        let { initTop, initBottom, initRight, initLeft, isMove, handleType, box, shaarType, shaarId } = activeDrag;
-        let nTop = initTop, nBottom = initBottom, nRight = initRight, nLeft = initLeft;
-
-        if (isMove) {
-            nTop = Math.max(5, initTop + dy_mm);
-            nBottom = Math.max(5, initBottom - dy_mm);
-            nRight = Math.max(5, initRight - dx_mm);
-            nLeft = Math.max(5, initLeft + dx_mm);
-        } else if (handleType) {
-            if (handleType.includes('t')) nTop = Math.max(5, initTop + dy_mm);
-            if (handleType.includes('b')) nBottom = Math.max(5, initBottom - dy_mm);
-            if (handleType.includes('r')) nRight = Math.max(5, initRight - dx_mm);
-            if (handleType.includes('l')) nLeft = Math.max(5, initLeft + dx_mm);
-        }
-
-        box.style.top = nTop.toFixed(1) + 'mm';
-        box.style.bottom = nBottom.toFixed(1) + 'mm';
-        box.style.right = nRight.toFixed(1) + 'mm';
-        box.style.left = nLeft.toFixed(1) + 'mm';
-
-        const tEl = document.getElementById(`builder-${shaarType}-top`);
-        const bEl = document.getElementById(`builder-${shaarType}-bottom`);
-        const rEl = document.getElementById(`builder-${shaarType}-right`);
-        const lEl = document.getElementById(`builder-${shaarType}-left`);
-        if (tEl) tEl.value = Math.round(nTop);
-        if (bEl) bEl.value = Math.round(nBottom);
-        if (rEl) rEl.value = Math.round(nRight);
-        if (lEl) lEl.value = Math.round(nLeft);
-
-        /* שמירה פרטנית ומדויקת לפי מזהה השער הספציפי */
-        if (shaarId && window.shaarBoxSavedPositions) {
-            if (!window.shaarBoxSavedPositions[shaarType]) window.shaarBoxSavedPositions[shaarType] = {};
-            window.shaarBoxSavedPositions[shaarType][shaarId] = {
-                top: nTop.toFixed(1), bottom: nBottom.toFixed(1), right: nRight.toFixed(1), left: nLeft.toFixed(1)
-            };
-        }
-    });
-
-    window.addEventListener('mouseup', () => {
-        if (activeDrag) {
-            activeDrag = null;
-            document.body.style.userSelect = '';
-        }
-    });
-}
-initShaarBoxResizer();
-
-function resetCurrentShaarBoxPosition(shaarType) {
-    const sel = document.getElementById(`select-shaar-${shaarType}`);
-    const shaarId = sel ? sel.value : 'theme_default';
-    if (window.shaarBoxSavedPositions && window.shaarBoxSavedPositions[shaarType]) {
-        delete window.shaarBoxSavedPositions[shaarType][shaarId];
-    }
-    typesetDocument();
-}
-
-function exportShaarJSONWithPositions(typeKey) {
-    const items = window.loadedShaarItems[typeKey];
-    if (!items || Object.keys(items).length === 0) {
-        alert('לא נטענו שערים מקובצי JSON עבור סוג זה — אין נתונים לייצוא.');
-        return;
-    }
-    const filenameMap = { main: 'shaar_main.json', sub: 'shaar_sub.json', back: 'shaar_back.json' };
-    const output = Object.keys(items).map(id => {
-        const item = items[id];
-        const saved = window.shaarBoxSavedPositions[typeKey] && window.shaarBoxSavedPositions[typeKey][id];
-        const entry = { id: item.id, name: item.name, svg: item.svg };
-        if (saved) entry.box = saved;
-        else if (item.box) entry.box = item.box;
-        return entry;
-    });
-    const blob = new Blob([JSON.stringify(output, null, 2)], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filenameMap[typeKey] || (typeKey + '.json');
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-/* ==========================================================================
-   6. סנכרון ממדים דינמי ב-DOM (Text-Fit לרוחב כותרת 2 וגובה עיטורי צד)
-   ========================================================================== */
-function applyHeadingOrnamentTextFit() {
-    document.querySelectorAll('.h2-ornament-top, .h2-ornament-bottom').forEach(ornWrap => {
-        const fitInner = ornWrap.querySelector('.heading-ornament-wrap.fit-heading-text');
-        if (!fitInner) return;
-        const isTop = ornWrap.classList.contains('h2-ornament-top');
-        const targetEl = isTop ? ornWrap.nextElementSibling : ornWrap.previousElementSibling;
-        if (!targetEl) return;
-        const textWidth = targetEl.offsetWidth;
-        if (textWidth > 0) {
-            fitInner.style.width = textWidth + 'px';
-            fitInner.style.maxWidth = '90%';
-        }
-    });
-
-    document.querySelectorAll('.block-h3-span').forEach(wrap => {
-        const textEl = wrap.querySelector('.h3-title-text');
-        if (!textEl) return;
-        const textHeight = textEl.offsetHeight;
-        if (textHeight > 0) {
-            wrap.querySelectorAll('.h3-ornament-right, .h3-ornament-left').forEach(ornEl => {
-                ornEl.style.height = textHeight + 'px';
-                ornEl.style.maxHeight = textHeight + 'px';
-                const inner = ornEl.querySelector('.side-ornament-wrap, svg, img');
-                if (inner) {
-                    inner.style.height = textHeight + 'px';
-                    inner.style.maxHeight = textHeight + 'px';
-                    inner.style.width = 'auto';
-                }
-            });
-        }
-    });
-
-    document.querySelectorAll('.block-h2-title-side').forEach(wrap => {
-        const textEl = wrap.querySelector('.title-level-2-standalone');
-        if (!textEl) return;
-        const textHeight = textEl.offsetHeight;
-        if (textHeight > 0) {
-            wrap.querySelectorAll('.h2-title-ornament-right, .h2-title-ornament-left').forEach(ornEl => {
-                ornEl.style.height = textHeight + 'px';
-                ornEl.style.maxHeight = textHeight + 'px';
-            });
-        }
-    });
-}
-
-/* ==========================================================================
-   7. ניהול ערכות נושא מותאמות אישית (Custom Themes)
-   ========================================================================== */
+/* ============================================================
+   ניהול ערכות נושא מותאמות אישית
+   ============================================================ */
 let customThemes = [];
 
 function addNewCustomTheme() {
@@ -574,6 +352,10 @@ function addNewCustomTheme() {
 
     const select = document.getElementById('active-theme-select');
     if (select) select.value = themeObj.id;
+    // תיקון: אחרי בחירת ערכה מובנית שלושת בוררי השערים נשארו על אותה ערכה מובנית ולכן הערכה החדשה לא הוצגה.
+    // מחזירים אותם ל"לפי ערכה" ומרעננים את הבורר החזותי (תווית + רשימת הכרטיסים כוללת את הערכה החדשה)
+    syncThemeToIndividualShaars();
+    refreshVisualPicker('active-theme-select');
 
     alert(`ערכת הנושא "${name}" הוטמעה בהצלחה!`);
     typesetDocument();
@@ -581,8 +363,16 @@ function addNewCustomTheme() {
 
 function deleteCustomTheme(themeId) {
     if (!confirm('האם ברצונך למחוק ערכת נושא זו?')) return;
+    const activeSel = document.getElementById('active-theme-select');
+    const wasActive = !!activeSel && activeSel.value === themeId;
     customThemes = customThemes.filter(t => t.id !== themeId);
     refreshCustomThemesUI();
+    // תיקון: מחיקת הערכה הפעילה השאירה את הבורר בלי בחירה (ערך ריק) - חוזרים לערכה המובנית הראשונה
+    if (wasActive && activeSel) {
+        activeSel.value = 'builtin_1';
+        syncThemeToIndividualShaars();
+    }
+    refreshVisualPicker('active-theme-select');
     typesetDocument();
 }
 
@@ -622,9 +412,9 @@ function refreshCustomThemesUI() {
     if (select && currentVal) select.value = currentVal;
 }
 
-/* ==========================================================================
-   8. תוספים חיצוניים (Extensions: סוגי עמוד, סגנונות טקסט ותמונות)
-   ========================================================================== */
+/* ============================================================
+   ניהול תוספים (Extensions)
+   ============================================================ */
 let importedPageTypes = [];
 let importedTextStyles = [];
 let importedImagePages = [];
@@ -716,13 +506,13 @@ function buildExtPanel(kind, instanceId, name, def) {
     const icon = kind === 'pageType' ? '📄' : kind === 'textStyle' ? '🅰️' : '🖼️';
     let triggerInfo = '';
     if (kind === 'textStyle' && def && def.trigger) {
-        triggerInfo = (def.trigger.type === 'delimiterPair') ? `<div style="font-size:7.5pt;color:#888;">טריגר: בין "${def.trigger.open}" ל-"${def.trigger.close}"</div>` : `<div style="font-size:7.5pt;color:#888;">קידומת: "${def.trigger.prefix}"</div>`;
+        triggerInfo = (def.trigger.type === 'delimiterPair') ? `<div style="font-size:7.5pt;color:#888;overflow-wrap:anywhere;">טריגר: בין "${def.trigger.open}" ל-"${def.trigger.close}"</div>` : `<div style="font-size:7.5pt;color:#888;overflow-wrap:anywhere;">קידומת: "${def.trigger.prefix}"</div>`;
     }
     const anchorRow = (kind !== 'textStyle') ? `<div class="inline-cfg-row"><label>מיקום:</label><select id="${instanceId}-anchor" onchange="updateExtAnchor('${kind}','${instanceId}', this.value)">${EXT_ANCHOR_OPTIONS.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>` : '';
     panel.innerHTML = `
-    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>${icon} ${name}</span>
-      <span style="cursor:pointer;color:#a33;font-weight:700;" onclick="removeExtInstance('${kind}','${instanceId}')">✕ הסר</span>
+    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${String(name).replace(/"/g, '&quot;')}">${icon} ${name}</span>
+      <span style="cursor:pointer;color:#a33;font-weight:700;flex-shrink:0;" onclick="removeExtInstance('${kind}','${instanceId}')">✕ הסר</span>
     </div>
     ${triggerInfo}
     ${anchorRow}
@@ -757,7 +547,7 @@ function findPrefixLineInSource(rawText, prefix) {
     const lines = rawText.split('\n');
     for (const line of lines) {
         const t = line.trim();
-        if (t.startsWith(prefix)) return t.slice(prefix.length).replace(/^[:\-–—]\s*/, '').trim();
+        if (t.startsWith(prefix)) return t.slice(prefix.length).replace(/^\s*[:\-–—]\s*/, '').trim();
     }
     return null;
 }
@@ -838,6 +628,9 @@ function findExtTextStyle(instanceId) {
     return importedTextStyles.find(x => x.instanceId === instanceId);
 }
 
+/* ============================================================
+   העלאת קובצי תמונה ו-SVG
+   ============================================================ */
 function handleImageUpload(event, targetInputId) {
     const file = event.target.files[0];
     if (!file) return;
@@ -856,7 +649,7 @@ function handleImageUpload(event, targetInputId) {
             if (targetInput) {
                 targetInput.value = dataUrl;
                 targetInput.setAttribute('value', dataUrl);
-                typesetDocument();
+                applyUploadedImageSetting(targetInputId);
             }
         };
         reader.readAsText(file);
@@ -866,16 +659,16 @@ function handleImageUpload(event, targetInputId) {
             if (targetInput) {
                 targetInput.value = e.target.result;
                 targetInput.setAttribute('value', e.target.result);
-                typesetDocument();
+                applyUploadedImageSetting(targetInputId);
             }
         };
         reader.readAsDataURL(file);
     }
 }
 
-/* ==========================================================================
-   9. שמירת תבנית מלאה (Save Template) כולל מיקומי שערים ותוספים
-   ========================================================================== */
+/* ============================================================
+   שמירת תבנית מלאה (Save Template) כולל כל ההגדרות החדשות
+   ============================================================ */
 function saveAsDefaultTemplate() {
     let dataIsland = document.getElementById('ext-imports-data');
     if (!dataIsland) {
@@ -889,14 +682,11 @@ function saveAsDefaultTemplate() {
         textStyles: importedTextStyles,
         imagePages: importedImagePages,
         customThemes: customThemes,
-        shaarBoxPositions: window.shaarBoxSavedPositions
+        shaarBoxCalib: shaarBoxCalib
     });
 
     document.querySelectorAll('input[type="text"], input[type="number"], input[type="hidden"], input[type="color"], input[type="range"]').forEach(input => {
         input.setAttribute('value', input.value);
-    });
-    document.querySelectorAll('textarea').forEach(ta => {
-        ta.textContent = ta.value;
     });
     document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
         if (cb.checked) cb.setAttribute('checked', 'checked');
@@ -921,11 +711,62 @@ function saveAsDefaultTemplate() {
     const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'torani-master-template.html';
+    a.download = 'torani-typesetting-template.html';
     a.click();
     URL.revokeObjectURL(a.href);
 }
 
+/* ============================================================
+   טעינת גופני מערכת מקומיים
+   ============================================================ */
+async function loadSystemFonts() {
+    if ('queryLocalFonts' in window) {
+        try {
+            const availableFonts = await window.queryLocalFonts();
+            const fontFamilies = [...new Set(availableFonts.map(f => f.family))].sort((a, b) => a.localeCompare(b, 'he'));
+
+            if (fontFamilies.length > 0) {
+                document.querySelectorAll('.font-picker').forEach(select => {
+                    const currentVal = select.value;
+                    // לא מוחקים את הרשימה: גופני הרשת המובנים והגופנים המקומיים נשארים (ובהם ברירות המחדל),
+                    // ורק קבוצת "גופני מחשב" מתווספת/מתחדשת. (קודם הרשימה נמחקה כולה, ולכן כל ברירות המחדל נעלמו)
+                    select.querySelectorAll('optgroup[data-sys-fonts]').forEach(g => g.remove());
+
+                    const sysGroup = document.createElement('optgroup');
+                    sysGroup.label = `גופני מחשב (${fontFamilies.length} נמצאו)`;
+                    sysGroup.setAttribute('data-sys-fonts', '1');
+
+                    fontFamilies.forEach(family => {
+                        const opt = document.createElement('option');
+                        opt.value = `'${family}', serif`;
+                        opt.textContent = family;
+                        sysGroup.appendChild(opt);
+                    });
+
+                    select.appendChild(sysGroup);
+                    // משחזרים את הבחירה הקודמת; אם הערך לא קיים ברשימה - מוסיפים אותו כדי שלא ייעלם
+                    select.value = currentVal;
+                    if (currentVal && select.value !== currentVal) {
+                        const keep = document.createElement('option');
+                        keep.value = currentVal;
+                        keep.textContent = currentVal.split(',')[0].replace(/['"]/g, '');
+                        select.insertBefore(keep, select.firstChild);
+                        select.value = currentVal;
+                    }
+                });
+                alert(`נטענו בהצלחה ${fontFamilies.length} גופנים מהמחשב!`);
+            }
+        } catch (err) {
+            alert('לא ניתנה הרשאה לגישה לגופני המחשב.');
+        }
+    } else {
+        alert('הדפדפן אינו תומך בגישה ישירה לגופני המערכת. מומלץ להשתמש ב-Chrome או Edge.');
+    }
+}
+
+/* ============================================================
+   שחזור הגדרות תוספים (Rehydrate)
+   ============================================================ */
 function rehydrateExtImports() {
     const island = document.getElementById('ext-imports-data');
     if (!island || !island.textContent.trim()) return;
@@ -947,8 +788,8 @@ function rehydrateExtImports() {
         customThemes = data.customThemes;
         refreshCustomThemesUI();
     }
-    if (data.shaarBoxPositions && typeof data.shaarBoxPositions === 'object') {
-        window.shaarBoxSavedPositions = data.shaarBoxPositions;
+    if (data.shaarBoxCalib && typeof data.shaarBoxCalib === 'object') {
+        shaarBoxCalib = data.shaarBoxCalib;
     }
     let maxCounter = 0;
     let maxSynth = 7;
@@ -960,324 +801,81 @@ function rehydrateExtImports() {
     extImportCounter = maxCounter;
     nextSyntheticLevel = maxSynth + 1;
 }
+/* ==========================================================================
+   app.js - ניהול ממשק משתמש, סרגל צד, עורך טקסט חכם, זום ואתחול
+   חלק ב' מתוך ב': איחוד ערכות JSON, בוררים ויזואליים, כוונון שערים ואתחול
+   (יש להדביק חלק זה מיד בהמשך חלק א')
+   ========================================================================== */
 
 /* ==========================================================================
-   10. אתחול מאגר הגופנים והמתנה לטעינת גופני רשת
+   מאגר גופנים מובנה להזנה ראשונית לכל בוררי הגופנים
    ========================================================================== */
-function initFontPickers() {
-    const defaultFonts = [
-        { label: "גופנים תורניים נפוצים", fonts: [
-            { name: "גוטמן רש\"י (Guttman Rashi)", val: "'Guttman Rashi', 'Frank Ruhl Libre', serif" },
-            { name: "פרנק-ריהל (Frank Ruhl Libre)", val: "'Frank Ruhl Libre', serif" },
-            { name: "דוד ליברה (David Libre)", val: "'David Libre', serif" },
-            { name: "נוטו סריף (Noto Serif Hebrew)", val: "'Noto Serif Hebrew', serif" },
-            { name: "בלפייר (Bellefair)", val: "'Bellefair', serif" },
-            { name: "ליבורנה (Livorna) + דוד", val: "'Livorna', 'David Libre', serif" },
-            { name: "ליבורנה (Livorna) + פרנק רוהל", val: "'Livorna', 'Frank Ruhl Libre', serif" },
-            { name: "אלפא בלק (AlphaBlack)", val: "'AlphaBlack', 'David Libre', serif" },
-            { name: "אלפא (Alpha) + נוטו", val: "'Alpha', 'Noto Serif Hebrew', serif" },
-            { name: "אלפא (Alpha) + פרנק רוהל", val: "'Alpha', 'Frank Ruhl Libre', serif" },
-            { name: "אלפא לייט (AlphaLight)", val: "'AlphaLight', 'David Libre', serif" },
-            { name: "ליה סגולה (Lia Sgula)", val: "'Lia Sgula', 'Bellefair', serif" },
-            { name: "פרנקרעאל (FrankReal)", val: "'FrankReal', 'Frank Ruhl Libre', serif" },
-            { name: "הדסה פרידלנדר (Hadassah)", val: "'Hadassah Friedlaender', 'David Libre', serif" },
-            { name: "אסיסטנט (Assistant)", val: "'Assistant', sans-serif" },
-            { name: "רוביק (Rubik)", val: "'Rubik', sans-serif" }
-        ]}
-    ];
+const BUILTIN_DEFAULT_FONTS = [
+    { value: "'David Libre', serif", label: "דוד ליברה (David Libre)" },
+    { value: "'Frank Ruhl Libre', serif", label: "פרנק-ריהל (Frank Ruhl)" },
+    { value: "'Noto Serif Hebrew', serif", label: "נוטו סריף (Noto Serif Hebrew)" },
+    { value: "'Bellefair', serif", label: "בלפייר (Bellefair)" },
+    { value: "'Guttman Rashi', 'Frank Ruhl Libre', serif", label: "כתב רש\"י (Rashi)" },
+    { value: "'Assistant', sans-serif", label: "אסיסטנט (Assistant)" },
+    { value: "'Rubik', sans-serif", label: "רוביק (Rubik)" }
+];
 
-    const pickerDefaults = {
-        'font-body': "'Guttman Rashi', 'Frank Ruhl Libre', serif",
-        'font-first-word': "'FrankReal', 'Frank Ruhl Libre', serif",
-        'f-dh': "'AlphaBlack', 'David Libre', serif",
-        'f-hdr-r': "'Livorna', 'David Libre', serif",
-        'f-hdr-c': "'Livorna', 'David Libre', serif",
-        'f-hdr-l': "'Livorna', 'David Libre', serif",
-        'f-hdr-verso-r': "'Livorna', 'David Libre', serif",
-        'f-hdr-verso-c': "'Livorna', 'David Libre', serif",
-        'f-hdr-verso-l': "'Livorna', 'David Libre', serif",
-        'f-h0': "'AlphaBlack', 'David Libre', serif",
-        'f-h0-body': "'Frank Ruhl Libre', serif",
-        'f-h1': "'Lia Sgula', 'Bellefair', serif",
-        'f-h2': "'AlphaBlack', 'David Libre', serif",
-        'f-siman': "'AlphaBlack', 'David Libre', serif",
-        'f-h3': "'Alpha', 'Noto Serif Hebrew', serif",
-        'f-h4': "'Alpha', 'Frank Ruhl Libre', serif",
-        'f-h5': "'AlphaLight', 'David Libre', serif",
-        'f-h6': "'Noto Serif Hebrew', serif",
-        'f-h7': "'Hadassah Friedlaender', 'David Libre', serif",
-        'f-sh-title': "'Lia Sgula', 'Bellefair', serif",
-        'f-sh-sub': "'Livorna', 'David Libre', serif",
-        'f-sh-desc': "'Livorna', 'Frank Ruhl Libre', serif",
-        'f-sh-sec': "'David Libre', serif",
-        'f-sh-author': "'David Libre', serif",
-        'f-sh-year': "'David Libre', serif",
-        'f-note-title': "'David Libre', serif",
-        'f-note-body': "'Frank Ruhl Libre', serif",
-        'f-gtoc-1': "'David Libre', serif", 'f-gtoc-2': "'David Libre', serif",
-        'f-gtoc-3': "'David Libre', serif", 'f-gtoc-4': "'David Libre', serif",
-        'f-gtoc-5': "'David Libre', serif", 'f-gtoc-6': "'David Libre', serif",
-        'f-gtoc-7': "'David Libre', serif",
-        'f-dtoc-1': "'David Libre', serif", 'f-dtoc-2': "'David Libre', serif",
-        'f-dtoc-3': "'David Libre', serif", 'f-dtoc-4': "'David Libre', serif",
-        'f-dtoc-5': "'David Libre', serif", 'f-dtoc-6': "'David Libre', serif",
-        'f-dtoc-7': "'David Libre', serif"
-    };
-
+function initDefaultFonts() {
     document.querySelectorAll('.font-picker').forEach(select => {
-        if (select.children.length === 0) {
-            defaultFonts.forEach(grp => {
-                const optGroup = document.createElement('optgroup');
-                optGroup.label = grp.label;
-                grp.fonts.forEach(f => {
-                    const opt = document.createElement('option');
-                    opt.value = f.val;
-                    opt.textContent = f.name;
-                    optGroup.appendChild(opt);
-                });
-                select.appendChild(optGroup);
-            });
-            const defVal = pickerDefaults[select.id];
-            if (defVal) {
-                select.value = defVal;
-            }
+        if (select.querySelector('optgroup[label="גופני רשת מובנים"]')) return;
+        const currentVal = select.value;
+        const grp = document.createElement('optgroup');
+        grp.label = 'גופני רשת מובנים';
+        BUILTIN_DEFAULT_FONTS.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.value;
+            opt.textContent = f.label;
+            grp.appendChild(opt);
+        });
+        select.prepend(grp);
+
+        const id = select.id;
+        if (currentVal) {
+            select.value = currentVal;
+        } else if (id === 'font-body') {
+            select.value = "'Frank Ruhl Libre', serif";
+        } else if (id === 'font-first-word' || id === 'f-sh-title' || id === 'f-h1') {
+            select.value = "'Bellefair', serif";
+        } else if (id.startsWith('f-h3') || id.startsWith('f-gtoc-3')) {
+            select.value = "'Noto Serif Hebrew', serif";
+        } else {
+            select.value = "'David Libre', serif";
         }
     });
-}
-
-async function ensureBuiltinFontsLoaded() {
-    const families = ['Assistant', 'Rubik', 'Bellefair', 'David Libre', 'Frank Ruhl Libre', 'Noto Serif Hebrew'];
-    const weights = ['400', '700', '900'];
-    try {
-        const loads = [];
-        families.forEach(f => {
-            weights.forEach(w => {
-                loads.push(document.fonts.load(`${w} 1em "${f}"`).catch(() => {}));
-            });
-        });
-        // תיקון (2026-10-16): timeout במקום לחכות לנצח ל-document.fonts.ready
-        // כי fonts-def.css (439 גופנים) גורם לזה לא להגיע.
-        await Promise.race([
-            Promise.all(loads),
-            new Promise(resolve => setTimeout(resolve, 8000))
-        ]);
-        await Promise.race([
-            document.fonts.ready,
-            new Promise(resolve => setTimeout(resolve, 3000))
-        ]);
-    } catch (e) {}
-}
-
-async function loadSystemFonts() {
-    if ('queryLocalFonts' in window) {
-        try {
-            const availableFonts = await window.queryLocalFonts();
-            const fontFamilies = [...new Set(availableFonts.map(f => f.family))].sort((a, b) => a.localeCompare(b, 'he'));
-
-            if (fontFamilies.length > 0) {
-                document.querySelectorAll('.font-picker').forEach(select => {
-                    const currentVal = select.value;
-                    const sysGroup = document.createElement('optgroup');
-                    sysGroup.label = `גופני מחשב (${fontFamilies.length} נמצאו)`;
-
-                    fontFamilies.forEach(family => {
-                        const opt = document.createElement('option');
-                        opt.value = `'${family}', serif`;
-                        opt.textContent = family;
-                        sysGroup.appendChild(opt);
-                    });
-
-                    select.appendChild(sysGroup);
-                    select.value = currentVal;
-                });
-                alert(`נטענו בהצלחה ${fontFamilies.length} גופנים מהמחשב!`);
-            }
-        } catch (err) {
-            alert('לא ניתנה הרשאה לגישה לגופני המחשב.');
-        }
-    } else {
-        alert('הדפדפן אינו תומך בגישה ישירה לגופני המערכת. מומלץ להשתמש ב-Chrome או Edge.');
-    }
-}
-
-async function loadExternalFonts() {
-    try {
-        const res = await fetch('fonts/fonts.json');
-        if (!res.ok) return;
-        const fonts = await res.json();
-        if (!Array.isArray(fonts)) return;
-
-        for (const font of fonts) {
-            try {
-                const fontFace = new FontFace(font.family, `url(fonts/${encodeURIComponent(font.file)})`);
-                await fontFace.load();
-                document.fonts.add(fontFace);
-
-                document.querySelectorAll('.font-picker').forEach(select => {
-                    const currentVal = select.value;
-                    let grp = select.querySelector('optgroup[label="גופנים מקומיים (תיקיית fonts)"]');
-                    if (!grp) {
-                        grp = document.createElement('optgroup');
-                        grp.label = 'גופנים מקומיים (תיקיית fonts)';
-                        select.prepend(grp);
-                    }
-                    const opt = document.createElement('option');
-                    opt.value = `'${font.family}', serif`;
-                    opt.textContent = font.family;
-                    grp.appendChild(opt);
-                    select.value = currentVal;
-                });
-            } catch (err) {}
-        }
-    } catch (e) {}
 }
 
 /* ==========================================================================
-   11. סריקת תיקיית נכסים מקומית (שחזור מלא מגרסה 2 - חלוקת.txt)
+   טעינה דינמית של קובצי JSON חיצוניים ואיחוד ערכות לפי מספר
    ========================================================================== */
-function triggerAssetsFolderPick() {
-    const inp = document.getElementById('assets-folder-input');
-    if (inp) inp.click();
-}
+const jsonShaarSets = {}; // לאיחוד שערים לפי מספר ערכה
 
-function readFileAsText(file) {
-    return new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(r.result);
-        r.onerror = rej;
-        r.readAsText(file);
-    });
-}
-
-function readFileAsDataURL(file) {
-    return new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(r.result);
-        r.onerror = rej;
-        r.readAsDataURL(file);
-    });
-}
-
-async function handleAssetsFolderSelected(event) {
-    const files = Array.from(event.target.files || []);
-    if (!files.length) return;
-
-    const IMG_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
-    const status = document.getElementById('assets-folder-status');
-    let loaded = 0, themesLoaded = 0;
-
-    const FOLDER_MAP = {
-        'section_dividers': 'divider',
-        'header_ornaments': 'header',
-        'ornaments_up_down': 'updown',
-        'ornaments_left_right': 'leftright',
-        'note_rules': 'noterule',
-        'shaar_main': 'shaar_main',
-        'shaar_sub': 'shaar_sub',
-        'shaar_back': 'shaar_back'
+/* מזהה לאיזו ערכה שייך שער מ-JSON, לפי השם (ואם אין - לפי ה-id). עובד בכל מוסכמות השמות הנפוצות:
+   "1 שער ראשי" / "1 - שער ראשי" / "2_-_שער_אחורי" (מספר בהתחלה), "שער ראשי 3" / "שער משנה (3)" (מספר בסוף),
+   "ערכה 4 - שער אחורי" (מספר באמצע), ובמקרה האחרון אות עברית בודדת ("ערכה א - ...").
+   (הזיהוי הקודם לקח "ספרה או אות עברית ראשונה", ולכן "שער ראשי 2" זוהה לפי האות ש ולא לפי המספר 2,
+    והשערים של אותה ערכה לא התאחדו - נטען רק השער הראשי.) */
+function detectThemeSetKey(item) {
+    const pickNumber = (s) => {
+        s = String(s || '').trim();
+        if (!s) return null;
+        let m = s.match(/^[^\dא-ת]*?(\d+)/);              // מספר בהתחלה (אחרי סימני פיסוק/רווחים בלבד)
+        if (!m) m = s.match(/(\d+)[^\d]*$/);               // מספר בסוף
+        if (!m) m = s.match(/(\d+)/);                       // מספר כלשהו
+        return m ? String(parseInt(m[1], 10)) : null;
     };
-
-    const themeBuckets = {};
-
-    for (const file of files) {
-        if (!IMG_RE.test(file.name)) continue;
-        const rel = (file.webkitRelativePath || file.name).replace(/\\/g, '/');
-        const parts = rel.split('/');
-        const baseName = file.name.replace(IMG_RE, '');
-        const isSvg = /\.svg$/i.test(file.name);
-
-        let content;
-        try {
-            content = isSvg ? await readFileAsText(file) : `<img src="${await readFileAsDataURL(file)}" style="object-fit:contain;" />`;
-        } catch (e) { continue; }
-
-        const themesIdx = parts.findIndex(p => p.toUpperCase() === 'THEMES');
-        if (themesIdx !== -1 && parts.length > themesIdx + 2) {
-            const themeName = parts[themesIdx + 1];
-            const lower = file.name.toLowerCase();
-            let slot = null;
-            if (/main|ראשי/.test(lower)) slot = 'main';
-            else if (/sub|משנה/.test(lower)) slot = 'sub';
-            else if (/back/.test(lower) || lower.includes('אחורי')) slot = 'back';
-            if (slot) {
-                themeBuckets[themeName] = themeBuckets[themeName] || {};
-                themeBuckets[themeName][slot] = content;
-            }
-            continue;
-        }
-
-        let kind = null;
-        for (let i = parts.length - 2; i >= 0; i--) {
-            const key = parts[i].toLowerCase();
-            if (FOLDER_MAP[key]) { kind = FOLDER_MAP[key]; break; }
-        }
-        if (!kind) continue;
-
-        const id = `folder_${kind}_${baseName}`.replace(/\s+/g, '_');
-        try {
-            if (kind === 'divider') {
-                registerExternalDivider(id, content);
-                appendOptionToSelect('section-divider-style', id, baseName, 'מתיקייה', 'sec-div-folder-optgroup');
-            } else if (kind === 'header') {
-                registerExternalHeader(id, content);
-                ['hdr-r-type', 'hdr-c-type', 'hdr-l-type', 'hdr-verso-r-type', 'hdr-verso-c-type', 'hdr-verso-l-type']
-                    .forEach(sel => appendOptionToSelect(sel, id, baseName, 'מתיקייה'));
-            } else if (kind === 'updown') {
-                registerExternalAllOrnament(id, content);
-                appendOptionToSelect('h2-ornament-top-style', id, baseName, 'מתיקייה');
-                appendOptionToSelect('h2-ornament-bottom-style', id, baseName, 'מתיקייה');
-            } else if (kind === 'leftright') {
-                registerExternalAllOrnament(id, content);
-                if (typeof ORNAMENTS_LR !== 'undefined') ORNAMENTS_LR[id] = { svg: content, name: baseName };
-                ['h3-ornament-r', 'h3-ornament-l', 'h2-title-ornament-r', 'h2-title-ornament-l']
-                    .forEach(sel => appendOptionToSelect(sel, id, baseName, 'מתיקייה'));
-            } else if (kind === 'noterule') {
-                registerExternalNoteRule(id, content);
-                appendOptionToSelect('note-rule-style', id, baseName, 'מתיקייה');
-            } else if (kind.startsWith('shaar_')) {
-                const t = kind.split('_')[1];
-                registerExternalShaar(t, id, baseName, content);
-                appendOptionToSelect(`select-shaar-${t}`, id, baseName, 'מתיקייה');
-            }
-            loaded++;
-        } catch (e) {}
-    }
-
-    Object.entries(themeBuckets).forEach(([themeName, slots]) => {
-        const themeId = `folder_theme_${themeName}`.replace(/\s+/g, '_');
-        ['main', 'sub', 'back'].forEach(slot => {
-            if (!slots[slot]) return;
-            const sid = `${themeId}_${slot}`;
-            try {
-                registerExternalShaar(slot, sid, `${themeName} (${slot})`, slots[slot]);
-                appendOptionToSelect(`select-shaar-${slot}`, sid, `${themeName} - ${slot}`, 'ערכות מתיקייה');
-            } catch (e) {}
-        });
-        if (typeof BUILTIN_SHAAR_THEMES !== 'undefined') {
-            BUILTIN_SHAAR_THEMES[themeId] = {
-                mainHTML: slots.main || '',
-                backHTML: slots.back || '',
-                backStyle: 'position:absolute; top:22mm; bottom:18mm; right:15mm; left:95mm;',
-                subHTML: slots.sub || '',
-                subStyle: 'position:absolute; top:20mm; bottom:20mm; right:95mm; left:15mm;'
-            };
-        }
-        appendOptionToSelect('active-theme-select', themeId, `ערכה מתיקייה: ${themeName}`, 'ערכות מתיקייה', 'folder-themes-optgroup');
-        themesLoaded++;
-    });
-
-    if (status) {
-        status.textContent = (loaded || themesLoaded)
-            ? `נטענו ${loaded} נכסים${themesLoaded ? ` ו-${themesLoaded} ערכות שערים` : ''}.`
-            : 'לא נמצאו נכסים מתאימים בתיקייה.';
-    }
-    typesetDocument();
-    initVisualPickers();
+    const fromName = pickNumber(item && item.name);
+    if (fromName) return fromName;
+    const fromId = pickNumber(item && item.id);
+    if (fromId) return fromId;
+    const letter = String((item && item.name) || '').match(/(?:^|[\s\-_(])([א-ת])(?=$|[\s\-_.):])/);
+    return letter ? letter[1] : null;
 }
 
-/* ==========================================================================
-   12. טעינת נכסי JSON וערכות מניפסט
-   ========================================================================== */
 async function loadExternalJSONAssets() {
     const assetsToLoad = [
         { file: 'shaar_main.json', type: 'shaar_main' },
@@ -1290,8 +888,6 @@ async function loadExternalJSONAssets() {
         { file: 'ornaments_up_down.json', type: 'ornaments_ud' }
     ];
 
-    const jsonShaarSets = {};
-
     for (const asset of assetsToLoad) {
         try {
             const response = await fetch(asset.file);
@@ -1300,75 +896,62 @@ async function loadExternalJSONAssets() {
             if (!Array.isArray(items)) continue;
 
             items.forEach(item => {
-                const numMatch = (item.name && item.name.match(/^(\d+)/)) || (item.id && item.id.match(/(\d+)/));
-                const setNum = numMatch ? numMatch[1] : null;
+                const setNum = detectThemeSetKey(item);
+                const rawSvg = item.svg || item.svgContent || item.content || item.svgData || item.data || '';
 
                 if (asset.type === 'shaar_main') {
-                    registerExternalShaar('main', item.id, item.name, item.svg);
+                    registerExternalShaar('main', item.id, item.name, rawSvg);
                     appendOptionToSelect('select-shaar-main', item.id, item.name, 'שערים ראשיים מ-JSON', 'shaar-main-json-optgroup');
-                    if (window.loadedShaarItems) window.loadedShaarItems.main[item.id] = item;
-                    if (item.box && window.shaarBoxSavedPositions) {
-                        window.shaarBoxSavedPositions.main[item.id] = item.box;
-                    }
                     if (setNum) {
                         if (!jsonShaarSets[setNum]) jsonShaarSets[setNum] = {};
-                        jsonShaarSets[setNum].main = item;
+                        jsonShaarSets[setNum].main = { ...item, svg: rawSvg };
                     }
                 } else if (asset.type === 'shaar_sub') {
-                    registerExternalShaar('sub', item.id, item.name, item.svg);
+                    registerExternalShaar('sub', item.id, item.name, rawSvg);
                     appendOptionToSelect('select-shaar-sub', item.id, item.name, 'שערי משנה מ-JSON', 'shaar-sub-json-optgroup');
-                    if (window.loadedShaarItems) window.loadedShaarItems.sub[item.id] = item;
-                    if (item.box && window.shaarBoxSavedPositions) {
-                        window.shaarBoxSavedPositions.sub[item.id] = item.box;
-                    }
                     if (setNum) {
                         if (!jsonShaarSets[setNum]) jsonShaarSets[setNum] = {};
-                        jsonShaarSets[setNum].sub = item;
+                        jsonShaarSets[setNum].sub = { ...item, svg: rawSvg };
                     }
                 } else if (asset.type === 'shaar_back') {
-                    registerExternalShaar('back', item.id, item.name, item.svg);
+                    registerExternalShaar('back', item.id, item.name, rawSvg);
                     appendOptionToSelect('select-shaar-back', item.id, item.name, 'שערים אחוריים מ-JSON', 'shaar-back-json-optgroup');
-                    if (window.loadedShaarItems) window.loadedShaarItems.back[item.id] = item;
-                    if (item.box && window.shaarBoxSavedPositions) {
-                        window.shaarBoxSavedPositions.back[item.id] = item.box;
-                    }
                     if (setNum) {
                         if (!jsonShaarSets[setNum]) jsonShaarSets[setNum] = {};
-                        jsonShaarSets[setNum].back = item;
+                        jsonShaarSets[setNum].back = { ...item, svg: rawSvg };
                     }
                 } else if (asset.type === 'header') {
-                    registerExternalHeader(item.id, item.svg);
+                    registerExternalHeader(item.id, rawSvg);
                     appendOptionToSelect('hdr-c-type', item.id, item.name, 'עיטורי כותרת מ-JSON', 'hdr-c-json-optgroup');
                     appendOptionToSelect('hdr-r-type', item.id, item.name, 'עיטורי כותרת מ-JSON', 'hdr-r-json-optgroup');
                     appendOptionToSelect('hdr-l-type', item.id, item.name, 'עיטורי כותרת מ-JSON', 'hdr-l-json-optgroup');
                 } else if (asset.type === 'divider') {
-                    registerExternalDivider(item.id, item.svg);
+                    registerExternalDivider(item.id, rawSvg);
                     appendOptionToSelect('section-divider-style', item.id, item.name, 'עיטורי סיום מ-JSON', 'sec-div-json-optgroup');
                 } else if (asset.type === 'note_rule') {
-                    registerExternalNoteRule(item.id, item.svg);
+                    registerExternalNoteRule(item.id, rawSvg);
                     appendOptionToSelect('note-rule-style', item.id, item.name, 'מפרידים מ-JSON', 'note-rules-json-optgroup');
                 } else if (asset.type === 'ornaments_lr') {
-                    registerOrnamentsLR(item.id, item.name, item.svg);
+                    registerOrnamentsLR(item.id, item.name, rawSvg);
                     appendOptionToSelect('h3-ornament-set', item.id, item.name, 'סטים שלמים מ-JSON', 'h3-set-json-optgroup');
                     appendOptionToSelect('h3-ornament-r', item.id, item.name, 'עיטורי ימין מ-JSON', 'h3-r-json-optgroup');
                     appendOptionToSelect('h3-ornament-l', item.id, item.name, 'עיטורי שמאל מ-JSON', 'h3-l-json-optgroup');
                     appendOptionToSelect('note-header-orn-r', item.id, item.name, 'מתוך ornaments_left_right.json', 'note-orn-r-json');
                     appendOptionToSelect('note-header-orn-l', item.id, item.name, 'מתוך ornaments_left_right.json', 'note-orn-l-json');
-                    appendOptionToSelect('h2-title-ornament-r', item.id, item.name, 'עיטורי צד מ-JSON', 'h2-title-lr-json-optgroup');
-                    appendOptionToSelect('h2-title-ornament-l', item.id, item.name, 'עיטורי צד מ-JSON', 'h2-title-lr-json-optgroup-l');
                 } else if (asset.type === 'ornaments_ud') {
-                    registerOrnamentsUD(item.id, item.name, item.svg);
+                    registerOrnamentsUD(item.id, item.name, rawSvg);
                     appendOptionToSelect('h2-ornament-set', item.id, item.name, 'סטים שלמים מ-JSON', 'h2-set-json-optgroup');
                     appendOptionToSelect('h2-ornament-top-style', item.id, item.name, 'עיטורים עליונים מ-JSON', 'h2-top-json-optgroup');
                     appendOptionToSelect('h2-ornament-bottom-style', item.id, item.name, 'עיטורים תחתונים מ-JSON', 'h2-btm-json-optgroup');
-                    appendOptionToSelect('h2-title-ornament-top-style', item.id, item.name, 'עיטורים עליונים מ-JSON', 'h2-title-top-json-optgroup');
-                    appendOptionToSelect('h2-title-ornament-bottom-style', item.id, item.name, 'עיטורים תחתונים מ-JSON', 'h2-title-btm-json-optgroup');
                 }
             });
         } catch (e) {}
     }
 
-    Object.keys(jsonShaarSets).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).forEach(num => {
+    Object.keys(jsonShaarSets).sort((a, b) => {
+        const na = parseInt(a, 10), nb = parseInt(b, 10);
+        return (!isNaN(na) && !isNaN(nb)) ? na - nb : a.localeCompare(b, 'he');
+    }).forEach(num => {
         const set = jsonShaarSets[num];
         const themeId = 'json_theme_' + num;
         const themeName = `ערכה ${num} (מ-JSON)`;
@@ -1389,37 +972,32 @@ async function loadExternalJSONAssets() {
     initVisualPickers();
 }
 
-async function loadFolderAssetsAndThemes() {
-    try {
-        const manifestRes = await fetch('assets_manifest.json');
-        if (manifestRes.ok) {
-            const manifest = await manifestRes.json();
-            if (manifest.themes) {
-                Object.keys(manifest.themes).forEach(tId => {
-                    const theme = manifest.themes[tId];
-                    if (typeof BUILTIN_SHAAR_THEMES !== 'undefined') {
-                        BUILTIN_SHAAR_THEMES[tId] = {
-                            mainHTML: theme.main || '',
-                            backHTML: theme.back || '',
-                            backStyle: 'position:absolute; top:22mm; bottom:18mm; right:15mm; left:95mm;',
-                            subHTML: theme.sub || '',
-                            subStyle: 'position:absolute; top:20mm; bottom:20mm; right:95mm; left:15mm;'
-                        };
-                    }
-                    appendOptionToSelect('active-theme-select', tId, `ערכת ${theme.name} (מ-THEMES)`, 'ערכות מתוך תיקיית THEMES', 'themes-folder-optgroup');
-                });
-            }
-        }
-    } catch(e) {}
-}
-
 function syncThemeToIndividualShaars() {
+    const activeSel = document.getElementById('active-theme-select');
+    const activeVal = activeSel ? activeSel.value : '';
     const m = document.getElementById('select-shaar-main');
     const b = document.getElementById('select-shaar-back');
     const s = document.getElementById('select-shaar-sub');
-    if (m) m.value = 'theme_default';
-    if (b) b.value = 'theme_default';
-    if (s) s.value = 'theme_default';
+
+    if (activeVal.startsWith('json_theme_') && typeof jsonShaarSets !== 'undefined') {
+        const num = activeVal.replace('json_theme_', '');
+        const set = jsonShaarSets[num];
+        if (set) {
+            // ערכה חלקית (למשל בלי שער אחורי): השער החסר חוזר ל"לפי ערכה" ולא נשאר שער מערכה קודמת
+            if (m) m.value = set.main ? set.main.id : 'theme_default';
+            if (s) s.value = set.sub ? set.sub.id : 'theme_default';
+            if (b) b.value = set.back ? set.back.id : 'theme_default';
+        }
+    } else if (activeVal.startsWith('builtin_')) {
+        if (m) m.value = activeVal;
+        if (s) s.value = activeVal;
+        if (b) b.value = activeVal;
+    } else {
+        if (m) m.value = 'theme_default';
+        if (b) b.value = 'theme_default';
+        if (s) s.value = 'theme_default';
+    }
+
     refreshVisualPicker('select-shaar-main');
     refreshVisualPicker('select-shaar-back');
     refreshVisualPicker('select-shaar-sub');
@@ -1444,38 +1022,261 @@ function appendOptionToSelect(selectId, value, text, groupLabel, optgroupId) {
     optgroup.appendChild(opt);
 }
 
-/* ==========================================================================
-   13. סנכרון כפתורים, בוררים ולוגיקה הדדית
-   ========================================================================== */
-function onHdrAlternatingToggle() {
-    const alt = document.getElementById('hdr-alternating');
-    const split = document.getElementById('hdr-title-split');
-    if (alt && alt.checked && split) split.checked = false;
-}
-
-function onHdrTitleSplitToggle() {
-    const alt = document.getElementById('hdr-alternating');
-    const split = document.getElementById('hdr-title-split');
-    if (split && split.checked && alt) alt.checked = false;
-}
-
-function onHdrDistinctToggle() {
-    const isDistinct = document.getElementById('hdr-distinct-even-odd')?.checked;
-    const vCont = document.getElementById('hdr-verso-container');
-    const altToggle = document.getElementById('hdr-alternating');
-    if (vCont) vCont.style.display = isDistinct ? 'block' : 'none';
-    if (isDistinct && altToggle) altToggle.checked = false;
+/* ============================================================
+   ניהול לחצני טוגל לכותרות עליונות (Mutual Exclusivity)
+   ============================================================ */
+function onHdrSplitTitleChange() {
+    const splitCb = document.getElementById('hdr-split-title');
+    const altCb = document.getElementById('hdr-alternating');
+    if (splitCb && splitCb.checked && altCb) {
+        altCb.checked = false;
+    }
     typesetDocument();
 }
 
-function onH2TitleOrnamentModeChange() {
-    const mode = document.getElementById('h2-title-orn-mode')?.value || 'none';
-    const tbRows = document.getElementById('h2-title-orn-tb-rows');
-    const sideRows = document.getElementById('h2-title-orn-side-rows');
-    if (tbRows) tbRows.style.display = (mode === 'top_bottom') ? 'block' : 'none';
-    if (sideRows) sideRows.style.display = (mode === 'side') ? 'block' : 'none';
+function onHdrAlternatingChange() {
+    const splitCb = document.getElementById('hdr-split-title');
+    const altCb = document.getElementById('hdr-alternating');
+    if (altCb && altCb.checked && splitCb) {
+        splitCb.checked = false;
+    }
+    typesetDocument();
 }
 
+async function loadExternalFonts() {
+    try {
+        const res = await fetch('fonts/fonts.json');
+        if (!res.ok) return;
+        const fonts = await res.json();
+        if (!Array.isArray(fonts)) return;
+
+        for (const font of fonts) {
+            try {
+                const fontFace = new FontFace(font.family, `url(fonts/${encodeURIComponent(font.file)})`);
+                await fontFace.load();
+                document.fonts.add(fontFace);
+
+                document.querySelectorAll('.font-picker').forEach(select => {
+                    let grp = select.querySelector('optgroup[label="גופנים מקומיים (תיקיית fonts)"]');
+                    if (!grp) {
+                        grp = document.createElement('optgroup');
+                        grp.label = 'גופנים מקומיים (תיקיית fonts)';
+                        select.prepend(grp);
+                    }
+                    const opt = document.createElement('option');
+                    opt.value = `'${font.family}', serif`;
+                    opt.textContent = font.family;
+                    grp.appendChild(opt);
+                });
+            } catch (err) {}
+        }
+    } catch (e) {}
+}
+
+/* ============================================================
+   כוונון אינטראקטיבי של תיבות שער בעכבר (Drag & Resize)
+   ============================================================ */
+function toggleShaarBoxEditor() {
+    const cb = document.getElementById('enable-shaar-box-editor');
+    if (cb && !cb.checked) {
+        document.body.classList.add('hide-shaar-editor');
+    } else {
+        document.body.classList.remove('hide-shaar-editor');
+    }
+}
+
+function initShaarBoxResizer() {
+    let activeDrag = null;
+
+    document.addEventListener('mousedown', (e) => {
+        const dragBar = e.target.closest('.shaar-drag-bar');
+        const handle = e.target.closest('.shaar-resize-handle');
+        if (!dragBar && !handle) return;
+
+        const box = (dragBar || handle).closest('.theme-bounded-content');
+        const page = box ? box.closest('.a4-page') : null;
+        if (!box || !page) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const pageRect = page.getBoundingClientRect();
+        const boxRect = box.getBoundingClientRect();
+
+        const curTop = ((boxRect.top - pageRect.top) / pageRect.height) * 297;
+        const curBottom = ((pageRect.bottom - boxRect.bottom) / pageRect.height) * 297;
+        const curRight = ((pageRect.right - boxRect.right) / pageRect.width) * 210;
+        const curLeft = ((boxRect.left - pageRect.left) / pageRect.width) * 210;
+
+        activeDrag = {
+            box,
+            page,
+            shaarType: box.getAttribute('data-shaar-type') || 'main',
+            isMove: !!dragBar,
+            handleType: handle ? handle.getAttribute('data-handle') : null,
+            startX: e.clientX,
+            startY: e.clientY,
+            pageW: pageRect.width,
+            pageH: pageRect.height,
+            initTop: curTop,
+            initBottom: curBottom,
+            initRight: curRight,
+            initLeft: curLeft
+        };
+        document.body.style.userSelect = 'none';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!activeDrag) return;
+        const dx_mm = ((e.clientX - activeDrag.startX) / activeDrag.pageW) * 210;
+        const dy_mm = ((e.clientY - activeDrag.startY) / activeDrag.pageH) * 297;
+        if (Math.abs(e.clientX - activeDrag.startX) + Math.abs(e.clientY - activeDrag.startY) > 1) activeDrag.moved = true;
+
+        let { initTop, initBottom, initRight, initLeft, isMove, handleType, box, shaarType } = activeDrag;
+        let nTop = initTop, nBottom = initBottom, nRight = initRight, nLeft = initLeft;
+
+        if (isMove) {
+            nTop = Math.max(5, initTop + dy_mm);
+            nBottom = Math.max(5, initBottom - dy_mm);
+            nRight = Math.max(5, initRight - dx_mm);
+            nLeft = Math.max(5, initLeft + dx_mm);
+        } else if (handleType) {
+            if (handleType.includes('t')) nTop = Math.max(5, initTop + dy_mm);
+            if (handleType.includes('b')) nBottom = Math.max(5, initBottom - dy_mm);
+            if (handleType.includes('r')) nRight = Math.max(5, initRight - dx_mm);
+            if (handleType.includes('l')) nLeft = Math.max(5, initLeft + dx_mm);
+        }
+
+        box.style.top = nTop.toFixed(1) + 'mm';
+        box.style.bottom = nBottom.toFixed(1) + 'mm';
+        box.style.right = nRight.toFixed(1) + 'mm';
+        box.style.left = nLeft.toFixed(1) + 'mm';
+
+        const tEl = document.getElementById(`builder-${shaarType}-top`);
+        const bEl = document.getElementById(`builder-${shaarType}-bottom`);
+        const rEl = document.getElementById(`builder-${shaarType}-right`);
+        const lEl = document.getElementById(`builder-${shaarType}-left`);
+        if (tEl) tEl.value = Math.round(nTop);
+        if (bEl) bEl.value = Math.round(nBottom);
+        if (rEl) rEl.value = Math.round(nRight);
+        if (lEl) lEl.value = Math.round(nLeft);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (activeDrag) {
+            if (activeDrag.moved) saveShaarBoxCalibration(activeDrag.shaarType, activeDrag.box);
+            activeDrag = null;
+            document.body.style.userSelect = '';
+        }
+    });
+}
+
+initShaarBoxResizer();
+
+/* ============================================================
+   כיוונון תיבת הטקסט לכל שער בנפרד - שמירה, שחזור, רשימה ואיפוס
+   (המפתח והחישוב נמצאים ב-decorations.js: getShaarCoverKey / applyShaarBoxCalib)
+   ============================================================ */
+const SHAAR_CALIB_STORAGE_KEY = 'torani_shaarBoxCalib_v1';
+const SHAAR_TYPE_LABELS = { main: 'שער ראשי', back: 'שער אחורי', sub: 'שער משנה' };
+
+function persistShaarCalibToStorage() {
+    try { localStorage.setItem(SHAAR_CALIB_STORAGE_KEY, JSON.stringify(shaarBoxCalib)); } catch (e) {}
+}
+
+/* משלים מ-localStorage רק מפתחות שאינם קיימים כבר (התבנית השמורה היא מקור האמת) */
+function loadShaarCalibFromStorage() {
+    try {
+        const raw = localStorage.getItem(SHAAR_CALIB_STORAGE_KEY);
+        if (!raw) return;
+        const stored = JSON.parse(raw);
+        if (stored && typeof stored === 'object') {
+            Object.keys(stored).forEach(k => { if (!(k in shaarBoxCalib)) shaarBoxCalib[k] = stored[k]; });
+        }
+    } catch (e) {}
+}
+
+function showToast(msg) {
+    let t = document.getElementById('app-toast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'app-toast';
+        t.setAttribute('role', 'status');
+        document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function readBoxMargins(box) {
+    const num = v => Math.round(parseFloat(v) * 10) / 10;
+    return { top: num(box.style.top), bottom: num(box.style.bottom), right: num(box.style.right), left: num(box.style.left) };
+}
+
+function saveShaarBoxCalibration(type, box) {
+    const m = readBoxMargins(box);
+    if (!['top', 'bottom', 'right', 'left'].every(k => isFinite(m[k]))) return;
+    const themeId = document.getElementById('active-theme-select')?.value || '';
+    shaarBoxCalib[getShaarCoverKey(type, themeId)] = m;
+    persistShaarCalibToStorage();
+    refreshShaarCalibList();
+    showToast('כיוונון תיבת הטקסט נשמר לשער הזה (' + (SHAAR_TYPE_LABELS[type] || type) + ')');
+}
+
+function describeShaarCalibKey(key) {
+    const [type, rest] = key.split('|');
+    let label = rest || '';
+    if (rest && rest.startsWith('cover:')) {
+        const sel = document.getElementById('select-shaar-' + type);
+        const opt = sel ? Array.from(sel.options).find(o => o.value === rest.slice(6)) : null;
+        label = opt ? opt.textContent : rest.slice(6);
+    } else if (rest && rest.startsWith('theme:')) {
+        const sel = document.getElementById('active-theme-select');
+        const opt = sel ? Array.from(sel.options).find(o => o.value === rest.slice(6)) : null;
+        label = 'ערכה: ' + (opt ? opt.textContent : rest.slice(6));
+    }
+    return (SHAAR_TYPE_LABELS[type] || type) + ' — ' + label;
+}
+
+function refreshShaarCalibList() {
+    const wrap = document.getElementById('shaar-calib-panel');
+    const list = document.getElementById('shaar-calib-list');
+    if (!wrap || !list) return;
+    const keys = Object.keys(shaarBoxCalib);
+    wrap.style.display = keys.length ? 'block' : 'none';
+    list.innerHTML = '';
+    keys.forEach(key => {
+        const m = shaarBoxCalib[key];
+        const row = document.createElement('div');
+        row.className = 'calib-row';
+        const lab = document.createElement('span');
+        lab.className = 'calib-label';
+        lab.textContent = describeShaarCalibKey(key);
+        lab.title = `עליון ${m.top} · תחתון ${m.bottom} · ימין ${m.right} · שמאל ${m.left} (מ"מ)`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'calib-reset';
+        btn.textContent = '↺ אפס';
+        btn.onclick = () => resetShaarCalibration(key);
+        row.appendChild(lab);
+        row.appendChild(btn);
+        list.appendChild(row);
+    });
+}
+
+function resetShaarCalibration(key) {
+    if (key) delete shaarBoxCalib[key];
+    else shaarBoxCalib = {};
+    persistShaarCalibToStorage();
+    refreshShaarCalibList();
+    if (!refreshCoversInPlace()) setSettingsDirty(true);
+}
+
+/* ============================================================
+   סנכרון סטים של עיטורים (כותרת 2 וכותרת 3)
+   ============================================================ */
 function onH2OrnamentSetChange(val) {
     const topEl = document.getElementById('h2-ornament-top-style');
     const btmEl = document.getElementById('h2-ornament-bottom-style');
@@ -1518,15 +1319,14 @@ function onH3IndividualOrnamentChange() {
     }
 }
 
-/* ==========================================================================
-   14. כרטיסיות הבחירה הוויזואליות (Visual Card Selector)
-   ========================================================================== */
+/* ============================================================
+   רכיב בחירה ויזואלי (Visual Card Selector)
+   ============================================================ */
 const VISUAL_PICKER_TARGETS = [
     'select-shaar-main', 'select-shaar-back', 'select-shaar-sub', 'active-theme-select',
     'section-divider-style', 'h2-ornament-set', 'h2-ornament-top-style', 'h2-ornament-bottom-style',
     'h3-ornament-set', 'h3-ornament-r', 'h3-ornament-l', 'hdr-c-type', 'hdr-r-type', 'hdr-l-type',
-    'note-rule-style', 'note-header-orn-r', 'note-header-orn-l',
-    'hdr-verso-c-type', 'hdr-verso-r-type', 'hdr-verso-l-type'
+    'note-rule-style', 'note-header-orn-r', 'note-header-orn-l'
 ];
 
 function getItemPreviewHTML(selectId, value, text) {
@@ -1538,10 +1338,10 @@ function getItemPreviewHTML(selectId, value, text) {
         if (typeof BUILTIN_SHAAR_THEMES !== 'undefined' && BUILTIN_SHAAR_THEMES[value]) {
             const t = BUILTIN_SHAAR_THEMES[value];
             const html = (type === 'back' ? t.backHTML : type === 'sub' ? t.subHTML : t.mainHTML) || t.mainHTML || '';
-            return '<div class="vp-shaar-thumb">' + html + '</div>';
+            return '<div class="vp-shaar-thumb">' + normalizeSvgMarkup(html) + '</div>';
         }
         if (typeof EXTERNAL_SHAAR_ASSETS !== 'undefined' && EXTERNAL_SHAAR_ASSETS[type] && EXTERNAL_SHAAR_ASSETS[type][value]) {
-            return '<div class="vp-shaar-thumb">' + EXTERNAL_SHAAR_ASSETS[type][value] + '</div>';
+            return '<div class="vp-shaar-thumb">' + normalizeSvgMarkup(EXTERNAL_SHAAR_ASSETS[type][value]) + '</div>';
         }
         return '<div class="vp-badge-theme">🏛️ שער</div>';
     }
@@ -1691,529 +1491,16 @@ document.addEventListener('click', (e) => {
     }
 });
 
-/* ==========================================================================
-   14ב. טעינת רשימת גופנים מורחבת (Extended Fonts) — הוספה מ-v18
-   ==========================================================================
-   טוען את רשימה 2 של הגופנים (~1300 גופנים) מ-fonts-extended.css + fonts-extended.json.
-   מופעלת על-ידי לחצן "📚 טען גופנים נוספים" בסרגל העליון.
-   חשוב: אינה משפיעה על ברירות המחדל של העימוד — רק מוסיפה אפשרויות לבוררי הגופנים.
-   ========================================================================== */
-let _extendedFontsLoaded = false;
-async function loadExtendedFonts() {
-    if (_extendedFontsLoaded) {
-        alert('רשימה 2 של הגופנים כבר נטענה.');
-        return;
-    }
-    const btn = document.getElementById('btn-load-extended-fonts');
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = '⏳ טוען גופנים...';
-    }
-
-    try {
-        // 1) הזרקת fonts-extended.css
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'fonts-extended.css';
-        link.id = 'fonts-extended-stylesheet';
-        document.head.appendChild(link);
-        await new Promise((resolve, reject) => {
-            link.onload = resolve;
-            link.onerror = reject;
-            setTimeout(resolve, 5000);
-        });
-
-        // 2) אכלוס ה-pickers מ-fonts-extended.json
-        const res = await fetch('fonts-extended.json');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const fonts = await res.json();
-        if (!Array.isArray(fonts)) throw new Error('פורמט שגוי');
-
-        document.querySelectorAll('.font-picker').forEach(select => {
-            const currentVal = select.value;
-            let grp = select.querySelector('optgroup[label="גופנים מקומיים — רשימה 2"]');
-            if (!grp) {
-                grp = document.createElement('optgroup');
-                grp.label = 'גופנים מקומיים — רשימה 2';
-                select.appendChild(grp);
-            }
-            fonts.forEach(font => {
-                const opt = document.createElement('option');
-                opt.value = `'${font.family}', serif`;
-                opt.textContent = font.family;
-                grp.appendChild(opt);
-            });
-            select.value = currentVal;
-        });
-
-        _extendedFontsLoaded = true;
-        if (btn) {
-            btn.textContent = `✓ נטענו ${fonts.length} גופנים נוספים`;
-        }
-        console.log(`✓ רשימה 2: ${fonts.length} גופנים נטענו`);
-    } catch (e) {
-        console.error('loadExtendedFonts נכשל:', e);
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = '📚 טען גופנים נוספים';
-        }
-        alert('טעינת רשימה 2 נכשלה. בדוק את הקונסול לפרטים.');
-    }
-}
-window.loadExtendedFonts = loadExtendedFonts;
-
-/* ==========================================================================
-   14ג. ייצוא HTML מרונדר — הוספה מ-v18 (מותאם ל-עדכון_ממשק_9)
-   ==========================================================================
-   מייצר קובץ HTML עצמאי עם כל ה-CSS, גופני העדיפות מוטמעים כ-base64,
-   ומשתני ה-:root שהוצבו על-ידי typesetter.js.
-   חשוב: משתמש ב-CSS של המערכת הנוכחית (עדכון_ממשק_9), לא ב-CSS של v18.
-   ========================================================================== */
-async function exportRenderedHTML() {
-    const bookContainer = document.getElementById('book-container');
-    if (!bookContainer) {
-        alert('אין מסמך מרונדר. הרץ עימוד קודם.');
-        return;
-    }
-
-    const btn = document.getElementById('btn-export-html');
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = '⏳ מייצא...';
-    }
-
-    try {
-        // 1) שכפול ה-#preview-pane (שמכיל את #book-container) — כך המבנה
-        // ההיררכי נשמר, וה-layout זהה ל-DOM החי.
-        const previewPane = document.getElementById('preview-pane');
-        const clone = previewPane.cloneNode(true);
-
-        // 2) הסרת event handlers
-        clone.querySelectorAll('*').forEach(el => {
-            el.removeAttribute('onclick');
-        });
-
-        // 3) איסוף CSS — fetch style.css + fonts-def.css + fonts-extended.css (אם נטען)
-        const cssFiles = ['style.css', 'fonts-def.css'];
-        const extLink = document.getElementById('fonts-extended-stylesheet');
-        if (extLink) cssFiles.push('fonts-extended.css');
-
-        const cssContents = [];
-        for (const file of cssFiles) {
-            try {
-                const res = await fetch(file);
-                if (res.ok) {
-                    const text = await res.text();
-                    cssContents.push(`/* === ${file} === */\n${text}`);
-                }
-            } catch (e) {
-                console.warn(`לא ניתן לטעון ${file}:`, e);
-            }
-        }
-
-        // 3.5) הטמעת גופני העדיפות של עדכון_ממשק_9 כ-base64 — חיוני כדי שה-HTML
-        // המיוצא יציג את הגופנים נכון גם בלי תיקיית fonts/ לידו.
-        // רשימה זו כוללת את כל הגופנים שבשימוש ברירת המחדל של עדכון_ממשק_9
-        // (מתוך fonts-priority.json / fonts-def.css):
-        //   - Guttman Rashi (גוף הטקסט)
-        //   - AlphaBlack / Alpha / AlphaLight (כותרות 0, 2, 3, 4, 5, סימן)
-        //   - FrankReal (מילה ראשונה)
-        //   - Hadassah Friedlaender (כותרת 7 / הערות צד)
-        //   - Livorna (כותרות עליונות, שערים)
-        //   - David Libre / Frank Ruhl Libre / Noto Serif Hebrew (Google fallback)
-        // גם גופני Google נטענים דרך @import ב-style.css.
-        const PRIORITY_FONT_FILES = [
-            'Guttman-Rashi-Normal.woff2',
-            'Guttman-Rashi-Bold.woff2',
-            'Alpha-Black.woff2',
-            'Alpha-Bold.woff2',
-            'Alpha-Regular.woff2',
-            'Alpha-Light.woff2',
-            'FrankReal-Bold.woff2',
-            'FrankReal-Regular.woff2',
-            'Hadassah-Friedlaender-Regular.woff2',
-            'Hadassah-Friedlaender-Bold.woff2',
-            'Livorna-Regular.woff2',
-            'Livorna-Bold.woff2',
-            'Livornabook-Regular.woff2'
-        ];
-        const embeddedFonts = [];
-        for (const fontFile of PRIORITY_FONT_FILES) {
-            try {
-                const res = await fetch('fonts/' + fontFile);
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const reader = new FileReader();
-                    const base64 = await new Promise((resolve, reject) => {
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                    });
-                    embeddedFonts.push({ file: fontFile, base64 });
-                }
-            } catch (e) {
-                console.warn(`לא ניתן להטמיע ${fontFile}:`, e);
-            }
-        }
-        if (embeddedFonts.length > 0) {
-            console.log(`exportRenderedHTML: הוטמעו ${embeddedFonts.length} גופנים`);
-        }
-
-        // 4) איסוף CSS variables מ-:root (computed) + inline styles שהוצבו ע"י JS
-        const rootStyle = getComputedStyle(document.documentElement);
-        const cssVars = [];
-        const seenProps = new Set();
-
-        // א. אסוף inline styles מ-document.documentElement (הוצבו ע"י JS)
-        const rootEl = document.documentElement;
-        for (let i = 0; i < rootEl.style.length; i++) {
-            const prop = rootEl.style[i];
-            if (prop.startsWith('--')) {
-                const val = rootEl.style.getPropertyValue(prop).trim();
-                if (val) {
-                    cssVars.push(`${prop}: ${val};`);
-                    seenProps.add(prop);
-                }
-            }
-        }
-
-        // ב. אסוף CSS variables מ-:root rules (רק אלה שלא הוצבו inline)
-        for (const sheet of document.styleSheets) {
-            try {
-                for (const rule of sheet.cssRules) {
-                    if (rule.selectorText === ':root' && rule.style) {
-                        for (let i = 0; i < rule.style.length; i++) {
-                            const prop = rule.style[i];
-                            if (prop.startsWith('--') && !seenProps.has(prop)) {
-                                const val = rootStyle.getPropertyValue(prop).trim();
-                                if (val) {
-                                    cssVars.push(`${prop}: ${val};`);
-                                    seenProps.add(prop);
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (e) {}
-        }
-
-        // 4.5) החלפת src ב-@font-face של גופני העדיפות עם base64
-        let cssText = cssContents.join('\n\n');
-        for (const { file, base64 } of embeddedFonts) {
-            const patterns = [
-                `url('fonts/${file}')`,
-                `url("fonts/${file}")`,
-                `url(fonts/${file})`
-            ];
-            for (const pat of patterns) {
-                cssText = cssText.split(pat).join(`url(${base64})`);
-            }
-        }
-
-        // 5) בניית HTML עצמאי
-        const html = `<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>מסמך מרונדר — ייצוא</title>
-<style>
-${cssText}
-
-/* === CSS Variables מהשורש (אחרי ה-CSS כדי לגבור על :root) === */
-:root {
-    ${cssVars.join('\n    ')}
-}
-
-/* === סגנונות ייצוא — מציגים רק את הספר === */
-html, body {
-    margin: 0;
-    padding: 0;
-    background: #334155;
-    font-family: 'Assistant', sans-serif;
-    height: auto !important;
-    overflow: visible !important;
-}
-body {
-    padding: 20px 0;
-}
-#sidebar, #text-pane, #settings-pane, #resizer, #measuring-box {
-    display: none !important;
-}
-#preview-pane {
-    display: flex !important;
-    position: static !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    padding: 20px 0 !important;
-    float: none !important;
-    width: 100% !important;
-    flex: none !important;
-    background: #334155 !important;
-}
-#book-container {
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    will-change: auto !important;
-    transition: none !important;
-}
-.a4-page {
-    margin: 0 auto 25px !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
-    background: #ffffff !important;
-    transform: none !important;
-    flex-shrink: 0;
-}
-@media print {
-    .a4-page {
-        page-break-after: always;
-    }
-}
-</style>
-</head>
-<body>
-${clone.outerHTML}
-<script>
-if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(() => {
-        document.body.offsetHeight;
-    });
-}
-</script>
-</body>
-</html>`;
-
-        // 6) הורדה — תיקון שגיאת תחביר שהייתה ב-v18 (Blob(tml] → Blob([html])
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'rendered-document.html';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-        if (btn) {
-            btn.textContent = '✓ יוצא';
-            setTimeout(() => {
-                btn.textContent = '💾 ייצוא HTML';
-                btn.disabled = false;
-            }, 2000);
-        }
-        console.log('✓ HTML מרונדר יוצא');
-    } catch (e) {
-        console.error('exportRenderedHTML נכשל:', e);
-        if (btn) {
-            btn.textContent = '💾 ייצוא HTML';
-            btn.disabled = false;
-        }
-        alert('ייצוא HTML נכשל: ' + e.message);
-    }
-}
-window.exportRenderedHTML = exportRenderedHTML;
-
-/* ==========================================================================
-   14ד. מערכת טאבים לסרגל הצידי — הוספה מ-v18
-   ==========================================================================
-   3 טאבים: עורך | הגדרות | בדיקה
-   - עורך: אזור הטקסט המקורי (text-pane)
-   - הגדרות: לוח ההגדרות (settings-pane) — במקום collapse-strip
-   - בדיקה: כרטיסייה חדשה עם כפתורי בדיקה + דוח עימוד
-   חשוב: אינה משנה את מנוע העימוד — רק מארגן מחדש את ה-UI.
-   ========================================================================== */
-function initTabSystem() {
-    if (document.getElementById('tab-bar')) return;
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-
-    const textPane = document.getElementById('text-pane');
-    const settingsPane = document.getElementById('settings-pane');
-    if (!textPane || !settingsPane) return;
-
-    // 1. הסר את ה-collapse-strip של settings-pane (אם קיים)
-    const collapseStrip = settingsPane.querySelector('.collapse-strip');
-    if (collapseStrip) collapseStrip.remove();
-
-    // 2. הגדל את text-pane ו-settings-pane לרוחב מלא
-    textPane.style.width = '100%';
-    textPane.style.borderLeft = 'none';
-    textPane.style.flexShrink = '1';
-    textPane.style.height = '100%';
-    settingsPane.style.display = 'none';
-    settingsPane.classList.remove('collapsed');
-    settingsPane.style.width = '100%';
-    settingsPane.style.height = '100%';
-    settingsPane.style.borderLeft = 'none';
-    settingsPane.style.flexShrink = '1';
-    settingsPane.style.flexDirection = 'column';
-
-    // 3. הוסף דרופדאון סגנונות + ייבוא/ייצוא לטאב ההגדרות (אם קיים)
-    if (typeof initStyleSetDropdown === 'function') initStyleSetDropdown();
-
-    // 4. צור טאב בדיקה
-    const debugPane = document.createElement('div');
-    debugPane.id = 'tab-debug';
-    debugPane.style.cssText = 'display:none;flex:1;flex-direction:column;overflow-y:auto;padding:8px;background:#f8fafc;';
-    debugPane.innerHTML = `
-        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
-            <button id="btn-seeded" class="btn-tool btn-secondary" style="flex:1;" title="טקסט קבוע">📋 מסמך קבוע</button>
-            <button id="btn-random" class="btn-tool btn-secondary" style="flex:1;" title="טקסט רנדומלי">🎲 מסמך רנדומלי</button>
-            <button id="btn-report-window" class="btn-tool btn-secondary" style="flex:1;" title="דוח עימוד בחלון נפרד">📊 דוח עימוד</button>
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
-            <button id="btn-retypeset-debug" class="btn-tool btn-primary" style="flex:1;" title="עדכן ועמד מחדש">⚡ עדכן ועמד מחדש</button>
-            <button id="btn-import-debug" class="btn-tool btn-import" style="flex:1;" title="ייבוא טקסט">📄 ייבוא טקסט</button>
-            <input type="file" id="file-import-debug" accept=".txt,.text,.md" style="display:none;">
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
-            <button id="btn-refresh-debug" class="btn-tool btn-secondary" style="flex:0.5;" title="רענן דוח">🔄 רענן</button>
-            <button id="btn-export-marked" class="btn-tool btn-primary" style="flex:1;" title="ייצא HTML ממורקר">💾 ייצוא HTML ממורקר</button>
-            <button id="btn-toggle-trace" class="btn-tool btn-secondary" style="flex:1;" title="מעקב אחרי קריאות פונקציות">🔍 מעקב פונקציות</button>
-        </div>
-        <div id="debug-report-view">
-            <div id="debug-summary"></div>
-            <div id="debug-blocks-table" style="margin-top:12px;"></div>
-            <div id="debug-issues-list" style="margin-top:12px;"></div>
-        </div>
-        <div id="trace-view" style="display:none;flex-direction:column;"></div>
-    `;
-    sidebar.appendChild(debugPane);
-
-    // 5. צור שורת טאבים
-    const tabBar = document.createElement('div');
-    tabBar.id = 'tab-bar';
-    tabBar.style.cssText = 'display:flex;flex-direction:row;background:#1e293b;flex-shrink:0;border-bottom:2px solid #334155;';
-    tabBar.innerHTML = `
-        <button class="tab-btn" data-tab="text-pane" style="flex:1;padding:8px 4px;border:none;background:#334155;color:#e2e8f0;cursor:pointer;font-size:9pt;font-family:inherit;">✍️ עורך</button>
-        <button class="tab-btn" data-tab="settings-pane" style="flex:1;padding:8px 4px;border:none;background:#1e293b;color:#94a3b8;cursor:pointer;font-size:9pt;font-family:inherit;">⚙️ הגדרות</button>
-        <button class="tab-btn" data-tab="tab-debug" style="flex:1;padding:8px 4px;border:none;background:#1e293b;color:#94a3b8;cursor:pointer;font-size:9pt;font-family:inherit;">🔬 בדיקה</button>
-    `;
-    sidebar.insertBefore(tabBar, sidebar.firstChild);
-
-    // 6. הגדר את ה-sidebar כ-flex column
-    sidebar.style.flexDirection = 'column';
-    sidebar.style.width = '440px';
-
-    // 7. טפל בלחיצות טאב
-    tabBar.querySelectorAll('.tab-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() { switchTab(this.dataset.tab); });
-    });
-
-    // 8. הגדר כפתורי בדיקה (אם הפונקציות קיימות)
-    const btnSeeded = document.getElementById('btn-seeded');
-    if (btnSeeded && typeof generateTestTextSeeded === 'function') {
-        btnSeeded.addEventListener('click', function() {
-            const txt = generateTestTextSeeded();
-            if (editorElem) {
-                editorElem.value = txt;
-                typesetDocument();
-                switchTab('tab-debug');
-            }
-        });
-    }
-    const btnRandom = document.getElementById('btn-random');
-    if (btnRandom && typeof generateTestText === 'function') {
-        btnRandom.addEventListener('click', function() {
-            const txt = generateTestText();
-            if (editorElem) {
-                editorElem.value = txt;
-                typesetDocument();
-                switchTab('tab-debug');
-            }
-        });
-    }
-    const btnReport = document.getElementById('btn-report-window');
-    if (btnReport && typeof generateLayoutReport === 'function') {
-        btnReport.addEventListener('click', function() { generateLayoutReport(); });
-    }
-    const btnRetypesetDbg = document.getElementById('btn-retypeset-debug');
-    if (btnRetypesetDbg) {
-        btnRetypesetDbg.addEventListener('click', function() { typesetDocument(); });
-    }
-    const btnRefreshDbg = document.getElementById('btn-refresh-debug');
-    if (btnRefreshDbg && typeof refreshDebugReport === 'function') {
-        btnRefreshDbg.addEventListener('click', function() { refreshDebugReport(); });
-    }
-    const btnExportMarked = document.getElementById('btn-export-marked');
-    if (btnExportMarked && typeof exportMarkedHTML === 'function') {
-        btnExportMarked.addEventListener('click', function() { exportMarkedHTML(); });
-    }
-    const btnToggleTrace = document.getElementById('btn-toggle-trace');
-    if (btnToggleTrace && typeof toggleTraceView === 'function') {
-        btnToggleTrace.addEventListener('click', function() { toggleTraceView(); });
-    }
-    const btnImportDbg = document.getElementById('btn-import-debug');
-    const fileImportDbg = document.getElementById('file-import-debug');
-    if (btnImportDbg && fileImportDbg) {
-        btnImportDbg.addEventListener('click', function() { fileImportDbg.click(); });
-        fileImportDbg.addEventListener('change', function(e) {
-            const file = e.target.files && e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                if (editorElem) {
-                    editorElem.value = ev.target.result;
-                    typesetDocument();
-                    switchTab('tab-debug');
-                }
-            };
-            reader.readAsText(file);
-            e.target.value = '';
-        });
-    }
-
-    // 9. בחירת טאב ברירת מחדל
-    switchTab('text-pane');
-
-    // 10. הסר את ה-class 'tabs-not-ready' כדי להציג את הממשק
-    document.body.classList.remove('tabs-not-ready');
-}
-window.initTabSystem = initTabSystem;
-
-function switchTab(tabId) {
-    const tabBar = document.getElementById('tab-bar');
-    if (!tabBar) return;
-    tabBar.querySelectorAll('.tab-btn').forEach(function(btn) {
-        const isActive = btn.dataset.tab === tabId;
-        btn.style.background = isActive ? '#334155' : '#1e293b';
-        btn.style.color = isActive ? '#e2e8f0' : '#94a3b8';
-    });
-    ['text-pane', 'settings-pane', 'tab-debug'].forEach(function(id) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (id === 'text-pane' || id === 'tab-debug') {
-            el.style.display = (id === tabId) ? 'flex' : 'none';
-        } else if (id === 'settings-pane') {
-            el.style.display = (id === tabId) ? 'flex' : 'none';
-        }
-    });
-}
-window.switchTab = switchTab;
-
-
-/* ==========================================================================
-   15. אירוע טעינת הדף הראשי (Window Onload)
-   ========================================================================== */
+/* ============================================================
+   אירוע טעינת הדף הראשי (Window Onload)
+   ============================================================ */
 window.onload = async function() {
-    initFontPickers();
-    // טען הגדרות ברירת מחדל מ-default_settings.json דרך settings-manager.js
-    // חשוב: default_settings.json כעת מכיל את ברירת המחדל של עדכון_ממשק_9 (שמות גופנים אנגליים)
-    if (typeof loadDefaultSettings === 'function') {
-        await loadDefaultSettings();
-    }
+    initDefaultFonts();
     refreshCustomThemesUI();
     rehydrateExtImports();
 
     await loadExternalJSONAssets();
-    await loadFolderAssetsAndThemes();
-    // תיקון (2026-10-16): loadExternalFonts טוען 1754 גופנים — חוסם את window.onload.
-    // מריצים ברקע בלי לחכות.
-    loadExternalFonts();
-    await ensureBuiltinFontsLoaded();
+    await loadExternalFonts();
 
     if (document.getElementById('section-divider-style')?.value === 'custom_img') {
         const row = document.getElementById('row-sec-div-img');
@@ -2257,7 +1544,8 @@ window.onload = async function() {
 גוף הטקסט המכיל הערות צד בשולי הדף. הערות אלו ממוקמות בדיוק מול הפסקה אליה הן מתייחסות, ובכך מאפשרות ללומד לעיין במקורות תוך כדי לימודו הרציף בגוף הספר.`;
     }
 
-    typesetDocument();
+    loadShaarCalibFromStorage();
+    refreshShaarCalibList();
+    typesetDocument(50);
     initVisualPickers();
-    initTabSystem();
 };

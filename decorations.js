@@ -1,3 +1,4 @@
+
 /* ==========================================================================
    מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
    קובץ: decorations.js
@@ -120,11 +121,22 @@ function renderHeaderSectionHTML(type, customText, h1Title, h2Title, h3Title, bo
     if (type === 'first_word_last_word') return firstLastWords || '';
     if (type === 'custom') return customText || '';
 
-    if (HEADER_ORNAMENTS[type]) return HEADER_ORNAMENTS[type];
-    if (EXTERNAL_ALL_ORNAMENTS[type]) return EXTERNAL_ALL_ORNAMENTS[type];
+    const userHdrW = document.getElementById('dim-hdr-w')?.value;
+    const userHdrH = document.getElementById('dim-hdr-h')?.value;
+    const hdrSizeStyle = (userHdrW ? `width: ${userHdrW} !important; ` : '') + (userHdrH ? `height: ${userHdrH} !important; max-height: ${userHdrH} !important; ` : '');
+
+    if (HEADER_ORNAMENTS[type]) {
+        if (type === 'diamonds') return HEADER_ORNAMENTS[type];
+        // מסירים style קשיח קיים לפני הזרקת הגודל מהלוח, כדי למנוע שני מאפייני style כפולים
+        const svgNoStyle = HEADER_ORNAMENTS[type].replace(/<svg[^>]*style="[^"]*"/, '<svg');
+        return svgNoStyle.replace(/<svg /, `<svg style="${hdrSizeStyle}" `);
+    }
+    if (EXTERNAL_ALL_ORNAMENTS[type]) {
+        return `<span style="display:inline-flex; align-items:center; ${hdrSizeStyle}">${EXTERNAL_ALL_ORNAMENTS[type]}</span>`;
+    }
     if (type === 'custom_img') {
         const imgSrc = document.getElementById('data-hdr-c-img') ? document.getElementById('data-hdr-c-img').value : '';
-        return imgSrc ? `<img src="${imgSrc}" style="max-height: 18px; max-width: 100%; object-fit: contain; vertical-align: middle;" />` : '';
+        return imgSrc ? `<img src="${imgSrc}" style="object-fit: contain; vertical-align: middle; ${hdrSizeStyle}" />` : '';
     }
     return '';
 }
@@ -143,21 +155,31 @@ function getSectionDividerHTML(type) {
     if (!type || type === 'none') return '';
     const userW = document.getElementById('dim-secdiv-w')?.value;
     const userH = document.getElementById('dim-secdiv-h')?.value;
-    const dimStyle = (userW ? `width: ${userW}; ` : '') + (userH ? `height: ${userH}; max-height: ${userH}; ` : '');
+    const dimStyle = (userW ? `width: ${userW} !important; ` : '') + (userH ? `height: ${userH} !important; max-height: ${userH} !important; ` : '');
 
     let content = '';
     if (SECTION_DIVIDERS[type]) {
-        content = SECTION_DIVIDERS[type];
+        if (type === 'pyramid') {
+            content = SECTION_DIVIDERS[type];
+        } else {
+            // מסירים style קשיח קיים לפני הזרקת הגודל מהלוח, כך שההגדרה בלוח
+            // תחול גם על העיטורים המובנים (קודם חלה רק על תמונה מותאמת אישית)
+            const svgNoStyle = SECTION_DIVIDERS[type].replace(/<svg[^>]*style="[^"]*"/, '<svg');
+            content = svgNoStyle.replace(/<svg /, `<svg style="${dimStyle} margin:auto; display:block;" `);
+        }
     } else if (EXTERNAL_ALL_ORNAMENTS[type]) {
-        content = EXTERNAL_ALL_ORNAMENTS[type];
+        const svgNoStyle = EXTERNAL_ALL_ORNAMENTS[type].replace(/<svg[^>]*style="[^"]*"/, '<svg');
+        content = svgNoStyle.includes('<svg ')
+            ? svgNoStyle.replace(/<svg /, `<svg style="${dimStyle} margin:auto; display:block;" `)
+            : `<span style="display:inline-flex; align-items:center; justify-content:center; ${dimStyle}">${EXTERNAL_ALL_ORNAMENTS[type]}</span>`;
     } else if (type === 'custom_img') {
         const imgSrc = document.getElementById('data-sec-div-img')?.value || '';
         if (imgSrc) {
-            content = `<img src="${imgSrc}" style="max-width: 100%; max-height: 45px; margin: auto; display: block; object-fit: contain; ${dimStyle}" />`;
+            content = `<img src="${imgSrc}" style="max-width: 100%; margin: auto; display: block; object-fit: contain; ${dimStyle}" />`;
         }
     }
     if (!content) return '';
-    return `<div class="sec-divider-wrap" style="grid-column: 3 / 6; text-align: center; margin: 16px auto 6px auto; display:flex; justify-content:center; align-items:center; ${dimStyle}">${content}</div>`;
+    return `<div class="sec-divider-wrap" style="grid-column: 3 / 6; text-align: center; margin: 16px auto 6px auto; ${dimStyle ? 'display:flex; justify-content:center; align-items:center;' : ''}">${content}</div>`;
 }
 
 function getHeadingOrnamentHTML(type, isTop = false, isH2 = true) {
