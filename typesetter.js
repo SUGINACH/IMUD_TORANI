@@ -657,6 +657,22 @@ function parseMetadataFromText(rawText) {
             const el = document.getElementById('inp-book-author');
             if (el) el.value = trimmed.replace(/^(?:שם המחבר[:\s]*)?שם המחבר\s*[-–—:]\s*/i, '').trim();
             match = true;
+        } else if (/^(?:שמירת זכויות[:\s]*)?שמירת זכויות\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+            const el = document.getElementById('inp-book-back-copyright');
+            if (el) el.value = trimmed.replace(/^(?:שמירת זכויות[:\s]*)?שמירת זכויות\s*[-–—:]\s*/i, '').trim();
+            match = true;
+        } else if (/^(?:פרטי הוצאה לאור[:\s]*)?פרטי הוצאה לאור\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+            const el = document.getElementById('inp-book-back-publishing');
+            if (el) el.value = trimmed.replace(/^(?:פרטי הוצאה לאור[:\s]*)?פרטי הוצאה לאור\s*[-–—:]\s*/i, '').trim();
+            match = true;
+        } else if (/^(?:פרטי קשר[:\s]*)?פרטי קשר\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+            const el = document.getElementById('inp-book-back-contact');
+            if (el) el.value = trimmed.replace(/^(?:פרטי קשר[:\s]*)?פרטי קשר\s*[-–—:]\s*/i, '').trim();
+            match = true;
+        } else if (/^(?:פרטים נוספים[:\s]*)?פרטים נוספים\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
+            const el = document.getElementById('inp-book-back-extra');
+            if (el) el.value = trimmed.replace(/^(?:פרטים נוספים[:\s]*)?פרטים נוספים\s*[-–—:]\s*/i, '').trim();
+            match = true;
         } else if (/^(?:מקום ושנת הוצאה[:\s]*)?מקום ושנת הוצאה\s*[-–—:]\s*(.*)$/i.test(trimmed)) {
             const el = document.getElementById('inp-book-year');
             if (el) el.value = trimmed.replace(/^(?:מקום ושנת הוצאה[:\s]*)?מקום ושנת הוצאה\s*[-–—:]\s*/i, '').trim();
@@ -2729,7 +2745,7 @@ function typesetDocumentCore() {
                 const free = (flowBottom - reservedNow()) - lastEl.getBoundingClientRect().bottom - 1;
                 stretchLastBlockToBottom(flow, free, styleObj, PAGE_STRETCH_MAX);
             };
-			if (isH0) {
+                        if (isH0) {
                 const singleBlock = document.createElement('div');
                 singleBlock.className = 'block-single-col';
                 singleBlock.innerHTML = `<div class="single-wide-col"></div>`;
