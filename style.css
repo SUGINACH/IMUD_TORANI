@@ -1665,3 +1665,71 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
 .h3-title-text, .h2-siman-badge {
     text-wrap: balance;
 }
+
+/* ==========================================================================
+   מסך כיסוי עם מד התקדמות עגול בזמן עימוד
+   ========================================================================== */
+#typeset-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.85);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+    backdrop-filter: blur(4px);
+}
+body.is-typesetting #typeset-overlay {
+    display: flex;
+}
+
+.typeset-spinner {
+    width: 80px;
+    height: 80px;
+    position: relative;
+}
+.typeset-spinner svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+.typeset-spinner .bg-ring {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.15);
+    stroke-width: 6;
+}
+.typeset-spinner .progress-ring {
+    fill: none;
+    stroke: #38bdf8;
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.3s ease;
+}
+.typeset-spinner .spinner-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #e2e8f0;
+    font-size: 18pt;
+    font-weight: 700;
+    font-family: 'Assistant', sans-serif;
+}
+
+.typeset-info {
+    color: #e2e8f0;
+    text-align: center;
+    font-family: 'Assistant', sans-serif;
+}
+.typeset-info .pages-count {
+    font-size: 14pt;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.typeset-info .progress-text {
+    font-size: 10pt;
+    color: #94a3b8;
+}

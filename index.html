@@ -1319,6 +1319,22 @@
   </div>
   <div id="measuring-box"></div>
 
+  <!-- מסך כיסוי עם מד התקדמות בזמן עימוד -->
+  <div id="typeset-overlay">
+    <div class="typeset-spinner">
+      <svg viewBox="0 0 80 80">
+        <circle class="bg-ring" cx="40" cy="40" r="34"></circle>
+        <circle class="progress-ring" cx="40" cy="40" r="34"
+                stroke-dasharray="213.6" stroke-dashoffset="213.6"></circle>
+      </svg>
+      <div class="spinner-text" id="typeset-percent">0%</div>
+    </div>
+    <div class="typeset-info">
+      <div class="pages-count" id="typeset-pages">0 עמודים</div>
+      <div class="progress-text" id="typeset-progress-text">מתחיל...</div>
+    </div>
+  </div>
+
   <script src="decorations.js"></script>
   <script src="typesetter.js"></script>
   <script src="settings-manager.js"></script>

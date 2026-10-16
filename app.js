@@ -2194,6 +2194,39 @@ function switchTab(tabId) {
 }
 window.switchTab = switchTab;
 
+/* ==========================================================================
+   14ה. מסך כיסוי עם מד התקדמות בזמן עימוד
+   ========================================================================== */
+(function setupTypesetOverlay() {
+    const RING_CIRCUMFERENCE = 2 * Math.PI * 34; // ~213.6
+
+    // עדכון ה-overlay — נקרא מתוך המנוע (__onTypesetProgress)
+    window.__onTypesetProgress = function(sectionIdx, totalSections, pagesCreated) {
+        const percent = totalSections > 0 ? Math.round((sectionIdx / totalSections) * 100) : 0;
+        const ring = document.querySelector('.progress-ring');
+        const percentEl = document.getElementById('typeset-percent');
+        const pagesEl = document.getElementById('typeset-pages');
+        const progressEl = document.getElementById('typeset-progress-text');
+
+        if (ring) ring.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - percent / 100);
+        if (percentEl) percentEl.textContent = percent + '%';
+        if (pagesEl) pagesEl.textContent = pagesCreated + ' עמודים';
+        if (progressEl) progressEl.textContent = 'פרק ' + sectionIdx + ' מתוך ' + totalSections;
+    };
+
+    // איפוס ה-overlay לפני עימוד
+    window.__resetTypesetOverlay = function() {
+        const ring = document.querySelector('.progress-ring');
+        if (ring) ring.style.strokeDashoffset = RING_CIRCUMFERENCE;
+        const percentEl = document.getElementById('typeset-percent');
+        if (percentEl) percentEl.textContent = '0%';
+        const pagesEl = document.getElementById('typeset-pages');
+        if (pagesEl) pagesEl.textContent = '0 עמודים';
+        const progressEl = document.getElementById('typeset-progress-text');
+        if (progressEl) progressEl.textContent = 'מתחיל...';
+    };
+})();
+
 
 /* ==========================================================================
    15. אירוע טעינת הדף הראשי (Window Onload)

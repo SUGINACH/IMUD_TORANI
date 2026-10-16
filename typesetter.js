@@ -2072,6 +2072,10 @@ function setTypesetBusy(flag) {
             b.disabled = false;
         }
     });
+    // איפוס מסך הכיסוי לפני תחילת העימוד
+    if (flag && typeof window.__resetTypesetOverlay === 'function') {
+        window.__resetTypesetOverlay();
+    }
 }
 
 /* מחליף במקום את עמודי השער (ראשי/אחורי/משנה) לפי ההגדרות הנוכחיות, בלי עימוד מחדש. מחזיר true אם נמצא מה לרענן */
@@ -2155,7 +2159,11 @@ function typesetDocument(delay) {
         }, delay);
         return;
     }
-    return typesetDocumentNow();
+    // גם במסלול הישיר — הצג overlay ואז עמד (נותן לדפדפן לצייר את ה-overlay לפני החסימה)
+    setTypesetBusy(true);
+    requestAnimationFrame(() => setTimeout(() => {
+        try { typesetDocumentNow(); } finally { setTypesetBusy(false); }
+    }, 0));
 }
 
 /* העימוד עצמו (עוטף את הליבה): מקפיא את סקאלת התצוגה לאורך כל העימוד ומכבה את חיווי "שינויים ממתינים" */
@@ -2509,6 +2517,11 @@ function typesetDocumentCore() {
 
     for (let sIdx = 0; sIdx < sections.length; sIdx++) {
         const sec = sections[sIdx];
+
+        // עדכון התקדמות עימוד (אם מוגדר callback חיצוני)
+        if (typeof window.__onTypesetProgress === 'function') {
+            try { window.__onTypesetProgress(sIdx + 1, sections.length, pageIndex); } catch (e) {}
+        }
 
         if (sec.type === 'sub_shaar') {
             if (prevPageEl) {
