@@ -682,53 +682,9 @@ function estimateSectionFillRatio(tokens) {
     return Math.max(0.3, Math.min(1, ratio));
 }
 
-/* תיקון 1 (2026-10-16): clampBlockToPfBottom
-   מונע גלישה של בלוק לתוך אזור הערות השוליים / מתחת ל-page-body-flow.
-   אחרי balanceColumns ו/או justifyColumnVertically, בודק אם הבלוק גולש
-   מ-pfBottom. אם כן — מסיר margin-bottom מהפסקאות בטור שגולש עד למניעת הגלישה.
-   הפונקציה בטוחה לשימוש גם אם אין גלישה (no-op). */
-function clampBlockToPfBottom(block) {
-    if (!block) return;
-    const bodyFlow = block.parentElement;
-    if (!bodyFlow || !bodyFlow.classList.contains('page-body-flow')) return;
-    const pfRect = bodyFlow.getBoundingClientRect();
-    const rCol = block.querySelector('.right-col');
-    const lCol = block.querySelector('.left-col');
-    if (!rCol || !lCol) return;
-    const rRect = rCol.getBoundingClientRect();
-    const lRect = lCol.getBoundingClientRect();
-    const rOver = rRect.bottom > pfRect.bottom + 1 ? rRect.bottom - pfRect.bottom : 0;
-    const lOver = lRect.bottom > pfRect.bottom + 1 ? lRect.bottom - pfRect.bottom : 0;
-
-    function reduceMarginInCol(col, amount) {
-        if (amount <= 0) return 0;
-        let removed = 0;
-        // קודם נסה margin-bottom על פסקאות (מה ש-justifyColumnVertically הוסיף)
-        const ps = Array.from(col.querySelectorAll('p'));
-        // מהסוף להתחלה כדי לשמור על מרווחים עליונים
-        for (let i = ps.length - 2; i >= 0 && removed < amount; i--) {
-            const p = ps[i];
-            const mbStyle = p.style.marginBottom;
-            const mb = mbStyle !== '' ? (parseFloat(mbStyle) || 0) : 0;
-            if (mb > 0) {
-                const reduce = Math.min(mb, amount - removed);
-                p.style.marginBottom = (mb - reduce) + 'px';
-                removed += reduce;
-            }
-        }
-        return removed;
-    }
-
-    if (rOver > 1) reduceMarginInCol(rCol, rOver);
-    if (lOver > 1) reduceMarginInCol(lCol, lOver);
-}
-
 function justifyColumnVertically(col, targetHeight, styleObj) {
     const currentH = col.scrollHeight;
     const diff = targetHeight - currentH;
-    // תיקון 3 (2026-10-16): העלאת ceiling מ-60 ל-80 כדי לאפשר סגירת פערים שנובעים מכותרות (~22px)
-    // רוב הפערים הם <=25px (320 מתוך 406), ו-60px לא מספיק כשיש כותרת בטור.
-    // clampBlockToPfBottom (תיקון 1) יתפוס גלישות חדשות אם ייווצרו.
     if (diff > 2 && diff <= 60) {
         let pElements = Array.from(col.querySelectorAll('p'));
         if (pElements.length > 1) {
@@ -817,19 +773,6 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         }
         return item;
     });
-
-    // תיקון 2 (2026-10-16): מניעת טורים ריקים + widow
-    // אם יש רק פריט אחד (פסקה או כותרת) עם מעט שורות — אי אפשר לחלק ל-2 טורים.
-    // במקרה כזה, נשאיר הכל בטור R ונשאיר את L ריק (עדיף על widow+empty).
-    // תנאי: פריט יחיד עם עד 3 שורות, או שאי אפשר לחלק מבלי ליצור widow.
-    if (items.length === 1) {
-        const it = items[0];
-        const totalLines = it.type === 'p' ? it.numLines : 1;
-        if (totalLines <= 3) {
-            // אל תחלק — השאר הכל ב-R
-            return;
-        }
-    }
 
     const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true;
     const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;
@@ -2531,8 +2474,6 @@ function performTypeset() {
                 /* איזון טורים בסיום פרק או לפני כותרת 3 */
                 if (tokenIndex >= secTokens.length && !pendingWordTokens) {
                     balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                    // תיקון 1 (2026-10-16): מניעת גלישה לאזור הערות השוליים גם אחרי balanceColumns
-                    clampBlockToPfBottom(block2Col);
 
                     const divHTML = getSectionDividerHTML(secDivStyle);
                     if (divHTML) {
@@ -2547,10 +2488,8 @@ function performTypeset() {
 
                     if (nextPeekMode === 'span_1col' && !pendingWordTokens) {
                         balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                        clampBlockToPfBottom(block2Col);
                     } else if (rCol.scrollHeight > actualAvailH || Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 60) {
                         balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                        clampBlockToPfBottom(block2Col);
                     } else {
                         let usedBlockH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
                         let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
@@ -2560,8 +2499,6 @@ function performTypeset() {
                             } else if (finalDiff < -2 && Math.abs(finalDiff) <= 60) {
                                 justifyColumnVertically(rCol, lCol.scrollHeight, styleObj);
                             }
-                            // תיקון 1 (2026-10-16): מניעת גלישה לאזור הערות השוליים
-                            clampBlockToPfBottom(block2Col);
                         }
                     }
                 }
