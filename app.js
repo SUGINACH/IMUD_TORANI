@@ -2194,11 +2194,91 @@ function switchTab(tabId) {
 }
 window.switchTab = switchTab;
 
+/* ==========================================================================
+   14ה. גשר תקשורת עם iframe המרנדר
+   ========================================================================== */
+let __renderFrame = null;
+let __renderReady = false;
+let __pendingTypeset = null;
+
+function getRenderFrame() {
+    if (!__renderFrame) __renderFrame = document.getElementById('render-frame');
+    return __renderFrame;
+}
+
+// אסוף את כל ערכי ההגדרות מהדף הראשי
+function collectAllSettingsForRenderer() {
+    const settings = {};
+    document.querySelectorAll('#settings-pane [id], #text-pane [id]').forEach(el => {
+        if (!el.id || el.tagName === 'BUTTON' || el.type === 'file' || el.type === 'hidden') return;
+        if (el.id.startsWith('vp-') || el.id.startsWith('file-') || el.id === 'assets-folder-input') return;
+        if (el.type === 'checkbox') {
+            settings[el.id] = el.checked;
+        } else if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+            settings[el.id] = el.value;
+        }
+    });
+    // גם data- attributes
+    ['data-cbg-regular-img','data-cbg-h0Open-img','data-cbg-h2Open-img','data-hdr-c-img','data-sec-div-img',
+     'data-builder-main-svg','data-builder-back-svg','data-builder-sub-svg'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) settings[id] = el.value;
+    });
+    // builder dimensions
+    ['builder-main-top','builder-main-bottom','builder-main-right','builder-main-left',
+     'builder-back-top','builder-back-bottom','builder-back-right','builder-back-left',
+     'builder-sub-top','builder-sub-bottom','builder-sub-right','builder-sub-left',
+     'builder-theme-name'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) settings[id] = el.value;
+    });
+    return settings;
+}
+
+// שלח עימוד ל-iframe
+function sendTypesetToRenderer() {
+    const frame = getRenderFrame();
+    if (!frame || !frame.contentWindow) return false;
+    if (!__renderReady) {
+        // iframe עדיין לא מוכן — שמור בצד
+        __pendingTypeset = true;
+        return false;
+    }
+    const text = document.getElementById('raw-input')?.value || '';
+    const settings = collectAllSettingsForRenderer();
+    frame.contentWindow.postMessage({
+        type: 'typeset',
+        text: text,
+        settings: settings
+    }, '*');
+    return true;
+}
+
+// האזנה להודעות מה-iframe
+window.addEventListener('message', function(e) {
+    const msg = e.data;
+    if (!msg || !msg.type) return;
+    if (msg.type === 'renderer-ready') {
+        __renderReady = true;
+        if (__pendingTypeset) {
+            __pendingTypeset = false;
+            sendTypesetToRenderer();
+        }
+    } else if (msg.type === 'render-done') {
+        console.log('✓ עימוד הושלם:', msg.pageCount, 'עמודים');
+    } else if (msg.type === 'render-error') {
+        console.error('✗ שגיאת עימוד:', msg.error);
+    }
+});
+
 
 /* ==========================================================================
    15. אירוע טעינת הדף הראשי (Window Onload)
    ========================================================================== */
 window.onload = async function() {
+    // במצב renderer (iframe) — דלג על אתחול UI
+    if (window.__isRenderer) return;
+
     initFontPickers();
     // טען הגדרות ברירת מחדל מ-default_settings.json דרך settings-manager.js
     // חשוב: default_settings.json כעת מכיל את ברירת המחדל של עדכון_ממשק_9 (שמות גופנים אנגליים)

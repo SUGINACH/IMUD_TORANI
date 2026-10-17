@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Renderer</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* renderer-specific: no sidebar, full width */
+body { margin: 0; padding: 0; background: #334155; overflow: auto; }
+#sidebar, #text-pane, #settings-pane, #resizer, #tab-bar, #tab-debug { display: none !important; }
+#preview-pane { position: static !important; float: none !important; width: 100% !important; max-height: none !important; overflow: visible !important; padding: 0 !important; background: #334155 !important; }
+#book-container { margin: 0 auto !important; transform: none !important; }
+.a4-page { margin: 0 auto 10px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.3) !important; }
+/* hidden settings inputs — no visual impact */
+#settings-hidden { display: none; }
+</style>
+<script>window.__isRenderer = true;</script>
+</head>
+<body>
+  <!-- hidden settings inputs (populated by renderer-bridge.js) -->
+  <div id="settings-hidden"></div>
+  <!-- hidden raw-input (the engine reads text from here) -->
+  <div id="raw-input" style="display:none"></div>
+  <!-- the actual rendering targets -->
+  <div id="preview-pane">
+    <div id="book-container"></div>
+  </div>
+  <div id="measuring-box"></div>
+
+  <script src="decorations.js"></script>
+  <script src="typesetter.js"></script>
+  <script src="settings-manager.js"></script>
+  <script src="app.js"></script>
+  <script src="renderer-bridge.js"></script>
+</body>
+</html>

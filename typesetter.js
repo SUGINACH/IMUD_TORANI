@@ -2128,12 +2128,21 @@ function applyUploadedImageSetting(targetInputId) {
 /* נקודת הכניסה היחידה לעימוד - כל ה-oninput/onchange בלוח ההגדרות וכפתור העדכון קוראים לה.
    delay (מילישניות) - רק לקריאות מפורשות (כפתור העדכון / טעינה): מצייר "מעמד..." ומעמד אחרי ההשהיה */
 function typesetDocument(delay) {
+    // במצב renderer (iframe) — עמד ישירות
+    if (window.__isRenderer) {
+        return typesetDocumentNow();
+    }
+    // בדף הראשי — הפנה ל-iframe
+    if (typeof sendTypesetToRenderer === 'function') {
+        return sendTypesetToRenderer();
+    }
+    // fallback — עמד ישירות (אמור לקרות רק אם אין iframe)
     const ev = (typeof window !== 'undefined') ? window.event : null;
     const src = ev && ev.target && ev.target.nodeType === 1 ? ev.target : null;
     const kind = classifySettingControl(src);
     if (kind === 'cover') {
         const refreshed = refreshCoversInPlace();
-        if (!refreshed || src.id === 'inp-book-title') setSettingsDirty(true); // שם הספר מופיע גם בכותרות העליונות ובתוכן העניינים
+        if (!refreshed || src.id === 'inp-book-title') setSettingsDirty(true);
         return;
     }
     if (kind === 'bg') {
