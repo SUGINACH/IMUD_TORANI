@@ -2195,8 +2195,9 @@ function switchTab(tabId) {
 window.switchTab = switchTab;
 
 /* ==========================================================================
-   14ה. גשר תקשורת עם iframe המרנדר
+   14ה. גשר תקשורת עם iframe המרנדר (רק בדף הראשי, לא ב-iframe)
    ========================================================================== */
+if (!window.__isRenderer) {
 let __renderFrame = null;
 let __renderReady = false;
 let __pendingTypeset = null;
@@ -2254,7 +2255,7 @@ function sendTypesetToRenderer() {
     return true;
 }
 
-// האזנה להודעות מה-iframe
+// האזנה להודעות מה-iframe (רק בדף הראשי, לא ב-iframe)
 window.addEventListener('message', function(e) {
     const msg = e.data;
     if (!msg || !msg.type) return;
@@ -2270,6 +2271,7 @@ window.addEventListener('message', function(e) {
         console.error('✗ שגיאת עימוד:', msg.error);
     }
 });
+} // end if (!window.__isRenderer)
 
 
 /* ==========================================================================
