@@ -2017,6 +2017,38 @@ if (document.fonts && document.fonts.ready) {
 window.exportRenderedHTML = exportRenderedHTML;
 
 /* ==========================================================================
+   14ג2. הדפסה / PDF — מדפיס את תוכן ה-iframe (לא את הדף הראשי)
+   ==========================================================================
+   בעיה: window.print() על הדף הראשי מדפיס רק את השער (כי התוכן ב-iframe),
+   והרקע האפור-כחול (#334155) של ה-iframe מכסה את התוכן.
+   פתרון: קוראים ל-iframe.contentWindow.print() כדי להדפיס את ה-iframe בלבד.
+   ========================================================================== */
+function printRendered() {
+    const iframe = document.getElementById('render-frame');
+    if (!iframe || !iframe.contentWindow) {
+        alert('שגיאה: iframe לא נמצא');
+        return;
+    }
+    try {
+        // Wait a tick to ensure fonts/content are ready, then print
+        const w = iframe.contentWindow;
+        if (w.document.fonts && w.document.fonts.ready) {
+            w.document.fonts.ready.then(() => {
+                w.focus();
+                w.print();
+            });
+        } else {
+            w.focus();
+            w.print();
+        }
+    } catch (e) {
+        console.error('printRendered נכשל:', e);
+        alert('הדפסה נכשלה: ' + e.message);
+    }
+}
+window.printRendered = printRendered;
+
+/* ==========================================================================
    14ד. מערכת טאבים לסרגל הצידי — הוספה מ-v18
    ==========================================================================
    3 טאבים: עורך | הגדרות | בדיקה
