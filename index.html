@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- סרגל צד ראשי המפוצל לשני טורים: אזור טקסט + לוח הגדרות -->
+  <!-- סרגל צד ראשי: אזור טקסט + לוח הגדרות -->
   <div id="sidebar">
     <!-- טור 1: אזור הדבקת ועריכת הטקסט -->
     <div id="text-pane">
@@ -17,9 +17,9 @@
           <span>עורך תוכן וחלוקת עמודים</span>
         </div>
         <div class="text-actions-bar">
-          <button type="button" id="btn-retypeset" class="btn-tool btn-primary" onclick="typesetDocument()">⚡ עדכן ועמד מחדש</button>
+          <button type="button" id="btn-retypeset" data-retypeset-btn class="btn-tool btn-primary" onclick="typesetDocument(50)" title="עימוד מחדש של המסמך לפי ההגדרות הנוכחיות">⚡ עדכן ועמד מחדש</button>
           <button type="button" class="btn-tool btn-import" onclick="document.getElementById('file-txt-import').click()">📄 ייבוא טקסט</button>
-          <button type="button" class="btn-tool btn-secondary" onclick="window.print()">🖨️ הדפסה / PDF</button>
+          <button type="button" class="btn-tool btn-secondary" onclick="printDocument()">🖨️ הדפסה / PDF</button>
           <input type="file" id="file-txt-import" accept=".txt,.text,.md" style="display:none" onchange="handleTxtFileImport(event)">
         </div>
       </div>
@@ -43,6 +43,7 @@
         <div class="settings-top-bar">
           <div class="settings-title">⚙️ הגדרות עימוד</div>
           <div class="settings-quick-actions">
+            <button type="button" id="btn-apply-settings" data-retypeset-btn class="btn-header-action btn-apply" onclick="typesetDocument(50)">⚡ החל שינויים</button>
             <button type="button" class="btn-header-action btn-save" onclick="saveAsDefaultTemplate()">💾 שמור תבנית</button>
             <button type="button" class="btn-header-action btn-fonts" onclick="loadSystemFonts()">📂 גופני מחשב</button>
             <button type="button" class="btn-close-settings" onclick="toggleSettingsPane()" title="סגור">✕</button>
@@ -120,49 +121,48 @@
                 <input type="checkbox" id="enable-shaar-box-editor" checked="checked" onchange="toggleShaarBoxEditor()">
                 <span class="btn-toggle-box"><span class="check-icon">✓</span>כוונון תיבות שער בעכבר (Drag & Resize)</span>
               </label>
-              <div style="font-size:7.5pt;color:#888;margin-top:3px;">כל תמונת שער זוכרת את הכיוונון שלה בנפרד. אם צריך לאפס תמונה ספציפית לברירת המחדל:</div>
-              <div style="display:flex;gap:4px;margin-top:4px;">
-                <button type="button" class="btn-tool" style="flex:1;font-size:7.5pt;padding:3px;" onclick="resetCurrentShaarBoxPosition('main')">איפוס תיבת שער ראשי</button>
-                <button type="button" class="btn-tool" style="flex:1;font-size:7.5pt;padding:3px;" onclick="resetCurrentShaarBoxPosition('sub')">איפוס תיבת שער משנה</button>
-                <button type="button" class="btn-tool" style="flex:1;font-size:7.5pt;padding:3px;" onclick="resetCurrentShaarBoxPosition('back')">איפוס תיבת שער אחורי</button>
-              </div>
+            </div>
+            <div id="shaar-calib-panel" style="display:none; margin-bottom:8px;">
+              <div class="calib-title">📌 כיוונונים שמורים לשערים (נשמרים לשער הספציפי ומשוחזרים בכל בחירה שלו)</div>
+              <div id="shaar-calib-list"></div>
+              <button type="button" class="calib-reset calib-reset-all" onclick="if (confirm('לאפס את כל כיוונוני תיבות השער?')) resetShaarCalibration()">↺ אפס את כל הכיוונונים</button>
             </div>
 
             <div class="inline-cfg-row">
               <label>שם הספר:</label>
-              <input type="text" id="inp-book-title" value="ספר מלכי המלוכה" placeholder="שם הספר" oninput="typesetDocument()">
+              <input type="text" id="inp-book-title" value="ספר מלכי המלוכה" placeholder="שם הספר" oninput="typesetDocument(500)">
               <select id="f-sh-title" class="font-picker" onchange="typesetDocument()"></select>
-              <input type="number" id="s-sh-title" class="size-input" value="46" oninput="typesetDocument()">
+              <input type="number" id="s-sh-title" class="size-input" value="46" oninput="typesetDocument(400)">
             </div>
             <div class="inline-cfg-row">
               <label>נושא / משנה:</label>
-              <input type="text" id="inp-book-subtitle" value="ביאורים וחידושים עמוקים על מסכתות הש&quot;ס" placeholder="נושא" oninput="typesetDocument()">
+              <input type="text" id="inp-book-subtitle" value="ביאורים וחידושים עמוקים על מסכתות הש&quot;ס" placeholder="נושא" oninput="typesetDocument(500)">
               <select id="f-sh-sub" class="font-picker" onchange="typesetDocument()"></select>
-              <input type="number" id="s-sh-sub" class="size-input" value="21" oninput="typesetDocument()">
+              <input type="number" id="s-sh-sub" class="size-input" value="21" oninput="typesetDocument(400)">
             </div>
             <div class="inline-cfg-row">
               <label>נושא מפורט:</label>
-              <input type="text" id="inp-book-desc" value="בירור שיטות הראשונים והאחרונים ובירורי הלכות למעשה" placeholder="תיאור" oninput="typesetDocument()">
+              <input type="text" id="inp-book-desc" value="בירור שיטות הראשונים והאחרונים ובירורי הלכות למעשה" placeholder="תיאור" oninput="typesetDocument(500)">
               <select id="f-sh-desc" class="font-picker" onchange="typesetDocument()"></select>
-              <input type="number" id="s-sh-desc" class="size-input" value="12" oninput="typesetDocument()">
+              <input type="number" id="s-sh-desc" class="size-input" value="12" oninput="typesetDocument(400)">
             </div>
             <div class="inline-cfg-row">
               <label>פרטי מהדורא:</label>
-              <input type="text" id="inp-book-sections" value="מהדורה שניה ומורחבת בסייעתא דשמיא" placeholder="מהדורא" oninput="typesetDocument()">
+              <input type="text" id="inp-book-sections" value="מהדורה שניה ומורחבת בסייעתא דשמיא" placeholder="מהדורא" oninput="typesetDocument(500)">
               <select id="f-sh-sec" class="font-picker" onchange="typesetDocument()"></select>
-              <input type="number" id="s-sh-sec" class="size-input" value="11.5" step="0.5" oninput="typesetDocument()">
+              <input type="number" id="s-sh-sec" class="size-input" value="11.5" step="0.5" oninput="typesetDocument(400)">
             </div>
             <div class="inline-cfg-row">
               <label>שם המחבר:</label>
-              <input type="text" id="inp-book-author" value="הצעיר ידידיה בר אבא הלוי" placeholder="שם המחבר" oninput="typesetDocument()">
+              <input type="text" id="inp-book-author" value="הצעיר ידידיה בר אבא הלוי" placeholder="שם המחבר" oninput="typesetDocument(500)">
               <select id="f-sh-author" class="font-picker" onchange="typesetDocument()"></select>
-              <input type="number" id="s-sh-author" class="size-input" value="15" oninput="typesetDocument()">
+              <input type="number" id="s-sh-author" class="size-input" value="15" oninput="typesetDocument(400)">
             </div>
             <div class="inline-cfg-row">
               <label>מקום ושנה:</label>
-              <input type="text" id="inp-book-year" value="ירושלים עיה&quot;ק תובב&quot;א שנת ה'תשפ&quot;ו" placeholder="מקום ושנה" oninput="typesetDocument()">
+              <input type="text" id="inp-book-year" value="ירושלים עיה&quot;ק תובב&quot;א שנת ה'תשפ&quot;ו" placeholder="מקום ושנה" oninput="typesetDocument(500)">
               <select id="f-sh-year" class="font-picker" onchange="typesetDocument()"></select>
-              <input type="number" id="s-sh-year" class="size-input" value="12" oninput="typesetDocument()">
+              <input type="number" id="s-sh-year" class="size-input" value="12" oninput="typesetDocument(400)">
             </div>
 
             <!-- רקעים מאוחדים לעמודי תוכן -->
@@ -187,7 +187,7 @@
             </div>
             <div class="inline-cfg-row" id="row-cbg-regular-op" style="display:none;">
               <label>שקיפות תמונה:</label>
-              <input type="range" id="cbg-regular-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument()">
+              <input type="range" id="cbg-regular-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument(300)">
             </div>
 
             <div class="inline-cfg-row">
@@ -210,7 +210,7 @@
             </div>
             <div class="inline-cfg-row" id="row-cbg-h0Open-op" style="display:none;">
               <label>שקיפות תמונה:</label>
-              <input type="range" id="cbg-h0Open-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument()">
+              <input type="range" id="cbg-h0Open-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument(300)">
             </div>
 
             <div class="inline-cfg-row">
@@ -233,7 +233,7 @@
             </div>
             <div class="inline-cfg-row" id="row-cbg-h2Open-op" style="display:none;">
               <label>שקיפות תמונה:</label>
-              <input type="range" id="cbg-h2Open-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument()">
+              <input type="range" id="cbg-h2Open-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument(300)">
             </div>
           </div>
 
@@ -312,11 +312,10 @@
           </div>
           <div id="ext-imports-container"></div>
 
-          <!-- פאנל 4: מאגר עיטורים וממדים גרפיים (חדש ומרוכז) -->
+          <!-- פאנל 4: מאגר עיטורים וממדים גרפיים -->
           <div class="panel-static">
             <div class="panel-header">⚜️ מאגר עיטורים ושליטה במידות</div>
             
-            <!-- עיטורי כותרת 2 -->
             <div class="panel-sub-header">כותרת 2 — עיטור עליון ותחתון</div>
             <div class="inline-cfg-row">
               <label>סט שלם (ע+ת):</label>
@@ -328,33 +327,33 @@
             </div>
             <div class="inline-cfg-row">
               <label>עיטור עליון:</label>
-              <select id="h2-ornament-top-style" style="flex:1;" onchange="onH2IndividualOrnamentChange(); markPendingChanges();">
+              <select id="h2-ornament-top-style" style="flex:1;" onchange="onH2IndividualOrnamentChange(); typesetDocument();">
                 <option value="none" selected="selected">ללא עיטור עליון</option>
                 <optgroup id="h2-top-json-optgroup" label="עיטורים עליונים מ-JSON"></optgroup>
               </select>
             </div>
             <div class="dim-box">
               <label>ממדי עליון:</label>
-              <label>רוחב:</label><input type="text" id="dim-h2-top-w" value="65%" placeholder="למשל 60%" oninput="markPendingChanges()">
-              <label>גובה:</label><input type="text" id="dim-h2-top-h" value="1.25em" placeholder="1.25em" oninput="markPendingChanges()">
+              <label>רוחב:</label><input type="text" id="dim-h2-top-w" value="65%" placeholder="למשל 60%" oninput="typesetDocument(400)">
+              <label>גובה:</label><input type="text" id="dim-h2-top-h" value="1.25em" placeholder="1.25em" oninput="typesetDocument(400)">
             </div>
 
             <div class="inline-cfg-row">
               <label>עיטור תחתון:</label>
-              <select id="h2-ornament-bottom-style" style="flex:1;" onchange="onH2IndividualOrnamentChange(); markPendingChanges();">
+              <select id="h2-ornament-bottom-style" style="flex:1;" onchange="onH2IndividualOrnamentChange(); typesetDocument();">
                 <option value="none" selected="selected">ללא עיטור תחתון</option>
                 <optgroup id="h2-btm-json-optgroup" label="עיטורים תחתונים מ-JSON"></optgroup>
               </select>
             </div>
             <div class="dim-box">
               <label>ממדי תחתון:</label>
-              <label>רוחב:</label><input type="text" id="dim-h2-btm-w" value="65%" placeholder="למשל 60%" oninput="markPendingChanges()">
-              <label>גובה:</label><input type="text" id="dim-h2-btm-h" value="1.25em" placeholder="1.25em" oninput="markPendingChanges()">
+              <label>רוחב:</label><input type="text" id="dim-h2-btm-w" value="65%" placeholder="למשל 60%" oninput="typesetDocument(400)">
+              <label>גובה:</label><input type="text" id="dim-h2-btm-h" value="1.25em" placeholder="1.25em" oninput="typesetDocument(400)">
             </div>
 
             <div class="inline-cfg-row">
               <label>תחולת עיטורי סימן:</label>
-              <select id="h2-orn-scope" style="flex:1;" onchange="markPendingChanges()">
+              <select id="h2-orn-scope" style="flex:1;" onchange="typesetDocument()">
                 <option value="both" selected="selected">על שניהם (עליון מעל סימן, תחתון מתחת לכותרת)</option>
                 <option value="siman_only">רק שורת הסימן</option>
                 <option value="title_only">רק טקסט הכותרת (סימן יישאר ללא עיטור)</option>
@@ -362,12 +361,11 @@
             </div>
             <div style="margin-bottom:6px;">
               <label class="btn-toggle full-width">
-                <input type="checkbox" id="h2-orn-fit-text" onchange="markPendingChanges()">
+                <input type="checkbox" id="h2-orn-fit-text" onchange="typesetDocument()">
                 <span class="btn-toggle-box"><span class="check-icon">✓</span>התאם רוחב עיטור לרוחב טקסט הכותרת</span>
               </label>
             </div>
 
-            <!-- עיטורי כותרת 3 -->
             <div class="panel-sub-header">כותרת 3 — עיטורי צד (ימין ושמאל)</div>
             <div class="inline-cfg-row">
               <label>סט צד (י+ש):</label>
@@ -379,29 +377,28 @@
             </div>
             <div class="inline-cfg-row">
               <label>עיטור ימין:</label>
-              <select id="h3-ornament-r" style="flex:1;" onchange="onH3IndividualOrnamentChange(); markPendingChanges();">
+              <select id="h3-ornament-r" style="flex:1;" onchange="onH3IndividualOrnamentChange(); typesetDocument();">
                 <option value="none" selected="selected">ללא עיטור ימין</option>
                 <optgroup id="h3-r-json-optgroup" label="עיטורי ימין מ-JSON"></optgroup>
               </select>
             </div>
             <div class="inline-cfg-row">
               <label>עיטור שמאל:</label>
-              <select id="h3-ornament-l" style="flex:1;" onchange="onH3IndividualOrnamentChange(); markPendingChanges();">
+              <select id="h3-ornament-l" style="flex:1;" onchange="onH3IndividualOrnamentChange(); typesetDocument();">
                 <option value="none" selected="selected">ללא עיטור שמאל</option>
                 <optgroup id="h3-l-json-optgroup" label="עיטורי שמאל (היפוך מראה)"></optgroup>
               </select>
             </div>
             <div class="dim-box">
               <label>ממדי צד כותרת 3:</label>
-              <label>רוחב:</label><input type="text" id="dim-h3-side-w" value="50px" oninput="markPendingChanges()">
-              <label>גובה:</label><input type="text" id="dim-h3-side-h" value="1em" oninput="markPendingChanges()">
+              <label>רוחב:</label><input type="text" id="dim-h3-side-w" value="50px" oninput="typesetDocument(400)">
+              <label>גובה:</label><input type="text" id="dim-h3-side-h" value="1em" oninput="typesetDocument(400)">
             </div>
 
-            <!-- עיטורי סיום פרק -->
             <div class="panel-sub-header">עיטור סיום פרק</div>
             <div class="inline-cfg-row">
               <label>סגנון עיטור סיום:</label>
-              <select id="section-divider-style" style="flex:1;" onchange="document.getElementById('row-sec-div-img').style.display = this.value === 'custom_img' ? 'flex' : 'none'; markPendingChanges();">
+              <select id="section-divider-style" style="flex:1;" onchange="document.getElementById('row-sec-div-img').style.display = this.value === 'custom_img' ? 'flex' : 'none'; typesetDocument();">
                 <option value="pyramid">1. פירמידת וילנא (❖ ❖ ❖)</option>
                 <option value="spear" selected="selected">2. רומח מחודד עם טבעת (SVG)</option>
                 <option value="swash">3. שושנתא וילנאית (SVG)</option>
@@ -416,53 +413,53 @@
               <input type="file" id="file-sec-div-img" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-sec-div-img')">
               <input type="hidden" id="data-sec-div-img" value="">
             </div>
-            <div class="dim-box">
+            <div class="dim-box" title="הממדים חלים על 'תמונת עיטור אישית'. העיטורים המובנים ועיטורי ה-JSON נשארים בגודל שהוגדר בציור עצמו.">
               <label>ממדי סיום פרק:</label>
-              <label>רוחב:</label><input type="text" id="dim-secdiv-w" value="50%" oninput="markPendingChanges()">
-              <label>גובה:</label><input type="text" id="dim-secdiv-h" value="28px" oninput="markPendingChanges()">
+              <label>רוחב:</label><input type="text" id="dim-secdiv-w" value="50%" oninput="typesetDocument(400)">
+              <label>גובה:</label><input type="text" id="dim-secdiv-h" value="28px" oninput="typesetDocument(400)">
             </div>
 
-            <!-- עיטור כותרת הערות שוליים -->
             <div class="panel-sub-header">עיטורי צד לכותרת הערות שוליים</div>
             <div class="inline-cfg-row">
               <label>עיטור צד ימין:</label>
-              <select id="note-header-orn-r" style="flex:1;" onchange="markPendingChanges()">
+              <select id="note-header-orn-r" style="flex:1;" onchange="typesetDocument()">
                 <option value="none" selected="selected">ללא</option>
                 <optgroup id="note-orn-r-json" label="מתוך ornaments_left_right.json"></optgroup>
               </select>
             </div>
             <div class="inline-cfg-row">
               <label>עיטור צד שמאל:</label>
-              <select id="note-header-orn-l" style="flex:1;" onchange="markPendingChanges()">
+              <select id="note-header-orn-l" style="flex:1;" onchange="typesetDocument()">
                 <option value="none" selected="selected">ללא</option>
                 <optgroup id="note-orn-l-json" label="מתוך ornaments_left_right.json"></optgroup>
               </select>
             </div>
             <div class="dim-box">
               <label>ממדי עיטור הערות:</label>
-              <label>רוחב:</label><input type="text" id="dim-note-side-w" value="40px" oninput="markPendingChanges()">
-              <label>גובה:</label><input type="text" id="dim-note-side-h" value="0.9em" oninput="markPendingChanges()">
+              <label>רוחב:</label><input type="text" id="dim-note-side-w" value="40px" oninput="typesetDocument(400)">
+              <label>גובה:</label><input type="text" id="dim-note-side-h" value="0.9em" oninput="typesetDocument(400)">
             </div>
           </div>
-		  <!-- פאנל 5: אופן עימוד, גופנים וגוף הטקסט -->
+
+          <!-- פאנל 5: אופן עימוד, גופנים וגוף הטקסט -->
           <div class="panel-static">
             <div class="panel-header">📐 טיפוגרפיה כללית וכותרות (0-7)</div>
             
             <div class="panel-sub-header">גוף הטקסט וריווח שורות</div>
             <div class="inline-cfg-row">
               <label>גוף הטקסט:</label>
-              <select id="font-body" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="size-body" class="size-input" value="11.2" step="0.2" oninput="markPendingChanges()">
+              <select id="font-body" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="size-body" class="size-input" value="11.2" step="0.2" oninput="typesetDocument(450)">
             </div>
             <div class="inline-cfg-row">
               <label>ריווח שורות:</label>
-              <input type="number" id="line-height-body" value="1.34" step="0.02" min="1.0" max="2.2" class="size-input" style="width:60px;" oninput="markPendingChanges()">
+              <input type="number" id="line-height-body" value="1.34" step="0.02" min="1.0" max="2.2" class="size-input" style="width:60px;" oninput="typesetDocument(450)">
             </div>
 
             <div class="panel-sub-header">מילה ראשונה (Drop Word)</div>
             <div class="inline-cfg-row">
               <label>מצב מילה ראשונה:</label>
-              <select id="drop-word-mode" style="flex:1;" onchange="markPendingChanges()">
+              <select id="drop-word-mode" style="flex:1;" onchange="typesetDocument()">
                 <option value="window" selected="selected">חלון קלאסי (שקוע בטקסט)</option>
                 <option value="inline">בשורה הראשונה (מוגדל)</option>
                 <option value="bold">הדגשה בלבד (Bold באותו גודל)</option>
@@ -471,17 +468,17 @@
             </div>
             <div class="inline-cfg-row">
               <label>גופן מילה ראשונה:</label>
-              <select id="font-first-word" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="size-first-word" class="size-input" value="1.5" step="0.1" oninput="markPendingChanges()">
+              <select id="font-first-word" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="size-first-word" class="size-input" value="1.5" step="0.1" oninput="typesetDocument(400)">
             </div>
             <div class="inline-cfg-row">
               <label>מילים להדגשה:</label>
-              <select id="drop-word-count" onchange="markPendingChanges()">
+              <select id="drop-word-count" onchange="typesetDocument()">
                 <option value="1" selected="selected">מילה ראשונה בלבד</option>
                 <option value="2">שתי מילים ראשונות</option>
               </select>
               <label style="width:65px; margin-right:6px;">סף מינימום:</label>
-              <select id="drop-word-min-lines" onchange="markPendingChanges()">
+              <select id="drop-word-min-lines" onchange="typesetDocument()">
                 <option value="2" selected="selected">מ-2 שורות ומעלה</option>
                 <option value="3">מ-3 שורות ומעלה</option>
               </select>
@@ -491,112 +488,112 @@
             <div class="inline-cfg-row">
               <label>זיהוי ד"ה אוטומטי:</label>
               <label class="btn-toggle-mini" title="הדגש אוטומטית פתיח עד לנקודה או מקף">
-                <input type="checkbox" id="auto-dh" onchange="markPendingChanges()">
+                <input type="checkbox" id="auto-dh" onchange="typesetDocument()">
                 <span class="btn-toggle-mini-box">הפעל זיהוי</span>
               </label>
-              <select id="f-dh" class="font-picker" style="flex:1;" onchange="markPendingChanges()"></select>
+              <select id="f-dh" class="font-picker" style="flex:1;" onchange="typesetDocument()"></select>
             </div>
 
             <div class="panel-sub-header">כותרות הספר (0 עד 7)</div>
             <div class="inline-cfg-row">
               <label>כותרת 0 (הקדמה):</label>
-              <select id="mode-h0" onchange="markPendingChanges()">
+              <select id="mode-h0" onchange="typesetDocument()">
                 <option value="new_page_1col" selected="selected">טור 1 עמוד הבא</option>
                 <option value="new_page_2col">עמוד חדש - 2 טורים</option>
                 <option value="span_1col">טור 1 רציף</option>
               </select>
-              <select id="f-h0" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-h0" class="size-input" value="26" oninput="markPendingChanges()">
-              <label class="btn-toggle-mini" title="אי-זוגי"><input type="checkbox" id="odd-h0" onchange="markPendingChanges()"><span class="btn-toggle-mini-box">אי-זוגי</span></label>
+              <select id="f-h0" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-h0" class="size-input" value="26" oninput="typesetDocument(400)">
+              <label class="btn-toggle-mini" title="אי-זוגי"><input type="checkbox" id="odd-h0" onchange="typesetDocument()"><span class="btn-toggle-mini-box">אי-זוגי</span></label>
             </div>
             <div class="inline-cfg-row">
               <label>טקסט כותרת 0:</label>
               <span style="font-size:7.5pt; color:#64748b; width:95px; flex-shrink:0;">(גוף ההקדמה)</span>
-              <select id="f-h0-body" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-h0-body" class="size-input" value="11.5" step="0.2" oninput="markPendingChanges()">
+              <select id="f-h0-body" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-h0-body" class="size-input" value="11.5" step="0.2" oninput="typesetDocument(400)">
             </div>
 
             <div class="inline-cfg-row">
               <label>כותרת 1 (שער/חלק):</label>
-              <select id="mode-h1" onchange="markPendingChanges()">
+              <select id="mode-h1" onchange="typesetDocument()">
                 <option value="sub_shaar" selected="selected">שער משנה נפרד</option>
                 <option value="new_page_1col">טור 1 עמוד הבא</option>
               </select>
-              <select id="f-h1" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-h1" class="size-input" value="50" oninput="markPendingChanges()">
-              <label class="btn-toggle-mini" title="אי-זוגי"><input type="checkbox" id="odd-h1" onchange="markPendingChanges()"><span class="btn-toggle-mini-box">אי-זוגי</span></label>
+              <select id="f-h1" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-h1" class="size-input" value="50" oninput="typesetDocument(400)">
+              <label class="btn-toggle-mini" title="אי-זוגי"><input type="checkbox" id="odd-h1" onchange="typesetDocument()"><span class="btn-toggle-mini-box">אי-זוגי</span></label>
             </div>
 
             <div class="inline-cfg-row">
               <label>כותרת 2 (פרק/סימן):</label>
-              <select id="mode-h2" onchange="markPendingChanges()">
+              <select id="mode-h2" onchange="typesetDocument()">
                 <option value="new_page_1col" selected="selected">טור 1 עמוד הבא</option>
                 <option value="span_1col">טור 1 רציף (ללא מעבר)</option>
                 <option value="inline_2col">רציף ב-2 טורים</option>
               </select>
-              <select id="f-h2" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-h2" class="size-input" value="17" oninput="markPendingChanges()">
-              <label class="btn-toggle-mini" title="אי-זוגי"><input type="checkbox" id="odd-h2" onchange="markPendingChanges()"><span class="btn-toggle-mini-box">אי-זוגי</span></label>
+              <select id="f-h2" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-h2" class="size-input" value="17" oninput="typesetDocument(400)">
+              <label class="btn-toggle-mini" title="אי-זוגי"><input type="checkbox" id="odd-h2" onchange="typesetDocument()"><span class="btn-toggle-mini-box">אי-זוגי</span></label>
             </div>
             <div class="inline-cfg-row" style="background:#f8fafc; padding:5px 7px; border-radius:6px; margin-bottom:5px; border:1px solid #e2e8f0;">
               <label style="color:#1e3a8a; font-weight:800;">מיספור סימנים:</label>
-              <label class="btn-toggle-mini" title="הוסף שורת 'סימן א'"><input type="checkbox" id="h2-auto-siman" checked="checked" onchange="markPendingChanges()"><span class="btn-toggle-mini-box">הפעל</span></label>
-              <label class="btn-toggle-mini" title="אפס בכל חלק"><input type="checkbox" id="h2-reset-siman" checked="checked" onchange="markPendingChanges()"><span class="btn-toggle-mini-box">אפס בחלק</span></label>
-              <select id="f-siman" class="font-picker" style="width:90px;" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-siman" class="size-input" value="20" title="גודל גופן שורת סימן" oninput="markPendingChanges()">
+              <label class="btn-toggle-mini" title="הוסף שורת 'סימן א'"><input type="checkbox" id="h2-auto-siman" checked="checked" onchange="typesetDocument()"><span class="btn-toggle-mini-box">הפעל</span></label>
+              <label class="btn-toggle-mini" title="אפס בכל חלק"><input type="checkbox" id="h2-reset-siman" checked="checked" onchange="typesetDocument()"><span class="btn-toggle-mini-box">אפס בחלק</span></label>
+              <select id="f-siman" class="font-picker" style="width:90px;" onchange="typesetDocument()"></select>
+              <input type="number" id="s-siman" class="size-input" value="20" title="גודל גופן שורת סימן" oninput="typesetDocument(400)">
             </div>
 
             <div class="inline-cfg-row">
               <label>כותרת 3:</label>
-              <select id="mode-h3" onchange="markPendingChanges()">
+              <select id="mode-h3" onchange="typesetDocument()">
                 <option value="span_1col" selected="selected">טור 1 רציף (רוחב דף)</option>
                 <option value="inline_2col">רציף 2 טורים</option>
               </select>
-              <select id="f-h3" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-h3" class="size-input" value="13.5" step="0.5" oninput="markPendingChanges()">
+              <select id="f-h3" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-h3" class="size-input" value="13.5" step="0.5" oninput="typesetDocument(400)">
             </div>
 
             <div class="inline-cfg-row">
               <label>כותרת 4:</label>
-              <select id="mode-h4" onchange="markPendingChanges()">
+              <select id="mode-h4" onchange="typesetDocument()">
                 <option value="inline_2col" selected="selected">רציף 2 טורים</option>
                 <option value="span_1col">טור 1 רציף</option>
                 <option value="run_in">הבלעה בראש הפסקה</option>
               </select>
-              <select id="f-h4" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-h4" class="size-input" value="12.5" step="0.5" oninput="markPendingChanges()">
+              <select id="f-h4" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-h4" class="size-input" value="12.5" step="0.5" oninput="typesetDocument(400)">
             </div>
 
             <div class="inline-cfg-row">
               <label>כותרת 5:</label>
-              <select id="mode-h5" onchange="markPendingChanges()">
+              <select id="mode-h5" onchange="typesetDocument()">
                 <option value="inline_2col" selected="selected">רציף 2 טורים</option>
                 <option value="side_note">כותרת צד</option>
                 <option value="run_in">הבלעה בראש הפסקה</option>
               </select>
-              <select id="f-h5" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-h5" class="size-input" value="11.5" step="0.5" oninput="markPendingChanges()">
+              <select id="f-h5" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-h5" class="size-input" value="11.5" step="0.5" oninput="typesetDocument(400)">
             </div>
 
             <div class="inline-cfg-row">
               <label>כותרת 6:</label>
-              <select id="mode-h6" onchange="markPendingChanges()">
+              <select id="mode-h6" onchange="typesetDocument()">
                 <option value="inline_2col" selected="selected">רציף 2 טורים</option>
                 <option value="side_note">כותרת צד</option>
                 <option value="run_in">הבלעה בראש הפסקה</option>
               </select>
-              <select id="f-h6" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-h6" class="size-input" value="10.5" step="0.5" oninput="markPendingChanges()">
+              <select id="f-h6" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-h6" class="size-input" value="10.5" step="0.5" oninput="typesetDocument(400)">
             </div>
 
             <div class="inline-cfg-row">
               <label>כותרת 7 (צד):</label>
-              <select id="mode-h7" onchange="markPendingChanges()">
+              <select id="mode-h7" onchange="typesetDocument()">
                 <option value="side_note" selected="selected">כותרת צד בשוליים</option>
                 <option value="inline_2col">רציף 2 טורים</option>
               </select>
-              <select id="f-h7" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-h7" class="size-input" value="6" step="0.2" oninput="markPendingChanges()">
+              <select id="f-h7" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-h7" class="size-input" value="6" step="0.2" oninput="typesetDocument(400)">
             </div>
           </div>
 
@@ -607,27 +604,27 @@
             <div class="inline-cfg-row">
               <label>תוחמי טקסט (פ/ס):</label>
               <div style="display:flex; gap:4px; flex:1; align-items:center;">
-                <input type="text" id="fn-delim-open" value="[" style="width:45px; text-align:center; font-size:8pt; padding:2px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="פתיחה" oninput="markPendingChanges()">
+                <input type="text" id="fn-delim-open" value="[" style="width:45px; text-align:center; font-size:8pt; padding:2px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="פתיחה" oninput="typesetDocument(500)">
                 <span style="font-size:8pt; color:#64748b;">עד</span>
-                <input type="text" id="fn-delim-close" value="]" style="width:45px; text-align:center; font-size:8pt; padding:2px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="סגירה" oninput="markPendingChanges()">
+                <input type="text" id="fn-delim-close" value="]" style="width:45px; text-align:center; font-size:8pt; padding:2px; border:1px solid #cbd5e1; border-radius:4px;" placeholder="סגירה" oninput="typesetDocument(500)">
               </div>
             </div>
             <div class="inline-cfg-row">
               <label>קידומת הערת סיום:</label>
-              <input type="text" id="en-line-prefix" value="הערת סיום -" placeholder="קידומת..." oninput="markPendingChanges()">
+              <input type="text" id="en-line-prefix" value="הערת סיום -" placeholder="קידומת..." oninput="typesetDocument(500)">
             </div>
 
             <div class="panel-sub-header">פריסת הערות ואיפוס מונים</div>
             <div class="inline-cfg-row">
               <label>חלוקת טורים:</label>
-              <select id="fn-columns" style="flex:1;" onchange="markPendingChanges()">
+              <select id="fn-columns" style="flex:1;" onchange="typesetDocument()">
                 <option value="1" selected="selected">טור 1 רחב</option>
                 <option value="2">2 טורים מיושרים</option>
               </select>
             </div>
             <div class="inline-cfg-row">
               <label>איפוס מונה הערות:</label>
-              <select id="fn-reset-mode" style="flex:1;" onchange="markPendingChanges()">
+              <select id="fn-reset-mode" style="flex:1;" onchange="typesetDocument()">
                 <option value="page" selected="selected">בכל עמוד מחדש</option>
                 <option value="siman">בכל סימן / כותרת 2</option>
                 <option value="part">בכל חלק / כותרת 1</option>
@@ -636,15 +633,15 @@
             </div>
             <div class="inline-cfg-row">
               <label>כותרת מעל הערות:</label>
-              <input type="text" id="fn-title-text" value="" placeholder="למשל: הערות וביאורים (ריק = ללא)" oninput="markPendingChanges()">
-              <select id="f-note-title" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-note-title" class="size-input" value="9" oninput="markPendingChanges()">
+              <input type="text" id="fn-title-text" value="" placeholder="למשל: הערות וביאורים (ריק = ללא)" oninput="typesetDocument(500)">
+              <select id="f-note-title" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-note-title" class="size-input" value="9" oninput="typesetDocument(400)">
             </div>
 
             <div class="panel-sub-header">סגנון מספור וסימון</div>
             <div class="inline-cfg-row">
               <label>סגנון מספור:</label>
-              <select id="note-numbering-style" style="flex:1;" onchange="markPendingChanges()">
+              <select id="note-numbering-style" style="flex:1;" onchange="typesetDocument()">
                 <option value="gematria" selected="selected">אותיות עבריות (א, ב, ג...)</option>
                 <option value="gematria_geresh">אותיות עם גרש/גרשיים (א', ב', י"א)</option>
                 <option value="decimal">ספרות (1, 2, 3...)</option>
@@ -654,23 +651,23 @@
             </div>
             <div class="inline-cfg-row">
               <label>סימון בגוף הטקסט:</label>
-              <select id="note-marker-type" onchange="markPendingChanges()">
+              <select id="note-marker-type" onchange="typesetDocument()">
                 <option value="super" selected="selected">כתב עילי</option>
                 <option value="normal">רגיל (על השורה)</option>
                 <option value="sub">כתב תחתי</option>
                 <option value="brackets">בסוגריים מרובעים [1]</option>
               </select>
-              <input type="number" id="note-marker-size" value="8" class="size-input" title="גודל בגוף הטקסט" oninput="markPendingChanges()">
+              <input type="number" id="note-marker-size" value="8" class="size-input" title="גודל בגוף הטקסט" oninput="typesetDocument(400)">
             </div>
             <div class="inline-cfg-row">
               <label>מס' ברשימת הערות:</label>
-              <input type="number" id="note-listing-num-size" value="8" class="size-input" oninput="markPendingChanges()">
+              <input type="number" id="note-listing-num-size" value="8" class="size-input" oninput="typesetDocument(400)">
               <label style="width:50px; margin-right:6px;">מפריד:</label>
-              <input type="text" id="note-num-separator" value="." style="width:35px; text-align:center;" oninput="markPendingChanges()">
+              <input type="text" id="note-num-separator" value="." style="width:35px; text-align:center;" oninput="typesetDocument(400)">
             </div>
             <div class="inline-cfg-row">
               <label>קו מפריד (שוליים):</label>
-              <select id="note-rule-style" style="flex:1;" onchange="markPendingChanges()">
+              <select id="note-rule-style" style="flex:1;" onchange="typesetDocument()">
                 <option value="plain" selected="selected">קו רגיל (100% רוחב)</option>
                 <option value="short_right">קו קצר ימני (30% רוחב - וילנא)</option>
                 <option value="half">קו חצי מרכזי (50% רוחב)</option>
@@ -690,48 +687,49 @@
             <div class="panel-header">✍️ איכות עימוד אוטומטי</div>
             <div class="toggle-buttons-group">
               <label class="btn-toggle" title="מניעת שורה בודדת מנותקת בראש עמוד או תחילת טור">
-                <input type="checkbox" id="avoid-orphans" checked="checked" onchange="markPendingChanges()">
+                <input type="checkbox" id="avoid-orphans" checked="checked" onchange="typesetDocument()">
                 <span class="btn-toggle-box"><span class="check-icon">✓</span>מנע שורות בודדות בראש עמוד (אלמנות)</span>
               </label>
               <label class="btn-toggle" title="מניעת שורה בודדת מנותקת בסוף עמוד או תחתית טור">
-                <input type="checkbox" id="avoid-widows" checked="checked" onchange="markPendingChanges()">
+                <input type="checkbox" id="avoid-widows" checked="checked" onchange="typesetDocument()">
                 <span class="btn-toggle-box"><span class="check-icon">✓</span>מנע שורות בודדות בסוף עמוד (יתומות)</span>
               </label>
             </div>
             <div class="inline-cfg-row">
               <label>איזון סוף-פרק:</label>
-              <select id="balance-chapter-end" onchange="markPendingChanges()">
-                <option value="no" selected="selected">לא</option>
-                <option value="yes">כן (איזון טורים שווה בסוף פרק)</option>
+              <select id="balance-chapter-end" onchange="typesetDocument()">
+                <option value="yes" selected="selected">כן (איזון טורים שווה בסוף פרק)</option>
+                <option value="fill">לא (מילוי עמוד מלא, ללא איזון)</option>
               </select>
             </div>
           </div>
+
           <!-- פאנל 8: כותרות עליונות (Running Headers) -->
           <div class="panel-static">
             <div class="panel-header">📑 כותרות עליונות (Running Headers)</div>
             <div style="margin-bottom:8px;">
               <label class="btn-toggle full-width" title="החלף סדר כותרות בין עמוד ימין (אי-זוגי) לעמוד שמאל (זוגי)">
-                <input type="checkbox" id="hdr-alternating" onchange="markPendingChanges()">
+                <input type="checkbox" id="hdr-alternating" onchange="onHdrAlternatingChange()">
                 <span class="btn-toggle-box"><span class="check-icon">✓</span>כותרות מתחלפות לפי עמוד ימין / שמאל (Recto/Verso)</span>
               </label>
             </div>
             <div style="margin-bottom:8px;">
               <label class="btn-toggle full-width" title="פצל את שם הספר בין ימין לשמאל">
-                <input type="checkbox" id="hdr-split-title" onchange="markPendingChanges()">
+                <input type="checkbox" id="hdr-split-title" onchange="onHdrSplitTitleChange()">
                 <span class="btn-toggle-box"><span class="check-icon">✓</span>פצל שם ספר (חצי ימין, חצי שמאל)</span>
               </label>
             </div>
             <div class="dim-box">
               <label>רוחב אזורים (%):</label>
-              <label>ימין:</label><input type="text" id="hdr-w-r" value="33.33%" oninput="markPendingChanges()">
-              <label>מרכז:</label><input type="text" id="hdr-w-c" value="33.34%" oninput="markPendingChanges()">
-              <label>שמאל:</label><input type="text" id="hdr-w-l" value="33.33%" oninput="markPendingChanges()">
+              <label>ימין:</label><input type="text" id="hdr-w-r" value="33.33%" oninput="typesetDocument(400)">
+              <label>מרכז:</label><input type="text" id="hdr-w-c" value="33.34%" oninput="typesetDocument(400)">
+              <label>שמאל:</label><input type="text" id="hdr-w-l" value="33.33%" oninput="typesetDocument(400)">
             </div>
 
             <!-- 1. ימין -->
             <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">1. מעל הטור הימני:</div>
             <div class="inline-cfg-row" style="margin-bottom: 2px;">
-              <select id="hdr-r-type" style="flex:1;" onchange="document.getElementById('hdr-r-custom').style.display = this.value === 'custom' ? 'block' : 'none'; markPendingChanges();">
+              <select id="hdr-r-type" style="flex:1;" onchange="document.getElementById('hdr-r-custom').style.display = this.value === 'custom' ? 'block' : 'none'; typesetDocument();">
                 <option value="h1" selected="selected">כותרת 1 (שם החלק)</option>
                 <option value="book_title">שם הספר</option>
                 <option value="book_title_split_r">שם הספר - חצי ראשון (ימין)</option>
@@ -752,15 +750,17 @@
                 <option value="empty">ריק</option>
                 <optgroup id="hdr-r-json-optgroup" label="עיטורי כותרת מ-JSON"></optgroup>
               </select>
-              <select id="hdr-r-align" style="width:65px;" onchange="markPendingChanges()">
+              <select id="hdr-r-align" style="width:72px;" onchange="typesetDocument()">
+                <option value="outer" selected="selected">חיצוני</option>
+                <option value="inner">פנימי</option>
                 <option value="center">מרכז</option>
-                <option value="right" selected="selected">ימין</option>
+                <option value="right">ימין</option>
                 <option value="left">שמאל</option>
               </select>
-              <select id="f-hdr-r" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-hdr-r" class="size-input" value="13" oninput="markPendingChanges()">
+              <select id="f-hdr-r" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-hdr-r" class="size-input" value="13" oninput="typesetDocument(400)">
             </div>
-            <input type="text" id="hdr-r-custom" placeholder="טקסט מותאם..." style="display:none; width:100%; margin-bottom:8px; font-size:8.5pt; padding:3px; border:1px solid #cbd5e1; border-radius:4px;" oninput="markPendingChanges()">
+            <input type="text" id="hdr-r-custom" placeholder="טקסט מותאם..." style="display:none; width:100%; margin-bottom:8px; font-size:8.5pt; padding:3px; border:1px solid #cbd5e1; border-radius:4px;" oninput="typesetDocument(500)">
 
             <!-- 2. מרכז -->
             <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">2. מעל הרווח המרכזי:</div>
@@ -768,7 +768,7 @@
               <select id="hdr-c-type" style="flex:1;" onchange="
                 document.getElementById('hdr-c-custom').style.display = this.value === 'custom' ? 'block' : 'none';
                 document.getElementById('row-hdr-c-img').style.display = this.value === 'custom_img' ? 'flex' : 'none';
-                markPendingChanges();
+                typesetDocument();
               ">
                 <option value="spear" selected="selected">רומח (SVG)</option>
                 <option value="h1">כותרת 1 (שם החלק)</option>
@@ -787,15 +787,15 @@
                 <option value="empty">ריק</option>
                 <optgroup id="hdr-c-json-optgroup" label="עיטורי כותרת מ-JSON"></optgroup>
               </select>
-              <select id="hdr-c-align" style="width:65px;" onchange="markPendingChanges()">
+              <select id="hdr-c-align" style="width:65px;" onchange="typesetDocument()">
                 <option value="center" selected="selected">מרכז</option>
                 <option value="right">ימין</option>
                 <option value="left">שמאל</option>
               </select>
-              <select id="f-hdr-c" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-hdr-c" class="size-input" value="11" oninput="markPendingChanges()">
+              <select id="f-hdr-c" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-hdr-c" class="size-input" value="11" oninput="typesetDocument(400)">
             </div>
-            <input type="text" id="hdr-c-custom" placeholder="טקסט מותאם..." style="display:none; width:100%; margin-bottom:8px; font-size:8.5pt; padding:3px; border:1px solid #cbd5e1; border-radius:4px;" oninput="markPendingChanges()">
+            <input type="text" id="hdr-c-custom" placeholder="טקסט מותאם..." style="display:none; width:100%; margin-bottom:8px; font-size:8.5pt; padding:3px; border:1px solid #cbd5e1; border-radius:4px;" oninput="typesetDocument(500)">
             <div class="inline-cfg-row" id="row-hdr-c-img" style="display:none; margin-bottom:8px;">
               <label>קובץ עיטור מרכזי:</label>
               <input type="file" id="file-hdr-c-img" accept=".svg,image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-hdr-c-img')">
@@ -805,7 +805,7 @@
             <!-- 3. שמאל -->
             <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">3. מעל הטור השמאלי:</div>
             <div class="inline-cfg-row" style="margin-bottom: 2px;">
-              <select id="hdr-l-type" style="flex:1;" onchange="document.getElementById('hdr-l-custom').style.display = this.value === 'custom' ? 'block' : 'none'; markPendingChanges();">
+              <select id="hdr-l-type" style="flex:1;" onchange="document.getElementById('hdr-l-custom').style.display = this.value === 'custom' ? 'block' : 'none'; typesetDocument();">
                 <option value="h2" selected="selected">כותרת 2</option>
                 <option value="h2_with_siman">כותרת 2 עם מספר סימן</option>
                 <option value="h2_without_siman">כותרת 2 לבדה (ללא סימן)</option>
@@ -825,15 +825,17 @@
                 <option value="empty">ריק</option>
                 <optgroup id="hdr-l-json-optgroup" label="עיטורי כותרת מ-JSON"></optgroup>
               </select>
-              <select id="hdr-l-align" style="width:65px;" onchange="markPendingChanges()">
+              <select id="hdr-l-align" style="width:72px;" onchange="typesetDocument()">
+                <option value="outer" selected="selected">חיצוני</option>
+                <option value="inner">פנימי</option>
                 <option value="center">מרכז</option>
+                <option value="left">שמאל</option>
                 <option value="right">ימין</option>
-                <option value="left" selected="selected">שמאל</option>
               </select>
-              <select id="f-hdr-l" class="font-picker" onchange="markPendingChanges()"></select>
-              <input type="number" id="s-hdr-l" class="size-input" value="13" oninput="markPendingChanges()">
+              <select id="f-hdr-l" class="font-picker" onchange="typesetDocument()"></select>
+              <input type="number" id="s-hdr-l" class="size-input" value="13" oninput="typesetDocument(400)">
             </div>
-            <input type="text" id="hdr-l-custom" placeholder="טקסט מותאם..." style="display:none; width:100%; margin-bottom:4px; font-size:8.5pt; padding:3px; border:1px solid #cbd5e1; border-radius:4px;" oninput="markPendingChanges()">
+            <input type="text" id="hdr-l-custom" placeholder="טקסט מותאם..." style="display:none; width:100%; margin-bottom:4px; font-size:8.5pt; padding:3px; border:1px solid #cbd5e1; border-radius:4px;" oninput="typesetDocument(500)">
           </div>
 
           <!-- פאנל 9: תוכן העניינים -->
@@ -841,7 +843,7 @@
             <div class="panel-header">📑 תוכן העניינים</div>
             <div style="margin-bottom:8px;">
               <label class="btn-toggle full-width">
-                <input type="checkbox" id="enable-general-toc" checked="checked" onchange="markPendingChanges()">
+                <input type="checkbox" id="enable-general-toc" checked="checked" onchange="typesetDocument()">
                 <span class="btn-toggle-box"><span class="check-icon">✓</span>תוכן עניינים כללי בראש הספר</span>
               </label>
             </div>
@@ -850,18 +852,18 @@
                 <tr><th>רמה</th><th>הצג</th><th>קיבוץ</th><th>גופן</th><th>גודל</th></tr>
               </thead>
               <tbody>
-                <tr><td>כותרת 1</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="1" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="1" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-1" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-gtoc-1" class="size-input" value="12" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 2</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="2" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="2" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-2" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-gtoc-2" class="size-input" value="11" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 3</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="3" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="3" checked="checked" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-3" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-gtoc-3" class="size-input" value="10.5" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 4</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="4" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="4" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-4" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-gtoc-4" class="size-input" value="10.5" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 5</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="5" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="5" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-5" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-gtoc-5" class="size-input" value="10.5" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 6</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="6" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="6" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-6" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-gtoc-6" class="size-input" value="10.5" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 7</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="7" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="7" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-7" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-gtoc-7" class="size-input" value="8.8" oninput="markPendingChanges()"></td></tr>
+                <tr><td>כותרת 1</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="1" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="1" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-1" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-1" class="size-input" value="12" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 2</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="2" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="2" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-2" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-2" class="size-input" value="11" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 3</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="3" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="3" checked="checked" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-3" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-3" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 4</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="4" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="4" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-4" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-4" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 5</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="5" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="5" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-5" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-5" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 6</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="6" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="6" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-6" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-6" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 7</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="7" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="7" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-7" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-7" class="size-input" value="8.8" oninput="typesetDocument(400)"></td></tr>
               </tbody>
             </table>
             <div style="margin: 10px 0 6px 0; border-top:1px dashed #cbd5e1; padding-top:6px;">
               <label class="btn-toggle full-width">
-                <input type="checkbox" id="enable-detailed-toc" checked="checked" onchange="markPendingChanges()">
+                <input type="checkbox" id="enable-detailed-toc" checked="checked" onchange="typesetDocument()">
                 <span class="btn-toggle-box"><span class="check-icon">✓</span>תוכן מפורט בראש שערי משנה</span>
               </label>
             </div>
@@ -870,13 +872,13 @@
                 <tr><th>רמה</th><th>הצג</th><th>קיבוץ</th><th>גופן</th><th>גודל</th></tr>
               </thead>
               <tbody>
-                <tr><td>כותרת 1</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="1" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="1" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-1" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-dtoc-1" class="size-input" value="12" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 2</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="2" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="2" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-2" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-dtoc-2" class="size-input" value="11" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 3</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="3" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="3" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-3" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-dtoc-3" class="size-input" value="10.5" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 4</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="4" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="4" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-4" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-dtoc-4" class="size-input" value="10.5" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 5</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="5" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="5" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-5" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-dtoc-5" class="size-input" value="10.5" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 6</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="6" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="6" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-6" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-dtoc-6" class="size-input" value="10.5" oninput="markPendingChanges()"></td></tr>
-                <tr><td>כותרת 7</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="7" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="7" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-7" class="font-picker" onchange="markPendingChanges()"></select></td><td><input type="number" id="s-dtoc-7" class="size-input" value="8.8" oninput="markPendingChanges()"></td></tr>
+                <tr><td>כותרת 1</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="1" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="1" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-1" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-1" class="size-input" value="12" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 2</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="2" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="2" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-2" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-2" class="size-input" value="11" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 3</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="3" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="3" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-3" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-3" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 4</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="4" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="4" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-4" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-4" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 5</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="5" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="5" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-5" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-5" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 6</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="6" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="6" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-6" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-6" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
+                <tr><td>כותרת 7</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="7" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="7" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-7" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-7" class="size-input" value="8.8" oninput="typesetDocument(400)"></td></tr>
               </tbody>
             </table>
           </div>
@@ -887,20 +889,20 @@
             
             <div class="panel-sub-header">פרופורציות רשת העמוד</div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-              <div class="inline-cfg-row"><label>טור (%):</label><input type="number" id="prop-col" value="40" step="0.5" class="size-input" oninput="markPendingChanges()"></div>
-              <div class="inline-cfg-row"><label>שוליים (%):</label><input type="number" id="prop-margin" value="7.5" step="0.5" class="size-input" oninput="markPendingChanges()"></div>
-              <div class="inline-cfg-row"><label>מרזב מרכז (%):</label><input type="number" id="prop-gutter" value="2" step="0.5" class="size-input" oninput="markPendingChanges()"></div>
-              <div class="inline-cfg-row"><label>רווח ביניים (%):</label><input type="number" id="prop-gap" value="2" step="0.5" class="size-input" oninput="markPendingChanges()"></div>
-              <div class="inline-cfg-row"><label>מרחק עליון (px):</label><input type="number" id="prop-mt" value="20" step="1" class="size-input" oninput="markPendingChanges()"></div>
-              <div class="inline-cfg-row"><label>מרחק תחתון (px):</label><input type="number" id="prop-mb" value="20" step="1" class="size-input" oninput="markPendingChanges()"></div>
-              <div class="inline-cfg-row"><label>עליון כותרת 2:</label><input type="number" id="prop-mt-h2" value="20" step="1" class="size-input" title="מרחק עליון של זרימת התוכן בעמוד כותרת 2" oninput="markPendingChanges()"></div>
-              <div class="inline-cfg-row"><label>מרווח כותרת 2:</label><input type="text" id="h2-top-distance" value="22%" class="size-input" style="width:55px;" title="מרחק הכותרת עצמה מקצה העמוד" oninput="markPendingChanges()"></div>
+              <div class="inline-cfg-row"><label>טור (%):</label><input type="number" id="prop-col" value="40" step="0.5" class="size-input" oninput="typesetDocument(400)"></div>
+              <div class="inline-cfg-row"><label>שוליים (%):</label><input type="number" id="prop-margin" value="7.5" step="0.5" class="size-input" oninput="typesetDocument(400)"></div>
+              <div class="inline-cfg-row"><label>מרזב מרכז (%):</label><input type="number" id="prop-gutter" value="2" step="0.5" class="size-input" oninput="typesetDocument(400)"></div>
+              <div class="inline-cfg-row"><label>רווח ביניים (%):</label><input type="number" id="prop-gap" value="2" step="0.5" class="size-input" oninput="typesetDocument(400)"></div>
+              <div class="inline-cfg-row"><label>מרחק עליון (px):</label><input type="number" id="prop-mt" value="20" step="1" class="size-input" oninput="typesetDocument(400)"></div>
+              <div class="inline-cfg-row"><label>מרחק תחתון (px):</label><input type="number" id="prop-mb" value="20" step="1" class="size-input" oninput="typesetDocument(400)"></div>
+              <div class="inline-cfg-row"><label>עליון כותרת 2:</label><input type="number" id="prop-mt-h2" value="20" step="1" class="size-input" title="מרחק עליון של זרימת התוכן בעמוד כותרת 2" oninput="typesetDocument(400)"></div>
+              <div class="inline-cfg-row"><label>מרווח כותרת 2:</label><input type="text" id="h2-top-distance" value="22%" class="size-input" style="width:55px;" title="מרחק הכותרת עצמה מקצה העמוד" oninput="typesetDocument(400)"></div>
             </div>
 
             <div class="panel-sub-header">קו מפריד אנכי בין הטורים</div>
             <div class="inline-cfg-row">
               <label>סגנון קו בין טורים:</label>
-              <select id="col-divider-style" style="flex:1;" onchange="markPendingChanges()">
+              <select id="col-divider-style" style="flex:1;" onchange="typesetDocument()">
                 <option value="none" selected="selected">ללא קו מפריד</option>
                 <option value="plain">קו דק רגיל (Solid)</option>
                 <option value="dashed">קו מקווקו (Dashed)</option>
@@ -911,7 +913,7 @@
             <div class="panel-sub-header">שליטה במספור עמודים (Folio)</div>
             <div class="inline-cfg-row">
               <label>מיקום מספור:</label>
-              <select id="page-num-position" style="flex:1;" onchange="markPendingChanges()">
+              <select id="page-num-position" style="flex:1;" onchange="typesetDocument()">
                 <option value="bottom_center" selected="selected">תחתית העמוד במרכז</option>
                 <option value="bottom_outer">תחתית חיצונית (ימין/שמאל)</option>
                 <option value="header_outer">משולב בכותרת עליונה חיצונית</option>
@@ -920,7 +922,7 @@
             </div>
             <div class="inline-cfg-row">
               <label>פורמט תצוגה:</label>
-              <select id="page-num-format" style="flex:1;" onchange="markPendingChanges()">
+              <select id="page-num-format" style="flex:1;" onchange="typesetDocument()">
                 <option value="gematria" selected="selected">אותיות עבריות בלבד (א, ב, ג)</option>
                 <option value="page_gematria">דף / עמוד (דף א', עמוד א')</option>
                 <option value="numeric">מספרים (1, 2, 3)</option>
@@ -928,7 +930,7 @@
             </div>
             <div class="inline-cfg-row">
               <label>מסגרת סביב המספר:</label>
-              <select id="page-num-frame" style="flex:1;" onchange="markPendingChanges()">
+              <select id="page-num-frame" style="flex:1;" onchange="typesetDocument()">
                 <option value="none" selected="selected">ללא מסגרת</option>
                 <option value="circle">עיגול</option>
                 <option value="box">ריבוע / מלבן</option>
@@ -939,7 +941,7 @@
             </div>
             <div class="inline-cfg-row">
               <label>עמוד תחילת מספור:</label>
-              <input type="number" id="page-num-start-idx" value="1" min="1" class="size-input" title="העמוד שממנו מתחיל המספור" oninput="markPendingChanges()">
+              <input type="number" id="page-num-start-idx" value="1" min="1" class="size-input" title="העמוד שממנו מתחיל המספור" oninput="typesetDocument(400)">
             </div>
           </div>
         </div>

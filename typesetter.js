@@ -372,7 +372,7 @@ function measureLinesByRealMarkup(pMeasure, units, text, useWindow, shouldApplyW
         pMeasure.innerHTML = createDropWord(text, !useWindow, !shouldApplyWindow, numLinesEstimated);
         applyDelimiterStyles(pMeasure, 'body', getBodySizePt(), true);
         // [תיקון] סימון הערת סיום שיוצמד לסוף הפסקה נכלל במדידה (ראו createDryEndNoteMarker)
-        if (withEndMarker) pMeasure.appendChild(createDryEndNoteMarker());
+        if (withEndMarker) pMeasure.appendChild(createDryEndNoteMarker(withEndMarker));
 
         // הטקסט הנראה כולו (בצמתי טקסט לפי הסדר) ומיקום תחילת כל צומת בתוכו
         const nodes = [];
@@ -991,9 +991,16 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         }
     }
 
+    // [תיקון] טקסט סימון הערת הסיום של כל פסקה בבלוק, לפי הסדר שבו הסימונים ייווצרו בפועל בעימוד הסופי
+    // (המונה כבר אופס לתמונת המצב שבתחילת הפונקציה) - כדי שהמדידה תכלול סימון באותו רוחב בדיוק כמו האמיתי.
+    let endMarkerSeq = noteCounters.endnote || 0;
+    mergedItems.forEach(item => {
+        if (item.type === 'p' && item.endNote && !item.cut) item.endMarkerText = formatNoteMarker(++endMarkerSeq, null);
+    });
+
     const items = mergedItems.map(item => {
         if (item.type === 'p') {
-            const linesInfo = getLinesFromParagraph(item.rawText, colWidth, styleObj, !item.isCont, !!(item.endNote && !item.cut));
+            const linesInfo = getLinesFromParagraph(item.rawText, colWidth, styleObj, !item.isCont, item.endMarkerText || false);
             return { ...item, lines: linesInfo.lines, isSingleLine: linesInfo.lines.length <= 1, hasWindow: linesInfo.hasWindow, numLines: linesInfo.lines.length };
         }
         return item;
@@ -1028,7 +1035,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             p.className = item.cut ? 'p-cut' : 'p-end';
             p.innerHTML = createDropWord(item.rawText, item.isCont, item.isSingleLine, item.numLines);
             applyDelimiterStyles(p, 'body', getBodySizePt(), true);
-            if (item.endNote && !item.cut) p.appendChild(createDryEndNoteMarker());   // סימון הערת הסיום שיוצמד לסוף הפסקה
+            if (item.endMarkerText) p.appendChild(createDryEndNoteMarker(item.endMarkerText));   // סימון הערת הסיום שיוצמד לסוף הפסקה
             col.appendChild(p);
         }
     }
@@ -1053,7 +1060,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             pLeft.className = item.cut ? 'p-cut' : 'p-end';
             pLeft.innerHTML = createDropWord(item.lines.slice(c.l).join(' '), true, false, item.lines.length - c.l);
             applyDelimiterStyles(pLeft, 'body', getBodySizePt(), true);
-            if (item.endNote && !item.cut) pLeft.appendChild(createDryEndNoteMarker());   // סימון הערת הסיום שיוצמד לסוף הפסקה
+            if (item.endMarkerText) pLeft.appendChild(createDryEndNoteMarker(item.endMarkerText));   // סימון הערת הסיום שיוצמד לסוף הפסקה
             lCol.appendChild(pLeft);
         }
         for (let i = c.l > 0 ? c.i + 1 : c.i; i < items.length; i++) renderSingleItemFast(lCol, items[i]);
@@ -1365,6 +1372,39 @@ function applyDelimiterStyles(containerEl, hostContextKey, hostSizePt, isDryRun 
     });
 }
 
+/* [חדש] סוג כותרת עליונה "מילה ראשונה עד אחרונה": בקובץ המקורי האפשרות לא חישבה שום ערך והכותרת נשארה ריקה.
+   אחרי שכל העמודים סופיים, לכל עמוד גוף מציבים את המילה הראשונה (תחילת הטור הימני) ואת האחרונה (סוף הטור השמאלי)
+   של טקסט הפסקאות, מופרדות במקף: "ראשונה – אחרונה". סימוני הערות ופיסוק בקצה המילה אינם נכללים.
+   עמוד בלי פסקאות (שער, תוכן עניינים) נשאר ריק. */
+function fillHeaderFirstLastWords(container) {
+    const holders = container ? container.querySelectorAll('.hdr-firstlast') : [];
+    if (!holders.length) return;
+    const TRIM = /^[\s"'“”‘’(){}\[\]<>.,;:!?\-–—…]+|[\s"'“”‘’(){}\[\]<>.,;:!?\-–—…]+$/g;
+    const wordsOf = el => {
+        let s = '';
+        const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+            acceptNode: n => (n.parentElement && n.parentElement.closest('.note-marker')) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+        });
+        while (w.nextNode()) s += w.currentNode.nodeValue;
+        return s.split(/\s+/).map(x => x.replace(TRIM, '')).filter(Boolean);
+    };
+    const byPage = new Map();
+    holders.forEach(h => {
+        const pg = h.closest('.a4-page');
+        if (!pg) return;
+        if (!byPage.has(pg)) byPage.set(pg, []);
+        byPage.get(pg).push(h);
+    });
+    byPage.forEach((hs, pg) => {
+        const paras = pg.querySelectorAll('.main-column p, .single-wide-col p');
+        let first = '', last = '';
+        for (let i = 0; i < paras.length && !first; i++) { const w = wordsOf(paras[i]); if (w.length) first = w[0]; }
+        for (let i = paras.length - 1; i >= 0 && !last; i--) { const w = wordsOf(paras[i]); if (w.length) last = w[w.length - 1]; }
+        const txt = (first && last && first !== last) ? (first + ' \u2013 ' + last) : (first || last);
+        hs.forEach(h => { h.textContent = txt; });
+    });
+}
+
 function getHostSizePt(level, customStyleId) {
     if (customStyleId && typeof findExtTextStyle === 'function') {
         const inst = findExtTextStyle(customStyleId);
@@ -1454,10 +1494,11 @@ function applyNoteMarkerStyle(el, isBacklink) {
    סימון הערת הסיום מוצמד לסוף הפסקה רק אחרי שהיא הוצבה, ולכן קודם הוא לא נלקח בחשבון במדידת השורות: כשהמילה האחרונה
    נחתה בדיוק בקצה השורה, הסימון דחף אותה לשורה נוספת (שורה בודדת של מילה + סימון), והפסקה נרנדרה בשורה אחת יותר ממה
    שנמדד (פער בין המדידה לעימוד בפועל). הסימון היבש הוא באותו מספר (הבא בתור), גודל וסגנון כמו האמיתי. */
-function createDryEndNoteMarker() {
+function createDryEndNoteMarker(markerText) {
     const m = document.createElement('a');
     m.className = 'note-marker';
-    m.textContent = formatNoteMarker((noteCounters.endnote || 0) + 1, null);
+    // markerText (מחרוזת) - טקסט הסימון בפועל, כשהוא ידוע (למשל בבדיקת מדידה אחרי העימוד); אחרת המספר הבא בתור
+    m.textContent = (typeof markerText === 'string' && markerText) ? markerText : formatNoteMarker((noteCounters.endnote || 0) + 1, null);
     applyNoteMarkerStyle(m, false);
     return m;
 }
@@ -1913,7 +1954,10 @@ function layoutHeightOf(el) {
 function exactWidthOf(el) {
     if (!el) return 0;
     const w = parseFloat(window.getComputedStyle(el).width);
-    return (w > 0) ? w : (el.offsetWidth || 0);
+    /* getComputedStyle מחזיר רק 3 ספרות אחרי הנקודה (274.859 במקום 274.859375). הרוחב האמיתי תמיד כפולה של 1/64 פיקסל
+       (יחידת הפריסה של הדפדפן), ולכן ההחזרה לכפולה הקרובה משחזרת אותו במדויק. קודם הקיצוץ ל-3 ספרות צמצם את הרוחב
+       במדידה בעד 0.016px, ושורה שנכנסה בקושי נמדדה כגולשת (פסקה שנמדדה בחמש שורות נרנדרה בארבע). */
+    return (w > 0) ? Math.round(w * 64) / 64 : (el.offsetWidth || 0);
 }
 
 /* [חדש] רוחב הטקסט האמיתי של אלמנט (השורה הרחבה ביותר) ביחידות פריסה.
@@ -2202,7 +2246,9 @@ function typesetDocumentCore() {
     if (!rawText.trim()) return;
 
     rawText = stripEditorialNotes(rawText);
+    if (typeof extPageSourceText !== 'undefined') extPageSourceText = rawText;   // [חדש] מקור שורות לעמודים מיובאים (לפני הסרת המטא-דאטה)
     rawText = parseMetadataFromText(rawText);
+    if (typeof blankExtPageTypeLines === 'function') rawText = blankExtPageTypeLines(rawText, extPageSourceText);   // [חדש] שורות שמזינות עמוד מיובא אינן טקסט גוף
     // ביטול רווחים לפני סוגר פותח של הערה כדי להדביק אותה למילה שלפניה (מונע שבירת שורה ויתמות)
     const fnOpen = document.getElementById('fn-delim-open')?.value?.trim() || '[';
     if (fnOpen) {
@@ -2788,7 +2834,7 @@ function typesetDocumentCore() {
                     }
 
                     if (currentTok.type === 'p') {
-                        let linesInfo = getLinesFromParagraph(currentTok.text, h0ColWidth, h0Style, true);
+                        let linesInfo = getLinesFromParagraph(currentTok.text, h0ColWidth, h0Style, true, !!currentTok.endNote);
                         let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
                         let isContinuation = !!pendingWordTokens;
                         let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
@@ -2804,7 +2850,7 @@ function typesetDocumentCore() {
                         }
 
                         let bestFitLine = computeBestFitLine(pElem, targetCol, lines, isContinuation, hasWindow,
-                            (txt) => remPageHeight - reservedNow(txt));
+                            (txt) => remPageHeight - reservedNow(txt), !!currentTok.endNote);
 
                         // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
                         const placeLines = resolveParagraphSplit(lines.length, bestFitLine, !pageHasContent);
@@ -3007,7 +3053,7 @@ function typesetDocumentCore() {
                         }
 
                         if (currentTok.type === 'p') {
-                            let linesInfo = getLinesFromParagraph(currentTok.text, colWidth, styleObj, true);
+                            let linesInfo = getLinesFromParagraph(currentTok.text, colWidth, styleObj, true, !!currentTok.endNote);
                             let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
                             let isContinuation = !!pendingWordTokens;
                             let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
@@ -3023,7 +3069,7 @@ function typesetDocumentCore() {
                             }
 
                             let bestFitLine = computeBestFitLine(pElem, targetCol, lines, isContinuation, hasWindow,
-                                (txt) => remPageHeight - reservedNow(txt));
+                                (txt) => remPageHeight - reservedNow(txt), !!currentTok.endNote);
 
                             // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
                             const placeLines = resolveParagraphSplit(lines.length, bestFitLine, !pageHasContent && !pageBodyHasContent);
@@ -3178,6 +3224,9 @@ function typesetDocumentCore() {
 
     // [חדש] קווי ההפרדה בין הטורים מותאמים לקצוות הטקסט בפועל (אחרי שכל הבלוקים סופיים)
     fitColumnDividers(container);
+
+    // [חדש] כותרת עליונה מסוג "מילה ראשונה עד אחרונה" - ממולאת אחרי שכל העמודים סופיים
+    fillHeaderFirstLastWords(container);
 
     // [תיקון] מספרי העמודים בתוכן העניינים נגזרים מהמיקום הסופי בפועל ב-DOM (ולא מהרישום תוך כדי מילוי),
     // כי כותרת שהוחזרה לעמוד הבא יחד עם הפסקה שאחריה השאירה ברישום את העמוד הישן.

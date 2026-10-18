@@ -1152,6 +1152,10 @@ body {
     font-family: var(--fn-h6); font-size: var(--sz-h6); font-weight: 700;
     text-align: center; margin: 6px 0 3px 0; line-height: 1.22;
 }
+.title-level-7 {   /* [חדש] כותרת 7 במצב "רציף ב-2 טורים" (כברירת מחדל היא הערת צד בשוליים) */
+    font-family: var(--fn-h7); font-size: var(--sz-h7); font-weight: 700;
+    text-align: center; margin: 6px 0 3px 0; line-height: 1.22;
+}
 .title-level-custom { margin: 9px 0 4px 0; line-height: 1.3; }
 
 .heading-run-in {

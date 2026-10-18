@@ -542,6 +542,32 @@ function removeExtInstance(kind, instanceId) {
     typesetDocument();
 }
 
+/* [חדש] מקור הטקסט שממנו עמודים מיובאים קוראים את שורות הקידומת שלהם (נקבע בכל עימוד, לפני הסרת שורות המטא-דאטה של השער,
+   כדי שאלמנט של עמוד מיובא יוכל להיקשר גם לשורה כמו "שם המחבר - ..."). */
+let extPageSourceText = '';
+
+/* [חדש] שורות שמזינות אלמנטים של סוגי עמוד מיובאים (השורה הראשונה שמתחילה בקידומת האלמנט - בדיוק זו ש-findPrefixLineInSource מוצאת)
+   הן נתוני העמוד המיובא ולא טקסט גוף. לפני פירוק הטקסט לאסימונים מרוקנים אותן, כדי שלא יודפסו בנוסף גם כפסקה בספר
+   (קודם שורה כמו "הקדשה - ..." הודפסה פעמיים: בעמוד המיובא וכפסקה בגוף).
+   מרוקנים ולא מוחקים, כדי שמספרי השורות של שאר הטקסט לא יזוזו. שורה שהיא גם מטא-דאטה של השער (שם המחבר וכו') כבר הוסרה
+   מהטקסט ולכן אין מה לרוקן. בלי סוגי עמוד מיובאים - אין שום שינוי. */
+function blankExtPageTypeLines(text, extSource) {
+    if (typeof importedPageTypes === 'undefined' || !importedPageTypes.length) return text;
+    const prefixes = [];
+    importedPageTypes.forEach(inst => ((inst.def && inst.def.elements) || []).forEach(el => { if (el && el.prefix) prefixes.push(el.prefix); }));
+    if (!prefixes.length) return text;
+    const lines = text.split('\n');
+    const srcLines = String(extSource || text).split('\n').map(l => l.trim());
+    let changed = false;
+    prefixes.forEach(prefix => {
+        const used = srcLines.find(t => t.startsWith(prefix));
+        if (used === undefined) return;
+        const idx = lines.findIndex(l => l.trim() === used);
+        if (idx >= 0) { lines[idx] = ''; changed = true; }
+    });
+    return changed ? lines.join('\n') : text;
+}
+
 function findPrefixLineInSource(rawText, prefix) {
     if (!prefix) return null;
     const lines = rawText.split('\n');
@@ -620,6 +646,7 @@ function renderImportedImagePage(container, inst) {
 }
 
 function renderExtAnchor(container, anchorKey, rawSourceText) {
+    rawSourceText = extPageSourceText || rawSourceText;
     importedPageTypes.filter(p => p.anchor === anchorKey).forEach(inst => renderImportedPage(container, inst, rawSourceText));
     importedImagePages.filter(p => p.anchor === anchorKey).forEach(inst => renderImportedImagePage(container, inst));
 }
@@ -772,6 +799,10 @@ function rehydrateExtImports() {
     if (!island || !island.textContent.trim()) return;
     let data;
     try { data = JSON.parse(island.textContent); } catch (e) { return; }
+    // [תיקון] תבנית שמורה כוללת גם את פאנלי ההרחבות שהיו פתוחים ברגע השמירה (הם חלק מה-DOM שנשמר).
+    // בלי ניקוי, כל טעינה בנתה אותם שוב: פאנלים כפולים עם אותו מזהה, ולחיצה על "הסר" הסירה רק אחד מהם.
+    const extContainer = document.getElementById('ext-imports-container');
+    if (extContainer) extContainer.innerHTML = '';
     (data.pageTypes || []).forEach(inst => {
         importedPageTypes.push(inst);
         buildExtPanel('pageType', inst.instanceId, inst.def.name, inst.def);
@@ -1430,6 +1461,16 @@ function refreshVisualPicker(selectId) {
         drop.id = 'vp-drop-' + selectId;
         wrap.appendChild(drop);
     }
+    // [תיקון] בתבנית שמורה מבנה הבורר (עטיפה, כפתור, תפריט) כבר קיים ב-HTML שנשמר, אך מאזין הלחיצה של הכפתור הוגדר כתכונה
+    // (onclick) ולכן לא נשמר בקובץ: אחרי טעינת תבנית כל הבוררים החזותיים (ערכות נושא, שערים, עיטורים) לא נפתחו.
+    // משלימים את המאזין גם למבנה קיים (במבנה חדש הוא כבר מוגדר, ולכן אין שום שינוי בפתיחה רגילה).
+    const trigExisting = document.getElementById('vp-trig-' + selectId);
+    if (trigExisting && !trigExisting.onclick) {
+        trigExisting.onclick = (e) => {
+            e.stopPropagation();
+            toggleVisualPickerDropdown(selectId);
+        };
+    }
 
     const selectedOpt = select.options[select.selectedIndex] || select.options[0];
     const curVal = selectedOpt ? selectedOpt.value : '';
@@ -1496,8 +1537,19 @@ document.addEventListener('click', (e) => {
    ============================================================ */
 window.onload = async function() {
     initDefaultFonts();
+    // [תיקון] בתבנית שמורה ערכת הנושא הפעילה יכולה להיות ערכה מותאמת: האפשרות שלה נמחקת ונבנית מחדש מנתוני התבנית
+    // (refreshCustomThemesUI / rehydrateExtImports), ובדרך הבחירה הלכה לאיבוד וחזרה לערכה המובנית הראשונה.
+    // לכן שומרים את הערך לפני בניית הרשימה ומחזירים אותו אחרי שהאפשרויות נבנו.
+    const savedActiveTheme = document.getElementById('active-theme-select')?.value || '';
     refreshCustomThemesUI();
     rehydrateExtImports();
+    {
+        const themeSel = document.getElementById('active-theme-select');
+        if (themeSel && savedActiveTheme && themeSel.value !== savedActiveTheme &&
+            Array.from(themeSel.options).some(o => o.value === savedActiveTheme)) {
+            themeSel.value = savedActiveTheme;
+        }
+    }
 
     await loadExternalJSONAssets();
     await loadExternalFonts();
