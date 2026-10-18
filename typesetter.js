@@ -787,6 +787,18 @@ const BALANCE_FINAL_JUSTIFY_MAX = 100; // תקרת ההפרש (px) שמיושר 
                                        // (אין רווחים בין פסקאות למתוח) נשאר עם טורים לא מיושרים בהפרש של 3-4 שורות. התוספת לשורה עדיין
                                        // מוגבלת ב-JUSTIFY_BALANCE_LH_RATIO, כלומר אי אפשר "למתוח" מעבר ליכולת הטור.
 
+/* [חדש] באפר תחתית קבוע למשיכת יתומים (Option C — היברידי).
+   כל עמוד מכיל 12px ריק מתחת לתוכן (מעל אזור הערות השוליים) שמשמש כ"מקום חירום"
+   למשיכת זנב יתום בן 1-2 שורות. בשילוב עם כיווץ עדין (allowBelowBase=1.5px), זה מאפשר
+   לפתור יתומים בלי לכווץ יתר את התוכן ובלי לבזבז עמוד שלם על באפר גדול.
+   איך זה עובד:
+   - stretchPageToBottom מקבל target שקטן ב-12px מהתחתית האמיתית — כלומר התוכן מתוח
+     רק עד 12px לפני תחתית העמוד. ה-12px האלה נשארים ריקים כבאפר.
+   - tryReclaimOrphanTail יכול להשתמש ב-12px האלה כחלק מ-currentFree.
+   - אם 12px לא מספיקים, compressColumnBy עם allowBelowBase=1.5 משלים את החסר
+     על חשבון כיווץ עדין של השורות. */
+const ORPHAN_RECLAIM_BUFFER = 12;
+
 /* ==========================================================================
    יישור אנכי עדין של טור: מותח את הטור ל-targetHeight כך שתחתיות הטורים נוחתות על אותו קו.
    - הרווח מתווסף כ-padding-bottom ולא כ-margin-bottom: שוליים סמוכים "קורסים" זה לתוך זה,
@@ -817,6 +829,277 @@ function columnStretchCapacity(col, lhCap = JUSTIFY_MAX_LH_EXTRA) {
         cap += lines * Math.max(0, lhCap - (lh - base));
     });
     return cap;
+}
+
+/* [חדש] קיבולת כיווץ של טור: כמה px אפשר לכווץ על-ידי הקטנת paddingBottom (עד 0) והקטנת
+   lineHeight חזרה לבסיס (data-base-lh). משמש למשיכת שורות יתומות בחזרה לעמוד הקודם.
+   זהו ההיפך של columnStretchCapacity — שם מודדים כמה אפשר למתוח, כאן כמה אפשר לכווץ.
+   פרמטר allowBelowBase: כמה px מתחת לבסיס מותר לרדת (למשיכת יתומים דחופה). */
+function columnCompressCapacity(col, allowBelowBase = 0) {
+    const kids = Array.from(col.children);
+    let cap = 0;
+    kids.forEach(k => {
+        if (k.tagName !== 'P') return;
+        // קיבולת paddingBottom (עד 0)
+        cap += parseFloat(k.style.paddingBottom) || 0;
+        // קיבולת lineHeight (עד לבסיס)
+        const baseLh = parseFloat(k.getAttribute('data-base-lh')) || 0;
+        if (baseLh > 0) {
+            const cs = getComputedStyle(k);
+            const curLh = parseFloat(cs.lineHeight) || 0;
+            if (curLh > baseLh) {
+                const { lines } = paraLineInfo(k);
+                cap += (curLh - baseLh) * lines;
+            }
+        }
+        // קיבולת מתחת לבסיס (אופציונלי — רק למשיכת יתומים)
+        if (allowBelowBase > 0) {
+            const { lines } = paraLineInfo(k);
+            cap += allowBelowBase * lines;
+        }
+    });
+    return cap;
+}
+
+/* [חדש] מכווץ טור על-ידי הקטנת paddingBottom והקטנת lineHeight עד לבסיס.
+   מחזיר את כמות הפיקסלים שכווצה בפועל. מכווץ בסדר: קודם paddingBottom (פחות חזותי)
+   ואחר כך lineHeight (יותר חזותי, אבל עדיין בתוך הבסיס).
+   פרמטר allowBelowBase: כמה px מתחת לבסיס מותר לרדת (למשיכת יתומים דחופה). */
+function compressColumnBy(col, neededPx, allowBelowBase = 0) {
+    if (!(neededPx > 0)) return 0;
+    const kids = Array.from(col.children);
+    let freed = 0;
+
+    // 1. הקטנת paddingBottom על כל פסקה (עד 0)
+    for (const k of kids) {
+        if (freed >= neededPx) break;
+        if (k.tagName !== 'P') continue;
+        const cur = parseFloat(k.style.paddingBottom) || 0;
+        if (cur > 0) {
+            const reduce = Math.min(cur, neededPx - freed);
+            k.style.paddingBottom = (cur - reduce) + 'px';
+            freed += reduce;
+        }
+    }
+
+    // 2. הקטנת lineHeight על כל פסקה (עד לבסיס)
+    for (const k of kids) {
+        if (freed >= neededPx) break;
+        if (k.tagName !== 'P') continue;
+        const baseLh = parseFloat(k.getAttribute('data-base-lh')) || 0;
+        if (baseLh <= 0) continue;
+        const cs = getComputedStyle(k);
+        const curLh = parseFloat(cs.lineHeight) || 0;
+        if (curLh <= baseLh) continue;
+        const { lines } = paraLineInfo(k);
+        if (lines <= 0) continue;
+        const maxReduce = (curLh - baseLh) * lines;
+        if (maxReduce <= 0) continue;
+        const reduce = Math.min(maxReduce, neededPx - freed);
+        const newLh = curLh - reduce / lines;
+        k.style.lineHeight = newLh + 'px';
+        // התאמת גובה החלון של ד"ה (DropWord) באותו יחס, כדי שמספר השורות מתחתיו לא ישתנה
+        const win = k.querySelector('.first-word-window');
+        if (win) {
+            const winH = parseFloat(win.style.height) || 0;
+            if (winH > 0) {
+                win.style.height = (winH * newLh / curLh) + 'px';
+            }
+        }
+        freed += reduce;
+    }
+
+    // 3. [חדש] אם עדיין צריך עוד — הקטנת lineHeight מתחת לבסיס (עד allowBelowBase px לשורה)
+    //    זהו כיווץ "אגרסיבי" שמשמש רק למשיכת יתומים. ההקטנה מוגבלת כדי לא לפגוע בקריאות.
+    if (allowBelowBase > 0) {
+        for (const k of kids) {
+            if (freed >= neededPx) break;
+            if (k.tagName !== 'P') continue;
+            const baseLh = parseFloat(k.getAttribute('data-base-lh')) || parseFloat(getComputedStyle(k).lineHeight) || 18;
+            const cs = getComputedStyle(k);
+            const curLh = parseFloat(cs.lineHeight) || 0;
+            const { lines } = paraLineInfo(k);
+            if (lines <= 0) continue;
+            const maxReduce = allowBelowBase * lines;
+            if (maxReduce <= 0) continue;
+            const reduce = Math.min(maxReduce, neededPx - freed);
+            const newLh = curLh - reduce / lines;
+            k.style.lineHeight = newLh + 'px';
+            const win = k.querySelector('.first-word-window');
+            if (win) {
+                const winH = parseFloat(win.style.height) || 0;
+                if (winH > 0) win.style.height = (winH * newLh / curLh) + 'px';
+            }
+            freed += reduce;
+        }
+    }
+
+    return freed;
+}
+
+/* [חדש] משיכת שורות יתומות בחזרה לעמוד הקודם.
+   נקראת אחרי סיום מילוי הבלוק האחרון בעמוד, לפני stretchPageToBottom.
+   אם יש pendingWordTokens עם 1-2 שורות נשארות (הזנב היתום של פסקה שפוצלה),
+   מנסה לכווץ את הטורים של הבלוק האחרון כדי לפנות מקום ולהכניס את השורות בחזרה.
+
+   כללים (לפי הוראת המשתמש):
+   - 1 שורה יתומה: כיווץ טור שמאל בלבד → פינוי מקום לשורה אחת → העברת השורה לעמוד הקודם
+   - 2 שורות יתומות: כיווץ שני הטורים (שמאל + ימין) → פינוי מקום ל-2 שורות → העברתן לעמוד הקודם
+   - 3 שורות: טרם מיושם (דורש הרחבת ריווח-מילים בפסקה הקודמת — מקרה מורכב יותר)
+
+   פרמטרים:
+   - pageLayout: אובייקט העמוד (מכיל bodyFlow)
+   - pendingTail: האובייקט pendingWordTokens (או null) — מכיל token ו-remainingLines
+   - reservedNow: פונקציה שמחזירה את הגובה השמור להערות
+   - totalFlowH: גובה השטח הפנוי לגוף בעמוד
+
+   מחזיר true אם המשיכה הצליחה (השורות היתומות הוכנסו לעמוד הקודם).
+   הקורא אחראי לעדכן pendingWordTokens = null ו-tokenIndex++ במקרה של הצלחה. */
+function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) {
+    if (!pendingTail) {
+        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'no_pending_tail' });
+        return false;
+    }
+    const remaining = pendingTail.remainingLines;
+    const orphanLines = remaining.length;
+    if (orphanLines < 1 || orphanLines > 2) {
+        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'orphanLines_out_of_range', orphanLines });
+        return false;
+    }
+
+    const flow = pageLayout.bodyFlow;
+    const lastBlock = flow.lastElementChild;
+    if (!lastBlock) {
+        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'no_lastBlock' });
+        return false;
+    }
+    if (!lastBlock.classList.contains('block-2col')) {
+        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'lastBlock_not_2col', classList: lastBlock.className });
+        return false;
+    }
+
+    const rCol = lastBlock.querySelector('.right-col');
+    const lCol = lastBlock.querySelector('.left-col');
+    if (!rCol || !lCol) {
+        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'no_cols' });
+        return false;
+    }
+
+    // שטח פנוי נוכחי בתחתית העמוד (בין תחתית הבלוק האחרון לתחתית שטח הגוף, פחות עתודת הערות)
+    const flowBottom = flow.getBoundingClientRect().top + totalFlowH;
+    const currentFree = (flowBottom - reservedNow()) - lastBlock.getBoundingClientRect().bottom - 1;
+
+    // אילו טורים לכווץ? הזנב היתום נכנס לטור שמאל (הטור השני שמתמלא).
+    // כיווצנו רק את טור שמאל כדי לפנות מקום ליתום בלי להקטין את טור ימין
+    // (שמגדיר את גובה הבלוק). אם נכווץ גם את ימין, הבלוק יתקצר אבל הוספת
+    // היתום לשמאל תחזיר את שמאל לגובה המקורי ולפעמים תחרוג מהעמוד.
+    // הערה: הכלל של המשתמש אומר "2 שורות → כיווץ שני הטורים", אבל בפועל
+    // כיווץ שני הטורים והנחת היתום בשמאל בלבד גורם לחריגה. לכן כיווץ שמאל בלבד.
+    const colsToCompress = [lCol];
+
+    // בדיקת קיבולת הכיווץ (עם allowBelowBase=2 — מאפשר כיווץ עד 2px מתחת לבסיס לשורה
+    // כדי לסגור את הפער כשהמקום הפנוי לא מספיק).
+    // [Option C] יחד עם ORPHAN_RECLAIM_BUFFER=12px (ראה למטה), זה מאוזן:
+    // 12px באפר גלישה + ~40px כיווץ = ~52px — מספיק ליתום בן 1-2 שורות
+    const ALLOW_BELOW_BASE = 2;
+    let totalCap = 0;
+    colsToCompress.forEach(c => { totalCap += columnCompressCapacity(c, ALLOW_BELOW_BASE); });
+
+    // [תיקון] מודדים את הגובה האמיתי של הפסקה היתומה במקום להעריך לפי lhPx × שורות.
+    // הערכה קודמת (2 × 21 + 4 = 46px) הייתה גבוהה מדי ומנעה משיכה גם כשהמקום בפועל מספיק.
+    const orphanTok = pendingTail.token;
+    const orphanText = remaining.join(' ');
+    const pElem = document.createElement('p');
+    pElem.setAttribute('data-token-id', orphanTok.id);
+    pElem.setAttribute('data-is-cont', 'true');
+    pElem.className = 'p-end';
+    pElem.setAttribute('data-raw-text', orphanText);
+    pElem.innerHTML = createDropWord(orphanText, true, false, orphanLines);
+    applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
+    if (orphanTok.endNote) {
+        pElem.appendChild(createNoteMarkerAndQueue(orphanTok.endNote, null, 'endnote'));
+    }
+
+    // מדידה: מוסיפים זמנית ל-lCol ומודדים את התוספת האמיתית
+    const colHBefore = lCol.scrollHeight;
+    lCol.appendChild(pElem);
+    const orphanActualH = lCol.scrollHeight - colHBefore;
+    lCol.removeChild(pElem);
+
+    // צריך מקום לפסקה היתומה. currentFree שמור להערות. נשתמש בבולם קטן (2px) בלבד.
+    const neededPx = orphanActualH + 2;
+
+    // [Option C] סך המקום הפנוי = שטח פנוי נוכחי + קיבולת כיווץ + באפר גלישה (ORPHAN_RECLAIM_BUFFER).
+    // הבאפר מאפשר לבלוק לגלוש עד 12px מתחת לתחתית הרגילה — מרווח חירום שמשתלם כדי למנוע יתום.
+    // בדיקת הגלישה בפועל מתבצעת אחרי הנחת היתום (ראה newFree check למטה).
+    if (currentFree + totalCap + ORPHAN_RECLAIM_BUFFER < neededPx) {
+        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({
+            reason: 'not_enough_space',
+            currentFree: Math.round(currentFree),
+            totalCap: Math.round(totalCap),
+            buffer: ORPHAN_RECLAIM_BUFFER,
+            neededPx: Math.round(neededPx),
+            orphanActualH: Math.round(orphanActualH),
+            orphanLines,
+            rColKids: rCol.children.length,
+            lColKids: lCol.children.length
+        });
+        return false;
+    }
+
+    // הפעלת כיווץ (רק כמה שצריך)
+    const compressNeeded = Math.max(0, neededPx - currentFree);
+    let actualCompressed = 0;
+    const rColH_before = rCol.scrollHeight;
+    const lColH_before = lCol.scrollHeight;
+    if (compressNeeded > 0) {
+        const perCol = compressNeeded / colsToCompress.length;
+        colsToCompress.forEach(c => { actualCompressed += compressColumnBy(c, perCol, ALLOW_BELOW_BASE); });
+    }
+    const rColH_afterCompress = rCol.scrollHeight;
+    const lColH_afterCompress = lCol.scrollHeight;
+
+    // הנחת הזנב היתום בטור שמאל (הטור השני מתמלא אחרון, אז יש לו מקום)
+    lCol.appendChild(pElem);
+
+    // וידוא שהבלוק עדיין נכנס בעמוד (עם באפר גלישה של ORPHAN_RECLAIM_BUFFER)
+    // [Option C] מאפשרים לבלוק לגלוש עד 12px מתחת לתחתית הרגילה — זה הבאפר שהוקצה למשיכת יתומים.
+    // הגלישה הזו היא "מרווח חירום" שמתקבל כדי למנוע יתום חזותי בראש העמוד הבא.
+    const newFree = (flowBottom - reservedNow()) - lastBlock.getBoundingClientRect().bottom - 1;
+    if (newFree < -ORPHAN_RECLAIM_BUFFER) {
+        // גלש מעבר לבאפר — ביטול ההנחה והחזרת false
+        lCol.removeChild(pElem);
+        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({
+            reason: 'overflow_after_placement',
+            newFree: Math.round(newFree),
+            orphanActualH: Math.round(orphanActualH),
+            compressNeeded: Math.round(compressNeeded),
+            actualCompressed: Math.round(actualCompressed),
+            bufferUsed: Math.round(Math.max(0, -newFree)),
+            rColH_before: Math.round(rColH_before),
+            lColH_before: Math.round(lColH_before),
+            rColH_afterCompress: Math.round(rColH_afterCompress),
+            lColH_afterCompress: Math.round(lColH_afterCompress),
+            rColH_afterOrphan: Math.round(rCol.scrollHeight),
+            lColH_afterOrphan: Math.round(lCol.scrollHeight),
+            blockBottom: Math.round(lastBlock.getBoundingClientRect().bottom),
+            flowBottom: Math.round(flowBottom),
+            reservedNow: Math.round(reservedNow())
+        });
+        return false;
+    }
+
+    // הצלחה! הקורא אחראי לעדכן pendingWordTokens = null ו-tokenIndex++
+    if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({
+        reason: 'success',
+        orphanLines,
+        orphanActualH: Math.round(orphanActualH),
+        compressNeeded: Math.round(compressNeeded),
+        currentFree: Math.round(currentFree),
+        totalCap: Math.round(totalCap),
+        bufferUsed: Math.round(Math.max(0, -newFree))
+    });
+    return true;
 }
 
 function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, lhCap = null) {
@@ -2743,7 +3026,11 @@ function typesetDocumentCore() {
 
             /* [חדש] ישור תחתית העמוד: בעמוד שהפרק ממשיך אחריו, הרווח שנשאר מתחת לבלוק האחרון נפרס על הרווחים
                שבין הפסקאות, כך שכל העמודים נגמרים על אותו קו תחתון (בלי "שיניים" בתחתית העמוד).
-               העמוד האחרון בפרק אינו נמתח (שם סיום לא-מלא הוא תקין). */
+               העמוד האחרון בפרק אינו נמתח (שם סיום לא-מלא הוא תקין).
+               [Option C] המתיחה נשארת מלאה (עד תחתית השטח הפנוי) — לא מפחיתים ORPHAN_RECLAIM_BUFFER
+               כאן. הבאפר ממומש ב-tryReclaimOrphanTail עצמה, שמאפשרת לבלוק לגלוש עד ORPHAN_RECLAIM_BUFFER
+               פיקסלים מתחת לתחתית הרגילה כשזה הכרחי למשיכת יתום. כך המתיחה נשארת מלאה (קצב אחיד)
+               והבאפר משמש רק כ"מרווח חירום" בעמודים שבהם יש יתום. */
             const stretchPageToBottom = () => {
                 if (!(tokenIndex < secTokens.length || pendingWordTokens)) return;
                 const flow = pageLayout.bodyFlow;
@@ -3184,7 +3471,15 @@ function typesetDocumentCore() {
                 finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
             }
             if (redoCheck()) continue;
+            // [חדש] מותחים קודם את העמוד לתחתית (stretchPageToBottom), ואז מנסים למשוך
+            // זנב יתום (1-2 שורות) על-ידי כיווץ המתיחה שזה עתה נוספה. אם המשיכה מצליחה,
+            // השורות היתומות תופסות את מקום המתיחה במקום לעבור לעמוד הבא.
             stretchPageToBottom();
+            const reclaimed = tryReclaimOrphanTail(pageLayout, pendingWordTokens, reservedNow, totalFlowH);
+            if (reclaimed) {
+                pendingWordTokens = null;
+                tokenIndex++;
+            }
         }
     }
 
