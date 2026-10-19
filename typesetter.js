@@ -1894,6 +1894,12 @@ function applyNoteMarkerStyle(el, isBacklink) {
     el.style.textDecoration = 'none';
     el.style.color = 'inherit';
     el.style.cursor = 'pointer';
+    // [חדש] סוג הגופן של סימון הערת השוליים בגוף הטקסט = כמו גופן הערת השוליים (f-note-body),
+    // לא כמו גוף הטקסט. הגודל נשאר כפי שהיה (note-marker-size / note-listing-num-size).
+    const noteFontEl = document.getElementById('f-note-body');
+    if (noteFontEl && noteFontEl.value) {
+        el.style.fontFamily = noteFontEl.value;
+    }
     if (type === 'super') {
         el.style.verticalAlign = 'super';
         el.style.lineHeight = '0';
