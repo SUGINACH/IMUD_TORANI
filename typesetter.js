@@ -1812,7 +1812,45 @@ function buildNoteBlockElement(queue, columns) {
         line.appendChild(body);
         wrap.appendChild(line);
     });
+
+    // [חדש] במצב "רציף": מסמנים אילו .note-line נמצאים ב"שורה האחרונה" כדי שאפשר יהיה
+    // להחיל עליהם יישור מלא (text-align-last: justify) רק אם יש שם 2+ הערות.
+    // אם יש הערה אחת בודדת בשורה האחרונה — נשארת מיושרת לימין (כמו הערה חד-שורתית רגילה).
+    // הסימון נעשה על-ידי class 'last-row' שמתווסף אחרי שהבלוק מחובר ל-DOM והדפדפן מבצע layout.
+    if (layoutMode === 'continuous' && wrap.children.length > 1) {
+        // נסמן לעיבוד מאוחר יותר (אחרי חיבור ל-DOM) — הפונקציה markLastRowOfContinuousBlock נקראת חיצונית
+        wrap.setAttribute('data-mark-last-row', '1');
+    }
     return wrap;
+}
+
+/* [חדש] מסמן את ההערות ב"שורה האחרונה" של בלוק רציף על-ידי class 'last-row'.
+   נקרא אחרי שהבלוק חובר ל-DOM והדפדפן ביצע layout (כדי שאפשר למדוד Y של כל הערה).
+   אם יש 2+ הערות בשורה האחרונה — מוסיף class 'last-row-multi' לבלוק (מפעיל text-align-last: justify).
+   אם יש רק הערה אחת — לא מוסיף כלום (נשאר text-align-last: right מ-.note-block). */
+function markLastRowOfContinuousBlock(block) {
+    if (!block || !block.classList.contains('continuous-mode')) return;
+    if (block.getAttribute('data-mark-last-row') !== '1') return;
+    block.removeAttribute('data-mark-last-row');
+
+    const notes = Array.from(block.querySelectorAll('.note-line'));
+    if (notes.length < 2) return;
+
+    // מצא את ה-Y של ההערה האחרונה
+    const lastNote = notes[notes.length - 1];
+    const lastTop = lastNote.getBoundingClientRect().top;
+    // ספור כמה הערות באותו Y (אותה שורה)
+    let countInLastRow = 0;
+    for (let i = notes.length - 1; i >= 0; i--) {
+        const top = notes[i].getBoundingClientRect().top;
+        if (Math.abs(top - lastTop) < 2) {
+            countInLastRow++;
+        } else break;
+    }
+
+    if (countInLastRow >= 2) {
+        block.classList.add('last-row-multi');
+    }
 }
 
 /* בונה את אזור הערות השוליים המלא (כותרת + קו + הערות) מתור נתון.
@@ -1919,6 +1957,11 @@ function flushFootnotesInto(pageEl) {
     } else {
         pageEl.appendChild(area);
     }
+
+    // [חדש] אחרי שהאזור חובר ל-DOM, מסמנים את השורה האחרונה של בלוק רציף
+    // (אם יש שם 2+ הערות — מפעיל text-align-last: justify כדי שהן יתפרסו על כל הרוחב)
+    const contBlock = area.querySelector('.note-block.continuous-mode[data-mark-last-row="1"]');
+    if (contBlock) markLastRowOfContinuousBlock(contBlock);
 
     footnoteQueueForPage = [];
     resetNoteCounterIfNeeded('footnote', 'page');

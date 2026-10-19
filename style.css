@@ -1378,27 +1378,34 @@ p.p-cut { text-align-last: justify; }
 /* [חדש] מצב "רציף" — הערות שוליים ברצף, ללא שורה חדשה ביניהן.
    במצב זה כל .note-line הופך לאיבר inline, ובין הערות מופיע רווח כפול.
    היתרונות: חיסכון במקום אנכי, מראה רציף יותר להערות קצרות.
-   החסרונות: פחות נוח לקריאה כשיש הערות ארוכות. */
+   החסרונות: פחות נוח לקריאה כשיש הערות ארוכות.
+
+   [הערה על יישור] text-align: justify מיישר רק שורות שעוברות wrap.
+   שורה אחת בודדת של הערות קצרות מקבלת text-align-last: right (מ-.note-block)
+   ומצטברת לימין. כדי לפתור את זה, markLastRowOfContinuousBlock (ב-typesetter.js)
+   מוסיף class 'last-row-multi' לבלוק כשיש 2+ הערות בשורה האחרונה.
+   במקרה זה, מפעילים text-align-last: justify כדי לפזר את ההערות על כל הרוחב.
+   אם יש רק הערה אחת בודדת בשורה האחרונה — לא מוסיפים את הclass, והיא נשארת
+   מיושרת לימין (התנהגות סטנדרטית של הערה חד-שורתית). */
 .note-block.continuous-mode {
     column-count: 1;  /* במצב רציף לא משתמשים בריבוי טורים */
-    /* [תיקון] במצב רציף, גם השורה האחרונה צריכה להיות מיושרת לשני הצדדים.
-       אחרת, הערות קצרות שמתאימות לשורה אחת מצטברות לימין (RTL) במקום להתפרס על כל הרוחב.
-       במצב block, text-align-last: right נשאר (התנהגות סטנדרטית של יישור פסקה). */
-    text-align-last: justify !important;
+    /* text-align: justify + text-align-last: right inherited from .note-block */
+}
+/* כשיש 2+ הערות בשורה האחרונה — מפעילים יישור מלא גם לשורה האחרונה */
+.note-block.continuous-mode.last-row-multi {
+    text-align-last: justify;
 }
 .note-block.continuous-mode .note-line {
     display: inline;
     margin-bottom: 0;
-    /* [תיקון] לא דורסים text-align — נשאר inherit מ-.note-block (justify).
-       לאלמנטים inline, text-align של ההורה חל על התוכן, אז אין צורך להגדיר כאן כלום. */
     break-inside: auto;
 }
-/* רווח כפול בין הערות (גם אחרי מספר וגם לפני ההערה הבאה) */
+/* רווח כפול בין הערות */
 .note-block.continuous-mode .note-line + .note-line {
-    margin-right: 1em;  /* רווח כפול לפני ההערה הבאה */
+    margin-right: 1em;
 }
 .note-block.continuous-mode .note-line .note-line-num {
-    margin-left: 0;  /* במצב רציף המספר צמוד לטקסט */
+    margin-left: 0;
 }
 
 .note-line {
