@@ -1364,6 +1364,11 @@ p.p-cut { text-align-last: justify; }
 .note-block {
     font-size: 8.5pt;
     line-height: 1.45;
+    /* [תיקון] יישור לשני הצדדים ברמת המכל — חל על כל התוכן ה-inline בפנים
+       (חשוב במיוחד למצב "רציף", שבו .note-line הם inline ו-text-align שלהם לא חל). */
+    text-align: justify;
+    text-justify: inter-word;
+    text-align-last: var(--note-last-line-align, right);
 }
 .note-block.cols-2 {
     column-count: 2; column-gap: 16px; column-rule: 1px solid #e2e8f0;
@@ -1376,13 +1381,13 @@ p.p-cut { text-align-last: justify; }
    החסרונות: פחות נוח לקריאה כשיש הערות ארוכות. */
 .note-block.continuous-mode {
     column-count: 1;  /* במצב רציף לא משתמשים בריבוי טורים */
+    /* text-align: justify inherited from .note-block — חיוני כדי שהתוכן ה-inline יהיה מיושר */
 }
 .note-block.continuous-mode .note-line {
     display: inline;
     margin-bottom: 0;
-    text-align: inherit;
-    text-justify: inherit;
-    text-align-last: inherit;
+    /* [תיקון] לא דורסים text-align — נשאר inherit מ-.note-block (justify).
+       לאלמנטים inline, text-align של ההורה חל על התוכן, אז אין צורך להגדיר כאן כלום. */
     break-inside: auto;
 }
 /* רווח כפול בין הערות (גם אחרי מספר וגם לפני ההערה הבאה) */
@@ -1396,9 +1401,7 @@ p.p-cut { text-align-last: justify; }
 .note-line {
     break-inside: avoid;
     margin-bottom: 3px;
-    text-align: justify;
-    text-justify: inter-word;
-    text-align-last: var(--note-last-line-align, right);
+    /* text-align, text-justify, text-align-last inherited from .note-block (justify) */
 }
 
 .note-body-text {
