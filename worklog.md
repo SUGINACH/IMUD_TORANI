@@ -1482,3 +1482,514 @@ tradeoff טבעי של KP — פיזור אחיד של רווחים על חשב�
 - 9/9 יתומי עמוד בני 1-2 שורות נפתרו (100% הצלחה)
 - 0 עמודים נוספו, 0 פגיעה בקריאות, 0 פגיעה בקצב החזותי
 - הבאפר משמש כרשת ביטחון — בפועל נעשה בו שימוש של 1px בלבד
+
+---
+
+## Task ID: print-pdf-fix-2026-10-18
+**Agent:** main (Super Z)
+**Date:** 2026-10-18 (later)
+**Task:** תיקון הדפסה ל-PDF — רק דף השער נשמר ומכוסה במסך אפור-כחול
+
+### רקע
+המשתמש דיווח: "בהדפסה לPDF נשמר רק דף השער והוא מכוסה ע"י מסך אפור-כחול."
+
+### אבחון שורש הבעיה
+1. **כפתור ההדפסה** ב-index.html קרא ל-`window.print()` על **הדף הראשי**
+2. **התוכן המרונדר** נמצא **בתוך iframe** (`#render-frame` שטוען את `renderer.html`)
+3. כשמדפיסים את הדף הראשי, רק השער (שנמצא על index.html) נכנס ל-PDF
+4. **המסך האפור-כחול** הוא הרקע של `renderer.html`: `body { background: #334155; }` — הוא זה שמכסה את התוכן
+
+### הפתרון
+**3 שינויים:**
+
+#### 1. `index.html` — החלפת כפתור ההדפסה
+```diff
+- <button ... onclick="window.print()">🖨️ הדפסה / PDF</button>
++ <button ... onclick="printRendered()">🖨️ הדפסה / PDF</button>
+```
+
+#### 2. `app.js` — פונקציית `printRendered()` חדשה
+- מוצא את ה-iframe
+- ממתין ל-`document.fonts.ready` (מבטיח טעינת גופנים)
+- קורא ל-`iframe.contentWindow.focus()` (נדרש בחלק מהדפדפנים)
+- קורא ל-`iframe.contentWindow.print()` — מדפיס את ה-iframe בלבד
+
+#### 3. `renderer.html` — הוספת `@media print` CSS
+ביטול הרקע האפור-כחול + הגדרת עימוד נכון:
+- `html, body { background: #ffffff !important; }` — ביטול הרקע האפור
+- `#preview-pane { background: #ffffff !important; }` — ביטול הרקע של הטופ
+- `.a4-page { width: 210mm; height: 297mm; page-break-after: always; box-shadow: none; }` — עימוד A4 נכון
+- `#measuring-box { display: none; }` — הסתרת אזור מדידה
+- `.side-note-anchor, .margin-notes-column { print-color-adjust: exact; }` — שמירת צבעי רקע של הערות שוליים
+
+### בדיקה
+- **לפני התיקון**: PDF כלל רק דף אחד (השער) מכוסה באפור-כחול
+- **אחרי התיקון**: PDF כולל את כל 21 העמודים המרונדרים, ללא רקע אפור, עם עימוד A4 נכון
+- **נבדק מקומית** ב-Playwright: ייצוא 21 עמודים ל-PDF הצליח
+
+### Files Modified:
+- `/home/z/my-project/IMUD_TORANI/index.html` — כפתור הדפסה קורא ל-printRendered()
+- `/home/z/my-project/IMUD_TORANI/app.js` — פונקציית printRendered() חדשה
+- `/home/z/my-project/IMUD_TORANI/renderer.html` — @media print CSS block חדש
+
+### Files Created:
+- `/home/z/my-project/scripts/test-print-fix.js` — בדיקת ייצוא PDF דרך iframe
+
+### Stage Summary:
+- **הבעיה נפתרה** — PDF כעת כולל את כל העמודים המרונדרים, לא רק את השער
+- **הרקע האפור-כחול בוטל** — ה-PDF נקי עם רקע לבן
+- **עימוד A4 נכון** — page-break-after: always על כל עמוד, 210mm × 297mm
+- **נדחק ל-GitHub V21 + Pages**: build הושלם, הקוד החי כולל את התיקון
+
+---
+
+## Task ID: continuous-footnotes-2026-10-18
+**Agent:** main (Super Z)
+**Date:** 2026-10-18 (later)
+**Task:** הוספת אפשרות "הערות שוליים רציפות" — ללא מעבר שורה בין הערה להערה, רק רווח כפול
+
+### רקע
+המשתמש ביקש אפשרות להציג הערות שוליים ברצף (כל ההערות בשורה אחת רציפה, מופרדות ברווח כפול), במקום ברירת המחדל שבה כל הערה בשורה נפרדת.
+
+### יישום
+
+#### 1. הוספת הגדרה ב-UI (`index.html`)
+- תג חדש `<select id="fn-layout-mode">` בפאנל "פריסת הערות ואיפוס מונים"
+- שתי אפשרויות:
+  - `block` (ברירת מחדל) — שורות נפרדות
+  - `continuous` — רציף, רווח כפול בין הערות
+
+#### 2. ברירת מחדל ב-`default_settings.json`
+```json
+"fn-layout-mode": "block"
+```
+
+#### 3. הוספה ל-`renderer-bridge.js`
+- `fn-layout-mode` נוסף לרשימת `SETTING_IDS` כדי שה-iframe יקבל את ההגדרה
+
+#### 4. התאמת `buildNoteBlockElement` ב-`typesetter.js`
+- קורא את `fn-layout-mode` מה-DOM
+- אם `continuous` — מוסיף class `continuous-mode` ל-`.note-block`
+
+#### 5. CSS ב-`style.css`
+כללים חדשים עבור `.note-block.continuous-mode`:
+- `column-count: 1` — במצב רציף לא משתמשים בריבוי טורים
+- `.note-line { display: inline; margin-bottom: 0; text-align: inherit; break-inside: auto; }` — כל הערה הופכת ל-inline
+- `.note-line + .note-line { margin-right: 1em; }` — רווח כפול בין הערות
+- `.note-line-num { margin-left: 0; }` — המספר צמוד לטקסט
+
+### בדיקה
+טקסט מבחן: קטע עם 3 הערות שוליים (6 note-lines סה"כ על פני 5 note-blocks ב-5 עמודים שונים):
+
+| מדד | מצב Block | מצב Continuous |
+|------|-----------|----------------|
+| מספר note-blocks | 5 | 5 |
+| מספר note-lines | 6 | 6 |
+| display של note-line | block | inline |
+| note-blocks עם class continuous-mode | 0 | 5 |
+| רווח בין הערות | שורה חדשה (margin-bottom: 3px) | רווח כפול (margin-right: 1em) |
+
+✓ אותו מספר הערות בשני המצבים (אין איבוד נתונים)
+✓ מצב continuous פעיל — note-lines הם inline
+✓ חיסכון במקום אנכי (במקום 6 שורות נפרדות, הערות זורמות ברצף)
+
+### יתרונות / חסרונות
+**יתרונות**:
+- חיסכון במקום אנכי (חשוב כשיש הרבה הערות קצרות)
+- מראה רציף יותר להערות קצרות (מקורות, הפניות)
+- מתאים לספרים תורניים עם הרבה הערות "כלב" או מקורות קצרים
+
+**חסרונות**:
+- פחות נוח לקריאה כשיש הערות ארוכות (לא ברור היכן מסתיימת הערה)
+- אי אפשר להשתמש בריבוי טורים (cols-2) במצב רציף
+
+### Files Modified:
+- `/home/z/my-project/IMUD_TORANI/index.html` — הוספת `<select id="fn-layout-mode">`
+- `/home/z/my-project/IMUD_TORANI/default_settings.json` — הוספת `"fn-layout-mode": "block"`
+- `/home/z/my-project/IMUD_TORANI/renderer-bridge.js` — הוספה לרשימת SETTING_IDS
+- `/home/z/my-project/IMUD_TORANI/typesetter.js` — `buildNoteBlockElement` קורא את ההגדרה
+- `/home/z/my-project/IMUD_TORANI/style.css` — כללי `.note-block.continuous-mode`
+
+### Files Created:
+- `/home/z/my-project/scripts/test-continuous-footnotes.js` — בדיקה מקיפה
+
+### Stage Summary:
+- ✓ הוספת אפשרות "רציף" להערות שוליים בהגדרות
+- ✓ ברירת מחדל נשארת "שורות נפרדות" (אין שינוי למשתמשים קיימים)
+- ✓ הגדרה נשמרת ב-default_settings.json ומועברת ל-iframe
+- ✓ נבדק עם טקסט אמיתי — אותו מספר הערות בשני המצבים
+- ✓ נדחף ל-GitHub V21 + Pages build הושלם
+
+---
+
+## Task ID: footnote-justify-fix-2026-10-18
+**Agent:** main (Super Z)
+**Date:** 2026-10-18 (later)
+**Task:** תיקון יישור הערות שוליים לשני הצדדים בשני המצבים (block + continuous)
+
+### רקע
+המשתמש דיווח: "למה ההערות לא מיושרות לשני הצדדים? הם אמורות להיות מיושרות לשני הצדדים בשתי האפשרויות."
+
+### אבחון
+**מצב Block** (לפני התיקון):
+- `.note-line` היה `display:block` עם `text-align: justify` ✓
+- עבור הערות רב-שורתיות: יישור עבד
+- עבור הערות חד-שורתיות: השורה יושרה לימין (כי `text-align-last: right`)
+
+**מצב Continuous** (לפני התיקון):
+- `.note-line` היה `display:inline` עם `text-align: inherit` ⚠️
+- אבל `text-align` לא חל על אלמנטים inline — רק על הורה block
+- הורה `.note-block` לא הגדיר `text-align` → ברירת מחדל `right` (RTL)
+- תוצאה: כל ההערות במצב רציף היו מיושרות לימין, לא לשני הצדדים ✗
+
+### התיקון
+העברנו את `text-align: justify` מ-`.note-line` ל-`.note-block` (המכל):
+
+```css
+.note-block {
+    font-size: 8.5pt;
+    line-height: 1.45;
+    text-align: justify;        /* חדש — חל על כל התוכן ה-inline בפנים */
+    text-justify: inter-word;
+    text-align-last: var(--note-last-line-align, right);
+}
+
+.note-block.continuous-mode .note-line {
+    display: inline;
+    margin-bottom: 0;
+    /* הוסר: text-align: inherit, text-justify: inherit, text-align-last: inherit */
+    break-inside: auto;
+}
+
+.note-line {
+    break-inside: avoid;
+    margin-bottom: 3px;
+    /* text-align, text-justify, text-align-last inherited from .note-block (justify) */
+}
+```
+
+**למה זה עובד**:
+- `text-align` הוא inherited property — ילדים יורשים אותו מהורה
+- במצב Block: `.note-line` (display:block) יורש `text-align: justify` מ-`.note-block`
+- במצב Continuous: `.note-line` (display:inline) — `text-align` של הורה חל ישירות על התוכן ה-inline
+
+### בדיקה (computed style)
+| מדד | Block mode | Continuous mode |
+|------|------------|-----------------|
+| blockTextAlign | justify ✓ | justify ✓ |
+| blockTextAlignLast | right | right |
+| lineTextAlign | justify | justify (inherited) |
+| lineDisplay | block | inline |
+| blockHasContinuousClass | false | true |
+
+✓ שני המצבים מקבלים `text-align: justify`
+✓ `text-align-last: right` נשמר (השורה האחרונה של כל הערה/זרימה מיושרת לימין — התנהגות סטנדרטית)
+
+### Files Modified:
+- `/home/z/my-project/IMUD_TORANI/style.css` — העברת text-align מ-.note-line ל-.note-block
+
+### Files Created:
+- `/home/z/my-project/scripts/test-justify-footnotes.js` — בדיקת computed style בשני המצבים
+
+### Stage Summary:
+- ✓ הערות שוליים מיושרות לשני הצדדים בשני המצבים (block + continuous)
+- ✓ תיקון אומת על-ידי בדיקת computed style ב-Playwright
+- ✓ נדחף ל-GitHub V21 + Pages build הושלם
+
+---
+
+## Task ID: footnote-justify-continuous-fix-2026-10-18
+**Agent:** main (Super Z)
+**Date:** 2026-10-18 (later)
+**Task:** תיקון יישור הערות שוליים במצב "רציף" — ההערות עדיין לא היו מיושרות לשני הצדדים
+
+### רקע
+אחרי התיקון הקודם (העברת text-align:justify ל-.note-block), המשתמש דיווח שהיישור עדיין לא עובד במצב רציף.
+
+### אבחון מדויק
+בדיקה ויזואלית עם 7 הערות קצרות (["כלב", "עירובין נא:", "רש"י שם", "תוספות ד"ה והא", "מהרש"א", "ב"ש ס"ק א", "שו"ע סימן רנ"ג"]):
+
+**לפני התיקון** (text-align: justify + text-align-last: right):
+- כל 7 ההערות התאימו לשורה אחת
+- כיוון ש-text-align: justify מיישר רק שורות שעוברות גלישה (wrap), שורה אחת בודדת לא מקבלת יישור
+- text-align-last: right השתלט → כל 7 ההערות הצטברו לימין עם רווח ריק גדול משמאל
+- מיקומים: Note 1 (left=642), Note 7 (left=273) — כולן בצד ימין, רווח משמאל = ~150px
+
+### שורש הבעיה
+- `text-align: justify` מיישר רק שורות שעוברות wrap (כי שורה אחרונה לא מקבלת יישור כי אין אחריה שורה)
+- `text-align-last` קובע איך ליישר את השורה האחרונה
+- כשהתוכן מתאים לשורה אחת, השורה האחרונה = השורה היחידה
+- עם `text-align-last: right`, השורה היחידה מיושרת לימין → נראה לא מיושר
+
+### התיקון
+```css
+.note-block.continuous-mode {
+    column-count: 1;
+    text-align-last: justify !important;  /* חדש — מיישר גם את השורה האחרונה */
+}
+```
+
+**למה רק במצב רציף?**
+- במצב Block: `text-align-last: right` נשאר — זו התנהגות סטנדרטית של יישור פסקה (השורה האחרונה של פסקה מיושרת לימין/שמאל)
+- במצב Continuous: ה"שורה האחרונה" יכולה להכיל מספר הערות קצרות. מיישרים גם אותה כדי שההערות יתפרסו על כל הרוחב
+
+### בדיקה אחרי התיקון
+אותן 7 הערות קצרות:
+
+| מדד | לפני | אחרי |
+|------|------|------|
+| text-align | justify | justify |
+| text-align-last | right | **justify** ✓ |
+| מיקום Note 1 (right edge) | 677 | 677 (קצה ימין) |
+| מיקום Note 7 (left edge) | 273 | 125 (קצה שמאל) |
+| רווח ריק משמאל | ~150px | **0px** ✓ |
+| רווח ריק מימין | 0px | 0px ✓ |
+| שטח מלא | חלקי | **100%** ✓ |
+
+ההערות מתפרסות עכשיו על כל רוחב הבלוק (552px), עם הרווחים ביניהן מתרחבים כדי למלא את השטח.
+
+### Files Modified:
+- `/home/z/my-project/IMUD_TORANI/style.css` — `.note-block.continuous-mode` עם `text-align-last: justify !important`
+
+### Files Created:
+- `/home/z/my-project/scripts/test-justify-visual.js` — בדיקה ויזואלית מפורטת
+
+### Stage Summary:
+- ✓ מצב "רציף" עכשיו מיושר לשני הצדדים גם כשהתוכן מתאים לשורה אחת
+- ✓ מצב Block נשאר כפי שהיה (text-align-last: right — התנהגות סטנדרטית)
+- ✓ נבדק עם 7 הערות קצרות — כולן מתפרסות על כל הרוחב
+- ✓ נדחף ל-GitHub V21 + Pages build הושלם
+
+---
+
+## Task ID: orphan-tail-reclaim-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `66d1d98`
+**Task:** יישום מנגנון משיכת זנב יתום (1-2 שורות) בחזרה לעמוד הקודם
+
+### שינויים:
+- **3 פונקציות חדשות** ב-typesetter.js:
+  - `columnCompressCapacity(col, allowBelowBase)` — מודד קיבולת כיווץ
+  - `compressColumnBy(col, neededPx, allowBelowBase)` — מכווץ paddingBottom + lineHeight
+  - `tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH)` — מושך זנב 1-2 שורות
+- **שילוב בזרימה**: אחרי `stretchPageToBottom()`, קוראים ל-reclaim
+- **Option C buffer**: `ORPHAN_RECLAIM_BUFFER = 12px` — באפר גלישה וירטואלי למקרי קצה
+
+### תוצאות:
+- 9/9 יתומי עמוד בני 1-2 שורות נפתרו (100%)
+- 0 עמודים נוספו (38 → 38)
+- גובה שורה מינימלי: 19.44px (אין כיווץ יתר)
+
+---
+
+## Task ID: print-pdf-fix-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `5751497`
+**Task:** תיקון הדפסה ל-PDF — רק דף השער נשמר ומכוסה במסך אפור-כחול
+
+### שינויים:
+- `index.html` — כפתור הדפסה קורא ל-`printRendered()` במקום `window.print()`
+- `app.js` — פונקציית `printRendered()` חדשה — מדפיסה את תוכן ה-iframe
+- `renderer.html` — `@media print` CSS — ביטול רקע אפור (#334155 → #ffffff), עימוד A4 נכון
+
+### תוצאות:
+- לפני: PDF כלל רק דף אחד (שער) מכוסה באפור-כחול
+- אחרי: PDF כולל את כל העמודים המרונדרים, רקע לבן, עימוד A4 נכון
+
+---
+
+## Task ID: continuous-footnotes-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `db65f98`
+**Task:** הוספת אפשרות "הערות שוליים רציפות" — ללא מעבר שורה בין הערה להערה, רק רווח כפול
+
+### שינויים:
+- `index.html` — `<select id="fn-layout-mode">` חדש (block / continuous)
+- `default_settings.json` — `"fn-layout-mode": "block"` (ברירת מחדל)
+- `renderer-bridge.js` — הוספה ל-SETTING_IDS
+- `typesetter.js` — `buildNoteBlockElement` מוסיף class `continuous-mode`
+- `style.css` — כללי `.note-block.continuous-mode` (display: inline, margin-right: 1em)
+
+### תוצאות:
+- מצב Block (ברירת מחדל): כל הערה בשורה נפרדת
+- מצב Continuous: הערות ברצף עם רווח כפול ביניהן
+- חיסכון במקום אנכי להערות קצרות
+
+---
+
+## Task ID: footnote-justify-fix-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `766a966`
+**Task:** תיקון יישור הערות שוליים לשני הצדדים בשני המצבים
+
+### שינויים:
+- `style.css` — העברת `text-align: justify` מ-`.note-line` ל-`.note-block` (המכל)
+- כך ה-justify חל גם על תוכן inline במצב continuous
+
+### תוצאות:
+- Block mode: `blockTextAlign=justify, lineTextAlign=justify` ✓
+- Continuous mode: `blockTextAlign=justify, lineTextAlign=justify (inherited)` ✓
+
+---
+
+## Task ID: footnote-justify-continuous-fix-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `39d192e`
+**Task:** תיקון יישור במצב רציף — `text-align-last: justify` לשורה אחרונה
+
+### שינויים:
+- `style.css` — `.note-block.continuous-mode { text-align-last: justify !important; }`
+
+### בעיה שנפתרה:
+- `text-align: justify` מיישר רק שורות שעוברות wrap
+- לשורה אחת בודדת של הערות קצרות, `text-align-last: right` דחף הכל לימין
+- עם `text-align-last: justify`, גם שורה אחת מתפרסת על כל הרוחב
+
+---
+
+## Task ID: footnote-justify-smart-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `9c322e7`
+**Task:** תיקון חכם — `text-align-last: justify` רק כשיש 2+ הערות בשורה האחרונה
+
+### שינויים:
+- `typesetter.js` — `buildNoteBlockElement` מסמן `data-mark-last-row='1'`
+- `typesetter.js` — `markLastRowOfContinuousBlock` (חדש) — מודד Y, מוסיף class `last-row-multi`
+- `typesetter.js` — `flushFootnotesInto` קורא ל-mark אחרי חיבור ל-DOM
+- `style.css` — `.note-block.continuous-mode.last-row-multi { text-align-last: justify; }`
+
+### בעיה שנפתרה:
+- `text-align-last: justify` גרם להערה ארוכה בודדת להיות מיושרת לשני צדדים (לא רצוי)
+- עכשיו: 2+ הערות בשורה אחרונה → justify; הערה אחת → right (סטנדרטי)
+
+### תוצאות:
+- 7 הערות קצרות בשורה אחת: `last-row-multi=true`, מתפרסות על כל הרוחב ✓
+- 9 הערות קצרות + הערה ארוכה: שורה 1 מתפרסת, שורה 2 (הערה אחת) לימין ✓
+
+---
+
+## Task ID: h4-6-margin-top-restore-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `545c864`
+**Task:** החזרת תיקון ביטול margin-top של כותרות 4-6 כשהן ראשונות בטור
+
+### שינויים:
+- `style.css` — החזרת כללי `:first-child` לכותרות 4/5/6/custom ב-`.right-col` ו-`.left-col`
+
+### מקרים מכוסים:
+1. H4-6 בראש עמוד חדש (first in right-col של בלוק ראשון)
+2. H4-6 בראש טור (ימין/שמאל) של בלוק רגיל
+3. H4-6 בראש טור ימין של בלוק חדש אחרי H3 רוחבי
+
+### תוצאות:
+- H4 באמצע טור: `margin-top: 9px` (נשמר) ✓
+- H4 בראש טור שמאל: `margin-top: 0` (בוטל) ✓
+- H4 בראש בלוק חדש אחרי H3: `margin-top: 0` (בוטל) ✓
+
+---
+
+## Task ID: paren-text-styling-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `cb337d8`
+**Task:** הוספת סגנון לטקסט בסוגריים ( ) — פונט וגודל מותאמים
+
+### שינויים:
+- `index.html` — `<select id="f-paren">` + `<input id="s-paren">` חדשים
+- `default_settings.json` — `"f-paren": ""`, `"s-paren": "10"`
+- `renderer-bridge.js` — הוספה ל-SETTING_IDS
+- `typesetter.js`:
+  - `findParenMatches(text)` — מוצא זוגות () עם תמיכה בקינון
+  - `mergeMatches(list1, list2)` — מאחד delimiter + paren matches
+  - `applyParenStyle(node)` — מחיל font-family + font-size
+  - `applyDelimiterStyles` — מטפל ב-target `paren`
+
+### תמיכה בחציית עמודות:
+- סוגריים לא מאוזנות (חוצות עמודות): מסוגננות מה-`(` עד סוף / מתחילת עד `)`
+
+---
+
+## Task ID: paren-nesting-relative-size-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `13834be`
+**Task:** קינון סוגריים + הערות שוליים + גודל יחסי + תמיכה בכותרות והערות
+
+### שינויים:
+- `index.html` — `<select id="s-paren-mode">` חדש (relative / fixed)
+- `default_settings.json` — `"s-paren-mode": "relative"`, `"s-paren": "-2"`
+- `renderer-bridge.js` — הוספה ל-SETTING_IDS
+- `typesetter.js`:
+  - `buildStyledFragment` (חדש) — רקורסיבי, תומך בקינון (סוגריים בתוך הערות ולהיפך)
+  - `applyParenStyle` — תומך ב-relative (host + delta) ו-fixed
+  - `buildNoteBlockElement` — קורא ל-`applyDelimiterStyles` על גוף ההערה
+  - H2 rendering — קורא ל-`applyDelimiterStyles` על כותרת H2
+
+### תוצאות:
+- H2 "פרק (עם סוגריים)": paren 20px (17pt-2pt=15pt) ✓
+- הערה "עם (טקסט מוסגר) בפנים": paren 9.33px ✓
+- גוף "(text [footnote] text)": paren + marker ✓
+- סוגריים חוצות עמודות: גודל עקבי 13.33px ✓
+
+---
+
+## Task ID: footnote-marker-font-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `71eff92`
+**Task:** סימון הערת שוליים בגוף הטקסט — גופן כמו הערת השוליים (לא כמו גוף הטקסט)
+
+### שינויים:
+- `typesetter.js` — `applyNoteMarkerStyle` מוסיף `font-family` מ-`f-note-body`
+- הגודל נשאר כפי שהיה (`note-marker-size` / `note-listing-num-size`)
+
+### תוצאות:
+- סימון: `"Frank Ruhl Libre", serif` (תואם להערה) ✓
+- גוף הטקסט: `"Guttman Rashi", ...` (שונה) ✓
+- גודל סימון: 10.67px (8pt) — ללא שינוי ✓
+
+---
+
+## Task ID: settings-import-export-fix-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `647501c`
+**Task:** תיקון מערכת ייבוא/ייצוא הגדרות — אוסף רק 5 הגדרות במקום 251
+
+### שינויים:
+- `settings-manager.js` — `collectCurrentSettings`:
+  - עבר ל-selector גלובלי: `input[id], select[id], textarea[id]` בכל המסמך
+  - תומך גם ב-`#settings-pane` (דף ראשי) וגם ב-`#settings-hidden` (iframe)
+  - מדלג על אלמנטים שאינם הגדרות
+- `renderer-bridge.js` — `SETTING_IDS`:
+  - הוספת 27 הגדרות חסרות: `dim-*`, `f-gtoc-1..7`, `f-dtoc-1..7`, `back-shaar-show-number`
+
+### תוצאות:
+- לפני: 5 הגדרות נשמרו ✗
+- אחרי: **251 הגדרות** נשמרות ✓
+- Round-trip: 251/251 matches, 0 mismatches ✓
+
+---
+
+## Task ID: paren-dropword-cross-paragraph-2026-10-18
+**Agent:** main (Super Z)
+**Commit:** `5c47776`
+**Task:** ביטול DropWord לפסקה שמתחילה בסוגריים + סוגריים שחוצות פסקאות
+
+### שינויים:
+- `typesetter.js` — `createDropWord`: בדיקה אם הטקסט מתחיל ב-`(` → דילוג על עיצוב מילה ראשונה
+- `typesetter.js` — `applyCrossParagraphParens(container)` (חדש):
+  - רצה אחרי כל העימוד (post-render global pass)
+  - עוברת על כל ה-`<p>` בסדר מסמך
+  - עוקבת אחרי עומק הסוגריים (מצטבר)
+  - כשעומק > 0 ופסקה אין בה סוגריים — עוטפת את כל הפסקה ב-span של paren-text
+- `typesetter.js` — `wrapEntireParagraphInParenStyle(p)` (חדש)
+
+### בדיקה מקיפה — אימות שלא נפגעו מנגנוני עימוד:
+- **איזון טורים**: 0 בלוקים לא מאוזנים (מתוך 41) ✓
+- **יתומות/אלמנות**: 7 הצלחות (תקין) ✓
+- **מדידת שורות** (dry-run): סגנון מוחל גם ב-dry-run ✓
+- **DropWord**: מבוטל לפסקאות שמתחילות ב-`(` ✓
+- **הערות שוליים בתוך סוגריים**: עובד (סימון + סגנון) ✓
+- **גודל עקבי**: 13.33px בכל ה-paren spans ✓
+
+### תוצאות:
+- פסקה שמתחילה ב-`(`: DropWord מבוטל ✓, paren מסוגנן ✓
+- סוגריים חוצות 2 פסקאות: שתיהן מסוגננות ✓
+- סוגריים חוצות 3 פסקאות: **כל 3 מסוגננות** (כולל האמצעית) ✓
