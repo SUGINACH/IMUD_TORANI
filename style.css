@@ -1381,7 +1381,10 @@ p.p-cut { text-align-last: justify; }
    החסרונות: פחות נוח לקריאה כשיש הערות ארוכות. */
 .note-block.continuous-mode {
     column-count: 1;  /* במצב רציף לא משתמשים בריבוי טורים */
-    /* text-align: justify inherited from .note-block — חיוני כדי שהתוכן ה-inline יהיה מיושר */
+    /* [תיקון] במצב רציף, גם השורה האחרונה צריכה להיות מיושרת לשני הצדדים.
+       אחרת, הערות קצרות שמתאימות לשורה אחת מצטברות לימין (RTL) במקום להתפרס על כל הרוחב.
+       במצב block, text-align-last: right נשאר (התנהגות סטנדרטית של יישור פסקה). */
+    text-align-last: justify !important;
 }
 .note-block.continuous-mode .note-line {
     display: inline;
