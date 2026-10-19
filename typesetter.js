@@ -334,6 +334,13 @@ function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
     if (!text) return '';
     if (RUN_IN_START_RE.test(text)) return text;   // כותרת מובלעת היא הפתיח - בלי עיצוב מילה ראשונה
 
+    // [חדש] פסקה שמתחילה בסוגריים ( ) — בלי עיצוב מילה ראשונה.
+    // הסיבה: הסוגריים עצמן יקבלו סגנון טקסט-מוסגר, ועיצוב מילה ראשונה על הסוגר
+    // יוצר מראה לא טבעי (סוגר ענק בתחילת הפסקה).
+    if (text.startsWith('(')) {
+        return applyDibburHamatchil(text);
+    }
+
     const mode = document.getElementById('drop-word-mode')?.value || 'window';
     if (mode === 'none') {
         return applyDibburHamatchil(text);
@@ -3740,4 +3747,59 @@ function typesetDocumentCore() {
     if (typeof applyHeadingOrnamentTextFit === 'function') {
         applyHeadingOrnamentTextFit();
     }
+
+    // [חדש] טיפול בסוגריים שחוצות פסקאות — עדכון גלובלי אחרי כל העימוד.
+    // כש- ( נפתח בפסקה אחת ו- ) נסגר בפסקה אחרת, הפסקאות שביניהן צריכות גם לקבל סגנון טקסט-מוסגר.
+    // הפונקציה הזו עוברת על כל הפסקאות בסדר מסמך, עוקבת אחרי עומק הסוגריים, ועוטפת פסקאות
+    // שלמות ב-span של paren-text כשהן בתוך סוגריים פתוחות.
+    applyCrossParagraphParens(container);
+}
+
+/* [חדש] טיפול בסוגריים שחוצות פסקאות.
+   עובר על כל הפסקאות (<p>) בסדר מסמך, עוקב אחרי עומק הסוגריים (count של ( פתוחות),
+   ועוטף פסקאות שלמות ב-span של paren-text כשהן בתוך סוגריים פתוחות (עומק > 0)
+   ואין להן כבר span של paren-text.
+
+   חשוב: הפונקציה הזו פועלת אחרי כל העימוד, כולל איזון טורים. היא לא משפיעה על מדידה
+   כי הסוגריים החוצות-פסקאות נדירות יחסית, והשינוי בגודל הגופן קטן (בד"כ -2pt). */
+function applyCrossParagraphParens(container) {
+    const allP = Array.from(container.querySelectorAll('p[data-raw-text]'));
+    if (allP.length === 0) return;
+
+    let parenDepth = 0;  // עומק סוגריים פתוחות (מצטבר על פני פסקאות)
+
+    allP.forEach(p => {
+        const rawText = p.getAttribute('data-raw-text') || '';
+        // ספור ( ו- ) בטקסט הגולמי של הפסקה
+        let openCount = 0, closeCount = 0;
+        for (const ch of rawText) {
+            if (ch === '(') openCount++;
+            else if (ch === ')') closeCount++;
+        }
+
+        // אם הפסקה מתחילה בתוך סוגריים פתוחות (עומק > 0 לפני הפסקה הזו)
+        // ואין לה כבר span של paren-text — עטוף את כל התוכן ב-span
+        if (parenDepth > 0 && !p.querySelector('.paren-text') && openCount === 0 && closeCount === 0) {
+            // הפסקה שלמה בתוך סוגריים פתוחות — עטוף הכל
+            wrapEntireParagraphInParenStyle(p);
+        }
+
+        // עדכן עומק
+        parenDepth += openCount - closeCount;
+        if (parenDepth < 0) parenDepth = 0;  // הגנה מפני חוסר איזון
+    });
+}
+
+/* [חדש] עוטף את כל תוכן הפסקה ב-span אחד של paren-text. */
+function wrapEntireParagraphInParenStyle(p) {
+    // מצא את גודל המארח (גוף הטקסט)
+    const hostSize = getBodySizePt();
+    const span = document.createElement('span');
+    span.className = 'paren-text';
+    // העבר את כל הילדים לתוך ה-span
+    while (p.firstChild) {
+        span.appendChild(p.firstChild);
+    }
+    p.appendChild(span);
+    applyParenStyle(span, hostSize);
 }
