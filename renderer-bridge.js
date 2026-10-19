@@ -19,7 +19,7 @@
         'f-hdr-c','f-hdr-l','f-hdr-r','f-hdr-verso-c','f-hdr-verso-l','f-hdr-verso-r',
         'f-note-body','f-note-title','f-sh-author','f-sh-desc','f-sh-sec','f-sh-sub','f-sh-title','f-sh-year',
         'f-siman','fn-columns','fn-layout-mode','fn-delim-close','fn-delim-open','fn-reset-mode','fn-title-text',
-        'font-body','font-first-word','f-paren','s-paren',
+        'font-body','font-first-word','f-paren','s-paren-mode','s-paren',
         'gtoc-groups','gtoc-shows',
         'h2-auto-siman','h2-orn-fit-text','h2-orn-scope','h2-ornament-bottom-style','h2-ornament-set',
         'h2-ornament-top-style','h2-reset-siman','h2-title-orn-mode','h2-title-ornament-bottom-style',

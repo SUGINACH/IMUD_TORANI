@@ -624,9 +624,13 @@
                 <input type="number" id="size-first-word" class="size-input" value="1.5" step="0.1">
               </div>
               <div class="inline-cfg-row">
-                <label title="טקסט המופיע בסוגריים ( ) בגוף הטקסט. ברירת מחדל: גופן זהה לשאר הטקסט, גודל 10.">טקסט בסוגריים ( ):</label>
+                <label title="טקסט המופיע בסוגריים ( ) בגוף הטקסט, בכותרות ובהערות שוליים. ברירת מחדל: גופן זהה לשאר הטקסט, גודל יחסי -2pt מהטקסט המארח.">טקסט בסוגריים ( ):</label>
                 <select id="f-paren" class="font-picker" title="גופן לטקסט בסוגריים (ריק = כמו שאר הטקסט)"></select>
-                <input type="number" id="s-paren" class="size-input" value="10" step="0.5" title="גודל טקסט בסוגריים (ברירת מחדל: 10)">
+                <select id="s-paren-mode" style="flex:0 0 auto; min-width:90px;" title="מצב גודל: יחסי = X נקודות פחות מהטקסט המארח (כותרת/גוף/הערה). קבוע = גודל קבוע.">
+                  <option value="relative" selected="selected">יחסי</option>
+                  <option value="fixed">קבוע</option>
+                </select>
+                <input type="number" id="s-paren" class="size-input" value="-2" step="0.5" title="גודל/דלתא (יחסי: דלתא מהטקסט המארח, קבוע: גודל קבוע בנקודות)">
               </div>
               <div class="inline-cfg-row">
                 <label>מילים להדגשה:</label>

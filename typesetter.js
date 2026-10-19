@@ -1623,66 +1623,95 @@ function applyDelimiterStyles(containerEl, hostContextKey, hostSizePt, isDryRun 
 
     textNodes.forEach(textNode => {
         const text = textNode.textContent;
-        // נרמל את ה-delimiter matches למבנה אחיד עם paren matches
-        const delimMatches = findDelimiterMatches(text, hostContextKey).map(m => ({
-            start: m.start,
-            end: m.end,
-            target: m.inst.def.target,
-            open: m.inst.def.trigger.open,
-            close: m.inst.def.trigger.close,
-            style: m.inst.def.style,
-            instanceId: m.inst.instanceId
-        }));
-        // [חדש] מצא גם סוגריים ( ) — טקסט מוסגר שאמור לקבל סגנון מיוחד
-        const parenMatches = findParenMatches(text);
-        // אחד את שתי הרשימות (delimiters + parens), מסודרות לפי start, בלי חפיפה
-        const allMatches = mergeMatches(delimMatches, parenMatches);
-        if (!allMatches.length) return;
-
-        const frag = document.createDocumentFragment();
-        let cursor = 0;
-        allMatches.forEach(m => {
-            if (m.start > cursor) {
-                let textBefore = text.slice(cursor, m.start);
-                if (m.target === 'footnote' || m.target === 'endnote') {
-                    textBefore = textBefore.replace(/\s+$/, '');
-                }
-                frag.appendChild(document.createTextNode(textBefore));
-            }
-            if (m.target === 'footnote' || m.target === 'endnote') {
-                const openLen = m.open.length;
-                const closeLen = m.close.length;
-                const innerText = text.slice(m.start + openLen, m.end - closeLen);
-
-                if (isDryRun) {
-                    const dummyMarker = document.createElement('a');
-                    dummyMarker.className = 'note-marker';
-                    dummyMarker.textContent = 'א';
-                    applyNoteMarkerStyle(dummyMarker, false);
-                    frag.appendChild(dummyMarker);
-                } else {
-                    const marker = createNoteMarkerAndQueue(innerText, m.instanceId, m.target);
-                    frag.appendChild(marker);
-                }
-            } else if (m.target === 'paren') {
-                // [חדש] טקסט בסוגריים ( ) — עוטף ב-span עם הסגנון שהוגדר ב-f-paren/s-paren.
-                // חשוב: הסגנון מוחל גם ב-dry-run כדי שהמדידה תכלול את הגודל/גופן האמיתי.
-                const span = document.createElement('span');
-                span.className = 'paren-text';
-                span.textContent = text.slice(m.start, m.end);  // כולל הסוגריים עצמן
-                applyParenStyle(span, effHostSize);
-                frag.appendChild(span);
-            } else {
-                const span = document.createElement('span');
-                span.textContent = text.slice(m.start, m.end);
-                if (m.style) applyExtStyleToNode(span, m.style, effHostSize);
-                frag.appendChild(span);
-            }
-            cursor = m.end;
-        });
-        if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
-        textNode.parentNode.replaceChild(frag, textNode);
+        const frag = buildStyledFragment(text, hostContextKey, effHostSize, isDryRun);
+        if (frag) textNode.parentNode.replaceChild(frag, textNode);
     });
+}
+
+/* [חדש] בונה DocumentFragment מטקסט, תוך כדי עיבוד delimiters + parens יחד.
+   תומך בקינון: סוגריים בתוך footnotes, footnotes בתוך סוגריים.
+   פונקציה רקורסיבית — אחרי יצירת span של paren, מעבדים את התוכן הפנימי שוב. */
+function buildStyledFragment(text, hostContextKey, hostSizePt, isDryRun, depth = 0) {
+    if (depth > 5) return null;  // מניעת לולאה אינסופית
+
+    // נרמל את ה-delimiter matches למבנה אחיד
+    const delimMatches = findDelimiterMatches(text, hostContextKey).map(m => ({
+        start: m.start,
+        end: m.end,
+        target: m.inst.def.target,
+        open: m.inst.def.trigger.open,
+        close: m.inst.def.trigger.close,
+        style: m.inst.def.style,
+        instanceId: m.inst.instanceId
+    }));
+    const parenMatches = findParenMatches(text);
+    const allMatches = mergeMatches(delimMatches, parenMatches);
+    if (!allMatches.length) return null;
+
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    allMatches.forEach(m => {
+        if (m.start > cursor) {
+            let textBefore = text.slice(cursor, m.start);
+            if (m.target === 'footnote' || m.target === 'endnote') {
+                textBefore = textBefore.replace(/\s+$/, '');
+            }
+            frag.appendChild(document.createTextNode(textBefore));
+        }
+        if (m.target === 'footnote' || m.target === 'endnote') {
+            const openLen = m.open.length;
+            const closeLen = m.close.length;
+            const innerText = text.slice(m.start + openLen, m.end - closeLen);
+
+            if (isDryRun) {
+                const dummyMarker = document.createElement('a');
+                dummyMarker.className = 'note-marker';
+                dummyMarker.textContent = 'א';
+                applyNoteMarkerStyle(dummyMarker, false);
+                frag.appendChild(dummyMarker);
+            } else {
+                const marker = createNoteMarkerAndQueue(innerText, m.instanceId, m.target);
+                frag.appendChild(marker);
+            }
+        } else if (m.target === 'paren') {
+            // [חדש] טקסט בסוגריים — עוטף ב-span עם הסגנון
+            const span = document.createElement('span');
+            span.className = 'paren-text';
+            // [תיקון חשוב] אל תשים את כל התוכן כ-textContent — במקום זאת, עבד את התוכן
+            // הפנימי רקורסיבית כדי לתפוס footnotes בתוך סוגריים.
+            // התוכן הפנימי = מ-(start+1) עד (end-1) — בלי הסוגריים עצמן (במקרה balanced).
+            // במקרה לא-balanced (חוצה עמודות), אין סוגר אחד — מתייחסים לכל התוכן כפנימי.
+            const openLen = m.balanced === false ? 0 : 1;  // אם לא מאוזן, אין סוגר פותח/סוגר בצד זה
+            const closeLen = m.balanced === false ? 0 : 1;
+            const innerText = text.slice(m.start + openLen, m.end - closeLen);
+
+            // הוסף את הסוגר הפותח (אם יש)
+            if (openLen > 0) {
+                span.appendChild(document.createTextNode(text.slice(m.start, m.start + openLen)));
+            }
+            // עבד את התוכן הפנימי רקורסיבית — כדי לתפוס footnotes בתוך סוגריים
+            const innerFrag = buildStyledFragment(innerText, hostContextKey, hostSizePt, isDryRun, depth + 1);
+            if (innerFrag) {
+                span.appendChild(innerFrag);
+            } else {
+                span.appendChild(document.createTextNode(innerText));
+            }
+            // הוסף את הסוגר הסוגר (אם יש)
+            if (closeLen > 0) {
+                span.appendChild(document.createTextNode(text.slice(m.end - closeLen, m.end)));
+            }
+            applyParenStyle(span, hostSizePt);
+            frag.appendChild(span);
+        } else {
+            const span = document.createElement('span');
+            span.textContent = text.slice(m.start, m.end);
+            if (m.style) applyExtStyleToNode(span, m.style, hostSizePt);
+            frag.appendChild(span);
+        }
+        cursor = m.end;
+    });
+    if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+    return frag;
 }
 
 /* [חדש] מוצא כל התאמות של סוגריים ( ) בטקסט.
@@ -1773,13 +1802,25 @@ function mergeMatches(list1, list2) {
 
 /* [חדש] מחיל סגנון "טקסט בסוגריים" על אלמנט:
    - גופן: מ-f-paren (אם ריק — לא משנה, יורש מהורה)
-   - גודל: מ-s-paren (ברירת מחדל 10)
-   - נקודה חשובה: הסגנון מוחל גם ב-dry-run כדי שהמדידה תהיה מדויקת. */
+   - גודל: תלוי ב-s-paren-mode:
+     * "relative" (ברירת מחדל): hostSizePt + s-paren (למשל -2 = 2 נקודות פחות מהמארח)
+     * "fixed": s-paren (גודל קבוע בנקודות)
+   hostSizePt = גודל הטקסט המארח (כותרת/גוף/הערת שוליים) — חשוב ליחסיות.
+   נקודה חשובה: הסגנון מוחל גם ב-dry-run כדי שהמדידה תהיה מדויקת. */
 function applyParenStyle(node, hostSizePt) {
     const fontVal = document.getElementById('f-paren')?.value?.trim() || '';
-    const sizeVal = parseFloat(document.getElementById('s-paren')?.value) || 10;
+    const mode = document.getElementById('s-paren-mode')?.value || 'relative';
+    const sVal = parseFloat(document.getElementById('s-paren')?.value);
+    const effHost = hostSizePt || 12;
+    let sizePt;
+    if (mode === 'fixed') {
+        sizePt = isFinite(sVal) ? sVal : 10;
+    } else {
+        // relative: hostSize + sVal (למשל 12 + (-2) = 10)
+        sizePt = isFinite(sVal) ? (effHost + sVal) : (effHost - 2);
+    }
     if (fontVal) node.style.fontFamily = fontVal;
-    node.style.fontSize = sizeVal + 'pt';
+    node.style.fontSize = sizePt + 'pt';
 }
 
 function getHostSizePt(level, customStyleId) {
@@ -1923,9 +1964,15 @@ function buildNoteBlockElement(queue, columns) {
         num.textContent = item.number + globalSep + ' ';
         applyNoteMarkerStyle(num, true);
         const body = document.createElement('span');
-        body.textContent = item.text;
+        // [תיקון] במקום לשים את הטקסט כ-textContent, עבור אותו דרך applyDelimiterStyles
+        // כדי לתפוס סוגריים ( ) ותוחמים אחרים בתוך הערת השוליים.
+        // גודל המארח = גודל גוף ההערה (מתוך s-note-body או ברירת מחדל 9pt).
+        const noteBodySize = parseFloat(document.getElementById('s-note-body')?.value) || 9;
+        body.textContent = item.text;  // נשים זמנית, ואז נעבד
         const inst = (typeof findExtTextStyle === 'function') ? findExtTextStyle(item.styleId) : null;
         if (inst && inst.def.style) applyExtStyleToNode(body, inst.def.style, 10);
+        // [חדש] עבד delimiters + parens בתוך גוף ההערה
+        applyDelimiterStyles(body, 'body', noteBodySize, false);
         line.appendChild(num);
         line.appendChild(body);
         wrap.appendChild(line);
@@ -3094,6 +3141,8 @@ function typesetDocumentCore() {
                     } else if (displayH2Text) {
                         title.textContent = displayH2Text;
                     }
+                    // [חדש] עבד delimiters + parens בכותרת H2 (תומך בסוגריים בכותרת)
+                    applyDelimiterStyles(title, 'h2', getHostSizePt(2, sec.hToken.customStyleId), false);
 
                     let simanElem = null;
                     if (simanLabel) {
