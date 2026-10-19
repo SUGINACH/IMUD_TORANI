@@ -1623,22 +1623,35 @@ function applyDelimiterStyles(containerEl, hostContextKey, hostSizePt, isDryRun 
 
     textNodes.forEach(textNode => {
         const text = textNode.textContent;
-        const dedup = findDelimiterMatches(text, hostContextKey);
-        if (!dedup.length) return;
+        // נרמל את ה-delimiter matches למבנה אחיד עם paren matches
+        const delimMatches = findDelimiterMatches(text, hostContextKey).map(m => ({
+            start: m.start,
+            end: m.end,
+            target: m.inst.def.target,
+            open: m.inst.def.trigger.open,
+            close: m.inst.def.trigger.close,
+            style: m.inst.def.style,
+            instanceId: m.inst.instanceId
+        }));
+        // [חדש] מצא גם סוגריים ( ) — טקסט מוסגר שאמור לקבל סגנון מיוחד
+        const parenMatches = findParenMatches(text);
+        // אחד את שתי הרשימות (delimiters + parens), מסודרות לפי start, בלי חפיפה
+        const allMatches = mergeMatches(delimMatches, parenMatches);
+        if (!allMatches.length) return;
 
         const frag = document.createDocumentFragment();
         let cursor = 0;
-        dedup.forEach(m => {
+        allMatches.forEach(m => {
             if (m.start > cursor) {
                 let textBefore = text.slice(cursor, m.start);
-                if (m.inst.def.target === 'footnote' || m.inst.def.target === 'endnote') {
+                if (m.target === 'footnote' || m.target === 'endnote') {
                     textBefore = textBefore.replace(/\s+$/, '');
                 }
                 frag.appendChild(document.createTextNode(textBefore));
             }
-            if (m.inst.def.target === 'footnote' || m.inst.def.target === 'endnote') {
-                const openLen = m.inst.def.trigger.open.length;
-                const closeLen = m.inst.def.trigger.close.length;
+            if (m.target === 'footnote' || m.target === 'endnote') {
+                const openLen = m.open.length;
+                const closeLen = m.close.length;
                 const innerText = text.slice(m.start + openLen, m.end - closeLen);
 
                 if (isDryRun) {
@@ -1648,13 +1661,21 @@ function applyDelimiterStyles(containerEl, hostContextKey, hostSizePt, isDryRun 
                     applyNoteMarkerStyle(dummyMarker, false);
                     frag.appendChild(dummyMarker);
                 } else {
-                    const marker = createNoteMarkerAndQueue(innerText, m.inst.instanceId, m.inst.def.target);
+                    const marker = createNoteMarkerAndQueue(innerText, m.instanceId, m.target);
                     frag.appendChild(marker);
                 }
+            } else if (m.target === 'paren') {
+                // [חדש] טקסט בסוגריים ( ) — עוטף ב-span עם הסגנון שהוגדר ב-f-paren/s-paren.
+                // חשוב: הסגנון מוחל גם ב-dry-run כדי שהמדידה תכלול את הגודל/גופן האמיתי.
+                const span = document.createElement('span');
+                span.className = 'paren-text';
+                span.textContent = text.slice(m.start, m.end);  // כולל הסוגריים עצמן
+                applyParenStyle(span, effHostSize);
+                frag.appendChild(span);
             } else {
                 const span = document.createElement('span');
                 span.textContent = text.slice(m.start, m.end);
-                applyExtStyleToNode(span, m.inst.def.style, effHostSize);
+                if (m.style) applyExtStyleToNode(span, m.style, effHostSize);
                 frag.appendChild(span);
             }
             cursor = m.end;
@@ -1662,6 +1683,103 @@ function applyDelimiterStyles(containerEl, hostContextKey, hostSizePt, isDryRun 
         if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
         textNode.parentNode.replaceChild(frag, textNode);
     });
+}
+
+/* [חדש] מוצא כל התאמות של סוגריים ( ) בטקסט.
+   תומך בסוגריים מקוננות (מונה עומק), ומתעלם מסוגריים לא מאוזנות.
+   הסוגריים עצמן נכללות ב-match (m.start עד m.end כולל הסוגר הפותח והסוגר).
+
+   [תיקון חשוב] מטפל במקרה של סוגריים שעוברות בין עמודות/עמודים:
+   כשפסקה מפוצלת, חלק אחד מכיל רק את ה- ( הפותח, והחלק השני מכיל רק את ה- ) הסוגר.
+   במקרה כזה:
+   - אם יש ( ללא ) תואם: סגנן מה- ( עד סוף הטקסט (נניח שההמשך בחלק הבא)
+   - אם יש ) ללא ( תואם: סגנן מתחילת הטקסט עד ה- ) (נניח שהתחיל בחלק הקודם)
+   כך הסגנון נשמר גם כשהסוגריים חוצות עמודות. */
+function findParenMatches(text) {
+    const matches = [];
+    const OPEN = '(';
+    const CLOSE = ')';
+    let i = 0;
+    while (i < text.length) {
+        if (text[i] === OPEN) {
+            // מצא את הסוגר הסוגר התואם (עם תמיכה בקינון)
+            let depth = 1;
+            let j = i + 1;
+            while (j < text.length && depth > 0) {
+                if (text[j] === OPEN) depth++;
+                else if (text[j] === CLOSE) depth--;
+                if (depth === 0) break;
+                j++;
+            }
+            if (depth === 0) {
+                // נמצא זוג תקין — מ-i עד j+1 (כולל הסוגר הסוגר)
+                matches.push({
+                    start: i,
+                    end: j + 1,
+                    target: 'paren',
+                    open: OPEN,
+                    close: CLOSE,
+                    balanced: true
+                });
+                i = j + 1;
+            } else {
+                // [חדש] סוגריים פותחות ללא סוגרות תואמות — סגנן מה- ( עד סוף הטקסט
+                // (ההמשך נמצא בחלק הבא של הפסקה המפוצלת)
+                matches.push({
+                    start: i,
+                    end: text.length,
+                    target: 'paren',
+                    open: OPEN,
+                    close: CLOSE,
+                    balanced: false  // סוגריים חוצות עמודות
+                });
+                i = text.length;
+            }
+        } else if (text[i] === CLOSE) {
+            // [חדש] סוגריים סוגרות ללא פותחות תואמות — סגנן מתחילת הטקסט עד ה- )
+            // (התחלה נמצאת בחלק הקודם של הפסקה המפוצלת)
+            // נבדוק שלא מדובר בסוגר של זוג תקין שכבר טופל
+            // (אם הגענו לכאן, זה אומר שאין OPEN לפניו שלא טופל)
+            matches.push({
+                start: 0,
+                end: i + 1,
+                target: 'paren',
+                open: OPEN,
+                close: CLOSE,
+                balanced: false  // סוגריים חוצות עמודות
+            });
+            i = i + 1;
+        } else {
+            i++;
+        }
+    }
+    return matches;
+}
+
+/* [חדש] מאחד שתי רשימות של matches (delimiters + parens) לרשימה אחת מסודרת, בלי חפיפה.
+   אם שני matches חופפים, הראשון (לפי start) זוכה והשני נזרק. */
+function mergeMatches(list1, list2) {
+    const all = [...list1, ...list2].sort((a, b) => a.start - b.start);
+    const result = [];
+    let lastEnd = -1;
+    all.forEach(m => {
+        if (m.start >= lastEnd) {
+            result.push(m);
+            lastEnd = m.end;
+        }
+    });
+    return result;
+}
+
+/* [חדש] מחיל סגנון "טקסט בסוגריים" על אלמנט:
+   - גופן: מ-f-paren (אם ריק — לא משנה, יורש מהורה)
+   - גודל: מ-s-paren (ברירת מחדל 10)
+   - נקודה חשובה: הסגנון מוחל גם ב-dry-run כדי שהמדידה תהיה מדויקת. */
+function applyParenStyle(node, hostSizePt) {
+    const fontVal = document.getElementById('f-paren')?.value?.trim() || '';
+    const sizeVal = parseFloat(document.getElementById('s-paren')?.value) || 10;
+    if (fontVal) node.style.fontFamily = fontVal;
+    node.style.fontSize = sizeVal + 'pt';
 }
 
 function getHostSizePt(level, customStyleId) {
