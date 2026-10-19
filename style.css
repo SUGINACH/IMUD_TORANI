@@ -1209,6 +1209,23 @@ body.tabs-not-ready #sidebar::before {
 }
 .title-level-custom { margin: 9px 0 4px 0; line-height: 1.3; }
 
+/* [תיקון חוזר] ביטול margin-top של כותרות 4/5/6/custom כשהן ראשונות בטור.
+   מקרים שמכוסים:
+   1. כותרת 4-6 בראש עמוד חדש (היא הראשונה ב-.right-col של הבלוק הראשון)
+   2. כותרת 4-6 בראש טור (ימין או שמאל) של בלוק חדש שנפתח אחרי כותרת 3 רוחבית
+   3. כותרת 4-6 בראש טור שמאל של בלוק שבו הטור הימני כבר מולא
+   הרווח העליון נשמר רק כשהכותרת באמצע טור (לא ראשונה). */
+.right-col > .title-level-4:first-child,
+.right-col > .title-level-5:first-child,
+.right-col > .title-level-6:first-child,
+.left-col > .title-level-4:first-child,
+.left-col > .title-level-5:first-child,
+.left-col > .title-level-6:first-child,
+.right-col > .title-level-custom:first-child,
+.left-col > .title-level-custom:first-child {
+    margin-top: 0 !important;
+}
+
 /* כותרת מובלעת ברצף הפסקה (Run-In) */
 .heading-run-in {
     font-weight: 900;
