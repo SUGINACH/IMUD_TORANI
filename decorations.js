@@ -382,7 +382,7 @@ function renderMainShaar(container, themeId, pageIndex) {
     <div class="shaar-main-content theme-bounded-content" data-shaar-type="main" data-shaar-id="${shaarBoxId}" style="${boxStyle}">
       ${getShaarBoxEditorHTML('main')}
       <div>
-        <div class="bsd-header">בס"ד</div>
+        <div class="bsd-header"></div>
         <div class="sefer-label"></div>
         <div class="book-title-main">${title}</div>
         <div class="book-subtitle">${subtitle}</div>
