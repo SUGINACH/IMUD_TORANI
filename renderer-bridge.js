@@ -41,12 +41,15 @@
         'page-num-format','page-num-frame','page-num-initial-value','page-num-position','page-num-start-idx',
         'prop-col','prop-gap','prop-gutter','prop-margin','prop-mb','prop-mt','prop-mt-h2',
         's-dtoc-1','s-dtoc-2','s-dtoc-3','s-dtoc-4','s-dtoc-5','s-dtoc-6','s-dtoc-7',
+        'f-dtoc-1','f-dtoc-2','f-dtoc-3','f-dtoc-4','f-dtoc-5','f-dtoc-6','f-dtoc-7',
         's-gtoc-1','s-gtoc-2','s-gtoc-3','s-gtoc-4','s-gtoc-5','s-gtoc-6','s-gtoc-7',
+        'f-gtoc-1','f-gtoc-2','f-gtoc-3','f-gtoc-4','f-gtoc-5','f-gtoc-6','f-gtoc-7',
         's-h0','s-h0-body','s-h1','s-h2','s-h3','s-h4','s-h5','s-h6','s-h7',
         's-hdr-c','s-hdr-l','s-hdr-r','s-hdr-verso-c','s-hdr-verso-l','s-hdr-verso-r',
         's-note-body','s-note-title','s-sh-author','s-sh-desc','s-sh-sec','s-sh-sub','s-sh-title','s-sh-year','s-siman',
         'section-divider-style','select-shaar-back','select-shaar-main','select-shaar-sub',
         'show-back-shaar','show-main-shaar','show-sub-shaar',
+        'back-shaar-show-number',
         'size-body','size-first-word','sub-shaar-count-numbering','sub-shaar-show-number',
         'detailed-toc-count-numbering','detailed-toc-show-numbering',
         'general-toc-count-numbering','general-toc-show-numbering',
@@ -62,7 +65,13 @@
         'builder-theme-name',
         'avoid-runt-word','body-last-line-align',
         'dtoc-groups','dtoc-shows',
-        'enable-shaar-box-editor'
+        'enable-shaar-box-editor',
+        // [חדש] מימדי עיטורים (רוחב/גובה) — היו חסרים
+        'dim-h2-top-w','dim-h2-top-h','dim-h2-btm-w','dim-h2-btm-h',
+        'dim-h2-title-side-w','dim-h2-title-side-h',
+        'dim-h3-side-w','dim-h3-side-h',
+        'dim-secdiv-w','dim-secdiv-h',
+        'dim-note-side-w','dim-note-side-h'
     ];
 
     // צור פקדים נסתרים עבור כל ההגדרות

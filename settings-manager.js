@@ -78,22 +78,27 @@ function applySettingsToDOM(settings, triggerTypeset) {
 
 /**
  * collectCurrentSettings — אוסף את כל ערכי ההגדרות הנוכחיים מה-DOM.
+ * אוסף מכל האלמנטים עם id במסמך (לא רק מ-settings-pane), כי בארכיטקטורת ה-iframe
+ * ההגדרות נמצאות ב-#settings-hidden, ובדף הראשי הן ב-#settings-pane.
+ * מתעלם מ: file inputs, כפתורים, ואלמנטים ללא id.
  * @returns {Object}
  */
 function collectCurrentSettings() {
     var settings = {};
-    document.querySelectorAll('#settings-pane select[id], #settings-pane input[id], #settings-pane textarea[id]').forEach(function(el) {
-        if (!el.id || el.type === 'file') return;
+    // אסוף מכל המסמך — תומך גם ב-#settings-pane (דף ראשי) וגם ב-#settings-hidden (iframe)
+    document.querySelectorAll('input[id], select[id], textarea[id]').forEach(function(el) {
+        if (!el.id || el.type === 'file' || el.type === 'button' || el.tagName === 'BUTTON') return;
+        // דלג על אלמנטים שאינם הגדרות (כמו file inputs, raw-input, measuring-box)
+        if (el.id === 'raw-input' || el.id === 'file-txt-import' || el.id === 'file-import-settings' ||
+            el.id === 'file-cbg-regular-img' || el.id === 'file-cbg-h0Open-img' || el.id === 'file-cbg-h2Open-img' ||
+            el.id === 'file-builder-main-svg' || el.id === 'file-builder-back-svg' || el.id === 'file-builder-sub-svg' ||
+            el.id === 'assets-folder-input' || el.id === 'file-sec-div-img' || el.id === 'file-hdr-c-img' ||
+            el.id === 'file-import-debug' || el.id === 'style-set-select') return;
         if (el.type === 'checkbox') {
             settings[el.id] = el.checked;
         } else {
             settings[el.id] = el.value;
         }
-    });
-    // הגדרות נוספות שאינן ב-settings-pane
-    ['font-body', 'font-first-word', 'size-body', 'size-first-word', 'line-height-body'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) settings[id] = el.value;
     });
     return settings;
 }
