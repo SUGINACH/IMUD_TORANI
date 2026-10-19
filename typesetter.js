@@ -328,16 +328,19 @@ function splitIntoMeasureWords(text) {
 /* ============================================================
    עיבוד מילה ראשונה (חלון / מוגדל / מודגש)
    ============================================================ */
-function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
+function createDropWord(text, isContinuation, isSingleLine, numLines = 2, insideParen = false) {
     if (isContinuation) return text;
     text = text.trim();
     if (!text) return '';
     if (RUN_IN_START_RE.test(text)) return text;   // כותרת מובלעת היא הפתיח - בלי עיצוב מילה ראשונה
 
     // [חדש] פסקה שמתחילה בסוגריים ( ) — בלי עיצוב מילה ראשונה.
-    // הסיבה: הסוגריים עצמן יקבלו סגנון טקסט-מוסגר, ועיצוב מילה ראשונה על הסוגר
-    // יוצר מראה לא טבעי (סוגר ענק בתחילת הפסקה).
     if (text.startsWith('(')) {
+        return applyDibburHamatchil(text);
+    }
+
+    // [חדש] פסקה שנמצאת בתוך עומק סוגריים פתוחות — בלי עיצוב מילה ראשונה.
+    if (insideParen) {
         return applyDibburHamatchil(text);
     }
 
@@ -1332,7 +1335,9 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         } else {
             const p = document.createElement('p');
             p.className = item.cut ? 'p-cut' : 'p-end';
-            p.innerHTML = createDropWord(item.rawText, item.isCont, item.isSingleLine, item.numLines);
+            // [חדש] העבר דגל insideParen ל-createDropWord (ל-balanceColumns)
+            const _insideParen = isInsideParenTokenId(item.id);
+            p.innerHTML = createDropWord(item.rawText, item.isCont, item.isSingleLine, item.numLines, _insideParen);
             applyDelimiterStyles(p, 'body', getBodySizePt(), true);
             if (item.endNote && !item.cut) p.appendChild(createDryEndNoteMarker());   // סימון הערת הסיום שיוצמד לסוף הפסקה
             col.appendChild(p);
@@ -1351,13 +1356,15 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             const item = items[c.i];
             const pRight = document.createElement('p');
             pRight.className = 'p-cut';
-            pRight.innerHTML = createDropWord(item.lines.slice(0, c.l).join(' '), item.isCont, false, c.l);
+            const _insideParenR = isInsideParenTokenId(item.id);
+            pRight.innerHTML = createDropWord(item.lines.slice(0, c.l).join(' '), item.isCont, false, c.l, _insideParenR);
             applyDelimiterStyles(pRight, 'body', getBodySizePt(), true);
             rCol.appendChild(pRight);
 
             const pLeft = document.createElement('p');
             pLeft.className = item.cut ? 'p-cut' : 'p-end';
-            pLeft.innerHTML = createDropWord(item.lines.slice(c.l).join(' '), true, false, item.lines.length - c.l);
+            // isContinuation=true for left part, but insideParen is the same
+            pLeft.innerHTML = createDropWord(item.lines.slice(c.l).join(' '), true, false, item.lines.length - c.l, _insideParenR);
             applyDelimiterStyles(pLeft, 'body', getBodySizePt(), true);
             if (item.endNote && !item.cut) pLeft.appendChild(createDryEndNoteMarker());   // סימון הערת הסיום שיוצמד לסוף הפסקה
             lCol.appendChild(pLeft);
@@ -1434,7 +1441,9 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             currentLineCount = linesInfo.lines.length;
         }
 
-        p.innerHTML = createDropWord(textToRender, isCont, isSingleLine, currentLineCount);
+        // [חדש] העבר דגל insideParen ל-createDropWord (ל-appendItemFinal ב-balanceColumns)
+        const _insideParen = isInsideParenTokenId(item.id);
+        p.innerHTML = createDropWord(textToRender, isCont, isSingleLine, currentLineCount, _insideParen);
         applyDelimiterStyles(p, 'body', getBodySizePt(), false);
 
         // סימון הערת סיום מוצמד לסוף הפסקה האמיתי: החלק האחרון, ורק אם הפסקה לא ממשיכה לעמוד הבא
@@ -2954,6 +2963,12 @@ function typesetDocumentCore() {
         sections.push(currentSection);
     }
 
+    // [חדש] Pre-pass: סמן כל פסקה (token מסוג 'p') שנמצאת בתוך עומק סוגריים פתוחות.
+    // ספירת העומק היא גלובלית — עוברת דרך כל ה-sections והטוקנים בסדר מסמך.
+    // פסקה שנמצאת בעומק > 0 (כלומר, יש ( פתוחות שלא נסגרו לפניה) מקבלת insideParen=true.
+    // אחר כך createDropWord משתמש בזה כדי לדלג על עיצוב מילה ראשונה.
+    window._insideParenMap = markInsideParenParagraphs(sections);
+
     const gtocShows = Array.from(document.querySelectorAll('.gtoc-show:checked')).map(cb => parseInt(cb.value, 10));
     const gtocGroups = Array.from(document.querySelectorAll('.gtoc-grp:checked')).map(cb => parseInt(cb.value, 10));
     if (typeof importedTextStyles !== 'undefined') {
@@ -3359,7 +3374,9 @@ function typesetDocumentCore() {
                         const isEndOfP = (bestFitLine === lines.length);
                         pElem.className = isEndOfP ? 'p-end' : 'p-cut';
                         pElem.setAttribute('data-raw-text', chunk);
-                        pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length);
+                        // [חדש] העבר דגל insideParen ל-createDropWord (לדילוג על מילה ראשונה בתוך סוגריים)
+                        const _insideParen = isInsideParenToken(currentTok);
+                        pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length, _insideParen);
                         applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
 
                         if (currentTok.endNote && isEndOfP) {
@@ -3578,7 +3595,9 @@ function typesetDocumentCore() {
                             const isEndOfP = (bestFitLine === lines.length);
                             pElem.className = isEndOfP ? 'p-end' : 'p-cut';
                             pElem.setAttribute('data-raw-text', chunk);
-                            pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length);
+                            // [חדש] העבר דגל insideParen ל-createDropWord
+                            const _insideParen = isInsideParenToken(currentTok);
+                            pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length, _insideParen);
                             applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
 
                             if (currentTok.endNote && isEndOfP) {
@@ -3802,4 +3821,46 @@ function wrapEntireParagraphInParenStyle(p) {
     }
     p.appendChild(span);
     applyParenStyle(span, hostSize);
+}
+
+/* [חדש] Pre-pass: עובר על כל הטוקנים של כל ה-sections בסדר מסמך, עוקב אחרי עומק הסוגריים
+   (count מצטבר של ( פתוחות), ומחזיר מפה: token.id → insideParen (boolean).
+   פסקה שנמצאת בתוך עומק סוגריים פתוחות (parenDepth > 0 לפני הפסקה) מקבלת insideParen=true.
+   המפה משמשת את createDropWord כדי לדלג על עיצוב מילה ראשונה לפסקאות שבתוך סוגריים. */
+function markInsideParenParagraphs(sections) {
+    const map = {};  // token.id → insideParen
+    let parenDepth = 0;
+
+    sections.forEach(sec => {
+        if (!sec.tokens) return;
+        sec.tokens.forEach(tok => {
+            if (tok.type !== 'p') return;
+            // סמן את הפסקה לפי העומק הנוכחי (לפני ספירת הסוגריים של הפסקה עצמה)
+            map[tok.id] = (parenDepth > 0);
+            // ספור ( ו- ) בטקסט של הפסקה
+            const text = tok.text || '';
+            let openCount = 0, closeCount = 0;
+            for (const ch of text) {
+                if (ch === '(') openCount++;
+                else if (ch === ')') closeCount++;
+            }
+            parenDepth += openCount - closeCount;
+            if (parenDepth < 0) parenDepth = 0;
+        });
+    });
+
+    return map;
+}
+
+/* [חדש] בודק אם טוקן נתון נמצא בתוך עומק סוגריים פתוחות.
+   משתמש במפה שנבנתה על-ידי markInsideParenParagraphs. */
+function isInsideParenToken(tok) {
+    if (!tok || !window._insideParenMap) return false;
+    return !!window._insideParenMap[tok.id];
+}
+
+/* [חדש] בודק אם טוקן (לפי מזהה) נמצא בתוך עומק סוגריים פתוחות. */
+function isInsideParenTokenId(tokId) {
+    if (tokId == null || !window._insideParenMap) return false;
+    return !!window._insideParenMap[tokId];
 }

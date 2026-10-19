@@ -220,7 +220,10 @@ function handleTxtFileImport(event) {
     reader.onload = function(e) {
         if (editorElem) {
             editorElem.value = e.target.result;
-            typesetDocument();
+            // [תיקון] לא מפעילים עימוד אוטומטי אחרי ייבוא טקסט.
+            // המשתמש ילחץ "עדכן ועמד מחדש" כדי להתחיל עימוד.
+            // זה מונע עימוד כפול (פעם אחרי ייבוא, פעם אחרי הגדרות) ונותן שליטה למשתמש.
+            // typesetDocument();  // — הוסר
         }
     };
     reader.readAsText(file);

@@ -1993,3 +1993,68 @@ tradeoff טבעי של KP — פיזור אחיד של רווחים על חשב�
 - פסקה שמתחילה ב-`(`: DropWord מבוטל ✓, paren מסוגנן ✓
 - סוגריים חוצות 2 פסקאות: שתיהן מסוגננות ✓
 - סוגריים חוצות 3 פסקאות: **כל 3 מסוגננות** (כולל האמצעית) ✓
+
+---
+
+## Task ID: dropword-all-paren-depth + no-auto-typeset-2026-10-19
+**Agent:** main (Super Z)
+**Commits:** (pushed together)
+**Task:** 2 תיקונים: (1) ביטול DropWord לכל הפסקאות בעומק סוגריים, (2) ביטול עימוד אוטומטי אחרי ייבוא טקסט
+
+### תיקון 1: DropWord מבוטל לכל הפסקאות בעומק סוגריים
+
+**רקע**: התיקון הקודם ביטל DropWord רק לפסקאות שמתחילות ב-`(`. אבל פסקה שנמצאת **בתוך** סוגריים פתוחות (למשל הפסקה האמצעית כשיש `(` בפסקה הקודמת) גם צריכה לדלג על DropWord, כי היא תקבל סגנון טקסט-מוסגר.
+
+**שינויים ב-typesetter.js**:
+
+1. **`markInsideParenParagraphs(sections)` (חדש)** — Pre-pass שרץ לפני העימוד:
+   - עובר על כל הטוקנים של כל ה-sections בסדר מסמך
+   - עוקב אחרי עומק הסוגריים (count מצטבר של `(` פתוחות)
+   - מחזיר מפה: `token.id → insideParen (boolean)`
+   - מאוחסן ב-`window._insideParenMap`
+
+2. **`isInsideParenToken(tok)` ו-`isInsideParenTokenId(tokId)` (חדשות)** — פונקציות עזר שבודקות את המפה.
+
+3. **`createDropWord` — פרמטר חדש `insideParen`** (ברירת מחדל `false`):
+   - אם `insideParen=true` → דילוג על עיצוב מילה ראשונה
+   - הפרמטר מועבר מכל מקומות הקריאה העיקריים
+
+4. **עדכון כל קריאות `createDropWord` העיקריות**:
+   - זרימה ראשית (2 מקומות): `const _insideParen = isInsideParenToken(currentTok);`
+   - `balanceColumns` (3 מקומות: `renderSingleItemFast`, `evalCand`, `appendItemFinal`): `isInsideParenTokenId(item.id)`
+
+### תיקון 2: ביטול עימוד אוטומטי אחרי ייבוא טקסט
+
+**רקע**: עד עכשיו, ייבוא טקסט הזריק את הטקסט לעורך **והתחיל עימוד אוטומטית**. זה יצר עימוד כפול (פעם אחרי ייבוא, פעם אחרי שהמשתמש מגדיר ולוחץ "עדכן ועמד מחדש").
+
+**שינוי ב-app.js**:
+- `handleTxtFileImport` — הסרת הקריאה `typesetDocument()` 
+- הטקסט מוזרק לעורך, אבל העימוד מתחיל רק כשהמשתמש לוחץ "עדכן ועמד מחדש"
+
+### בדיקות:
+
+**תיקון 1** — 4 פסקאות (רגילה, מתחילה ב-`(`, אמצעית בתוך סוגריים, סוגרת):
+| פסקה | DropWord | צפוי | סטטוס |
+|-------|----------|------|-------|
+| P1 (רגילה) | YES | YES | ✓ |
+| P2 (מתחילה ב-`(`) | NO | NO | ✓ |
+| P3 (אמצעית, בתוך סוגריים, ללא סוגריים משלה) | **NO** | NO | ✓ (חדש!) |
+| P4 (סוגרת סוגריים) | NO | NO | ✓ |
+
+**תיקון 2** — מספר עמודים 5 שניות אחרי ייבוא:
+- לפני: מתחיל עימוד אוטומטית (37 עמודים תוך שניות)
+- אחרי: **7 עמודים** (= מספר העמודים ההתחלתי, אין עימוד חדש) ✓
+
+### Files Modified:
+- `typesetter.js`:
+  - NEW: `markInsideParenParagraphs(sections)` — pre-pass שבונה מפה
+  - NEW: `isInsideParenToken(tok)` ו-`isInsideParenTokenId(tokId)` — פונקציות עזר
+  - MODIFIED: `createDropWord` — פרמטר חדש `insideParen`
+  - MODIFIED: 5 קריאות ל-`createDropWord` — מעבירות את הדגל
+- `app.js`:
+  - MODIFIED: `handleTxtFileImport` — הסרת `typesetDocument()` אוטומטי
+
+### Stage Summary:
+- ✓ DropWord מבוטל לכל הפסקאות בעומק סוגריים (לא רק לאלה שמתחילות ב-`(`)
+- ✓ אין עימוד אוטומטי אחרי ייבוא טקסט — המשתמש שולט במתי להתחיל עימוד
+- ✓ כל 4 הבדיקות עברו
