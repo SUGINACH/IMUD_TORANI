@@ -18,7 +18,7 @@
         'f-dh','f-h0','f-h0-body','f-h1','f-h2','f-h3','f-h4','f-h5','f-h6','f-h7',
         'f-hdr-c','f-hdr-l','f-hdr-r','f-hdr-verso-c','f-hdr-verso-l','f-hdr-verso-r',
         'f-note-body','f-note-title','f-sh-author','f-sh-desc','f-sh-sec','f-sh-sub','f-sh-title','f-sh-year',
-        'f-siman','fn-columns','fn-delim-close','fn-delim-open','fn-reset-mode','fn-title-text',
+        'f-siman','fn-columns','fn-layout-mode','fn-delim-close','fn-delim-open','fn-reset-mode','fn-title-text',
         'font-body','font-first-word',
         'gtoc-groups','gtoc-shows',
         'h2-auto-siman','h2-orn-fit-text','h2-orn-scope','h2-ornament-bottom-style','h2-ornament-set',

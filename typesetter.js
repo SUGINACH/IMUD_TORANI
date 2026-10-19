@@ -1788,10 +1788,14 @@ function buildNoteBlockElement(queue, columns) {
     const cols = columns || parseInt(document.getElementById('fn-columns')?.value, 10) || 1;
     wrap.className = `note-block cols-${cols}`;
 
+    // [חדש] מצב פריסת הערות: "block" (ברירת מחדל — כל הערה בשורה נפרדת) או "continuous" (רצף הערות עם רווח כפול ביניהן)
+    const layoutMode = document.getElementById('fn-layout-mode')?.value || 'block';
+    if (layoutMode === 'continuous') wrap.classList.add('continuous-mode');
+
     const sepEl = document.getElementById('note-num-separator');
     const globalSep = sepEl ? sepEl.value : '.';
-    
-    queue.forEach(item => {
+
+    queue.forEach((item, idx) => {
         const line = document.createElement('div');
         line.className = 'note-line';
         line.id = 'note-' + item.uid;

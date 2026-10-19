@@ -1370,6 +1370,29 @@ p.p-cut { text-align-last: justify; }
 }
 .note-block.cols-1 { column-count: 1; }
 
+/* [חדש] מצב "רציף" — הערות שוליים ברצף, ללא שורה חדשה ביניהן.
+   במצב זה כל .note-line הופך לאיבר inline, ובין הערות מופיע רווח כפול.
+   היתרונות: חיסכון במקום אנכי, מראה רציף יותר להערות קצרות.
+   החסרונות: פחות נוח לקריאה כשיש הערות ארוכות. */
+.note-block.continuous-mode {
+    column-count: 1;  /* במצב רציף לא משתמשים בריבוי טורים */
+}
+.note-block.continuous-mode .note-line {
+    display: inline;
+    margin-bottom: 0;
+    text-align: inherit;
+    text-justify: inherit;
+    text-align-last: inherit;
+    break-inside: auto;
+}
+/* רווח כפול בין הערות (גם אחרי מספר וגם לפני ההערה הבאה) */
+.note-block.continuous-mode .note-line + .note-line {
+    margin-right: 1em;  /* רווח כפול לפני ההערה הבאה */
+}
+.note-block.continuous-mode .note-line .note-line-num {
+    margin-left: 0;  /* במצב רציף המספר צמוד לטקסט */
+}
+
 .note-line {
     break-inside: avoid;
     margin-bottom: 3px;
