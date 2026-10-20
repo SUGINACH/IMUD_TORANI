@@ -2276,6 +2276,13 @@ function collectAllSettingsForRenderer() {
         const el = document.getElementById(id);
         if (el) settings[id] = el.value;
     });
+    // [חדש] תיבות סימון של תוכן עניינים (gtoc-show, gtoc-grp, dtoc-show, dtoc-grp)
+    // אלו checkboxים שמשתמשים ב-class + value במקום ב-ID, ולכן לא נאספים למעלה.
+    // אוספים אותם כמערכים מופרדים בפסיקים: "1,2,3" = כותרות 1,2,3 מסומנות.
+    ['gtoc-show', 'gtoc-grp', 'dtoc-show', 'dtoc-grp'].forEach(cls => {
+        const checked = Array.from(document.querySelectorAll('.' + cls + ':checked')).map(cb => cb.value);
+        settings[cls + 's'] = checked.join(',');
+    });
     return settings;
 }
 

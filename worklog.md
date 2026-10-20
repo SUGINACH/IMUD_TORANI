@@ -2113,3 +2113,56 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
 - ✓ 7 מקרים של רווח לא אחיד בין חלקי פסקה פוצלה — תוקנו כולם
 - ✓ הרווח בין חלקי הפסקה הוא עכשיו 0px (רווח שורה) במקום 7px (רווח פסקה)
 - ✓ תיקון נקודתי — רק p-cut שמלווה ב-p-end is-cont=true מושפע
+
+---
+
+## Task ID: toc-settings-sync-fix-2026-10-19
+**Agent:** main (Super Z)
+**Task:** תיקון סנכרון הגדרות תוכן עניינים (TOC) ל-iframe + איסוף בייצוא/ייבוא
+
+### רקע
+בדיקה מעמיקה חשפה שתיבות הסימון של תוכן העניינים (`gtoc-show`, `gtoc-grp`, `dtoc-show`, `dtoc-grp`) **לא סונכרנו** ל-iframe:
+- התיבות משתמשות ב-`class` + `value` (לא ב-`id`) — לכן `collectAllSettingsForRenderer` לא אסף אותן
+- ב-iframe היו hidden inputs ריקים (`gtoc-shows`, `gtoc-groups`) שאף אחד לא מילא
+- ה-typesetter קרא `.gtoc-show:checked` — אבל ב-iframe לא היו checkboxים כאלה
+- תוצאה: **תוכן העניינים לא נבנה נכון** בארכיטקטורת iframe
+
+### התיקון (3 קבצים)
+
+#### 1. `app.js` — `collectAllSettingsForRenderer`
+הוספנו איסוף של תיבות ה-TOC כמערכים מופרדים בפסיקים:
+```js
+['gtoc-show', 'gtoc-grp', 'dtoc-show', 'dtoc-grp'].forEach(cls => {
+    const checked = Array.from(document.querySelectorAll('.' + cls + ':checked')).map(cb => cb.value);
+    settings[cls + 's'] = checked.join(',');
+});
+```
+
+#### 2. `typesetter.js` — קריאת TOC מ-hidden inputs
+הוספנו fallback: אם אין checkboxים (iframe), קרא מה-hidden inputs:
+```js
+if (gtocShows.length === 0) {
+    const showsVal = document.getElementById('gtoc-shows')?.value;
+    if (showsVal) showsVal.split(',').forEach(v => gtocShows.push(parseInt(v, 10)));
+}
+```
+אותו דבר ל-`gtocGroups`, `dtocShows`, `dtocGroups`.
+
+#### 3. `settings-manager.js` — `collectCurrentSettings`
+הוספנו איסוף של תיבות ה-TOC גם בייצוא הגדרות:
+- בדף הראשי: אוסף מ-`.gtoc-show:checked`
+- ב-iframe: קורא מה-hidden input `gtoc-shows`
+
+### בדיקות
+
+| מדד | לפני | אחרי |
+|------|------|------|
+| `gtoc-shows` ב-iframe | `""` (ריק) | `"1,2,3,4,5,6"` ✓ |
+| `dtoc-shows` ב-iframe | `""` (ריק) | `"2,3,4,5,6"` ✓ |
+| סה"כ הגדרות בייצוא | 251 | 251 (כולל TOC arrays) |
+| Round-trip | 251/251 | 251/251 ✓ |
+
+### השפעה
+- **תוכן העניינים הכללי** עכשיו ייווצר נכון עם הכותרות המסומנות (1-6)
+- **תוכן העניינים המפורט** עכשיו ייווצר נכון עם הכותרות המסומנות (2-6)
+- **ייצוא/ייבוא הגדרות** עכשיו כולל את הגדרות ה-TOC

@@ -2971,6 +2971,15 @@ function typesetDocumentCore() {
 
     const gtocShows = Array.from(document.querySelectorAll('.gtoc-show:checked')).map(cb => parseInt(cb.value, 10));
     const gtocGroups = Array.from(document.querySelectorAll('.gtoc-grp:checked')).map(cb => parseInt(cb.value, 10));
+    // [תיקון] בארכיטקטורת iframe, ה-checkboxים של תוכן העניינים לא נוצרים ב-iframe.
+    // במקום זאת, הערכים מועברים דרך hidden inputs: gtoc-shows, gtoc-groups (מופרדים בפסיקים).
+    // אם אין checkboxים (iframe), קרא מה-hidden inputs.
+    if (gtocShows.length === 0) {
+        const showsVal = document.getElementById('gtoc-shows')?.value;
+        const groupsVal = document.getElementById('gtoc-groups')?.value;
+        if (showsVal) showsVal.split(',').forEach(v => { if (v) gtocShows.push(parseInt(v, 10)); });
+        if (groupsVal) groupsVal.split(',').forEach(v => { if (v) gtocGroups.push(parseInt(v, 10)); });
+    }
     if (typeof importedTextStyles !== 'undefined') {
         importedTextStyles.forEach(inst => {
             if (inst.syntheticLevel != null && inst.def.toc && inst.def.toc.include) {
@@ -3082,6 +3091,13 @@ function typesetDocumentCore() {
 
                 const dtocShows = Array.from(document.querySelectorAll('.dtoc-show:checked')).map(cb => parseInt(cb.value, 10));
                 const dtocGroups = Array.from(document.querySelectorAll('.dtoc-grp:checked')).map(cb => parseInt(cb.value, 10));
+                // [תיקון] בארכיטקטורת iframe, קרא מ-hidden inputs אם אין checkboxים
+                if (dtocShows.length === 0) {
+                    const showsVal = document.getElementById('dtoc-shows')?.value;
+                    const groupsVal = document.getElementById('dtoc-groups')?.value;
+                    if (showsVal) showsVal.split(',').forEach(v => { if (v) dtocShows.push(parseInt(v, 10)); });
+                    if (groupsVal) groupsVal.split(',').forEach(v => { if (v) dtocGroups.push(parseInt(v, 10)); });
+                }
                 if (typeof importedTextStyles !== 'undefined') {
                     importedTextStyles.forEach(inst => {
                         if (inst.syntheticLevel != null && inst.def.toc && inst.def.toc.include) {

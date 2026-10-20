@@ -88,7 +88,7 @@ function collectCurrentSettings() {
     // אסוף מכל המסמך — תומך גם ב-#settings-pane (דף ראשי) וגם ב-#settings-hidden (iframe)
     document.querySelectorAll('input[id], select[id], textarea[id]').forEach(function(el) {
         if (!el.id || el.type === 'file' || el.type === 'button' || el.tagName === 'BUTTON') return;
-        // דלג על אלמנטים שאינם הגדרות (כמו file inputs, raw-input, measuring-box)
+        // דלג על אלמנטים שאינם הגדרות
         if (el.id === 'raw-input' || el.id === 'file-txt-import' || el.id === 'file-import-settings' ||
             el.id === 'file-cbg-regular-img' || el.id === 'file-cbg-h0Open-img' || el.id === 'file-cbg-h2Open-img' ||
             el.id === 'file-builder-main-svg' || el.id === 'file-builder-back-svg' || el.id === 'file-builder-sub-svg' ||
@@ -98,6 +98,21 @@ function collectCurrentSettings() {
             settings[el.id] = el.checked;
         } else {
             settings[el.id] = el.value;
+        }
+    });
+    // [חדש] אסוף תיבות סימון של תוכן עניינים (class-based, לא ID-based)
+    // בדף הראשי: אוספים מה-checkboxים המסומנים
+    // ב-iframe: אין checkboxים, אז קוראים מה-hidden input שמכיל את הערך המופרד בפסיקים
+    ['gtoc-show', 'gtoc-grp', 'dtoc-show', 'dtoc-grp'].forEach(function(cls) {
+        var checked = Array.from(document.querySelectorAll('.' + cls + ':checked')).map(function(cb) { return cb.value; });
+        if (checked.length > 0) {
+            settings[cls + 's'] = checked.join(',');
+        } else {
+            // ב-iframe — קרא מה-hidden input
+            var hidden = document.getElementById(cls + 's');
+            if (hidden) {
+                settings[cls + 's'] = hidden.value;
+            }
         }
     });
     return settings;
