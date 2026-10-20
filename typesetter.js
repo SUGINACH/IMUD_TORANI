@@ -546,7 +546,7 @@ function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR
     const isEven = (pNum % 2 === 0);
     // טוגל "פצל שם ספר": קובע בעצמו את תוכן הכותרת הימנית (חצי ראשון של שם הספר) והשמאלית (חצי שני),
     // בלי לבחור ידנית בכל כותרת, ומבטל את ההחלפה בין עמודים (כותרות מתחלפות) - שתי האפשרויות סותרות.
-    const isSplitTitle = !!document.getElementById('hdr-split-title')?.checked;
+    const isSplitTitle = !!document.getElementById('hdr-title-split')?.checked;
     const isAlternating = !isSplitTitle && document.getElementById('hdr-alternating')?.checked;
 
     let hdrRType = document.getElementById('hdr-r-type')?.value || 'h1';
