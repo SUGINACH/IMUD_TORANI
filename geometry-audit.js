@@ -18,12 +18,18 @@
 
 const EPS = 0.5; // סף לעיגול (חצי פיקסל)
 
+/* [תיקון חשוב] מחזיר קואורדינטות document-absolute (viewport + scroll).
+   getBoundingClientRect מחזיר קואורדינטות viewport-relative — כלומר יחסית
+   לחלק הנראה של הדף. כשגוללים, הערכים משתנים. אבל ה-overlay משתמש ב-
+   position:absolute שמתייחס ל-document — אז צריך להוסיף scrollX/scrollY. */
 function rectOf(el) {
     const r = el.getBoundingClientRect();
+    const sx = window.scrollX || 0;
+    const sy = window.scrollY || 0;
     return {
-        x: r.left, y: r.top,
+        x: r.left + sx, y: r.top + sy,
         w: r.width, h: r.height,
-        right: r.right, bottom: r.bottom
+        right: r.right + sx, bottom: r.bottom + sy
     };
 }
 
@@ -112,16 +118,18 @@ function collectLines(el) {
         range.selectNodeContents(el);
         const rects = range.getClientRects();
         const seen = new Set();
+        const sx = window.scrollX || 0;
+        const sy = window.scrollY || 0;
         for (let i = 0; i < rects.length; i++) {
             const r = rects[i];
             if (r.height < 1 || r.width < 1) continue;
             // דה-דופליקציה לפי Y (לפעמים יש כפילויות)
-            const key = Math.round(r.top) + ':' + Math.round(r.height);
+            const key = Math.round(r.top + sy) + ':' + Math.round(r.height);
             if (seen.has(key)) continue;
             seen.add(key);
             lines.push({
-                x: r.left, y: r.top, w: r.width, h: r.height,
-                right: r.right, bottom: r.bottom,
+                x: r.left + sx, y: r.top + sy, w: r.width, h: r.height,
+                right: r.right + sx, bottom: r.bottom + sy,
                 idx: lines.length
             });
         }
@@ -151,6 +159,10 @@ function collectWordsAndSpaces(el) {
         }
     });
 
+    // [תיקון] קואורדינטות document-absolute (viewport + scroll)
+    const sx = window.scrollX || 0;
+    const sy = window.scrollY || 0;
+
     let textNode;
     let tokenIdx = 0;
     while ((textNode = walker.nextNode())) {
@@ -168,7 +180,6 @@ function collectWordsAndSpaces(el) {
                 range.setStart(textNode, start);
                 range.setEnd(textNode, end);
                 const rects = range.getClientRects();
-                // לרוב י� rect אחד לכל טוקן, אבל אם יש רווח שעובר שורה הוא יכול להתפצל
                 for (let i = 0; i < rects.length; i++) {
                     const r = rects[i];
                     if (r.height < 0.5 || r.width < 0.5) continue;
@@ -176,9 +187,9 @@ function collectWordsAndSpaces(el) {
                         idx: tokenIdx++,
                         type: isWord ? 'word' : 'space',
                         text: match[0],
-                        x: r.left, y: r.top,
+                        x: r.left + sx, y: r.top + sy,
                         w: r.width, h: r.height,
-                        right: r.right, bottom: r.bottom
+                        right: r.right + sx, bottom: r.bottom + sy
                     });
                 }
             } catch (e) {
@@ -187,13 +198,9 @@ function collectWordsAndSpaces(el) {
         }
     }
 
-    // שיוך כל טוקן לשורה לפי Y (מצא את השורה עם אותו Y)
-    // נעשה זאת מאוחר יותר אם נצטרך. לעת עתה נשאיר כרשימה שטוחה.
-
     return tokens;
 }
 
-/* בונה את העץ הגיאומטרי מתוך אלמנט */
 function buildNode(el, parent, pageOffset) {
     if (!el || el.nodeType !== 1) return null;
     const cls = classifyElement(el);
@@ -410,8 +417,10 @@ function auditWidowOrphan(node, issues) {
 }
 
 function auditSparseLastLine(node, issues) {
-    // בפסקאות p-cut — השורה האחרונה לרוב דלילה
-    if ((node.type === 'p-cut' || node.type === 'p-end') && node.lines.length > 1) {
+    // [תיקון] רק p-cut (פסקה שנחתכה באמצע) צריכה להיבדק — השורה האחרונה של p-cut
+    // אמורה להיות מלאה (כי היא נחתכה רק כי השורה הבאה לא נכנסה).
+    // p-end (סוף פסקה) תמיד תסתיים בשורה דלילה — זה טבעי ואינו בעיה.
+    if (node.type === 'p-cut' && node.lines.length > 1) {
         const lastLine = node.lines[node.lines.length - 1];
         const firstLine = node.lines[0];
         if (firstLine.w > 0 && lastLine.w < firstLine.w * TOL.sparseLastLine) {
@@ -423,7 +432,7 @@ function auditSparseLastLine(node, issues) {
                 lastW: Math.round(lastLine.w),
                 firstW: Math.round(firstLine.w),
                 pText: node.text,
-                message: `שורה דלילה בסוף פסקה: רוחב אחרון=${Math.round(lastLine.w)}px ראשון=${Math.round(firstLine.w)}px`
+                message: `שורה דלילה בסוף p-cut: רוחב אחרון=${Math.round(lastLine.w)}px ראשון=${Math.round(firstLine.w)}px`
             });
         }
     }

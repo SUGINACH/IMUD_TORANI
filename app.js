@@ -2693,15 +2693,20 @@ function renderGeomResults(container, result) {
             + '<th style="padding:3px;border:1px solid #cbd5e1;">חומרה</th>'
             + '<th style="padding:3px;border:1px solid #cbd5e1;">פירוט</th>'
             + '</tr></thead><tbody>';
-        issues.slice(0, 200).forEach(iss => {
+        issues.slice(0, 200).forEach((iss, i) => {
             const sc = iss.severity === 'high' ? '#dc2626' : (iss.severity === 'medium' ? '#d97706' : '#64748b');
             const kindNames = {
                 'containment': 'חריגת הכלה', 'overlap': 'חפיפה', 'imbalance': 'אי-איזון',
                 'widow': 'אלמנה', 'orphan': 'יתום', 'sparse-line': 'שורה דלילה',
-                'fn-overflow': 'גלישה להערות', 'pn-overflow': 'גלישה למספר', 'page-overflow': 'גלישת עמוד'
+                'fn-overflow': 'גלישה להערות', 'pn-overflow': 'גלילה למספר', 'page-overflow': 'גלישת עמוד'
             };
-            html += `<tr style="border:1px solid #cbd5e1;">`
-                + `<td style="padding:2px;text-align:center;font-weight:bold;">${iss.pageIdx !== undefined ? iss.pageIdx + 1 : '?'}</td>`
+            const pageIdx = iss.pageIdx !== undefined ? iss.pageIdx : -1;
+            const clickable = pageIdx >= 0 ? `cursor:pointer;` : '';
+            const title = pageIdx >= 0 ? ` title="לחץ לגלילה לעמוד ${pageIdx + 1}"` : '';
+            const onclick = pageIdx >= 0 ? ` onclick="scrollToIssuePage(${pageIdx})"` : '';
+            const hover = pageIdx >= 0 ? ` onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'#fff\'"` : '';
+            html += `<tr style="border:1px solid #cbd5e1;${clickable}"${title}${onclick}${hover}>`
+                + `<td style="padding:2px;text-align:center;font-weight:bold;">${pageIdx >= 0 ? pageIdx + 1 : '?'}</td>`
                 + `<td style="padding:2px;">${kindNames[iss.kind] || iss.kind}</td>`
                 + `<td style="padding:2px;color:${sc};">${iss.severity}</td>`
                 + `<td style="padding:2px;">${iss.message || ''}</td>`
@@ -2720,11 +2725,22 @@ function renderGeomResults(container, result) {
     html += '<span style="color:#0891b2;">■</span> p-end · ';
     html += '<span style="color:#f59e0b;">■</span> כותרות · ';
     html += '<span style="color:#7c3aed;">■</span> H3-H7 · ';
-    html += '<b style="color:#dc2626;">אדום עבה = בעיה</b>';
+    html += '<b style="color:#dc2626;">אדום עבה = בעיה</b><br>';
+    html += '<b>לחץ על שורת בעיה</b> כדי לגלול לעמוד המתאים בתצוגה';
     html += '</div>';
 
     container.innerHTML = html;
 }
+
+/* [חדש] גולל לעמוד הבעיה ב-iframe */
+function scrollToIssuePage(pageIdx) {
+    const frame = document.getElementById('render-frame');
+    if (!frame || !frame.contentWindow) return;
+    // שלח הודעה ל-iframe לגלול לעמוד
+    frame.contentWindow.postMessage({ type: 'geom-scroll-to-page', pageIdx: pageIdx }, '*');
+}
+
+window.scrollToIssuePage = scrollToIssuePage;
 
 window.renderGeomResults = renderGeomResults;
 

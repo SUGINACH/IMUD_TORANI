@@ -253,6 +253,17 @@
             } catch (err) {
                 e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
             }
+        } else if (msg.type === 'geom-scroll-to-page') {
+            // [חדש — גיאומטריה] גלול לעמוד מסוים ב-iframe
+            try {
+                const pages = document.querySelectorAll('#book-container .a4-page');
+                const idx = msg.pageIdx;
+                if (pages[idx]) {
+                    pages[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            } catch (err) {
+                console.error('scroll error:', err);
+            }
         }
     });
 
