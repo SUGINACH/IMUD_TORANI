@@ -18,18 +18,23 @@
 
 const EPS = 0.5; // סף לעיגול (חצי פיקסל)
 
-/* [תיקון חשוב] מחזיר קואורדינטות document-absolute (viewport + scroll).
-   getBoundingClientRect מחזיר קואורדינטות viewport-relative — כלומר יחסית
-   לחלק הנראה של הדף. כשגוללים, הערכים משתנים. אבל ה-overlay משתמש ב-
-   position:absolute שמתייחס ל-document — אז צריך להוסיף scrollX/scrollY. */
+/* [תיקון חשוב] מחזיר קואורדינטות יחסיות ל-#book-container.
+   ה-overlay container מצורף לתוך #book-container, ולכן הקואורדינטות
+   צריכות להיות יחסיות אליו. כך, כשגוללים, ה-overlay זז יחד עם העמודים. */
+function getBookContainerOffset() {
+    const bc = document.getElementById('book-container');
+    if (!bc) return { x: 0, y: 0 };
+    const r = bc.getBoundingClientRect();
+    return { x: r.left, y: r.top };
+}
+
 function rectOf(el) {
     const r = el.getBoundingClientRect();
-    const sx = window.scrollX || 0;
-    const sy = window.scrollY || 0;
+    const off = getBookContainerOffset();
     return {
-        x: r.left + sx, y: r.top + sy,
+        x: r.left - off.x, y: r.top - off.y,
         w: r.width, h: r.height,
-        right: r.right + sx, bottom: r.bottom + sy
+        right: r.right - off.x, bottom: r.bottom - off.y
     };
 }
 
@@ -118,18 +123,17 @@ function collectLines(el) {
         range.selectNodeContents(el);
         const rects = range.getClientRects();
         const seen = new Set();
-        const sx = window.scrollX || 0;
-        const sy = window.scrollY || 0;
+        const off = getBookContainerOffset();
         for (let i = 0; i < rects.length; i++) {
             const r = rects[i];
             if (r.height < 1 || r.width < 1) continue;
             // דה-דופליקציה לפי Y (לפעמים יש כפילויות)
-            const key = Math.round(r.top + sy) + ':' + Math.round(r.height);
+            const key = Math.round(r.top - off.y) + ':' + Math.round(r.height);
             if (seen.has(key)) continue;
             seen.add(key);
             lines.push({
-                x: r.left + sx, y: r.top + sy, w: r.width, h: r.height,
-                right: r.right + sx, bottom: r.bottom + sy,
+                x: r.left - off.x, y: r.top - off.y, w: r.width, h: r.height,
+                right: r.right - off.x, bottom: r.bottom - off.y,
                 idx: lines.length
             });
         }
@@ -159,9 +163,8 @@ function collectWordsAndSpaces(el) {
         }
     });
 
-    // [תיקון] קואורדינטות document-absolute (viewport + scroll)
-    const sx = window.scrollX || 0;
-    const sy = window.scrollY || 0;
+    // [תיקון] קואורדינטות יחסיות ל-#book-container
+    const off = getBookContainerOffset();
 
     let textNode;
     let tokenIdx = 0;
@@ -187,9 +190,9 @@ function collectWordsAndSpaces(el) {
                         idx: tokenIdx++,
                         type: isWord ? 'word' : 'space',
                         text: match[0],
-                        x: r.left + sx, y: r.top + sy,
+                        x: r.left - off.x, y: r.top - off.y,
                         w: r.width, h: r.height,
-                        right: r.right + sx, bottom: r.bottom + sy
+                        right: r.right - off.x, bottom: r.bottom - off.y
                     });
                 }
             } catch (e) {
@@ -738,11 +741,12 @@ function paintOverlay(model, auditResult, opts) {
     const level = opts.level || 2;
     const showLabels = opts.labels !== false;
 
-    // צור מכל עליון לתוויות
+    // צור מכל עליון לתוויות — מצורף לתוך #book-container כדי שיגלל יחד עם העמודים
+    const bookContainer = document.getElementById('book-container') || document.body;
     const labelContainer = document.createElement('div');
     labelContainer.id = OVERLAY_CONTAINER_ID;
     labelContainer.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0;pointer-events:none;z-index:99999;';
-    document.body.appendChild(labelContainer);
+    bookContainer.appendChild(labelContainer);
 
     // [חדש] סופר רכיבים לתצוגה בתווית העמוד
     function countInSubtree(node, type) {
@@ -1078,12 +1082,13 @@ function highlightIssue(issue) {
 
     if (rects.length === 0) return;
 
-    // צור מכל להבהובים
+    // צור מכל להבהובים — מצורף לתוך #book-container כדי שיגלל יחד עם העמודים
+    const bookContainer = document.getElementById('book-container') || document.body;
     const container = document.getElementById('__geom-highlight-container__') || (() => {
         const c = document.createElement('div');
         c.id = '__geom-highlight-container__';
         c.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0;pointer-events:none;z-index:100010;';
-        document.body.appendChild(c);
+        bookContainer.appendChild(c);
         return c;
     })();
 

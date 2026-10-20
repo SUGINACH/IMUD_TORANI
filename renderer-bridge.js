@@ -258,30 +258,42 @@
             try {
                 const pages = document.querySelectorAll('#book-container .a4-page');
                 const idx = msg.pageIdx;
+                // [תיקון חשוב] ה-<html> הוא overflow:hidden, וה-<body> הוא זה שגולל.
+                // לכן window.scrollTo לא עובד — צריך לגלול את body.scrollTop.
+                const body = document.body;
                 // [תיקון] אם יש issue עם childRect/rightRect, נגלול למיקום המדויק
                 if (msg.issue) {
                     let targetRect = msg.issue.childRect || msg.issue.rightRect || msg.issue.aRect;
                     if (targetRect) {
+                        // ה-childRect הוא יחסי ל-#book-container. נמיר ל-document-absolute.
+                        // bcRect.top הוא viewport-relative. בגלל ש-body גולל, bcRect.top כולל את ה-offset הנוכחי.
+                        const bc = document.getElementById('book-container');
+                        const bcRect = bc ? bc.getBoundingClientRect() : { top: 0 };
+                        const currentBodyScroll = body.scrollTop || 0;
+                        // document-absolute Y = currentBodyScroll + bcRect.top (viewport) + targetRect.y (relative to bc)
+                        const docAbsoluteY = currentBodyScroll + bcRect.top + targetRect.y;
                         // נגלול כך שהאזור הבעייתי יהיה במרכז התצוגה
-                        const targetY = targetRect.y - (window.innerHeight / 2) + (targetRect.h / 2);
-                        window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+                        const targetScrollY = docAbsoluteY - (window.innerHeight / 2) + (targetRect.h / 2);
+                        body.scrollTop = Math.max(0, targetScrollY);
                         // הבהב את המסגרת אחרי הגלילה
                         if (window.__geomAudit) {
                             setTimeout(() => {
                                 window.__geomAudit.highlightIssue(msg.issue);
-                            }, 600);
+                            }, 300);
                         }
                         return;
                     }
                 }
                 // fallback: גלול לעמוד
                 if (pages[idx]) {
-                    pages[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    const r = pages[idx].getBoundingClientRect();
+                    const currentBodyScroll = body.scrollTop || 0;
+                    body.scrollTop = currentBodyScroll + r.top - 20;
                 }
                 if (msg.issue && window.__geomAudit) {
                     setTimeout(() => {
                         window.__geomAudit.highlightIssue(msg.issue);
-                    }, 400);
+                    }, 300);
                 }
             } catch (err) {
                 console.error('scroll error:', err);
