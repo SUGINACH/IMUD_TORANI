@@ -261,8 +261,29 @@
                 if (pages[idx]) {
                     pages[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
+                // [חדש] אם יש issue, הבהב את המסגרת אחרי הגלילה
+                if (msg.issue && window.__geomAudit) {
+                    setTimeout(() => {
+                        window.__geomAudit.highlightIssue(msg.issue);
+                    }, 400);
+                }
             } catch (err) {
                 console.error('scroll error:', err);
+            }
+        } else if (msg.type === 'geom-highlight') {
+            // [חדש — גיאומטריה] הבהב מסגרת על בעיה ספציפית
+            try {
+                if (window.__geomAudit && msg.issue) {
+                    window.__geomAudit.highlightIssue(msg.issue);
+                }
+            } catch (err) {
+                console.error('highlight error:', err);
+            }
+        } else if (msg.type === 'geom-clear-highlight') {
+            try {
+                if (window.__geomAudit) window.__geomAudit.clearHighlight();
+            } catch (err) {
+                console.error('clear highlight error:', err);
             }
         }
     });

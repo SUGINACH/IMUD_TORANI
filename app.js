@@ -2698,14 +2698,18 @@ function renderGeomResults(container, result) {
             const kindNames = {
                 'containment': 'חריגת הכלה', 'overlap': 'חפיפה', 'imbalance': 'אי-איזון',
                 'widow': 'אלמנה', 'orphan': 'יתום', 'sparse-line': 'שורה דלילה',
+                'containment-rounding': 'עיגול פיקסלים',
                 'fn-overflow': 'גלישה להערות', 'pn-overflow': 'גלילה למספר', 'page-overflow': 'גלישת עמוד'
             };
             const pageIdx = iss.pageIdx !== undefined ? iss.pageIdx : -1;
             const clickable = pageIdx >= 0 ? `cursor:pointer;` : '';
-            const title = pageIdx >= 0 ? ` title="לחץ לגלילה לעמוד ${pageIdx + 1}"` : '';
-            const onclick = pageIdx >= 0 ? ` onclick="scrollToIssuePage(${pageIdx})"` : '';
+            const title = pageIdx >= 0 ? ` title="לחץ לגלילה לעמוד ${pageIdx + 1} והבהוב הבעיה"` : '';
+            // העבר את ה-issue המלא כדי שה-iframe יוכל להבהב את המסגרת
+            // נשמור את ה-issue ב-data attribute כדי להימנע מ-escaping issues
+            const issueJson = pageIdx >= 0 ? `data-issue-idx="${i}"` : '';
+            const onclick = pageIdx >= 0 ? ` onclick="scrollToIssuePage(${pageIdx}, ${i})"` : '';
             const hover = pageIdx >= 0 ? ` onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'#fff\'"` : '';
-            html += `<tr style="border:1px solid #cbd5e1;${clickable}"${title}${onclick}${hover}>`
+            html += `<tr style="border:1px solid #cbd5e1;${clickable}"${title}${issueJson}${onclick}${hover}>`
                 + `<td style="padding:2px;text-align:center;font-weight:bold;">${pageIdx >= 0 ? pageIdx + 1 : '?'}</td>`
                 + `<td style="padding:2px;">${kindNames[iss.kind] || iss.kind}</td>`
                 + `<td style="padding:2px;color:${sc};">${iss.severity}</td>`
@@ -2713,6 +2717,8 @@ function renderGeomResults(container, result) {
                 + `</tr>`;
         });
         html += '</tbody></table>';
+        // שמור את ה-issues במקום נגיש ל-scrollToIssuePage
+        html += `<script>window.__lastGeomIssues = ${JSON.stringify(issues.slice(0, 200))};</script>`;
     }
 
     // מקרא צבעים
@@ -2732,12 +2738,17 @@ function renderGeomResults(container, result) {
     container.innerHTML = html;
 }
 
-/* [חדש] גולל לעמוד הבעיה ב-iframe */
-function scrollToIssuePage(pageIdx) {
+/* [חדש] גולל לעמוד הבעיה ב-iframe ומבהב את המסגרת */
+function scrollToIssuePage(pageIdx, issueIdx) {
     const frame = document.getElementById('render-frame');
     if (!frame || !frame.contentWindow) return;
-    // שלח הודעה ל-iframe לגלול לעמוד
-    frame.contentWindow.postMessage({ type: 'geom-scroll-to-page', pageIdx: pageIdx }, '*');
+    // קבל את ה-issue מהמערך השמור
+    let issue = null;
+    if (issueIdx !== undefined && window.__lastGeomIssues && window.__lastGeomIssues[issueIdx]) {
+        issue = window.__lastGeomIssues[issueIdx];
+    }
+    // שלח הודעה ל-iframe לגלול לעמוד ולהבהב את הבעיה
+    frame.contentWindow.postMessage({ type: 'geom-scroll-to-page', pageIdx: pageIdx, issue: issue }, '*');
 }
 
 window.scrollToIssuePage = scrollToIssuePage;

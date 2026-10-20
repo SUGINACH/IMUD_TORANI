@@ -355,6 +355,7 @@ function auditContainment(node, issues) {
                 location: describePath(node),
                 childType: child.type,
                 childText: child.text,
+                childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h) },
                 overflow,
                 overflowPx: Math.round(overflowPx * 10) / 10,
                 note: note.trim(),
@@ -387,6 +388,8 @@ function auditSiblingOverlap(node, issues) {
                     location: describePath(node),
                     aType: a.type, aText: a.text,
                     bType: b.type, bText: b.text,
+                    aRect: { x: Math.round(a.rect.x), y: Math.round(a.rect.y), w: Math.round(a.rect.w), h: Math.round(a.rect.h) },
+                    bRect: { x: Math.round(b.rect.x), y: Math.round(b.rect.y), w: Math.round(b.rect.w), h: Math.round(b.rect.h) },
                     overlapPx: Math.round(ov),
                     message: `חפיפה בין ${a.type} ו-${b.type} ב-${node.type}: ${Math.round(ov)}px²`
                 });
@@ -411,6 +414,8 @@ function auditColumnBalance(node, issues) {
                     rightH: Math.round(right.rect.h),
                     leftH: Math.round(left.rect.h),
                     diff: Math.round(diff),
+                    rightRect: { x: Math.round(right.rect.x), y: Math.round(right.rect.y), w: Math.round(right.rect.w), h: Math.round(right.rect.h) },
+                    leftRect: { x: Math.round(left.rect.x), y: Math.round(left.rect.y), w: Math.round(left.rect.w), h: Math.round(left.rect.h) },
                     message: `אי-איזון טורים: ימין=${Math.round(right.rect.h)}px שמאל=${Math.round(left.rect.h)}px פער=${Math.round(diff)}px`
                 });
             }
@@ -434,6 +439,7 @@ function auditWidowOrphan(node, issues) {
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
                     pText: last.text,
+                    childRect: { x: Math.round(last.rect.x), y: Math.round(last.rect.y), w: Math.round(last.rect.w), h: Math.round(last.rect.h) },
                     message: `אלמנה: שורה אחת בודדת בסוף טור ${node.side} ("${last.text.slice(0, 30)}...")`
                 });
             }
@@ -445,6 +451,7 @@ function auditWidowOrphan(node, issues) {
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
                     pText: first.text,
+                    childRect: { x: Math.round(first.rect.x), y: Math.round(first.rect.y), w: Math.round(first.rect.w), h: Math.round(first.rect.h) },
                     message: `יתום: שורה אחת בודדת בתחילת טור ${node.side} ("${first.text.slice(0, 30)}...")`
                 });
             }
@@ -469,6 +476,7 @@ function auditSparseLastLine(node, issues) {
                 lastW: Math.round(lastLine.w),
                 firstW: Math.round(firstLine.w),
                 pText: node.text,
+                childRect: { x: Math.round(lastLine.x), y: Math.round(lastLine.y), w: Math.round(lastLine.w), h: Math.round(lastLine.h) },
                 message: `שורה דלילה בסוף p-cut: רוחב אחרון=${Math.round(lastLine.w)}px ראשון=${Math.round(firstLine.w)}px`
             });
         }
@@ -954,11 +962,86 @@ function buildNodeWithRefs(el, parent) {
    חלק 4: API ציבורי
    ======================================================================== */
 
+/* [חדש] מסמן בעיה ספציפית במסגרת מהבהבת על הדף.
+   מקבל אובייקט issue עם childRect/aRect/bRect/rightRect/leftRect.
+   מצייר מסגרת כתומה מהבהבת על האזור הבעייתי למשך 3 שניות. */
+let __highlightElements = [];
+function highlightIssue(issue) {
+    // נקה הבהובים קודמים
+    clearHighlight();
+
+    if (!issue) return;
+
+    // אוסוף את כל ה-rects שצריך להדגיש
+    const rects = [];
+    if (issue.childRect) rects.push(issue.childRect);
+    if (issue.aRect) rects.push(issue.aRect);
+    if (issue.bRect) rects.push(issue.bRect);
+    if (issue.rightRect) rects.push(issue.rightRect);
+    if (issue.leftRect) rects.push(issue.leftRect);
+
+    if (rects.length === 0) return;
+
+    // צור מכל להבהובים
+    const container = document.getElementById('__geom-highlight-container__') || (() => {
+        const c = document.createElement('div');
+        c.id = '__geom-highlight-container__';
+        c.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0;pointer-events:none;z-index:100010;';
+        document.body.appendChild(c);
+        return c;
+    })();
+
+    // צבע לפי חומרה
+    const color = issue.severity === 'high' ? '#dc2626' : (issue.severity === 'medium' ? '#d97706' : '#0ea5e9');
+
+    rects.forEach(rect => {
+        const div = document.createElement('div');
+        div.style.cssText = `
+            position:absolute;
+            left:${rect.x}px; top:${rect.y}px;
+            width:${rect.w}px; height:${rect.h}px;
+            border:3px solid ${color};
+            background:${color}22;
+            box-shadow:0 0 12px ${color}, 0 0 24px ${color}aa;
+            pointer-events:none; z-index:100010;
+            box-sizing:border-box;
+            animation: __geom-blink 0.5s ease-in-out infinite alternate;
+        `;
+        container.appendChild(div);
+        __highlightElements.push(div);
+    });
+
+    // הוסף animation אם לא קיים
+    if (!document.getElementById('__geom-highlight-style')) {
+        const style = document.createElement('style');
+        style.id = '__geom-highlight-style';
+        style.textContent = `
+            @keyframes __geom-blink {
+                from { opacity: 0.4; }
+                to { opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // נקה אוטומטית אחרי 4 שניות
+    setTimeout(clearHighlight, 4000);
+}
+
+function clearHighlight() {
+    __highlightElements.forEach(el => el.remove());
+    __highlightElements = [];
+    const c = document.getElementById('__geom-highlight-container__');
+    if (c) c.remove();
+}
+
 window.__geomAudit = {
     extract: extractGeometryWithDomRefs,
     audit: auditGeometry,
     paint: paintOverlay,
     clear: clearOverlay,
+    highlightIssue: highlightIssue,
+    clearHighlight: clearHighlight,
     types: TYPE_COLORS,
     // [חדש] מנקה את העץ מ-_parent (circular) לפני ייצוא JSON
     cleanForExport: function(node) {
