@@ -2699,7 +2699,9 @@ function renderGeomResults(container, result) {
                 'containment': 'חריגת הכלה', 'overlap': 'חפיפה', 'imbalance': 'אי-איזון',
                 'widow': 'אלמנה', 'orphan': 'יתום', 'sparse-line': 'שורה דלילה',
                 'containment-rounding': 'עיגול פיקסלים',
-                'fn-overflow': 'גלישה להערות', 'pn-overflow': 'גלילה למספר', 'page-overflow': 'גלישת עמוד'
+                'fn-overflow': 'גוף→הערות', 'pn-overflow': 'גוף→מספר', 'page-overflow': 'גלישת עמוד',
+                'fn-page-overflow': 'הערות→תחתית', 'fn-pn-overflow': 'הערות→מספר',
+                'fn-containment': 'הכלה בהערות', 'fn-line-overflow': 'שורת הערה'
             };
             const pageIdx = iss.pageIdx !== undefined ? iss.pageIdx : -1;
             const clickable = pageIdx >= 0 ? `cursor:pointer;` : '';

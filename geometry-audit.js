@@ -502,6 +502,7 @@ function auditOverflowToFootnote(page, issues) {
                 overlapPx: Math.round(-gap),
                 bodyBottom: Math.round(bodyFlow.rect.bottom),
                 fnTop: Math.round(fnArea.rect.y),
+                childRect: { x: Math.round(fnArea.rect.x), y: Math.round(fnArea.rect.y), w: Math.round(fnArea.rect.w), h: Math.round(fnArea.rect.h) },
                 message: `גוף חופף לאזור הערות בעמוד ${page.label}: ${Math.round(-gap)}px`
             });
         }
@@ -517,8 +518,103 @@ function auditOverflowToFootnote(page, issues) {
                 overlapPx: Math.round(-gap),
                 bodyBottom: Math.round(bodyFlow.rect.bottom),
                 pnTop: Math.round(pageNumber.rect.y),
+                childRect: { x: Math.round(pageNumber.rect.x), y: Math.round(pageNumber.rect.y), w: Math.round(pageNumber.rect.w), h: Math.round(pageNumber.rect.h) },
                 message: `גוף חופף למספר עמוד בעמוד ${page.label}: ${Math.round(-gap)}px`
             });
+        }
+    }
+    // [חדש] בדוק ש-fn-area לא חורג מתחתית העמוד
+    if (fnArea) {
+        const pageBottom = page.rect.bottom;
+        if (fnArea.rect.bottom > pageBottom + TOL.containment) {
+            issues.push({
+                kind: 'fn-page-overflow',
+                severity: 'high',
+                pageIdx: page.idx,
+                location: `page ${page.label}`,
+                overflowPx: Math.round(fnArea.rect.bottom - pageBottom),
+                fnBottom: Math.round(fnArea.rect.bottom),
+                pageBottom: Math.round(pageBottom),
+                childRect: { x: Math.round(fnArea.rect.x), y: Math.round(fnArea.rect.y), w: Math.round(fnArea.rect.w), h: Math.round(fnArea.rect.h) },
+                message: `אזור הערות חורג מתחתית עמוד ${page.label}: ${Math.round(fnArea.rect.bottom - pageBottom)}px`
+            });
+        }
+    }
+    // [חדש] בדוק ש-fn-area לא חופף ל-page-number
+    if (fnArea && pageNumber) {
+        const gap = pageNumber.rect.y - fnArea.rect.bottom;
+        if (gap < -TOL.containment) {
+            issues.push({
+                kind: 'fn-pn-overflow',
+                severity: 'high',
+                pageIdx: page.idx,
+                location: `page ${page.label}`,
+                overlapPx: Math.round(-gap),
+                fnBottom: Math.round(fnArea.rect.bottom),
+                pnTop: Math.round(pageNumber.rect.y),
+                childRect: { x: Math.round(fnArea.rect.x), y: Math.round(fnArea.rect.y), w: Math.round(fnArea.rect.w), h: Math.round(fnArea.rect.h) },
+                message: `אזור הערות חופף למספר עמוד בעמוד ${page.label}: ${Math.round(-gap)}px`
+            });
+        }
+    }
+    // [חדש] בדוק הכלה פנימית באזור ההערות: fn-block בתוך fn-area, fn-line בתוך fn-block
+    if (fnArea) {
+        auditFnContainment(fnArea, page, issues);
+    }
+}
+
+/* [חדש] בודק הכלה פנימית באזור ההערות:
+   - fn-block בתוך fn-area
+   - fn-line בתוך fn-block
+   - fn-rule בתוך fn-area
+   - fn-header בתוך fn-area */
+function auditFnContainment(fnAreaNode, page, issues) {
+    for (const child of fnAreaNode.children) {
+        // fn-block צריך להיות בתוך fn-area
+        if (child.type === 'fn-block' || child.type === 'fn-rule' || child.type === 'fn-header') {
+            if (!rContains(fnAreaNode, child, TOL.containment)) {
+                const overflowPx = Math.max(
+                    Math.max(0, fnAreaNode.rect.x - child.rect.x),
+                    Math.max(0, fnAreaNode.rect.y - child.rect.y),
+                    Math.max(0, child.rect.right - fnAreaNode.rect.right),
+                    Math.max(0, child.rect.bottom - fnAreaNode.rect.bottom)
+                );
+                issues.push({
+                    kind: 'fn-containment',
+                    severity: overflowPx > 5 ? 'high' : 'medium',
+                    pageIdx: page.idx,
+                    location: `page ${page.label}`,
+                    childType: child.type,
+                    overflowPx: Math.round(overflowPx * 10) / 10,
+                    childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h) },
+                    message: `${child.type} בולט מ-fn-area בעמוד ${page.label}: ${Math.round(overflowPx)}px`
+                });
+            }
+        }
+        // fn-line צריך להיות בתוך fn-block
+        if (child.type === 'fn-block') {
+            for (const line of child.children) {
+                if (line.type === 'fn-line') {
+                    if (!rContains(child, line, TOL.containment)) {
+                        const overflowPx = Math.max(
+                            Math.max(0, child.rect.x - line.rect.x),
+                            Math.max(0, child.rect.y - line.rect.y),
+                            Math.max(0, line.rect.right - child.rect.right),
+                            Math.max(0, line.rect.bottom - child.rect.bottom)
+                        );
+                        issues.push({
+                            kind: 'fn-line-overflow',
+                            severity: overflowPx > 5 ? 'medium' : 'low',
+                            pageIdx: page.idx,
+                            location: `page ${page.label}`,
+                            childType: 'fn-line',
+                            overflowPx: Math.round(overflowPx * 10) / 10,
+                            childRect: { x: Math.round(line.rect.x), y: Math.round(line.rect.y), w: Math.round(line.rect.w), h: Math.round(line.rect.h) },
+                            message: `שורת הערה בולטת מבלוק הערות בעמוד ${page.label}: ${Math.round(overflowPx)}px`
+                        });
+                    }
+                }
+            }
         }
     }
 }

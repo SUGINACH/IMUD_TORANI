@@ -258,10 +258,26 @@
             try {
                 const pages = document.querySelectorAll('#book-container .a4-page');
                 const idx = msg.pageIdx;
+                // [תיקון] אם יש issue עם childRect/rightRect, נגלול למיקום המדויק
+                if (msg.issue) {
+                    let targetRect = msg.issue.childRect || msg.issue.rightRect || msg.issue.aRect;
+                    if (targetRect) {
+                        // נגלול כך שהאזור הבעייתי יהיה במרכז התצוגה
+                        const targetY = targetRect.y - (window.innerHeight / 2) + (targetRect.h / 2);
+                        window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+                        // הבהב את המסגרת אחרי הגלילה
+                        if (window.__geomAudit) {
+                            setTimeout(() => {
+                                window.__geomAudit.highlightIssue(msg.issue);
+                            }, 600);
+                        }
+                        return;
+                    }
+                }
+                // fallback: גלול לעמוד
                 if (pages[idx]) {
                     pages[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
-                // [חדש] אם יש issue, הבהב את המסגרת אחרי הגלילה
                 if (msg.issue && window.__geomAudit) {
                     setTimeout(() => {
                         window.__geomAudit.highlightIssue(msg.issue);
