@@ -134,6 +134,65 @@ function collectLines(el) {
     return lines;
 }
 
+/* [חדש] אוסף מילים ורווחים מתוך אלמנט טקסט ע"י TreeWalker + Range.
+   כל טוקן (מילה או רווח) מקבל קואורדינטות מוחלטות.
+   רווחים נשמרים בנפרד כדי שנוכל למדוד את רוחבם (חשוב ליישור שורה). */
+function collectWordsAndSpaces(el) {
+    const tokens = [];
+    if (!el || !document.createTreeWalker) return tokens;
+
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+        acceptNode: function(node) {
+            const parent = node.parentNode;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+            const tag = parent.tagName.toLowerCase();
+            if (tag === 'script' || tag === 'style') return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+        }
+    });
+
+    let textNode;
+    let tokenIdx = 0;
+    while ((textNode = walker.nextNode())) {
+        const textContent = textNode.textContent;
+        if (!textContent) continue;
+        // חלוקה לטוקנים: \S+ = מילה (כולל ניקוד/טעמים/פיסוק צמוד), \s+ = רווח
+        const regex = /(\S+)|(\s+)/g;
+        let match;
+        while ((match = regex.exec(textContent)) !== null) {
+            const isWord = !!match[1];
+            const start = match.index;
+            const end = start + match[0].length;
+            try {
+                const range = document.createRange();
+                range.setStart(textNode, start);
+                range.setEnd(textNode, end);
+                const rects = range.getClientRects();
+                // לרוב י� rect אחד לכל טוקן, אבל אם יש רווח שעובר שורה הוא יכול להתפצל
+                for (let i = 0; i < rects.length; i++) {
+                    const r = rects[i];
+                    if (r.height < 0.5 || r.width < 0.5) continue;
+                    tokens.push({
+                        idx: tokenIdx++,
+                        type: isWord ? 'word' : 'space',
+                        text: match[0],
+                        x: r.left, y: r.top,
+                        w: r.width, h: r.height,
+                        right: r.right, bottom: r.bottom
+                    });
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+
+    // שיוך כל טוקן לשורה לפי Y (מצא את השורה עם אותו Y)
+    // נעשה זאת מאוחר יותר אם נצטרך. לעת עתה נשאיר כרשימה שטוחה.
+
+    return tokens;
+}
+
 /* בונה את העץ הגיאומטרי מתוך אלמנט */
 function buildNode(el, parent, pageOffset) {
     if (!el || el.nodeType !== 1) return null;
@@ -525,17 +584,9 @@ function clearOverlay() {
 function paintOverlay(model, auditResult, opts) {
     clearOverlay();
     opts = opts || {};
-    const level = opts.level || 2; // 0=issues only, 1=blocks, 2=paragraphs, 3=lines, 4=words
+    // 0=issues only, 1=blocks, 2=paragraphs, 3=lines, 4=words, 5=spaces
+    const level = opts.level || 2;
     const showLabels = opts.labels !== false;
-
-    // מפת סוגים לבעיות — כדי להדגיש
-    const issuesByNode = new Map(); // id -> [issues]
-    if (auditResult) {
-        for (const iss of auditResult.issues) {
-            // נסמן את ה-page הרלוונטי
-            // (הבעיות מתויגות לפי pageIdx, נסמן את העמוד כולו)
-        }
-    }
 
     // צור מכל עליון לתוויות
     const labelContainer = document.createElement('div');
@@ -543,12 +594,33 @@ function paintOverlay(model, auditResult, opts) {
     labelContainer.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0;pointer-events:none;z-index:99999;';
     document.body.appendChild(labelContainer);
 
+    // [חדש] סופר רכיבים לתצוגה בתווית העמוד
+    function countInSubtree(node, type) {
+        let n = 0;
+        if (node.type === type) n++;
+        if (node.children) for (const c of node.children) n += countInSubtree(c, type);
+        if (node.words) for (const w of node.words) if (w.type === type) n++;
+        return n;
+    }
+    function countWordsInSubtree(node) {
+        let n = 0;
+        if (node.words) n += node.words.filter(w => w.type === 'word').length;
+        if (node.children) for (const c of node.children) n += countWordsInSubtree(c);
+        return n;
+    }
+    function countLinesInSubtree(node) {
+        let n = 0;
+        if (node.lines) n += node.lines.length;
+        if (node.children) for (const c of node.children) n += countLinesInSubtree(c);
+        return n;
+    }
+
     function paintNode(node, depth) {
         // סינון לפי רמה
         if (level === 0 && !node._hasIssue) {
             // רמה 0: רק בעיות — נדלג על רכיבים תקינים
         } else if (level === 1) {
-            // רמה 1: רק בלוקים (block-2col, block-h3-span, block-single-col, footnote-area, h2-title)
+            // רמה 1: רק בלוקים
             const showTypes = new Set(['block-2col', 'block-h3-span', 'block-single-col', 'footnote-area', 'h2-title', 'h2-siman', 'h3-title', 'fn-block', 'page-number', 'header']);
             if (!showTypes.has(node.type) && !node._hasIssue) {
                 for (const c of node.children) paintNode(c, depth + 1);
@@ -562,7 +634,7 @@ function paintOverlay(model, auditResult, opts) {
                 return;
             }
         }
-        // רמה 3 = הכל חוץ מ-micro, רמה 4 = הכל
+        // רמה 3 = הכל + שורות, רמה 4 = + מילים, רמה 5 = + רווחים
 
         const el = findDomForNode(node);
         if (el) {
@@ -576,7 +648,7 @@ function paintOverlay(model, auditResult, opts) {
             el.style.outline = `${thickness} solid ${color}`;
             el.style.outlineOffset = node._hasIssue ? '1px' : '0px';
 
-            // תווית
+            // תווית — עשירה יותר ברמות גבוהות
             if (showLabels && (level >= 2 || node._hasIssue)) {
                 const label = document.createElement('div');
                 label.style.cssText = `
@@ -586,12 +658,28 @@ function paintOverlay(model, auditResult, opts) {
                     font-size:8px; font-family:monospace;
                     padding:1px 3px; border-radius:2px;
                     pointer-events:none; z-index:100000;
-                    direction:ltr;
+                    direction:ltr; max-width:200px; white-space:nowrap;
+                    overflow:hidden; text-overflow:ellipsis;
                 `;
                 let labelText = node.type;
-                if (node.type === 'column') labelText += `:${node.side}`;
-                if (node.type === 'block-2col' || node.type === 'column' || node.type === 'footnote-area' || node.type === 'body-flow') {
-                    labelText += ` ${Math.round(node.rect.w)}×${Math.round(node.rect.h)}`;
+                // [חדש] פירוט עשיר לכל סוג רכיב
+                if (node.type === 'column') {
+                    const pCount = node.children.filter(c => c.type === 'p' || c.type === 'p-cut' || c.type === 'p-end').length;
+                    const lCount = countLinesInSubtree(node);
+                    const wCount = countWordsInSubtree(node);
+                    labelText = `col:${node.side} ${Math.round(node.rect.w)}×${Math.round(node.rect.h)} | ${pCount}p ${lCount}l ${wCount}w`;
+                } else if (node.type === 'block-2col' || node.type === 'block-single-col' || node.type === 'block-h3-span') {
+                    labelText = `${node.type} ${Math.round(node.rect.w)}×${Math.round(node.rect.h)}`;
+                } else if (node.type === 'footnote-area' || node.type === 'body-flow') {
+                    labelText = `${node.type} ${Math.round(node.rect.w)}×${Math.round(node.rect.h)}`;
+                } else if (node.type === 'p' || node.type === 'p-cut' || node.type === 'p-end') {
+                    labelText = `${node.type} ${node.lines.length}l ${node.wordCount || 0}w`;
+                    if (node.text) labelText += ` "${node.text.slice(0, 20)}"`;
+                } else if (node.type === 'fn-line') {
+                    labelText = `fn-line ${node.lines.length}l ${node.wordCount || 0}w`;
+                } else if (node.type === 'h2-title' || node.type === 'h3-title' || node.type === 'h3' || node.type === 'h4' || node.type === 'h5' || node.type === 'h6' || node.type === 'h7') {
+                    labelText = `${node.type} ${node.lines.length}l`;
+                    if (node.text) labelText += ` "${node.text.slice(0, 25)}"`;
                 }
                 if (node._hasIssue) {
                     labelText = '⚠ ' + labelText + ` (${node._issues.length})`;
@@ -601,7 +689,8 @@ function paintOverlay(model, auditResult, opts) {
             }
         }
         for (const c of node.children) paintNode(c, depth + 1);
-        // ציור שורות טקסט
+
+        // [רמה 3+] ציור שורות טקסט
         if (level >= 3 && node.lines && node.lines.length > 0) {
             for (const line of node.lines) {
                 const lineDiv = document.createElement('div');
@@ -614,6 +703,84 @@ function paintOverlay(model, auditResult, opts) {
                     box-sizing:border-box;
                 `;
                 labelContainer.appendChild(lineDiv);
+                // [חדש] תווית רוחב לשורה (בצד שמאל של השורה)
+                if (showLabels && level >= 3) {
+                    const lineLabel = document.createElement('div');
+                    lineLabel.style.cssText = `
+                        position:absolute;
+                        top:${line.y}px; left:${line.x - 30}px;
+                        background:rgba(71,85,105,0.85); color:white;
+                        font-size:6px; font-family:monospace;
+                        padding:0 2px; pointer-events:none; z-index:100000;
+                        direction:ltr;
+                    `;
+                    lineLabel.textContent = `${Math.round(line.w)}`;
+                    labelContainer.appendChild(lineLabel);
+                }
+            }
+        }
+
+        // [רמה 4+] ציור מילים — כל מילה מקבלת outline דק כתום
+        if (level >= 4 && node.words) {
+            for (const word of node.words) {
+                if (word.type !== 'word') continue;
+                const wordDiv = document.createElement('div');
+                wordDiv.style.cssText = `
+                    position:absolute;
+                    left:${word.x}px; top:${word.y}px;
+                    width:${word.w}px; height:${word.h}px;
+                    border:1px solid rgba(245, 158, 11, 0.95);
+                    background:rgba(245, 158, 11, 0.15);
+                    pointer-events:none; z-index:100002;
+                    box-sizing:border-box;
+                `;
+                labelContainer.appendChild(wordDiv);
+                // תווית רוחב מילה (מעל)
+                if (showLabels) {
+                    const wordLabel = document.createElement('div');
+                    wordLabel.style.cssText = `
+                        position:absolute;
+                        top:${word.y - 9}px; left:${word.x}px;
+                        background:rgba(245, 158, 11, 1); color:white;
+                        font-size:6px; font-family:monospace;
+                        padding:0 2px; pointer-events:none; z-index:100003;
+                        direction:ltr; font-weight:bold;
+                    `;
+                    wordLabel.textContent = `${Math.round(word.w)}`;
+                    labelContainer.appendChild(wordLabel);
+                }
+            }
+        }
+
+        // [רמה 5] ציור רווחים — כל רווח מקבל רקע כחול חצי-שקוף + תווית רוחב
+        if (level >= 5 && node.words) {
+            for (const space of node.words) {
+                if (space.type !== 'space') continue;
+                const spaceDiv = document.createElement('div');
+                spaceDiv.style.cssText = `
+                    position:absolute;
+                    left:${space.x}px; top:${space.y}px;
+                    width:${space.w}px; height:${space.h}px;
+                    background:rgba(59, 130, 246, 0.55);
+                    border:1px dashed rgba(59, 130, 246, 1);
+                    pointer-events:none; z-index:100001;
+                    box-sizing:border-box;
+                `;
+                labelContainer.appendChild(spaceDiv);
+                // תווית רוחב רווח (מתחת)
+                if (showLabels) {
+                    const spaceLabel = document.createElement('div');
+                    spaceLabel.style.cssText = `
+                        position:absolute;
+                        top:${space.y + space.h + 1}px; left:${space.x}px;
+                        background:rgba(59, 130, 246, 1); color:white;
+                        font-size:6px; font-family:monospace;
+                        padding:0 2px; pointer-events:none; z-index:100003;
+                        direction:ltr; font-weight:bold;
+                    `;
+                    spaceLabel.textContent = `${Math.round(space.w)}`;
+                    labelContainer.appendChild(spaceLabel);
+                }
             }
         }
     }
@@ -714,6 +881,10 @@ function buildNodeWithRefs(el, parent) {
     if (TEXT_TYPES.has(cls.type)) {
         node.lines = collectLines(el);
         node.text = (el.innerText || '').slice(0, 40).replace(/\n/g, ' ');
+        // [חדש] אסוף מילים ורווחים לפירוט מלא
+        node.words = collectWordsAndSpaces(el);
+        node.wordCount = node.words.filter(t => t.type === 'word').length;
+        node.spaceCount = node.words.filter(t => t.type === 'space').length;
     }
 
     if (DESCEND_INTO.has(cls.type) || cls.type === 'page' || cls.type === 'wrapper' || cls.type === 'body-flow' || cls.type === 'fn-block') {
@@ -742,7 +913,29 @@ window.__geomAudit = {
     audit: auditGeometry,
     paint: paintOverlay,
     clear: clearOverlay,
-    types: TYPE_COLORS
+    types: TYPE_COLORS,
+    // [חדש] מנקה את העץ מ-_parent (circular) לפני ייצוא JSON
+    cleanForExport: function(node) {
+        if (!node) return node;
+        const cleaned = { ...node };
+        delete cleaned._parent;
+        delete cleaned._hasIssue;
+        delete cleaned._issues;
+        delete cleaned._nodeToEl;
+        if (cleaned.children) {
+            cleaned.children = cleaned.children.map(c => this.cleanForExport(c));
+        }
+        if (cleaned.lines) {
+            cleaned.lines = cleaned.lines.map(l => ({ ...l }));
+        }
+        if (cleaned.words) {
+            cleaned.words = cleaned.words.map(w => ({ ...w }));
+        }
+        if (cleaned.issues) {
+            cleaned.issues = cleaned.issues.map(i => ({ ...i }));
+        }
+        return cleaned;
+    }
 };
 
 console.log('[geometry-audit] נטען. השתמש ב-window.__geomAudit.extract()/.audit()/.paint()/.clear()');

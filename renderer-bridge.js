@@ -231,6 +231,28 @@
             } catch (err) {
                 e.source.postMessage({ type: 'geom-error', error: err.message }, e.origin);
             }
+        } else if (msg.type === 'geom-export') {
+            // [חדש — גיאומטריה] ייצוא פירוט מלא כ-JSON (כולל מילים/רווחים)
+            try {
+                if (!window.__geomAudit) {
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    return;
+                }
+                const model = window.__geomAudit.extract();
+                const audit = window.__geomAudit.audit(model);
+                // נקה את העץ מ-_parent (circular) לפני ייצוא
+                const cleanModel = {
+                    pages: model.pages.map(p => window.__geomAudit.cleanForExport(p)),
+                    stats: model.stats
+                };
+                e.source.postMessage({
+                    type: 'geom-export-result',
+                    model: cleanModel,
+                    audit: audit
+                }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+            }
         }
     });
 
