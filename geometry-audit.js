@@ -313,15 +313,52 @@ function auditContainment(node, issues) {
                 right: Math.max(0, child.rect.right - node.rect.right),
                 bottom: Math.max(0, child.rect.bottom - node.rect.bottom)
             };
+            const overflowPx = Math.max(overflow.left, overflow.top, overflow.right, overflow.bottom);
+
+            // [תיקון] התאם את החומרה והסיווג לפי סוג הגלישה:
+            // - block-2col שגולש מ-body-flow: המנוע מותח את הבלוק האחרון בכוונה
+            //   (stretchPageToBottom). גלישה עד 10px היא "טבעית" = low, מעבר לזה = medium/high.
+            // - note-marker שגולש מ-p-cut/p-end: עיגול פיקסלים של סמן הערה (1.3px) = low.
+            // - side-note שגולש מ-margin-col: גלישה אמיתית של הערות צד.
+            // - כל השאר: גלישה אמיתית.
+            let severity = 'high';
+            let kind = 'containment';
+            let note = '';
+            const isBlockFromBodyFlow = child.type === 'block-2col' && node.type === 'body-flow';
+            const isNoteMarker = child.type === 'note-marker';
+            const isSideNote = child.type === 'side-note';
+
+            if (isBlockFromBodyFlow) {
+                if (overflowPx <= 10) {
+                    severity = 'low';
+                    note = ' (גלישה טבעית מ-stretchPageToBottom)';
+                } else if (overflowPx <= 20) {
+                    severity = 'medium';
+                    note = ' (גלישה מ-stretchPageToBottom)';
+                } else {
+                    severity = 'high';
+                    note = ' (גלישה חמורה מ-stretchPageToBottom)';
+                }
+            } else if (isNoteMarker && overflowPx <= 2) {
+                severity = 'low';
+                kind = 'containment-rounding';
+                note = ' (עיגול פיקסלים של סמן הערה)';
+            } else if (isSideNote) {
+                severity = overflowPx > 20 ? 'high' : 'medium';
+                note = ' (הערת צד גולשת משטח המרזב)';
+            }
+
             issues.push({
-                kind: 'containment',
-                severity: 'high',
+                kind: kind,
+                severity: severity,
                 pageIdx: getPageIdx(node),
                 location: describePath(node),
                 childType: child.type,
                 childText: child.text,
                 overflow,
-                message: `תיבת ${child.type} בולטת מ-${node.type}: ${JSON.stringify(overflow)}`
+                overflowPx: Math.round(overflowPx * 10) / 10,
+                note: note.trim(),
+                message: `תיבת ${child.type} בולטת מ-${node.type}: ${JSON.stringify(overflow)}${note}`
             });
         }
         auditContainment(child, issues);
