@@ -160,6 +160,77 @@
             e.source.postMessage({ type: 'html-result', html: html }, e.origin);
         } else if (msg.type === 'print') {
             window.print();
+        } else if (msg.type === 'fn-audit') {
+            // [חדש — מהימנות מדידה] מחזיר את תוצאות auditFnMeasurement + את הלוג המלא
+            try {
+                const audit = (typeof auditFnMeasurement === 'function') ? auditFnMeasurement() : [];
+                const log = window.__fnMeasureLog || [];
+                e.source.postMessage({ type: 'fn-audit-result', audit: audit, logSize: log.length, logSample: log.slice(-200) }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'fn-audit-error', error: err.message }, e.origin);
+            }
+        } else if (msg.type === 'fn-audit-clear-log') {
+            window.__fnMeasureLog = [];
+            e.source.postMessage({ type: 'fn-audit-log-cleared' }, e.origin);
+        } else if (msg.type === 'geom-extract') {
+            // [חדש — גיאומטריה] חלץ מודל גיאומטרי מה-iframe
+            try {
+                if (!window.__geomAudit) {
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    return;
+                }
+                const model = window.__geomAudit.extract();
+                e.source.postMessage({ type: 'geom-extract-result', model: model }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+            }
+        } else if (msg.type === 'geom-audit') {
+            // [חדש — גיאומטריה] הרץ בודק מתמטי + (אופציונלי) צייר overlay
+            try {
+                if (!window.__geomAudit) {
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    return;
+                }
+                const model = window.__geomAudit.extract();
+                const audit = window.__geomAudit.audit(model);
+                if (msg.opts && msg.opts.paint) {
+                    window.__geomAudit.paint(model, audit, { level: msg.opts.level || 2, labels: msg.opts.labels !== false });
+                }
+                e.source.postMessage({
+                    type: 'geom-audit-result',
+                    summary: audit.summary,
+                    issues: audit.issues,
+                    stats: model.stats
+                }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+            }
+        } else if (msg.type === 'geom-paint') {
+            // [חדש — גיאומטריה] צייר overlay על הדף
+            try {
+                if (!window.__geomAudit) {
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    return;
+                }
+                const model = window.__geomAudit.extract();
+                const audit = window.__geomAudit.audit(model);
+                window.__geomAudit.paint(model, audit, { level: msg.level || 2, labels: msg.labels !== false });
+                e.source.postMessage({
+                    type: 'geom-paint-done',
+                    summary: audit.summary,
+                    stats: model.stats
+                }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+            }
+        } else if (msg.type === 'geom-clear') {
+            // [חדש — גיאומטריה] נקה overlay
+            try {
+                if (window.__geomAudit) window.__geomAudit.clear();
+                e.source.postMessage({ type: 'geom-clear-done' }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message }, e.origin);
+            }
         }
     });
 

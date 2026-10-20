@@ -2166,3 +2166,87 @@ if (gtocShows.length === 0) {
 - **תוכן העניינים הכללי** עכשיו ייווצר נכון עם הכותרות המסומנות (1-6)
 - **תוכן העניינים המפורט** עכשיו ייווצר נכון עם הכותרות המסומנות (2-6)
 - **ייצוא/ייבוא הגדרות** עכשיו כולל את הגדרות ה-TOC
+
+---
+
+## Task ID: measurement-reliability-fix
+**Agent:** main (Super Z)
+**Date:** 2026-10-20
+**Task:** תיקון מהימנות המדידה של measureFootnoteAreaHeight, מעקב אחרי המדידה, ובדיקה היכן היא יכולה להיכשל.
+
+### Work Log:
+- ניתחתי את `measureFootnoteAreaHeight` (typesetter.js:2095) וזיהיתי 7 נקודות כישלון אפשריות (ראה טבלה בהמשך).
+- הוספתי `window.__fnMeasureLog` — לוג מפורט של כל קריאה (cache-hit ו-fresh-measure), כולל: queueSize, firstNumber, probeWidth, fnColumns, noteBodySize, layoutMode, attachedToBody, scrollHeight, offsetHeight, marginTop, marginBottom, returned, ctxKey.
+- הוספתי `auditFnMeasurement()` — פונקציה שמשווה את תחזית המדידה מול הגובה האמיתי של אזורי הערות בכל עמוד אחרי רינדור.
+- שיפרתי את `measureFootnoteAreaHeight`:
+  1. ה-probe מחובר ל-`.page-content-wrapper` אמיתי (במקום ל-document.body) — מבטיח הקשר CSS זהה.
+  2. משתמש ב-`Math.max(scrollHeight, offsetHeight)` במקום רק offsetHeight — תופס תוכן שגולש.
+  3. מפתח מטמון מורחב: `w{width}|c{cols}|s{size}|lh{lineHeight}|m{mode}||items` — מבטל חזרות שגויות אחרי שינוי הגדרות.
+- הוספתי הודעות `fn-audit` ו-`fn-audit-clear-log` ב-renderer-bridge.js.
+- הוספתי `requestFnAudit()` ו-`clearFnMeasureLog()` ב-app.js.
+- הוספתי כפתור "📏 בדיקת מדידת הערות" ו-"🧹 נקה לוג" בטאב הבדיקה.
+- הוספתי `renderFnAuditResults()` — מציג טבלה עם: עמוד, מספרי הערות, תחזית, scrollH, offsetH, אמיתי, realScroll, realOffset, פער, host, רוחב. פערים צבעוניים (ירוק/צהוב/אדום).
+- כתבתי בדיקת playwright שמפעילה את המערכת ומזריקה הערות ידנית. תוצאה: **predicted=54, real=54, diff=0** — המדידה מדויקת.
+
+### Stage Summary:
+- **נקודות כישלון שזוהו** (בסדר חומרה):
+  1. ה-probe היה מחובר ל-document.body במקום ל-page-content-wrapper → הקשר CSS שונה. **תוקן**.
+  2. שימוש ב-offsetHeight בלבד → לא תופס תוכן גולש. **תוקן** (Math.max עם scrollHeight).
+  3. מפתח מטמון לא כלל הקשר CSS → ערכים ישנים אחרי שינוי הגדרות. **תוקן**.
+  4. refWrapper.clientWidth לא מייצג כל עמוד → **תוקן** (מחפש אחרון עם page-body-flow).
+  5. margin collapse לא מחושב → נשאר (פער קטן בלבד).
+  6. Math.ceil על offsetHeight כבר מעוגל → נשאר (חיובי — שמרנות).
+  7. אין מעקב/לוג → **תוקן** (window.__fnMeasureLog + auditFnMeasurement).
+- **ממצא מרכזי**: בעמוד "ז" של הטקסט הדיפולטי, המדידה חזתה 54px והגובה האמיתי הוא 54px. **פער = 0**.
+- **תוצרים**:
+  - `typesetter.js` — measureFootnoteAreaHeight משופר + auditFnMeasurement חדש (כ-180 שורות חדשות)
+  - `renderer-bridge.js` — הודעות fn-audit ו-fn-audit-clear-log
+  - `app.js` — requestFnAudit, clearFnMeasureLog, renderFnAuditResults, כפתורים ב-UI
+  - `scripts/test-measurement-audit.js` ו-`scripts/test-audit-direct.js` — בדיקות playwright
+- **כיצד להשתמש**: בטאב "🔬 בדיקה" בכפתור "📏 בדיקת מדידת הערות" → מציג טבלת פערים. כפתור "🧹 נקה לוג" מאפס את הלוג לפני ריצה חוזרת.
+
+---
+
+## Task ID: geometry-overlay-audit
+**Agent:** main (Super Z)
+**Date:** 2026-10-20
+**Task:** הוספת כפתור שמציג את תוצאות החישוב המתמטי על הדף כקווי גבול, כדי שנוכל לאמת ויזואלית את התוצאות.
+
+### Work Log:
+- יצרתי קובץ חדש `geometry-audit.js` (~750 שורות) שמכיל:
+  - **חלק 1: חילוץ גיאומטריה** — `extractGeometryWithDomRefs()` סורק את ה-DOM ובונה עץ תיבות (page → wrapper → body-flow → block-2col → column → p-cut/p-end → lines) עם קואורדינטות מוחלטות מ-getBoundingClientRect. כל נקודה מקבלת _parent ו-reference ל-DOM (WeakMap).
+  - **חלק 2: בודק מתמטי** — `auditGeometry(model)` מריץ 7 בדיקות:
+    1. `auditContainment` — תיבה בתוך אב (עם tolerance 1px)
+    2. `auditSiblingOverlap` — אחים לא חופפים (כנ"ל)
+    3. `auditColumnBalance` — הפרש טורים ≤5px
+    4. `auditWidowOrphan` — שורה אחת בודדת בקצה טור
+    5. `auditSparseLastLine` — שורה אחרונה ב-p-cut עם רוחב <50% מהראשונה
+    6. `auditOverflowToFootnote` — גוף חודר לאזור הערות
+    7. `auditPageOverflow` — רכיב חורג מתחתית העמוד
+  - **חלק 3: Overlay ויזואלי** — `paintOverlay()` מצייר outline צבעוני לכל רכיב + תוויות. רמות: 0=רק בעיות, 1=בלוקים, 2=פסקאות, 3=שורות. בעיות מסומנות באדום עבה (3px).
+- הוספתי טעינה של `geometry-audit.js` ב-renderer.html (בתוך ה-iframe).
+- הוספתי הודעות ב-renderer-bridge.js: `geom-extract`, `geom-audit`, `geom-paint`, `geom-clear`.
+- הוספתי פונקציות ב-app.js: `requestGeomAudit()`, `clearGeomOverlay()`, `renderGeomResults()`.
+- הוספתי כפתורים בטאב הבדיקה:
+  - "📐 גיאומטריה" — מפעיל audit + מצייר overlay
+  - "✖ נקה" — מנקה overlay
+  - תפריט רמת פירוט (0-3)
+  - מקרא צבעים מובנה בתוצאות
+
+### בדיקות (Playwright):
+1. **בדיקה בסיסית** (10 עמודים דיפולטיים): 63 nodes בעץ, 16-63 רכיבים מסומנים לפי רמה. ניקוי עובד.
+2. **בדיקה עם טקסט ארוך** (200 שורות, 23 עמודים): מצא **2 בעיות high** (block-2col בולט מ-body-flow ב-2px בעמודים 13, 16) ו-**14 בעיות low** (שורה דלילה בסוף פסקה) ב-11 עמודים.
+3. **VLM אימת** שה-overlay מציג: כחול לעמוד, כתום לכותרות, ירוק לבלוקים/טורים, סגול ל-H3+, תווית "page N" בפינה.
+
+### Stage Summary:
+- **תוצרים**:
+  - `geometry-audit.js` — חדש (~750 שורות)
+  - `renderer.html` — טעינת geometry-audit.js
+  - `renderer-bridge.js` — 4 הודעות חדשות
+  - `app.js` — 3 פונקציות חדשות + כפתורים ב-UI + האזנות להודעות
+  - `scripts/test-geom-audit.js`, `scripts/test-geom-long.js` — בדיקות playwright
+  - `download/geom-overlay-detail.png`, `download/geom-overlay-with-issues.png`, `download/geom-audit-long.json` — תוצרי בדיקה
+- **ממצאים מעניינים**:
+  - המנוע יוצר גלישות קטנות (~2px) של block-2col מתחת ל-body-flow — אולי באג אמיתי ב-math של `totalFlowH` או `remPageHeight`.
+  - יש הרבה שורה דלילה בסוף פסקה (sparse-line) — זה צפוי ותקין במקרים רבים, אבל יכול להצביע על עימוד לא-אופטימלי.
+- **כיצד להשתמש**: טאב "🔬 בדיקה" → בחר רמת פירוט → לחץ "📐 גיאומטריה". רואים overlay צבעוני על כל עמוד + טבלת בעיות. לחץ "✖ נקה" להסרה.
