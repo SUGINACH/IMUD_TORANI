@@ -3805,9 +3805,13 @@ function applyCrossParagraphParens(container) {
 
     allP.forEach(p => {
         const rawText = p.getAttribute('data-raw-text') || '';
-        // ספור ( ו- ) בטקסט הגולמי של הפסקה
+        // ספור ( ו- ) בטקסט הגולמי של הפסקה — אבל התעלם מסוגריים שבתוך [...] (הערות שוליים)
         let openCount = 0, closeCount = 0;
+        let inBracket = false;
         for (const ch of rawText) {
+            if (ch === '[') { inBracket = true; continue; }
+            if (ch === ']') { inBracket = false; continue; }
+            if (inBracket) continue;
             if (ch === '(') openCount++;
             else if (ch === ')') closeCount++;
         }
@@ -3853,10 +3857,14 @@ function markInsideParenParagraphs(sections) {
             if (tok.type !== 'p') return;
             // סמן את הפסקה לפי העומק הנוכחי (לפני ספירת הסוגריים של הפסקה עצמה)
             map[tok.id] = (parenDepth > 0);
-            // ספור ( ו- ) בטקסט של הפסקה
+            // ספור ( ו- ) בטקסט של הפסקה — אבל התעלם מסוגריים שבתוך [...] (הערות שוליים)
             const text = tok.text || '';
             let openCount = 0, closeCount = 0;
+            let inBracket = false;
             for (const ch of text) {
+                if (ch === '[') { inBracket = true; continue; }
+                if (ch === ']') { inBracket = false; continue; }
+                if (inBracket) continue;
                 if (ch === '(') openCount++;
                 else if (ch === ')') closeCount++;
             }
