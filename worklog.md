@@ -2376,3 +2376,44 @@ if (gtocShows.length === 0) {
 - **Overlay שלא גולל**: תוקן על ידי שימוש ב-document-absolute coords.
 - **לחיצה על בעיה**: תוקן — גולל לעמוד המתאים.
 - **sparse-line על p-end**: תוקן — רק p-cut נבדק עכשיו.
+
+---
+## Task ID: v22-geometry-audit-review-and-fixes
+### Agent: Claude (ענף V22)
+### Task: הרצה בפועל של geometry-audit.js (V21) ותיקון הכללים שנמצאו שגויים
+
+### שיטה:
+V21 הורץ ב-Chrome headless (Linux, Chrome 153) על `mid_long_test_text.txt` (127 עמודים, `default_settings.json`),
+ודיווחי הבודק הושוו למדידה עצמאית מה-DOM (גובה פסקה / גובה שורה, `data-is-cont`, מיקומי אזור ההערות).
+
+### לפני → אחרי (אותו טקסט, אותו מנוע):
+| מדד | לפני | אחרי |
+|---|---|---|
+| בעיות בסך הכול | 455 | 205 |
+| ספירת שורות שגויה (331 פסקאות שגובהן כפולה שלמה של גובה השורה) | 171 (52%) | 4 (1.2%) |
+| אלמנות (מדידה עצמאית לפי סעיף 3.1: 7) | 5 דיווחים שגויים, 0 נכונים | 7 = 7 |
+| sparse-line | 275 (247 מהם p-end) | 20 — כולן מילה בודדת בשורה האחרונה של p-cut |
+| fn-overflow (טקסט שחודר לאזור ההערות) | 0 | 3: עמוד 47 (474px), 107 (163px), 90 (7px) |
+| צמתי fn-num / header שסווגו נכון | 0 / 0 | 76 / 117 |
+| chain / U+E000 / כותרת בתחתית טור | לא נבדק | 0 / 0 / 0 (נבדק) |
+
+### מה תוקן ב-`geometry-audit.js`:
+- `collectLines`: אשכול אנכי של מלבני צמתי טקסט (ללא `.first-word-window`) במקום דה-דופליקציה לפי (top,height) שספרה קטעי טקסט ולא שורות.
+- `auditWidowOrphan`: לפי `1_Defining_Layout_Issues.md` — אלמנה = המשך (`data-is-cont`) בראש טור עם שורה אחת; יתום = `p-cut` בסוף טור עם שורה אחת. `p-end` קצר בסוף טור תקין.
+- `auditSparseLastLine`: רק `p-cut` אחרון בטור, מול רוחב הטור. (המדידה `rect.right - colRect.left` שבסעיף 5.6 אינה מזהה כלום ב-RTL כי השורה צמודה לימין.)
+- `auditOverflowToFootnote`: בדיקה לפי תחתית הטקסט בפועל ולא לפי תיבת `body-flow` (שגלישת תוכן ממנה לא נתפסת).
+- `classifyElement`: `note-line-num` לפני `note-line`; `top-header-grid` מזוהה כ-`header`.
+- כללים חדשים: `heading-at-bottom`, `empty-column`, `chain-broken`, `pua-char`.
+- `auditGeometry` רצה גם ב-Node (`module.exports`) על ה-JSON המיוצא — בלי דפדפן.
+
+### קבצים חדשים:
+- `tests/geometry-audit.test.js` — 19 בדיקות יחידה על מודלים סינתטיים (`node --test tests/geometry-audit.test.js`).
+- `scripts/geometry-audit-cli.js` — בודק JSON מיוצא (כפתור "פירוט מלא") ב-Node; `--fail-on` ל-CI.
+- `scripts/geometry-audit-headless.mjs` — עימוד ב-Chrome headless → JSON → בדיקה (דורש `npm i puppeteer-core`).
+  אותה בדיקה ב-Node על ה-JSON נותנת בדיוק אותן 205 תוצאות כמו בדפדפן.
+
+### ממצאי מנוע פתוחים (לא תוקנו כאן):
+- עמודים 47 ו-107: טקסט הגוף חודר לאזור ההערות ב-474px ו-163px (בריצה על Linux — כדאי לאמת בדפדפן הרגיל).
+- 20 שורות דלילות אמיתיות: מילה אחת בשורה האחרונה של `p-cut` (4–12% מהטור); `text-align-last: justify` לא יכול למתוח מילה בודדת.
+- אי-איזון: 128 מתוך 167 בלוקים בשני טורים מעל 5px (31 מהם מעל 2.2 שורות). החומרה בבודק נקבעת בפיקסלים ולא ביחס לגובה השורה.
+- 14 הערות צד בולטות מעמודת השוליים שלהן.
