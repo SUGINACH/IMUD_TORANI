@@ -4003,18 +4003,16 @@ function applyCrossParagraphParens(container) {
     });
 }
 
-/* [חדש] עוטף את כל תוכן הפסקה ב-span אחד של paren-text. */
+/* עוטף פסקה שחוצה סוגריים בלי לשנות את הגאומטריה אחרי איזון הטורים.
+   עיצוב גודל/משפחת הגופן לאחר העימוד גורם למדידה ולתוצאה הסופית להיות שונות,
+   ולכן הפסקה נשארת בגודל הגופן שירשה בשלב העימוד. */
 function wrapEntireParagraphInParenStyle(p) {
-    // מצא את גודל המארח (גוף הטקסט)
-    const hostSize = getBodySizePt();
     const span = document.createElement('span');
     span.className = 'paren-text';
-    // העבר את כל הילדים לתוך ה-span
     while (p.firstChild) {
         span.appendChild(p.firstChild);
     }
     p.appendChild(span);
-    applyParenStyle(span, hostSize);
 }
 
 /* [חדש] Pre-pass: עובר על כל הטוקנים של כל ה-sections בסדר מסמך, עוקב אחרי עומק הסוגריים
