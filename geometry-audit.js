@@ -47,14 +47,16 @@ function classifyElement(el) {
     if (cls.includes('a4-page')) return { type: 'page', tag };
     if (cls.includes('page-content-wrapper')) return { type: 'wrapper', tag };
     if (cls.includes('page-body-flow')) return { type: 'body-flow', tag };
-    if (cls.includes('page-header')) return { type: 'header', tag };
+    // [V22] המחלקה האמיתית של כותרת העמוד ב-DOM היא top-header-grid
+    if (cls.includes('page-header') || cls.includes('top-header-grid')) return { type: 'header', tag };
     if (cls.includes('page-number-footer')) return { type: 'page-number', tag };
     if (cls.includes('footnote-area')) return { type: 'footnote-area', tag };
     if (cls.includes('footnote-header-wrap')) return { type: 'fn-header', tag };
     if (cls.includes('note-rule-') || cls.includes('note-rule')) return { type: 'fn-rule', tag };
     if (cls.includes('note-block')) return { type: 'fn-block', tag };
-    if (cls.includes('note-line')) return { type: 'fn-line', tag };
+    // [V22] note-line-num חייב להיבדק לפני note-line (תת-מחרוזת) — אחרת מספרי ההערות נספרים כשורות הערה
     if (cls.includes('note-line-num')) return { type: 'fn-num', tag };
+    if (cls.includes('note-line')) return { type: 'fn-line', tag };
     if (cls.includes('block-2col')) return { type: 'block-2col', tag };
     if (cls.includes('block-h3-span')) return { type: 'block-h3-span', tag };
     if (cls.includes('block-single-col')) return { type: 'block-single-col', tag };
@@ -117,32 +119,57 @@ const TEXT_TYPES = new Set(['p', 'p-cut', 'p-end', 'fn-line', 'h2-title', 'h3-ti
 
 /* אוסף שורות טקסט מתוך אלמנט טקסט ע"י getClientRects על Range */
 function collectLines(el) {
+    /* [V22] שורה = אשכול אנכי של מלבני טקסט.
+       הבעיה הקודמת: getClientRects על כל האלמנט מחזיר מלבן לכל קטע טקסט (ריצות בגופנים/גדלים שונים)
+       ולכל אלמנט פנימי (למשל המילה הצפה), ודה-דופליקציה לפי (top,height) ספרה קטעים ולא שורות
+       (ספירת יתר ב-52% מהפסקאות במדידה על 127 עמודים).
+       כאן: מלבנים של צמתי טקסט בלבד, ללא .first-word-window (צף), ממוינים לפי מרכז אנכי, ופער
+       גדול מחצי גובה-שורה בין מרכזים עוקבים פותח שורה חדשה. */
     const lines = [];
     try {
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        const rects = range.getClientRects();
-        const seen = new Set();
         const off = getBookContainerOffset();
-        for (let i = 0; i < rects.length; i++) {
-            const r = rects[i];
-            if (r.height < 1 || r.width < 1) continue;
-            // דה-דופליקציה לפי Y (לפעמים יש כפילויות)
-            const key = Math.round(r.top - off.y) + ':' + Math.round(r.height);
-            if (seen.has(key)) continue;
-            seen.add(key);
-            lines.push({
-                x: r.left - off.x, y: r.top - off.y, w: r.width, h: r.height,
-                right: r.right - off.x, bottom: r.bottom - off.y,
-                idx: lines.length
-            });
+        const cs = getComputedStyle(el);
+        let pitch = parseFloat(cs.lineHeight);
+        if (!(pitch > 0)) pitch = (parseFloat(cs.fontSize) || 16) * 1.3;
+        const items = [];
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let tn;
+        while ((tn = walker.nextNode())) {
+            if (!/\S/.test(tn.nodeValue)) continue;
+            const pe = tn.parentElement;
+            if (pe && pe.closest && pe.closest('.first-word-window')) continue;
+            const rg = document.createRange();
+            rg.selectNodeContents(tn);
+            const rs = rg.getClientRects();
+            for (let i = 0; i < rs.length; i++) {
+                const r = rs[i];
+                if (r.height < 1 || r.width < 1) continue;
+                items.push({ l: r.left, t: r.top, r: r.right, b: r.bottom, cy: (r.top + r.bottom) / 2 });
+            }
+        }
+        items.sort((a, b) => a.cy - b.cy || a.l - b.l);
+        const gap = 0.5 * pitch;
+        let cur = null, prevCy = 0;
+        for (const it of items) {
+            if (cur && it.cy - prevCy <= gap) {
+                if (it.l < cur.l) cur.l = it.l;
+                if (it.r > cur.r) cur.r = it.r;
+                if (it.t < cur.t) cur.t = it.t;
+                if (it.b > cur.b) cur.b = it.b;
+            } else {
+                cur = { l: it.l, t: it.t, r: it.r, b: it.b };
+                lines.push(cur);
+            }
+            prevCy = it.cy;
+        }
+        for (let i = 0; i < lines.length; i++) {
+            const c = lines[i];
+            lines[i] = { x: c.l - off.x, y: c.t - off.y, w: c.r - c.l, h: c.b - c.t,
+                         right: c.r - off.x, bottom: c.b - off.y, idx: i };
         }
     } catch (e) {
-        // אם הטקסט ריק או שגיאה — מחזיר מערך ריק
+        // טקסט ריק / שגיאה — מערך ריק
     }
-    // מיון לפי Y עולה
-    lines.sort((a, b) => a.y - b.y || a.x - b.x);
-    lines.forEach((l, i) => l.idx = i);
     return lines;
 }
 
@@ -428,60 +455,64 @@ function auditColumnBalance(node, issues) {
 }
 
 function auditWidowOrphan(node, issues) {
-    // בכל טור — בדוק את הפסקה הראשונה והאחרונה
+    /* [V22] לפי Reports_Summaries_Studies/1_Defining_Layout_Issues.md (בעיות 1-2):
+       אלמנה = פסקת המשך (data-is-cont) בראש טור עם שורה אחת בלבד.
+       יתום  = פסקה חתוכה (p-cut, ממשיכה בטור הבא) בסוף טור עם שורה אחת בלבד.
+       p-end בסוף טור עם שורה אחת = פסקה קצרה שלמה — תקין, לא מדווח. */
     if (node.type === 'column') {
-        const ps = node.children.filter(c => c.type === 'p' || c.type === 'p-cut' || c.type === 'p-end');
-        if (ps.length > 0) {
-            const first = ps[0];
-            // אלמנה: פסקה אחרונה בטור עם שורה אחת
-            const last = ps[ps.length - 1];
-            if (last.lines.length === 1 && last.type === 'p-end') {
-                issues.push({
-                    kind: 'widow',
-                    severity: 'medium',
-                    pageIdx: getPageIdx(node),
-                    location: describePath(node),
-                    pText: last.text,
-                    childRect: { x: Math.round(last.rect.x), y: Math.round(last.rect.y), w: Math.round(last.rect.w), h: Math.round(last.rect.h) },
-                    message: `אלמנה: שורה אחת בודדת בסוף טור ${node.side} ("${last.text.slice(0, 30)}...")`
-                });
-            }
-            // יתום: פסקה ראשונה בטור עם שורה אחת שהיא p-cut (ממשיכה מהטור הקודם)
-            if (first.lines.length === 1 && first.type === 'p-cut' && ps.length > 1) {
-                issues.push({
-                    kind: 'orphan',
-                    severity: 'medium',
-                    pageIdx: getPageIdx(node),
-                    location: describePath(node),
-                    pText: first.text,
-                    childRect: { x: Math.round(first.rect.x), y: Math.round(first.rect.y), w: Math.round(first.rect.w), h: Math.round(first.rect.h) },
-                    message: `יתום: שורה אחת בודדת בתחילת טור ${node.side} ("${first.text.slice(0, 30)}...")`
-                });
-            }
+        const items = node.children;
+        const isPara = c => c.type === 'p' || c.type === 'p-cut' || c.type === 'p-end';
+        const first = items[0], last = items[items.length - 1];
+        if (first && isPara(first) && first.cont && first.lines.length === 1) {
+            issues.push({
+                kind: 'widow',
+                severity: 'high',
+                pageIdx: getPageIdx(node),
+                location: describePath(node),
+                pText: first.text,
+                childRect: rInts(first.rect),
+                message: `אלמנה: פסקת המשך עם שורה אחת בלבד בראש טור ${node.side} ("${first.text.slice(0, 30)}...")`
+            });
+        }
+        if (last && last.type === 'p-cut' && last.lines.length === 1) {
+            issues.push({
+                kind: 'orphan',
+                severity: 'high',
+                pageIdx: getPageIdx(node),
+                location: describePath(node),
+                pText: last.text,
+                childRect: rInts(last.rect),
+                message: `יתום: פסקה חתוכה עם שורה אחת בלבד בסוף טור ${node.side} ("${last.text.slice(0, 30)}...")`
+            });
         }
     }
     for (const c of node.children) auditWidowOrphan(c, issues);
 }
 
 function auditSparseLastLine(node, issues) {
-    // [תיקון] רק p-cut (פסקה שנחתכה באמצע) צריכה להיבדק — השורה האחרונה של p-cut
-    // אמורה להיות מלאה (כי היא נחתכה רק כי השורה הבאה לא נכנסה).
-    // p-end (סוף פסקה) תמיד תסתיים בשורה דלילה — זה טבעי ואינו בעיה.
-    if (node.type === 'p-cut' && node.lines.length > 1) {
-        const lastLine = node.lines[node.lines.length - 1];
-        const firstLine = node.lines[0];
-        if (firstLine.w > 0 && lastLine.w < firstLine.w * TOL.sparseLastLine) {
-            issues.push({
-                kind: 'sparse-line',
-                severity: 'low',
-                pageIdx: getPageIdx(node),
-                location: describePath(node),
-                lastW: Math.round(lastLine.w),
-                firstW: Math.round(firstLine.w),
-                pText: node.text,
-                childRect: { x: Math.round(lastLine.x), y: Math.round(lastLine.y), w: Math.round(lastLine.w), h: Math.round(lastLine.h) },
-                message: `שורה דלילה בסוף p-cut: רוחב אחרון=${Math.round(lastLine.w)}px ראשון=${Math.round(firstLine.w)}px`
-            });
+    /* [V22] לפי המסמך (בעיה 3): p-cut שהוא הפריט האחרון בטור, ושורתו האחרונה צרה
+       מ-TOL.sparseLastLine (50%) מרוחב הטור. ההשוואה לרוחב הטור (ולא לשורה הראשונה,
+       שמצטמצמת במילה ראשונה צפה). p-end דלילה — טבעי ואינו מדווח. */
+    if (node.type === 'p-cut' && node.lines.length > 0 && node._parent && node._parent.type === 'column') {
+        const col = node._parent;
+        const sibs = col.children;
+        if (sibs[sibs.length - 1] === node && col.rect.w > 0) {
+            const lastLine = node.lines[node.lines.length - 1];
+            const firstLine = node.lines[0];
+            if (lastLine.w < col.rect.w * TOL.sparseLastLine) {
+                issues.push({
+                    kind: 'sparse-line',
+                    severity: 'medium',
+                    pageIdx: getPageIdx(node),
+                    location: describePath(node),
+                    lastW: Math.round(lastLine.w),
+                    firstW: Math.round(firstLine.w),
+                    colW: Math.round(col.rect.w),
+                    pText: node.text,
+                    childRect: rInts(lastLine),
+                    message: `שורה דלילה בסוף p-cut: רוחב אחרון=${Math.round(lastLine.w)}px מתוך טור ${Math.round(col.rect.w)}px`
+                });
+            }
         }
     }
     for (const c of node.children) auditSparseLastLine(c, issues);
@@ -494,6 +525,56 @@ function auditOverflowToFootnote(page, issues) {
     const bodyFlow = findChild(wrapper, 'body-flow');
     const fnArea = findChild(wrapper, 'footnote-area');
     const pageNumber = findChild(wrapper, 'page-number');
+    /* [V22] בדיקה לפי תוכן הטקסט בפועל, לא רק לפי תיבת ה-body-flow: תוכן שגולש מהתיבה
+       (overflow:visible) לא נתפס בהשוואת תיבות. במדידה על 127 עמודים: טקסט חדר לאזור ההערות
+       ב-475px (עמוד 47) וב-165px (עמוד 107) בלי שאף בדיקה דיווחה. */
+    let __textBottom = -Infinity, __textNode = null, __textLine = null;
+    if (bodyFlow) {
+        (function walkText(n) {
+            for (const l of n.lines || []) {
+                if (l.bottom > __textBottom) { __textBottom = l.bottom; __textNode = n; __textLine = l; }
+            }
+            for (const c of n.children || []) walkText(c);
+        })(bodyFlow);
+    }
+    if (bodyFlow && fnArea && __textNode) {
+        const over = __textBottom - fnArea.rect.y;
+        if (over > TOL.containment && !issues.some(i => i.kind === 'fn-overflow' && i.pageIdx === page.idx)) {
+            issues.push({
+                kind: 'fn-overflow',
+                severity: over > 2 ? 'high' : 'medium',
+                basis: 'text',
+                pageIdx: page.idx,
+                location: `page ${page.label}`,
+                overlapPx: Math.round(over * 10) / 10,
+                textBottom: Math.round(__textBottom),
+                fnTop: Math.round(fnArea.rect.y),
+                pText: __textNode.text,
+                aRect: rInts(__textLine),
+                bRect: rInts(fnArea.rect),
+                message: `טקסט הגוף חודר לאזור ההערות בעמוד ${page.label}: ${Math.round(over)}px`
+            });
+        }
+    }
+    if (bodyFlow && pageNumber && __textNode) {
+        const over = __textBottom - pageNumber.rect.y;
+        if (over > TOL.containment && !issues.some(i => i.kind === 'pn-overflow' && i.pageIdx === page.idx)) {
+            issues.push({
+                kind: 'pn-overflow',
+                severity: over > 2 ? 'high' : 'medium',
+                basis: 'text',
+                pageIdx: page.idx,
+                location: `page ${page.label}`,
+                overlapPx: Math.round(over * 10) / 10,
+                textBottom: Math.round(__textBottom),
+                pnTop: Math.round(pageNumber.rect.y),
+                pText: __textNode.text,
+                aRect: rInts(__textLine),
+                bRect: rInts(pageNumber.rect),
+                message: `טקסט הגוף חודר למספר העמוד בעמוד ${page.label}: ${Math.round(over)}px`
+            });
+        }
+    }
     if (bodyFlow && fnArea) {
         const gap = fnArea.rect.y - bodyFlow.rect.bottom;
         if (gap < -TOL.containment) {
@@ -680,30 +761,163 @@ function findPageIdxInTree(node) {
 }
 
 /* הפעלת כל הבדיקות */
-function auditGeometry(model) {
-    const issues = [];
+/* [V22] עוזר: מלבן עם מספרים שלמים (לשדות childRect/aRect/bRect של ההבהוב) */
+function rInts(r) {
+    return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) };
+}
+
+function hasType(node, type) {
+    if (!node) return false;
+    if (node.type === type) return true;
+    for (const c of node.children || []) if (hasType(c, type)) return true;
+    return false;
+}
+
+/* [V22] בעיה 5 במסמך: כותרת (רמות 3-6) בתחתית טור — או כותרת ואחריה פחות מ-2 שורות גוף */
+function auditHeadingAtColumnBottom(node, issues) {
+    if (node.type === 'column') {
+        const items = node.children;
+        const n = items.length;
+        const isHead = c => c.type === 'h3' || c.type === 'h4' || c.type === 'h5' || c.type === 'h6';
+        const isPara = c => c.type === 'p' || c.type === 'p-cut' || c.type === 'p-end';
+        if (n >= 1 && isHead(items[n - 1])) {
+            const h = items[n - 1];
+            issues.push({
+                kind: 'heading-at-bottom',
+                severity: 'high',
+                pageIdx: getPageIdx(node),
+                location: describePath(node),
+                pText: h.text,
+                childRect: rInts(h.rect),
+                message: `כותרת ${h.type} בתחתית טור ${node.side} בלי גוף אחריה ("${h.text.slice(0, 30)}")`
+            });
+        } else if (n >= 2 && isHead(items[n - 2]) && isPara(items[n - 1]) && items[n - 1].lines.length < 2) {
+            const h = items[n - 2], p = items[n - 1];
+            const complete = p.type === 'p-end' && !p.cont;
+            issues.push({
+                kind: 'heading-at-bottom',
+                severity: complete ? 'medium' : 'high',
+                pageIdx: getPageIdx(node),
+                location: describePath(node),
+                pText: h.text,
+                aRect: rInts(h.rect),
+                bRect: rInts(p.rect),
+                message: `כותרת ${h.type} עם שורת גוף אחת בלבד בתחתית טור ${node.side}${complete ? ' (פסקה קצרה שלמה)' : ''}`
+            });
+        }
+    }
+    for (const c of node.children) auditHeadingAtColumnBottom(c, issues);
+}
+
+/* [V22] בעיה 7: טור ריק כשהטור השני מלא. בסוף פרק זה תקין (low), אחרת high */
+function auditEmptyColumn(page, nextPage, issues) {
+    const wrapper = page.children[0];
+    if (!wrapper) return;
+    const flow = findChild(wrapper, 'body-flow');
+    if (!flow) return;
+    flow.children.forEach((b, bi) => {
+        if (b.type !== 'block-2col') return;
+        const cols = b.children.filter(c => c.type === 'column');
+        if (cols.length !== 2) return;
+        const cnt = c => c.children.filter(x => TEXT_TYPES.has(x.type) && x.lines.length).length;
+        const a = cnt(cols[0]), d = cnt(cols[1]);
+        if ((a === 0) !== (d === 0)) {
+            const empty = a === 0 ? cols[0] : cols[1];
+            const benign = bi === flow.children.length - 1 && (!nextPage || hasType(nextPage, 'h2-title'));
+            issues.push({
+                kind: 'empty-column',
+                severity: benign ? 'low' : 'high',
+                pageIdx: page.idx,
+                location: describePath(empty),
+                childRect: rInts(empty.rect),
+                message: `טור ${empty.side} ריק כשהטור השני מלא${benign ? ' (ייתכן סוף פרק — תקין)' : ''}`
+            });
+        }
+    });
+}
+
+/* [V22] שרשרת המשך: כל p-cut חייב להמשיך בפסקת is-cont מיד אחריו (סדר קריאה: ימין לפני שמאל),
+   וכל is-cont חייב לבוא אחרי p-cut. שבירה = אובדן או כפילות של טקסט. */
+function auditChain(model, issues) {
+    const seq = [];
     for (const page of model.pages) {
+        const wrapper = page.children[0];
+        if (!wrapper) continue;
+        const flow = findChild(wrapper, 'body-flow');
+        if (!flow) continue;
+        for (const b of flow.children) {
+            if (b.type !== 'block-2col') continue;
+            const cols = b.children.filter(c => c.type === 'column');
+            cols.sort((x, y) => (x.side === 'right' ? 0 : 1) - (y.side === 'right' ? 0 : 1));
+            for (const col of cols) {
+                for (const it of col.children) {
+                    if (TEXT_TYPES.has(it.type)) seq.push({ it, pageIdx: page.idx, col });
+                }
+            }
+        }
+    }
+    const isPara = t => t === 'p' || t === 'p-cut' || t === 'p-end';
+    for (let i = 0; i < seq.length; i++) {
+        const cur = seq[i].it;
+        const nx = seq[i + 1] && seq[i + 1].it;
+        const pv = seq[i - 1] && seq[i - 1].it;
+        let why = null;
+        if (cur.type === 'p-cut' && !(nx && isPara(nx.type) && nx.cont)) why = 'פסקה חתוכה (p-cut) שאחריה אין פסקת המשך';
+        else if (isPara(cur.type) && cur.cont && !(pv && pv.type === 'p-cut')) why = 'פסקת המשך (is-cont) שלפניה אין p-cut';
+        if (why) {
+            issues.push({
+                kind: 'chain-broken',
+                severity: 'high',
+                pageIdx: seq[i].pageIdx,
+                location: describePath(cur),
+                pText: cur.text,
+                childRect: rInts(cur.rect),
+                message: `${why} ("${cur.text.slice(0, 30)}")`
+            });
+        }
+    }
+}
+
+/* [V22] בעיה 9: תו U+E000 (ריבוע) בטקסט */
+function auditPUA(node, issues) {
+    if (node.pua) {
+        issues.push({
+            kind: 'pua-char',
+            severity: 'high',
+            pageIdx: getPageIdx(node),
+            location: describePath(node),
+            pText: node.text,
+            childRect: rInts(node.rect),
+            message: `תו U+E000 (ריבוע) בטקסט: "${node.text.slice(0, 30)}"`
+        });
+    }
+    for (const c of node.children) auditPUA(c, issues);
+}
+
+function auditGeometry(model) {
+    /* פונקציה דטרמיניסטית של המודל בלבד (בלי DOM): רצה גם ב-Node על JSON מיוצא.
+       הערה: היא מוסיפה _parent לצמתים כדי לעלות בעץ (cleanForExport מסיר אותו). */
+    const issues = [];
+    const pages = model.pages;
+    for (let pi = 0; pi < pages.length; pi++) {
+        const page = pages[pi];
         for (const c of page.children) annotateParents(c, page);
         page._parent = null;
         page.type = 'page';
-        // עדכן getPageIdx דרך _parent
         for (const c of page.children) {
             auditContainment(c, issues);
             auditSiblingOverlap(c, issues);
             auditColumnBalance(c, issues);
             auditWidowOrphan(c, issues);
             auditSparseLastLine(c, issues);
+            auditHeadingAtColumnBottom(c, issues);
+            auditPUA(c, issues);
         }
         auditOverflowToFootnote(page, issues);
         auditPageOverflow(page, issues);
+        auditEmptyColumn(page, pages[pi + 1], issues);
     }
-    // עדכן pageIdx בכל בעיה ע"י חיפוש בעץ
-    issues.forEach(iss => {
-        if (iss.pageIdx === -1 || iss.pageIdx === undefined) {
-            // ננסה למצוא לפי מיקום Y
-        }
-    });
-    // סיכום
+    auditChain(model, issues);
     const summary = {
         total: issues.length,
         high: issues.filter(i => i.severity === 'high').length,
@@ -1038,6 +1252,9 @@ function buildNodeWithRefs(el, parent) {
         // [חדש] אסוף מילים ורווחים לפירוט מלא
         node.words = collectWordsAndSpaces(el);
         node.wordCount = node.words.filter(t => t.type === 'word').length;
+        // [V22] שדות שהבודק צריך: האם זו פסקת המשך (data-is-cont) והאם יש בה תו U+E000 (ריבוע)
+        node.cont = el.getAttribute('data-is-cont') === 'true';
+        node.pua = (el.textContent || '').indexOf('\uE000') !== -1;
         node.spaceCount = node.words.filter(t => t.type === 'space').length;
     }
 
@@ -1136,7 +1353,7 @@ function clearHighlight() {
     if (c) c.remove();
 }
 
-window.__geomAudit = {
+const __geomApi = {
     extract: extractGeometryWithDomRefs,
     audit: auditGeometry,
     paint: paintOverlay,
@@ -1168,6 +1385,9 @@ window.__geomAudit = {
     }
 };
 
-console.log('[geometry-audit] נטען. השתמש ב-window.__geomAudit.extract()/.audit()/.paint()/.clear()');
+if (typeof window !== 'undefined') window.__geomAudit = __geomApi;
+if (typeof module !== 'undefined' && module.exports) module.exports = __geomApi;   // [V22] הרצה ב-Node על JSON מיוצא
+
+if (typeof console !== 'undefined' && typeof window !== 'undefined') console.log('[geometry-audit] נטען. השתמש ב-window.__geomAudit.extract()/.audit()/.paint()/.clear()');
 
 })();

@@ -2677,7 +2677,11 @@ function renderGeomResults(container, result) {
             'sparse-line': 'שורה דלילה',
             'fn-overflow': 'גלישה להערות',
             'pn-overflow': 'גלישה למספר עמוד',
-            'page-overflow': 'גלישת עמוד'
+            'page-overflow': 'גלישת עמוד',
+            'heading-at-bottom': 'כותרת בתחתית טור',
+            'empty-column': 'טור ריק',
+            'chain-broken': 'שרשרת פסקה שבורה',
+            'pua-char': 'תו U+E000'
         };
         html += '<br><span style="font-size:7pt;font-weight:normal;color:#94a3b8;">';
         html += Object.entries(summary.byKind).map(([k, v]) => `${kindNames[k] || k}: ${v}`).join(' · ');
@@ -2701,7 +2705,9 @@ function renderGeomResults(container, result) {
                 'containment-rounding': 'עיגול פיקסלים',
                 'fn-overflow': 'גוף→הערות', 'pn-overflow': 'גוף→מספר', 'page-overflow': 'גלישת עמוד',
                 'fn-page-overflow': 'הערות→תחתית', 'fn-pn-overflow': 'הערות→מספר',
-                'fn-containment': 'הכלה בהערות', 'fn-line-overflow': 'שורת הערה'
+                'fn-containment': 'הכלה בהערות', 'fn-line-overflow': 'שורת הערה',
+                'heading-at-bottom': 'כותרת בתחתית', 'empty-column': 'טור ריק',
+                'chain-broken': 'שרשרת שבורה', 'pua-char': 'U+E000'
             };
             const pageIdx = iss.pageIdx !== undefined ? iss.pageIdx : -1;
             const clickable = pageIdx >= 0 ? `cursor:pointer;` : '';
