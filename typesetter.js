@@ -3892,12 +3892,7 @@ function typesetDocumentCore() {
                     else {
                         let usedBlockH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
                         let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
-                        // [תיקון] הגדל את התנאי מ-remPageHeight ל-remPageHeight+20.
-                        // לפעמים usedBlockH חורג מעט מ-remPageHeight בגלל stretchPageToBottom
-                        // או עיגול, ו-justifyColumnVertically לא פועלת בכלל — למרות שיש
-                        // מספיק יכולת מתיחה. המתיחה רק מוסיפה ריווח בתוך הטור הקצר ולא
-                        // מגדילה את הגובה הכולל מעבר לטור הארוך שכבר קיים.
-                        if (usedBlockH <= remPageHeight + 20) {
+                        if (usedBlockH <= remPageHeight) {
                             if (finalDiff > 2 && finalDiff <= 60) {
                                 justifyColumnVertically(lCol, rCol.scrollHeight, styleObj);
                             } else if (finalDiff < -2 && Math.abs(finalDiff) <= 60) {
