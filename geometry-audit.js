@@ -471,17 +471,38 @@ function auditSparseLastLine(node, issues) {
         const lastLine = node.lines[node.lines.length - 1];
         const firstLine = node.lines[0];
         if (firstLine.w > 0 && lastLine.w < firstLine.w * TOL.sparseLastLine) {
-            issues.push({
-                kind: 'sparse-line',
-                severity: 'low',
-                pageIdx: getPageIdx(node),
-                location: describePath(node),
-                lastW: Math.round(lastLine.w),
-                firstW: Math.round(firstLine.w),
-                pText: node.text,
-                childRect: { x: Math.round(lastLine.x), y: Math.round(lastLine.y), w: Math.round(lastLine.w), h: Math.round(lastLine.h) },
-                message: `שורה דלילה בסוף p-cut: רוחב אחרון=${Math.round(lastLine.w)}px ראשון=${Math.round(firstLine.w)}px`
-            });
+            // [תיקון חשוב] בדוק אם השורה האחרונה מכילה טקסט בסוגריים (paren-text).
+            // טקסט בסוגריים מוצג בגופן קטן יותר (בד"כ -2pt), ולכן השורה נראית "דלילה"
+            // למרות שהיא מלאה בתוכן. זוהי התראת שווא — אל תדווח.
+            const el = _nodeToEl.get(node);
+            let hasParenOnLastLine = false;
+            if (el) {
+                const parenSpans = el.querySelectorAll('.paren-text');
+                const lastLineTop = Math.round(lastLine.y);
+                for (const span of parenSpans) {
+                    const sr = span.getBoundingClientRect();
+                    const off = getBookContainerOffset();
+                    const spanTop = Math.round(sr.top - off.y);
+                    // אם ה-span נמצא באותו Y כמו השורה האחרונה (±5px)
+                    if (Math.abs(spanTop - lastLineTop) < 8) {
+                        hasParenOnLastLine = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasParenOnLastLine) {
+                issues.push({
+                    kind: 'sparse-line',
+                    severity: 'low',
+                    pageIdx: getPageIdx(node),
+                    location: describePath(node),
+                    lastW: Math.round(lastLine.w),
+                    firstW: Math.round(firstLine.w),
+                    pText: node.text,
+                    childRect: { x: Math.round(lastLine.x), y: Math.round(lastLine.y), w: Math.round(lastLine.w), h: Math.round(lastLine.h) },
+                    message: `שורה דלילה בסוף p-cut: רוחב אחרון=${Math.round(lastLine.w)}px ראשון=${Math.round(firstLine.w)}px`
+                });
+            }
         }
     }
     for (const c of node.children) auditSparseLastLine(c, issues);
