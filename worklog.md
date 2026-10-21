@@ -2376,3 +2376,29 @@ if (gtocShows.length === 0) {
 - **Overlay שלא גולל**: תוקן על ידי שימוש ב-document-absolute coords.
 - **לחיצה על בעיה**: תוקן — גולל לעמוד המתאים.
 - **sparse-line על p-end**: תוקן — רק p-cut נבדק עכשיו.
+
+---
+Task ID: paren-balance-fix
+Agent: main (GLM)
+Task: תיקון אי-איזון טורים שנגרם על-ידי paren-text — המדידה ב-balanceColumns לא חישבה את הקטנת הגופן ש-applyCrossParagraphParens יחיל אחריו.
+
+Work Log:
+- אבחנתי שורש הבעיה: `applyCrossParagraphParens` רץ **אחרי** `balanceColumns` ומקטין גופן של פסקאות שלמות שבתוך סוגריים חוצות-פסקאות. אבל `balanceColumns` מדד אותן בלי לדעת שהן יקבלו גופן קטן יותר → מספר שורות שגוי → נקודת חצייה לא מאוזנת.
+- תיקנתי את `markInsideParenParagraphs` (שורה 4075) — עכשיו מסמן פסקה כ-insideParen רק אם parenDepth > 0 **ואין לה ( או ) משלה** (openCount === 0 && closeCount === 0), בדיוק כמו הקריטריון של `applyCrossParagraphParens`. לפני זה, היה מסמן כל פסקה ש-parenDepth > 0, מה שיצר פער בין המדידה למציאות.
+- הוספתי פרמטר `insideParen` ל-`measureLinesByRealMarkup` (שורה 386). כשהוא true, עוטף את כל ה-pMeasure ב-span של `paren-text` ומחיל `applyParenStyle` לפני המדידה — כך השורות שנמדדות תואמות את מה שיוצג בפועל.
+- הוספתי פרמטר `insideParen` ל-`getLinesFromParagraph` (שורה 451) והעברתיו ל-`measureLinesByRealMarkup`.
+- עדכנתי את כל 4 הקריאות ל-`getLinesFromParagraph`:
+  1. שורה 1327 (balanceColumns, שלב מדידת items) — מעביר `isInsideParenTokenId(item.id)`
+  2. שורה 1465 (balanceColumns, appendItemFinal, מדידה חוזרת של חלק מפוצל) — מעביר `_insideParen` (משתנה משותף)
+  3. שורה 3560 (הקדמה/h0) — מעביר `isInsideParenToken(currentTok)`
+  4. שורה 3782 (גוף ראשי) — מעביר `isInsideParenToken(currentTok)`
+- תיקנתי הגדרה כפולה של `_insideParen` ב-appendItemFinal — איחדתי למשתנה אחד שמשמש גם את getLinesFromParagraph וגם את createDropWord.
+- אימתתי תחביר עם `node -c` — תקין.
+- אימתתי שכל 8 השינויים במקום עם בדיקת regex — כולם עברו.
+
+Stage Summary:
+- **שורש הבעיה**: מדידת שורות ב-balanceColumns לא חישבה את הקטנת הגופן ש-paren-text יחיל על-ידי applyCrossParagraphParens אחריו.
+- **הפתרון**: מודדים עם הגופן הקטן מראש — על-ידי עטיפת ה-pMeasure ב-span paren-text כש-insideParen=true.
+- **סנכרון קריטריונים**: markInsideParenParagraphs עכשיו משתמש באותו קריטריון כמו applyCrossParagraphParens (parenDepth > 0 && openCount === 0 && closeCount === 0) — אחרת היה פער בין "מה נמדד" ל"מה מוחל".
+- **לא ניתן היה להריץ בדיקת גאומטריה אוטומטית** כי agent-browser לא מצליח להתחבר ל-localhost מתוך הדפדפן שלו. המשתמש צריך לבדוק ויזואלית בדפדפן שלו.
+- **קבצים שהשתנו**: `typesetter.js` בלבד.
