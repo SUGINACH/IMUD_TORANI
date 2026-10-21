@@ -2166,3 +2166,213 @@ if (gtocShows.length === 0) {
 - **תוכן העניינים הכללי** עכשיו ייווצר נכון עם הכותרות המסומנות (1-6)
 - **תוכן העניינים המפורט** עכשיו ייווצר נכון עם הכותרות המסומנות (2-6)
 - **ייצוא/ייבוא הגדרות** עכשיו כולל את הגדרות ה-TOC
+
+---
+
+## Task ID: measurement-reliability-fix
+**Agent:** main (Super Z)
+**Date:** 2026-10-20
+**Task:** תיקון מהימנות המדידה של measureFootnoteAreaHeight, מעקב אחרי המדידה, ובדיקה היכן היא יכולה להיכשל.
+
+### Work Log:
+- ניתחתי את `measureFootnoteAreaHeight` (typesetter.js:2095) וזיהיתי 7 נקודות כישלון אפשריות (ראה טבלה בהמשך).
+- הוספתי `window.__fnMeasureLog` — לוג מפורט של כל קריאה (cache-hit ו-fresh-measure), כולל: queueSize, firstNumber, probeWidth, fnColumns, noteBodySize, layoutMode, attachedToBody, scrollHeight, offsetHeight, marginTop, marginBottom, returned, ctxKey.
+- הוספתי `auditFnMeasurement()` — פונקציה שמשווה את תחזית המדידה מול הגובה האמיתי של אזורי הערות בכל עמוד אחרי רינדור.
+- שיפרתי את `measureFootnoteAreaHeight`:
+  1. ה-probe מחובר ל-`.page-content-wrapper` אמיתי (במקום ל-document.body) — מבטיח הקשר CSS זהה.
+  2. משתמש ב-`Math.max(scrollHeight, offsetHeight)` במקום רק offsetHeight — תופס תוכן שגולש.
+  3. מפתח מטמון מורחב: `w{width}|c{cols}|s{size}|lh{lineHeight}|m{mode}||items` — מבטל חזרות שגויות אחרי שינוי הגדרות.
+- הוספתי הודעות `fn-audit` ו-`fn-audit-clear-log` ב-renderer-bridge.js.
+- הוספתי `requestFnAudit()` ו-`clearFnMeasureLog()` ב-app.js.
+- הוספתי כפתור "📏 בדיקת מדידת הערות" ו-"🧹 נקה לוג" בטאב הבדיקה.
+- הוספתי `renderFnAuditResults()` — מציג טבלה עם: עמוד, מספרי הערות, תחזית, scrollH, offsetH, אמיתי, realScroll, realOffset, פער, host, רוחב. פערים צבעוניים (ירוק/צהוב/אדום).
+- כתבתי בדיקת playwright שמפעילה את המערכת ומזריקה הערות ידנית. תוצאה: **predicted=54, real=54, diff=0** — המדידה מדויקת.
+
+### Stage Summary:
+- **נקודות כישלון שזוהו** (בסדר חומרה):
+  1. ה-probe היה מחובר ל-document.body במקום ל-page-content-wrapper → הקשר CSS שונה. **תוקן**.
+  2. שימוש ב-offsetHeight בלבד → לא תופס תוכן גולש. **תוקן** (Math.max עם scrollHeight).
+  3. מפתח מטמון לא כלל הקשר CSS → ערכים ישנים אחרי שינוי הגדרות. **תוקן**.
+  4. refWrapper.clientWidth לא מייצג כל עמוד → **תוקן** (מחפש אחרון עם page-body-flow).
+  5. margin collapse לא מחושב → נשאר (פער קטן בלבד).
+  6. Math.ceil על offsetHeight כבר מעוגל → נשאר (חיובי — שמרנות).
+  7. אין מעקב/לוג → **תוקן** (window.__fnMeasureLog + auditFnMeasurement).
+- **ממצא מרכזי**: בעמוד "ז" של הטקסט הדיפולטי, המדידה חזתה 54px והגובה האמיתי הוא 54px. **פער = 0**.
+- **תוצרים**:
+  - `typesetter.js` — measureFootnoteAreaHeight משופר + auditFnMeasurement חדש (כ-180 שורות חדשות)
+  - `renderer-bridge.js` — הודעות fn-audit ו-fn-audit-clear-log
+  - `app.js` — requestFnAudit, clearFnMeasureLog, renderFnAuditResults, כפתורים ב-UI
+  - `scripts/test-measurement-audit.js` ו-`scripts/test-audit-direct.js` — בדיקות playwright
+- **כיצד להשתמש**: בטאב "🔬 בדיקה" בכפתור "📏 בדיקת מדידת הערות" → מציג טבלת פערים. כפתור "🧹 נקה לוג" מאפס את הלוג לפני ריצה חוזרת.
+
+---
+
+## Task ID: geometry-overlay-audit
+**Agent:** main (Super Z)
+**Date:** 2026-10-20
+**Task:** הוספת כפתור שמציג את תוצאות החישוב המתמטי על הדף כקווי גבול, כדי שנוכל לאמת ויזואלית את התוצאות.
+
+### Work Log:
+- יצרתי קובץ חדש `geometry-audit.js` (~750 שורות) שמכיל:
+  - **חלק 1: חילוץ גיאומטריה** — `extractGeometryWithDomRefs()` סורק את ה-DOM ובונה עץ תיבות (page → wrapper → body-flow → block-2col → column → p-cut/p-end → lines) עם קואורדינטות מוחלטות מ-getBoundingClientRect. כל נקודה מקבלת _parent ו-reference ל-DOM (WeakMap).
+  - **חלק 2: בודק מתמטי** — `auditGeometry(model)` מריץ 7 בדיקות:
+    1. `auditContainment` — תיבה בתוך אב (עם tolerance 1px)
+    2. `auditSiblingOverlap` — אחים לא חופפים (כנ"ל)
+    3. `auditColumnBalance` — הפרש טורים ≤5px
+    4. `auditWidowOrphan` — שורה אחת בודדת בקצה טור
+    5. `auditSparseLastLine` — שורה אחרונה ב-p-cut עם רוחב <50% מהראשונה
+    6. `auditOverflowToFootnote` — גוף חודר לאזור הערות
+    7. `auditPageOverflow` — רכיב חורג מתחתית העמוד
+  - **חלק 3: Overlay ויזואלי** — `paintOverlay()` מצייר outline צבעוני לכל רכיב + תוויות. רמות: 0=רק בעיות, 1=בלוקים, 2=פסקאות, 3=שורות. בעיות מסומנות באדום עבה (3px).
+- הוספתי טעינה של `geometry-audit.js` ב-renderer.html (בתוך ה-iframe).
+- הוספתי הודעות ב-renderer-bridge.js: `geom-extract`, `geom-audit`, `geom-paint`, `geom-clear`.
+- הוספתי פונקציות ב-app.js: `requestGeomAudit()`, `clearGeomOverlay()`, `renderGeomResults()`.
+- הוספתי כפתורים בטאב הבדיקה:
+  - "📐 גיאומטריה" — מפעיל audit + מצייר overlay
+  - "✖ נקה" — מנקה overlay
+  - תפריט רמת פירוט (0-3)
+  - מקרא צבעים מובנה בתוצאות
+
+### בדיקות (Playwright):
+1. **בדיקה בסיסית** (10 עמודים דיפולטיים): 63 nodes בעץ, 16-63 רכיבים מסומנים לפי רמה. ניקוי עובד.
+2. **בדיקה עם טקסט ארוך** (200 שורות, 23 עמודים): מצא **2 בעיות high** (block-2col בולט מ-body-flow ב-2px בעמודים 13, 16) ו-**14 בעיות low** (שורה דלילה בסוף פסקה) ב-11 עמודים.
+3. **VLM אימת** שה-overlay מציג: כחול לעמוד, כתום לכותרות, ירוק לבלוקים/טורים, סגול ל-H3+, תווית "page N" בפינה.
+
+### Stage Summary:
+- **תוצרים**:
+  - `geometry-audit.js` — חדש (~750 שורות)
+  - `renderer.html` — טעינת geometry-audit.js
+  - `renderer-bridge.js` — 4 הודעות חדשות
+  - `app.js` — 3 פונקציות חדשות + כפתורים ב-UI + האזנות להודעות
+  - `scripts/test-geom-audit.js`, `scripts/test-geom-long.js` — בדיקות playwright
+  - `download/geom-overlay-detail.png`, `download/geom-overlay-with-issues.png`, `download/geom-audit-long.json` — תוצרי בדיקה
+- **ממצאים מעניינים**:
+  - המנוע יוצר גלישות קטנות (~2px) של block-2col מתחת ל-body-flow — אולי באג אמיתי ב-math של `totalFlowH` או `remPageHeight`.
+  - יש הרבה שורה דלילה בסוף פסקה (sparse-line) — זה צפוי ותקין במקרים רבים, אבל יכול להצביע על עימוד לא-אופטימלי.
+- **כיצד להשתמש**: טאב "🔬 בדיקה" → בחר רמת פירוט → לחץ "📐 גיאומטריה". רואים overlay צבעוני על כל עמוד + טבלת בעיות. לחץ "✖ נקה" להסרה.
+
+---
+
+## Task ID: geometry-words-spaces
+**Agent:** main (Super Z)
+**Date:** 2026-10-20
+**Task:** הוספת פירוט לכל טור, שורה, מילה, ורווח בין מילים.
+
+### Work Log:
+- הוספתי `collectWordsAndSpaces(el)` ב-geometry-audit.js — TreeWalker על text nodes, חלוקה לטוקנים (\S+ = מילה, \s+ = רווח), כל טוקן מקבל קואורדינטות מוחלטות מ-Range.getClientRects.
+- הוספתי `node.words` לכל תיבת טקסט (p, p-cut, p-end, fn-line, כותרות) עם wordCount/spaceCount.
+- הרחבתי את paintOverlay עם 2 רמות חדשות:
+  - **רמה 4 (מילים)**: כל מילה מקבלת outline כתום + מספר כתום מעליה (רוחב בפיקסלים)
+  - **רמה 5 (רווחים)**: כל רווח מקבל רקע כחול חצי-שקוף + מספר כחול מתחתיו (רוחב בפיקסלים)
+- תוויות עשירות יותר:
+  - **טורים**: "col:right 280×450 | 5p 23l 187w" (פסקאות, שורות, מילים)
+  - **פסקאות**: "p-end 4l 24w \"טקסט פתיחה...\""
+  - **כותרות**: "h2-title 2l \"פרק ראשון...\""
+  - **שורות**: תווית רוחב בצד (כחול אפור)
+- הוספתי כפתור "📋 פירוט מלא" — מייצא את כל העץ הגיאומטרי כ-JSON (כולל מילים/רווחים) + מציג טבלת סיכום לעמוד.
+- הוספתי `cleanForExport(node)` שמנקה את ה-_parent (circular reference) לפני ייצוא JSON.
+- הוספתי הודעת `geom-export` ב-renderer-bridge.js.
+
+### בדיקות:
+- **רמה 4**: 6,205 div-ים של מילים צוירו על 13 עמודים עם 3,102 מילים.
+- **רמה 5**: 5,241 div-ים של רווחים נוספו (סה"כ 2,616 רווחים).
+- **ייצוא JSON**: עובד, ~3,000 מילים ו-2,600 רווחים מיוצאים.
+- **VLM אימת**:
+  - רמה 4: "כל מילה עברית מקבלת קופסה כתומה. מספרים כתומים קטנים (43, 31, 12, 59, 35) מעל כל מילה."
+  - רמה 5: "פסים כחולים אנכיים על כל רווח. מספרים כחולים קטנים (5, 6, 7, 8, 10, 11, 12) מתחת לכל רווח."
+
+### Stage Summary:
+- 6 רמות פירוט: 0=בעיות, 1=בלוקים, 2=פסקאות, 3=שורות, 4=מילים, 5=רווחים.
+- כל רכיב (טור, שורה, מילה, רווח) מקבל תווית עם המידות שלו.
+- ניתן לייצא את כל הגיאומטריה כ-JSON לניתוח חיצוני.
+
+---
+
+## Task ID: mid-long-text-audit-and-fixes
+**Agent:** main (Super Z)
+**Date:** 2026-10-20
+**Task:** עימוד ובדיקה של mid_long_test_text.txt, חקירת בעיית הסוגריים, ותיקוני שימושיות ל-overlay.
+
+### Work Log:
+
+#### שלב 1: בדיקה ראשונית של mid_long_test_text.txt (לפני תיקון הטקסט)
+- עמדתי את הטקסט (667KB, 1053 שורות, 134 עמודים).
+- הרצתי את הבודק הגיאומטרי: **420 בעיות** (87 high, 64 medium, 269 low).
+- פילוח: 256 sparse-line, 121 imbalance, 42 containment, 1 page-overflow.
+
+#### שלב 2: חקירת בעיית הסוגריים (paren-text שגוי)
+- המשתמש דיווח שבעיית הסוגריים ממקודם עדיין קיימת — החלת סגנון סוגריים עגולים על טקסט רגיל.
+- מצאתי את הפסקה הבעייתית: "ויש להסתפק בגדר חיתוך סימנים" (שורה 63).
+- **ממצא מרכזי**: הפסקה עצמה לא הכילה סוגריים עגולים בכלל, אבל כל הטקסט שלה היה עטוף ב-`<span class="paren-text">`.
+- חקרתי את הסיבה: הפסקה הקודמת (p42, "והנה מבואר לקמן בגמ'") הכילה **5 `(` ו-4 `)`** — סוגריים לא מאוזנות בטקסט המקורי!
+- המנוע (ב-`applyCrossParagraphParens` ו-`markInsideParenParagraphs`) הניח שזה "סוגריים חוצות פסקאות" ולכן עטף את כל הפסקה הבאה ב-paren-text.
+- **מסקנה**: הבעיה הייתה בטקסט המקורי, לא במנוע. המשתמש תיקן את הטקסט.
+
+#### שלב 3: בדיקה אחרי תיקון הטקסט
+- הקובץ המתוקן: 612 `(` ו-612 `)` מחוץ ל-[...] (מאוזן!), 151/149 בתוך [...] (המנוע מתעלם).
+- **תוצאות**: 310 בעיות (ירידה מ-420, -26%).
+- paren-text שגוי נעלם לחלוטין (parenCount=0 בפסקה הבעייתית).
+- page-overflow בעמוד 97 נשאר (side-note גולש 55px — הערה בתוך כותרת 7).
+
+#### שלב 4: תיקון נוסף של הטקסץ על ידי המשתמש
+- המשתמש תיקן את עמוד 97 (הוציא הערה מתוך כותרת 7).
+- **תוצאות**: 194 בעיות (ירידה נוספת, -37% מהמצב הקודם).
+- page-overflow נעלם לחלוטין.
+
+#### שלב 5: חקירת עמוד 53 (הגלישה שהמשתמש ראה)
+- המשתמש דיווח על גלישה בעמוד שמתחיל ב"אינו משמש עדיין שמו..." (שורה 388 בטקסט).
+- מצאתי את העמוד: עמוד 52 (תווית "נ"), מכיל את הטקסט המצוין.
+- **הבעיה**: `block-2col` גולש **8px** מתחת ל-`body-flow` (bottom=58553 vs bodyBottom=58545).
+- טור ימין גולש 3px, טור שמאל גולש 8px.
+- **למה לא נתפס כ-page-overflow**: ה-block-2col לא חרג מתחתית העמוד כולו, רק מ-`body-flow`. הבעיה נתפסת כ-`containment` (block-2col בולט מ-body-flow).
+
+#### שלב 6: תיקון overlay שלא גולל עם הדפים
+- **הבעיה**: `getBoundingClientRect()` מחזיר קואורדינטות viewport-relative. כשגוללים, הם משתנים. אבל ה-overlay משתמש ב-`position:absolute` שמתייחס ל-document — אז היה פער שגדל ככל שגוללים.
+- **הפתרון**: הוספתי `window.scrollX/scrollY` לכל המדידות:
+  - `rectOf()` — עכשיו מחזיר document-absolute coords
+  - `collectLines()` — עכשיו מוסיף scrollX/scrollY לכל line
+  - `collectWordsAndSpaces()` — עכשיו מוסיף scrollX/scrollY לכל word/space
+- **תוצאה**: VLM אימת "מיושר נכון עם הטקסט — ללא הסטה" אחרי גלילה.
+
+#### שלב 7: לחיצה על שורת בעיה → גלילה לעמוד
+- עדכנתי את `renderGeomResults` — כל שורה בטבלת הבעיות כעת clickable.
+- הוספתי `cursor:pointer`, hover highlight צהוב (`#fef3c7`), tooltip "לחץ לגלילה לעמוד X".
+- הוספתי פונקציה `scrollToIssuePage(pageIdx)` ב-app.js.
+- הוספתי הודעת `geom-scroll-to-page` ב-renderer-bridge.js.
+- ה-iframe גולל לעמוד המתאים עם `scrollIntoView({ behavior: 'smooth' })`.
+- נוסף הסבר במקרא: "לחץ על שורת בעיה כדי לגלול לעמוד המתאים בתצוגה".
+
+#### שלב 8: תיקון sparse-line — לא לדווח על p-end
+- **הבעיה**: הבודק דיווח על שורה דלילה בסוף פסקה גם ב-`p-end` — אבל זה טבעי! סוף פסקה תמיד יסתיים בשורה חלקית.
+- **הפתרון**: `auditSparseLastLine` עכשיו בודק רק `p-cut` (פסקה שנחתכה באמצע — שם שורה דלילה היא באג אמיתי, כי היא נחתכה רק כי השורה הבאה לא נכנסה).
+- **תוצאה**: sparse-line ירד מ-129 ל-13 (ירידה של 90%).
+
+### סיכום כמות הבעיות:
+
+| שלב | total | high | medium | low | sparse-line | page-overflow |
+|-----|-------|------|--------|-----|-------------|---------------|
+| לפני תיקון הטקסט | 420 | 87 | 64 | 269 | 256 | 1 |
+| אחרי תיקון 1 (סוגריים) | 310 | 62 | 38 | 210 | 187 | 1 |
+| אחרי תיקון 2 (עמוד 97) | 194 | 36 | 5 | 153 | 129 | 0 |
+| אחרי תיקון sparse-line | **78** | 36 | 5 | 37 | 13 | 0 |
+
+**הפחתה כוללת: 82% מהבעיות נעלמו** (מ-420 ל-78).
+
+### בעיות אמיתיות שנשארו:
+- **36 high containment** — רובן `block-2col` שגולש 2-17px מ-`body-flow` (כמו בעמוד 52/53).
+- **5 medium imbalance** — אי-איזון טורים חמור.
+- **13 low sparse-line** — `p-cut` אמיתיים עם שורה דלילה.
+
+### קבצים שהשתנו:
+- `geometry-audit.js` — תיקון document-coords ב-rectOf/collectLines/collectWordsAndSpaces; תיקון sparse-line ל-p-cut בלבד; ניקוי קוד מת.
+- `app.js` — הוספת `scrollToIssuePage()`; עדכון `renderGeomResults` עם clickable rows + hover + tooltip.
+- `renderer-bridge.js` — הוספת הודעת `geom-scroll-to-page`.
+- `mid_long_test_text.txt` — גרסה מתוקנת מהמשתמש.
+
+### Stage Summary:
+- **בעיית הסוגריים**: הייתה בטקסט המקורי (סוגריים לא מאוזנות), לא במנוע. המשתמש תיקן.
+- **עמוד 97**: הייתה הערה בתוך כותרת 7 — המשתמש תיקן.
+- **עמוד 52/53**: block-2col גולש 8px מ-body-flow — בעיה אמיתית במנוע (עדיין לא תוקנה).
+- **Overlay שלא גולל**: תוקן על ידי שימוש ב-document-absolute coords.
+- **לחיצה על בעיה**: תוקן — גולל לעמוד המתאים.
+- **sparse-line על p-end**: תוקן — רק p-cut נבדק עכשיו.

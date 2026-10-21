@@ -2117,6 +2117,25 @@ function initTabSystem() {
             <button id="btn-export-marked" class="btn-tool btn-primary" style="flex:1;" title="ייצא HTML ממורקר">💾 ייצוא HTML ממורקר</button>
             <button id="btn-toggle-trace" class="btn-tool btn-secondary" style="flex:1;" title="מעקב אחרי קריאות פונקציות">🔍 מעקב פונקציות</button>
         </div>
+        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
+            <button id="btn-fn-audit" class="btn-tool btn-secondary" style="flex:1;" title="השוואת תחזית מדידת הערות מול גובה אמיתי">📏 בדיקת מדידת הערות</button>
+            <button id="btn-fn-audit-clear" class="btn-tool btn-secondary" style="flex:0.7;" title="נקה לוג מדידה">🧹 נקה לוג</button>
+        </div>
+        <div id="fn-audit-results" style="margin-bottom:8px;display:none;"></div>
+        <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
+            <button id="btn-geom-paint" class="btn-tool btn-primary" style="flex:1;" title="הצג קווי גבול גיאומטריים על העמודים">📐 גיאומטריה</button>
+            <button id="btn-geom-clear" class="btn-tool btn-secondary" style="flex:0.5;" title="נקה overlay">✖ נקה</button>
+            <button id="btn-geom-export" class="btn-tool btn-secondary" style="flex:0.7;" title="ייצא פירוט מלא כ-JSON">📋 פירוט מלא</button>
+            <select id="geom-level" style="flex:0.7;padding:4px;font-size:9pt;border:1px solid #cbd5e1;border-radius:3px;background:#fff;" title="רמת פירוט">
+                <option value="0">רק בעיות</option>
+                <option value="1" selected>בלוקים</option>
+                <option value="2">פסקאות</option>
+                <option value="3">שורות</option>
+                <option value="4">מילים</option>
+                <option value="5">רווחים</option>
+            </select>
+        </div>
+        <div id="geom-results" style="margin-bottom:8px;display:none;"></div>
         <div id="debug-report-view">
             <div id="debug-summary"></div>
             <div id="debug-blocks-table" style="margin-top:12px;"></div>
@@ -2188,6 +2207,121 @@ function initTabSystem() {
     const btnToggleTrace = document.getElementById('btn-toggle-trace');
     if (btnToggleTrace && typeof toggleTraceView === 'function') {
         btnToggleTrace.addEventListener('click', function() { toggleTraceView(); });
+    }
+    // [חדש — מהימנות מדידה] כפתורי בדיקת מדידת הערות
+    const btnFnAudit = document.getElementById('btn-fn-audit');
+    if (btnFnAudit) {
+        btnFnAudit.addEventListener('click', async function() {
+            const resultsDiv = document.getElementById('fn-audit-results');
+            if (!resultsDiv) return;
+            btnFnAudit.disabled = true;
+            btnFnAudit.textContent = '⏳ מודד...';
+            try {
+                const result = await requestFnAudit();
+                if (result.error) {
+                    resultsDiv.style.display = 'block';
+                    resultsDiv.innerHTML = '<div style="color:#dc2626;padding:6px;font-size:9pt;">✗ שגיאה: ' + result.error + '</div>';
+                } else {
+                    renderFnAuditResults(resultsDiv, result);
+                }
+            } finally {
+                btnFnAudit.disabled = false;
+                btnFnAudit.textContent = '📏 בדיקת מדידת הערות';
+            }
+        });
+    }
+    const btnFnAuditClear = document.getElementById('btn-fn-audit-clear');
+    if (btnFnAuditClear) {
+        btnFnAuditClear.addEventListener('click', function() {
+            clearFnMeasureLog();
+            const resultsDiv = document.getElementById('fn-audit-results');
+            if (resultsDiv) {
+                resultsDiv.style.display = 'none';
+                resultsDiv.innerHTML = '';
+            }
+        });
+    }
+    // [חדש — גיאומטריה] כפתורי overlay גיאומטרי
+    const btnGeomPaint = document.getElementById('btn-geom-paint');
+    if (btnGeomPaint) {
+        btnGeomPaint.addEventListener('click', async function() {
+            const resultsDiv = document.getElementById('geom-results');
+            const levelSel = document.getElementById('geom-level');
+            const level = levelSel ? parseInt(levelSel.value, 10) : 1;
+            btnGeomPaint.disabled = true;
+            btnGeomPaint.textContent = '⏳ מחשב...';
+            try {
+                const result = await requestGeomAudit({ paint: true, level: level, labels: true });
+                if (result.error) {
+                    if (resultsDiv) {
+                        resultsDiv.style.display = 'block';
+                        resultsDiv.innerHTML = '<div style="color:#dc2626;padding:6px;font-size:9pt;">✗ ' + result.error + '</div>';
+                    }
+                } else {
+                    renderGeomResults(resultsDiv, result);
+                }
+            } finally {
+                btnGeomPaint.disabled = false;
+                btnGeomPaint.textContent = '📐 גיאומטריה';
+            }
+        });
+    }
+    const btnGeomClear = document.getElementById('btn-geom-clear');
+    if (btnGeomClear) {
+        btnGeomClear.addEventListener('click', function() {
+            clearGeomOverlay();
+            const resultsDiv = document.getElementById('geom-results');
+            if (resultsDiv) {
+                resultsDiv.style.display = 'none';
+                resultsDiv.innerHTML = '';
+            }
+        });
+    }
+    // [חדש] כפתור "פירוט מלא" — ייצוא JSON עם כל העץ כולל מילים/רווחים
+    const btnGeomExport = document.getElementById('btn-geom-export');
+    if (btnGeomExport) {
+        btnGeomExport.addEventListener('click', async function() {
+            btnGeomExport.disabled = true;
+            btnGeomExport.textContent = '⏳ מייצא...';
+            try {
+                const result = await requestGeomExport();
+                if (result.error) {
+                    alert('שגיאה: ' + result.error);
+                } else {
+                    // ייצוא כקובץ JSON
+                    const blob = new Blob([JSON.stringify(result.model, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                    a.download = `geometry-${ts}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 5000);
+                    // הצג סיכום
+                    const resultsDiv = document.getElementById('geom-results');
+                    if (resultsDiv) {
+                        resultsDiv.style.display = 'block';
+                        renderGeomBreakdown(resultsDiv, result);
+                    }
+                }
+            } finally {
+                btnGeomExport.disabled = false;
+                btnGeomExport.textContent = '📋 פירוט מלא';
+            }
+        });
+    }
+    // עדכן overlay אוטומטית כשמשנים רמת פירוט
+    const levelSel = document.getElementById('geom-level');
+    if (levelSel) {
+        levelSel.addEventListener('change', function() {
+            // רק אם יש overlay פעיל — צייר מחדש
+            const frame = document.getElementById('render-frame');
+            if (frame && frame.contentWindow && frame.contentWindow.document.querySelector('[data-geom-overlay]')) {
+                btnGeomPaint?.click();
+            }
+        });
     }
     const btnImportDbg = document.getElementById('btn-import-debug');
     const fileImportDbg = document.getElementById('file-import-debug');
@@ -2319,8 +2453,386 @@ window.addEventListener('message', function(e) {
         console.log('✓ עימוד הושלם:', msg.pageCount, 'עמודים');
     } else if (msg.type === 'render-error') {
         console.error('✗ שגיאת עימוד:', msg.error);
+    } else if (msg.type === 'fn-audit-result') {
+        // [חדש — מהימנות מדידה] הצגת תוצאות audit
+        if (typeof window.__fnAuditPending === 'function') {
+            window.__fnAuditPending(msg);
+            window.__fnAuditPending = null;
+        } else {
+            window.__fnAuditLastResult = msg;
+            console.log('📊 fn-audit התקבל:', msg);
+        }
+    } else if (msg.type === 'fn-audit-error') {
+        console.error('✗ fn-audit שגיאה:', msg.error);
+        if (typeof window.__fnAuditPending === 'function') {
+            window.__fnAuditPending({ error: msg.error });
+            window.__fnAuditPending = null;
+        }
+    } else if (msg.type === 'fn-audit-log-cleared') {
+        console.log('🧹 לוג מדידה נוקה');
+    } else if (msg.type === 'geom-audit-result' || msg.type === 'geom-paint-done') {
+        // [חדש — גיאומטריה] תוצאת בודק גיאומטרי
+        if (typeof window.__geomAuditPending === 'function') {
+            window.__geomAuditPending(msg);
+            window.__geomAuditPending = null;
+        } else {
+            window.__geomAuditLastResult = msg;
+            console.log('📐 geom-audit התקבל:', msg);
+        }
+    } else if (msg.type === 'geom-export-result') {
+        // [חדש — גיאומטריה] תוצאת ייצוא פירוט מלא
+        if (typeof window.__geomExportPending === 'function') {
+            window.__geomExportPending(msg);
+            window.__geomExportPending = null;
+        } else {
+            window.__geomExportLastResult = msg;
+            console.log('📋 geom-export התקבל');
+        }
+    } else if (msg.type === 'geom-clear-done') {
+        console.log('🧹 overlay גיאומטרי נוקה');
+    } else if (msg.type === 'geom-error') {
+        console.error('✗ geom שגיאה:', msg.error, msg.stack);
+        if (typeof window.__geomAuditPending === 'function') {
+            window.__geomAuditPending({ error: msg.error });
+            window.__geomAuditPending = null;
+        }
     }
 });
+
+// [חדש — מהימנות מדידה] בקשת audit מה-iframe
+function requestFnAudit() {
+    return new Promise((resolve) => {
+        const frame = document.getElementById('render-frame');
+        if (!frame || !frame.contentWindow) { resolve({ error: 'no iframe' }); return; }
+        window.__fnAuditPending = resolve;
+        frame.contentWindow.postMessage({ type: 'fn-audit' }, '*');
+        // timeout 5s
+        setTimeout(() => {
+            if (window.__fnAuditPending) {
+                window.__fnAuditPending({ error: 'timeout' });
+                window.__fnAuditPending = null;
+            }
+        }, 5000);
+    });
+}
+
+// [חדש — מהימנות מדידה] ניקוי לוג מדידה
+function clearFnMeasureLog() {
+    const frame = document.getElementById('render-frame');
+    if (!frame || !frame.contentWindow) return;
+    frame.contentWindow.postMessage({ type: 'fn-audit-clear-log' }, '*');
+}
+
+window.requestFnAudit = requestFnAudit;
+window.clearFnMeasureLog = clearFnMeasureLog;
+
+// [חדש — גיאומטריה] בקשת audit גיאומטרי מה-iframe
+function requestGeomAudit(opts) {
+    return new Promise((resolve) => {
+        const frame = document.getElementById('render-frame');
+        if (!frame || !frame.contentWindow) { resolve({ error: 'no iframe' }); return; }
+        window.__geomAuditPending = resolve;
+        frame.contentWindow.postMessage({ type: 'geom-audit', opts: opts || {} }, '*');
+        setTimeout(() => {
+            if (window.__geomAuditPending) {
+                window.__geomAuditPending({ error: 'timeout' });
+                window.__geomAuditPending = null;
+            }
+        }, 10000);
+    });
+}
+
+// [חדש — גיאומטריה] ניקוי overlay
+function clearGeomOverlay() {
+    const frame = document.getElementById('render-frame');
+    if (!frame || !frame.contentWindow) return;
+    frame.contentWindow.postMessage({ type: 'geom-clear' }, '*');
+}
+
+// [חדש — גיאומטריה] ייצוא פירוט מלא כ-JSON
+function requestGeomExport() {
+    return new Promise((resolve) => {
+        const frame = document.getElementById('render-frame');
+        if (!frame || !frame.contentWindow) { resolve({ error: 'no iframe' }); return; }
+        window.__geomExportPending = resolve;
+        frame.contentWindow.postMessage({ type: 'geom-export' }, '*');
+        setTimeout(() => {
+            if (window.__geomExportPending) {
+                window.__geomExportPending({ error: 'timeout' });
+                window.__geomExportPending = null;
+            }
+        }, 30000);
+    });
+}
+
+window.requestGeomAudit = requestGeomAudit;
+window.clearGeomOverlay = clearGeomOverlay;
+window.requestGeomExport = requestGeomExport;
+
+/* [חדש — גיאומטריה] מציג סיכום מקוצר של פירוט מלא */
+function renderGeomBreakdown(container, result) {
+    if (!container) return;
+    container.style.display = 'block';
+    const model = result.model || {};
+    const pages = model.pages || [];
+    const audit = result.audit || { summary: { total: 0 } };
+
+    // ספירת רכיבים כולל מילים ורווחים
+    let totalColumns = 0, totalParagraphs = 0, totalLines = 0, totalWords = 0, totalSpaces = 0;
+    function countRec(node) {
+        if (node.type === 'column') totalColumns++;
+        if (node.type === 'p' || node.type === 'p-cut' || node.type === 'p-end') totalParagraphs++;
+        if (node.lines) totalLines += node.lines.length;
+        if (node.words) {
+            totalWords += node.words.filter(w => w.type === 'word').length;
+            totalSpaces += node.words.filter(w => w.type === 'space').length;
+        }
+        if (node.children) node.children.forEach(countRec);
+    }
+    pages.forEach(p => p.children.forEach(countRec));
+
+    let html = '<div style="padding:8px;background:#1e293b;color:#e2e8f0;border-radius:4px;font-size:9pt;font-weight:bold;">';
+    html += '📋 פירוט גיאומטרי מלא — ';
+    html += `${pages.length} עמודים · ${totalColumns} טורים · ${totalParagraphs} פסקאות<br>`;
+    html += `<span style="font-size:8pt;font-weight:normal;color:#94a3b8;">`;
+    html += `${totalLines} שורות · ${totalWords} מילים · ${totalSpaces} רווחים · ${audit.summary.total} בעיות`;
+    html += `</span></div>`;
+
+    html += '<div style="padding:6px;font-size:8pt;color:#475569;background:#f1f5f9;border-radius:0 0 4px 4px;">';
+    html += '<b>קובץ JSON הורד בהצלחה.</b> הקובץ מכיל את העץ המלא: page → column → paragraph → line + words[] + spaces[]. ';
+    html += 'כל רכיב כולל קואורדינטות מוחלטות (x, y, w, h, right, bottom). ';
+    html += 'ניתן לפתוח בעורך JSON ולחפש בעיות ספציפיות.';
+    html += '</div>';
+
+    // טבלת סיכום לעמודים
+    html += '<details style="margin-top:8px;"><summary style="cursor:pointer;padding:4px;background:#e2e8f0;font-size:9pt;font-weight:bold;border-radius:4px;">סיכום לעמוד</summary>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:7pt;background:#fff;margin-top:4px;">';
+    html += '<thead><tr style="background:#e2e8f0;">'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">עמוד</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">טורים</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">פסקאות</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">שורות</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">מילים</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">רווחים</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">בעיות</th>'
+        + '</tr></thead><tbody>';
+    pages.forEach(p => {
+        let pCols = 0, pParas = 0, pLines = 0, pWords = 0, pSpaces = 0;
+        function countP(node) {
+            if (node.type === 'column') pCols++;
+            if (node.type === 'p' || node.type === 'p-cut' || node.type === 'p-end') pParas++;
+            if (node.lines) pLines += node.lines.length;
+            if (node.words) {
+                pWords += node.words.filter(w => w.type === 'word').length;
+                pSpaces += node.words.filter(w => w.type === 'space').length;
+            }
+            if (node.children) node.children.forEach(countP);
+        }
+        p.children.forEach(countP);
+        const issueCount = p._issues ? p._issues.length : 0;
+        html += `<tr style="border:1px solid #cbd5e1;">`
+            + `<td style="padding:2px;text-align:center;font-weight:bold;">${p.label}</td>`
+            + `<td style="padding:2px;text-align:center;">${pCols}</td>`
+            + `<td style="padding:2px;text-align:center;">${pParas}</td>`
+            + `<td style="padding:2px;text-align:center;">${pLines}</td>`
+            + `<td style="padding:2px;text-align:center;">${pWords}</td>`
+            + `<td style="padding:2px;text-align:center;">${pSpaces}</td>`
+            + `<td style="padding:2px;text-align:center;color:${issueCount > 0 ? '#dc2626' : '#059669'};">${issueCount}</td>`
+            + `</tr>`;
+    });
+    html += '</tbody></table></details>';
+
+    container.innerHTML = html;
+}
+
+window.renderGeomBreakdown = renderGeomBreakdown;
+
+/* [חדש — גיאומטריה] מציג את תוצאות ה-bug הגיאומטרי */
+function renderGeomResults(container, result) {
+    if (!container) return;
+    container.style.display = 'block';
+    const summary = result.summary || { total: 0, high: 0, medium: 0, low: 0, byKind: {} };
+    const issues = result.issues || [];
+    const stats = result.stats || {};
+
+    let html = '<div style="padding:8px;background:#1e293b;color:#e2e8f0;border-radius:4px 4px 0 0;font-size:9pt;font-weight:bold;">';
+    html += '📐 בודק גיאומטריה — ';
+    html += `${stats.pageCount || 0} עמודים · ${summary.total} בעיות`;
+    if (summary.total > 0) {
+        const parts = [];
+        if (summary.high > 0) parts.push(`<span style="color:#fca5a5;">${summary.high} קריטיות</span>`);
+        if (summary.medium > 0) parts.push(`<span style="color:#fcd34d;">${summary.medium} בינוניות</span>`);
+        if (summary.low > 0) parts.push(`<span style="color:#86efac;">${summary.low} קלות</span>`);
+        html += ' · ' + parts.join(' · ');
+    } else {
+        html += ' · <span style="color:#86efac;">✓ אין בעיות!</span>';
+    }
+    if (summary.byKind && Object.keys(summary.byKind).length > 0) {
+        const kindNames = {
+            'containment': 'חריגת הכלה',
+            'overlap': 'חפיפה',
+            'imbalance': 'אי-איזון טורים',
+            'widow': 'אלמנה',
+            'orphan': 'יתום',
+            'sparse-line': 'שורה דלילה',
+            'fn-overflow': 'גלישה להערות',
+            'pn-overflow': 'גלישה למספר עמוד',
+            'page-overflow': 'גלישת עמוד'
+        };
+        html += '<br><span style="font-size:7pt;font-weight:normal;color:#94a3b8;">';
+        html += Object.entries(summary.byKind).map(([k, v]) => `${kindNames[k] || k}: ${v}`).join(' · ');
+        html += '</span>';
+    }
+    html += '</div>';
+
+    if (issues.length > 0) {
+        html += '<table style="width:100%;border-collapse:collapse;font-size:7pt;background:#fff;">';
+        html += '<thead><tr style="background:#e2e8f0;">'
+            + '<th style="padding:3px;border:1px solid #cbd5e1;">עמוד</th>'
+            + '<th style="padding:3px;border:1px solid #cbd5e1;">סוג</th>'
+            + '<th style="padding:3px;border:1px solid #cbd5e1;">חומרה</th>'
+            + '<th style="padding:3px;border:1px solid #cbd5e1;">פירוט</th>'
+            + '</tr></thead><tbody>';
+        issues.slice(0, 200).forEach((iss, i) => {
+            const sc = iss.severity === 'high' ? '#dc2626' : (iss.severity === 'medium' ? '#d97706' : '#64748b');
+            const kindNames = {
+                'containment': 'חריגת הכלה', 'overlap': 'חפיפה', 'imbalance': 'אי-איזון',
+                'widow': 'אלמנה', 'orphan': 'יתום', 'sparse-line': 'שורה דלילה',
+                'containment-rounding': 'עיגול פיקסלים',
+                'fn-overflow': 'גוף→הערות', 'pn-overflow': 'גוף→מספר', 'page-overflow': 'גלישת עמוד',
+                'fn-page-overflow': 'הערות→תחתית', 'fn-pn-overflow': 'הערות→מספר',
+                'fn-containment': 'הכלה בהערות', 'fn-line-overflow': 'שורת הערה'
+            };
+            const pageIdx = iss.pageIdx !== undefined ? iss.pageIdx : -1;
+            const clickable = pageIdx >= 0 ? `cursor:pointer;` : '';
+            const title = pageIdx >= 0 ? ` title="לחץ לגלילה לעמוד ${pageIdx + 1} והבהוב הבעיה"` : '';
+            // העבר את ה-issue המלא כדי שה-iframe יוכל להבהב את המסגרת
+            // נשמור את ה-issue ב-data attribute כדי להימנע מ-escaping issues
+            const issueJson = pageIdx >= 0 ? `data-issue-idx="${i}"` : '';
+            const onclick = pageIdx >= 0 ? ` onclick="scrollToIssuePage(${pageIdx}, ${i})"` : '';
+            const hover = pageIdx >= 0 ? ` onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'#fff\'"` : '';
+            html += `<tr style="border:1px solid #cbd5e1;${clickable}"${title}${issueJson}${onclick}${hover}>`
+                + `<td style="padding:2px;text-align:center;font-weight:bold;">${pageIdx >= 0 ? pageIdx + 1 : '?'}</td>`
+                + `<td style="padding:2px;">${kindNames[iss.kind] || iss.kind}</td>`
+                + `<td style="padding:2px;color:${sc};">${iss.severity}</td>`
+                + `<td style="padding:2px;">${iss.message || ''}</td>`
+                + `</tr>`;
+        });
+        html += '</tbody></table>';
+        // שמור את ה-issues במקום נגיש ל-scrollToIssuePage
+        html += `<script>window.__lastGeomIssues = ${JSON.stringify(issues.slice(0, 200))};</script>`;
+    }
+
+    // מקרא צבעים
+    html += '<div style="padding:6px;font-size:7pt;color:#475569;background:#f1f5f9;border-radius:0 0 4px 4px;">';
+    html += '<b>מקרא צבעים:</b> ';
+    html += '<span style="color:#1e40af;">■</span> עמוד · ';
+    html += '<span style="color:#dc2626;">■</span> אזור הערות · ';
+    html += '<span style="color:#059669;">■</span> בלוק/טור · ';
+    html += '<span style="color:#0ea5e9;">■</span> p-cut · ';
+    html += '<span style="color:#0891b2;">■</span> p-end · ';
+    html += '<span style="color:#f59e0b;">■</span> כותרות · ';
+    html += '<span style="color:#7c3aed;">■</span> H3-H7 · ';
+    html += '<b style="color:#dc2626;">אדום עבה = בעיה</b><br>';
+    html += '<b>לחץ על שורת בעיה</b> כדי לגלול לעמוד המתאים בתצוגה';
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
+/* [חדש] גולל לעמוד הבעיה ב-iframe ומבהב את המסגרת */
+function scrollToIssuePage(pageIdx, issueIdx) {
+    const frame = document.getElementById('render-frame');
+    if (!frame || !frame.contentWindow) return;
+    // קבל את ה-issue מהמערך השמור
+    let issue = null;
+    if (issueIdx !== undefined && window.__lastGeomIssues && window.__lastGeomIssues[issueIdx]) {
+        issue = window.__lastGeomIssues[issueIdx];
+    }
+    // שלח הודעה ל-iframe לגלול לעמוד ולהבהב את הבעיה
+    frame.contentWindow.postMessage({ type: 'geom-scroll-to-page', pageIdx: pageIdx, issue: issue }, '*');
+}
+
+window.scrollToIssuePage = scrollToIssuePage;
+
+window.renderGeomResults = renderGeomResults;
+
+/* [חדש — מהימנות מדידה] מציג את תוצאות ה-audit בצורה טבלאית.
+   מציג לכל עמוד עם הערות: מספר העמוד, מספרי ההערות, תחזית מדידה, גובה אמיתי, פער. */
+function renderFnAuditResults(container, result) {
+    container.style.display = 'block';
+    const audit = result.audit || [];
+    const logSize = result.logSize || 0;
+
+    if (audit.length === 0) {
+        container.innerHTML = '<div style="padding:8px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:4px;font-size:9pt;color:#475569;">'
+            + 'ℹ️ לא נמצאו אזורי הערות בעמודים שרונדרו.<br>'
+            + 'סה"כ רשומות בלוג המדידה: <b>' + logSize + '</b><br>'
+            + '<span style="color:#64748b;">ייתכן שהמסמך לא מכיל הערות שוליים, או שהמדידה עדיין לא רצה.</span>'
+            + '</div>';
+        return;
+    }
+
+    // סיכום: כמה עמודים עם פער משמעותי (|diff| > 3)
+    const significant = audit.filter(r => r.diff !== null && Math.abs(r.diff) > 3);
+    const maxDiff = audit.reduce((m, r) => r.diff !== null ? Math.max(m, Math.abs(r.diff)) : m, 0);
+
+    let html = '<div style="padding:8px;background:#1e293b;color:#e2e8f0;border-radius:4px 4px 0 0;font-size:9pt;font-weight:bold;">'
+        + '📊 בדיקת מהימנות מדידת הערות — '
+        + audit.length + ' עמודים עם הערות'
+        + (significant.length > 0 ? ' · <span style="color:#fca5a5;">' + significant.length + ' עם פער &gt; 3px</span>' : ' · <span style="color:#86efac;">✓ כל הפערים קטנים</span>')
+        + ' · פער מקסימלי: ' + maxDiff + 'px'
+        + ' · רשומות לוג: ' + logSize
+        + '</div>';
+
+    html += '<table style="width:100%;border-collapse:collapse;font-size:7pt;background:#fff;">'
+        + '<thead><tr style="background:#e2e8f0;">'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">עמוד</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">מס׳ הערות</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">תחזית</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">scrollH</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">offsetH</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">אמיתי</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">realScroll</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">realOffset</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">פער</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">host</th>'
+        + '<th style="padding:3px;border:1px solid #cbd5e1;">רוחב</th>'
+        + '</tr></thead><tbody>';
+
+    audit.forEach(r => {
+        const diffColor = r.diff === null ? '#64748b' : (Math.abs(r.diff) <= 1 ? '#059669' : (Math.abs(r.diff) <= 3 ? '#d97706' : '#dc2626'));
+        const diffText = r.diff === null ? '—' : (r.diff > 0 ? '+' : '') + r.diff;
+        const host = r.measuredAttachedToBody === null ? '—' : (r.measuredAttachedToBody ? 'body' : 'wrapper');
+        const numbersStr = (r.numbers || []).slice(0, 8).join(',') + ((r.numbers || []).length > 8 ? '...' : '');
+        html += '<tr style="border:1px solid #cbd5e1;">'
+            + '<td style="padding:2px;text-align:center;font-weight:bold;">' + r.pageLabel + '</td>'
+            + '<td style="padding:2px;font-size:6pt;">' + numbersStr + '</td>'
+            + '<td style="padding:2px;text-align:center;">' + (r.measured !== null ? r.measured : '?') + '</td>'
+            + '<td style="padding:2px;text-align:center;color:#64748b;">' + (r.measuredScrollH !== null ? r.measuredScrollH : '?') + '</td>'
+            + '<td style="padding:2px;text-align:center;color:#64748b;">' + (r.measuredOffsetH !== null ? r.measuredOffsetH : '?') + '</td>'
+            + '<td style="padding:2px;text-align:center;font-weight:bold;">' + r.realH + '</td>'
+            + '<td style="padding:2px;text-align:center;color:#64748b;">' + r.realScroll + '</td>'
+            + '<td style="padding:2px;text-align:center;color:#64748b;">' + r.realOffset + '</td>'
+            + '<td style="padding:2px;text-align:center;color:' + diffColor + ';font-weight:bold;">' + diffText + '</td>'
+            + '<td style="padding:2px;text-align:center;font-size:6pt;">' + host + '</td>'
+            + '<td style="padding:2px;text-align:center;font-size:6pt;">' + Math.round(r.realWidth) + '</td>'
+            + '</tr>';
+    });
+    html += '</tbody></table>';
+
+    // הסבר
+    html += '<div style="padding:6px;font-size:7pt;color:#64748b;background:#f1f5f9;border-radius:0 0 4px 4px;">'
+        + '<b>מקרא:</b> פער = אמיתי − תחזית. '
+        + 'פער חיובי = המדידה חזתה פחות מדי → גלישה אפשרית. '
+        + 'פער שלילי = המדידה חזתה יותר מדי → בזבוז מקום. '
+        + '<b>host</b> = היכן ה-probe חובר (wrapper = אמיתי, body = נפילה לברירת מחדל).'
+        + '</div>';
+
+    container.innerHTML = html;
+}
+
+window.renderFnAuditResults = renderFnAuditResults;
 } // end if (!window.__isRenderer)
 
 

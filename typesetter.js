@@ -2090,24 +2090,198 @@ function buildFootnoteAreaElement(queue) {
 
 /* גובה מדויק (כולל שוליים) שאזור הערות השוליים יתפוס בעמוד.
    [תיקון] קודם הוא נאמד לפי גוף ההערות בלבד + 24px, בלי הקו המפריד והכותרת, ולכן נוצרה
-   חפיפה/גלישה של עד ~16px בעמודים עם הערות. */
+   חפיפה/גלישה של עד ~16px בעמודים עם הערות.
+
+   [תיקון שלב 2 — מהימנות מדידה]
+   1. ה-probe מחובר לתוך .page-content-wrapper אמיתי (ולא ל-document.body) כדי
+      להבטיח שהקשר ה-CSS (flex container, vars, font) זהה לזה שבו יוצב האזור בפועל.
+   2. משתמשים ב-scrollHeight במקום offsetHeight כדי לתפוס תוכן שגולש.
+   3. מפתח המטמון כולל גם רוחב, font-size, line-height, columns כדי להימנע מערכים ישנים.
+   4. כל קריאה נרשמת ב-window.__fnMeasureLog לצורך דיבאג והשוואה למציאות.
+   5. פונקציית auditFnMeasurement (למטה) משווה תחזית מול גובה אמיתי אחרי רינדור. */
 const __fnAreaHeightCache = new Map();
-function measureFootnoteAreaHeight(queue) {
+window.__fnMeasureLog = window.__fnMeasureLog || [];
+window.__fnMeasureLogEnabled = true;
+
+function __fnMeasureLogPush(entry) {
+    if (!window.__fnMeasureLogEnabled) return;
+    if (window.__fnMeasureLog.length > 5000) {
+        // מניעת הצפת זיכרון — שומרים רק 5000 האחרונים
+        window.__fnMeasureLog = window.__fnMeasureLog.slice(-4000);
+    }
+    window.__fnMeasureLog.push(entry);
+}
+
+/* מאתר את ה-.page-content-wrapper ה"טיפוסי" (האחרון שנבנה) לשימוש כמארח מדידה.
+   אם אין עדיין עמודים ב-#book-container, מחזיר null והמודד נופל חזרה ל-document.body. */
+function __findProbeHost() {
+    // מעדיףים עמוד גוף רגיל (לא שער ולא שער-משנה)
+    const candidates = document.querySelectorAll('#book-container .a4-page .page-content-wrapper');
+    if (candidates.length === 0) return null;
+    // מחפשים את העמוד האחרון שמכיל .page-body-flow (עמוד גוף אמיתי)
+    for (let i = candidates.length - 1; i >= 0; i--) {
+        const w = candidates[i];
+        if (w.querySelector('.page-body-flow')) return w;
+    }
+    return candidates[candidates.length - 1];
+}
+
+function measureFootnoteAreaHeight(queue, opts) {
+    opts = opts || {};
     if (!queue.length) return 0;
-    const key = queue.map(i => i.uid + ':' + i.number + ':' + (i.text || '').length + ':' + (i.styleId || '')).join('|');
-    if (__fnAreaHeightCache.has(key)) return __fnAreaHeightCache.get(key);
+
+    // חישוב גורמי הקשר CSS למפתח המטמון
+    const probeHost = __findProbeHost();
+    const probeWidth = probeHost ? probeHost.clientWidth : 0;
+    const fnColumns = parseInt(document.getElementById('fn-columns')?.value, 10) || 1;
+    const noteBodySize = parseFloat(document.getElementById('s-note-body')?.value) || 8.5;
+    const noteLineHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lh-note-body') || '1.45') || 1.45;
+    const layoutMode = document.getElementById('fn-layout-mode')?.value || 'block';
+
+    // מפתח מטמון מורחב: כולל הקשר CSS
+    const itemsKey = queue.map(i => i.uid + ':' + i.number + ':' + (i.text || '').length + ':' + (i.styleId || '')).join('|');
+    const ctxKey = `w${probeWidth}|c${fnColumns}|s${noteBodySize}|lh${noteLineHeight}|m${layoutMode}`;
+    const key = ctxKey + '||' + itemsKey;
+    if (__fnAreaHeightCache.has(key)) {
+        const cached = __fnAreaHeightCache.get(key);
+        __fnMeasureLogPush({
+            t: performance.now(),
+            fn: 'measureFootnoteAreaHeight',
+            kind: 'cache-hit',
+            queueSize: queue.length,
+            firstNumber: queue[0].number,
+            probeWidth, fnColumns, noteBodySize, layoutMode,
+            returned: cached,
+            ctxKey
+        });
+        return cached;
+    }
+
     const area = buildFootnoteAreaElement(queue);
-    const refWrapper = document.querySelector('#book-container .page-content-wrapper');
-    const host = document.createElement('div');
-    host.style.cssText = 'position:absolute;visibility:hidden;left:-99999px;top:0;display:block;width:' + (refWrapper ? refWrapper.clientWidth + 'px' : '180mm') + ';';
-    host.appendChild(area);
-    document.body.appendChild(host);
+
+    /* [תיקון] אם יש page-content-wrapper אמיתי — נחבר את ה-probe לתוכו (כילד אחרון
+       נסתר). כך ה-CSS context (flex, vars, font) זהה לחלוטין למה שיקרה בעמוד האמיתי.
+       אחרת — נופלים חזרה ל-document.body (כמו פעם), ומדגישים זאת בלוג. */
+    let host, attachedToBody = false;
+    const hostStyleCss = 'position:absolute;visibility:hidden;left:-99999px;top:0;display:block;width:' + (probeWidth || 180) + 'px;pointer-events:none;';
+    if (probeHost) {
+        // נחבר לתוך probeHost אבל בתור אלמנט אבסולוטי — כך שלא ישפיע על layout אמיתי
+        host = document.createElement('div');
+        host.setAttribute('data-fn-probe', '1');
+        host.style.cssText = hostStyleCss;
+        host.appendChild(area);
+        probeHost.appendChild(host);
+    } else {
+        host = document.createElement('div');
+        host.setAttribute('data-fn-probe', '1');
+        host.style.cssText = hostStyleCss;
+        host.appendChild(area);
+        document.body.appendChild(host);
+        attachedToBody = true;
+    }
+
+    // נמדיד: scrollHeight (כולל תוכן גולש) + שוליים אנכיים
     const cs = getComputedStyle(area);
-    const h = Math.ceil(area.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0));
-    document.body.removeChild(host);
+    const marginTop = parseFloat(cs.marginTop) || 0;
+    const marginBottom = parseFloat(cs.marginBottom) || 0;
+    const blockScrollH = area.scrollHeight;
+    const blockOffsetH = area.offsetHeight;
+    // נשתמש ב-max(scrollHeight, offsetHeight) — scrollHeight תופס גלישה, offsetHeight תופס border
+    const innerH = Math.max(blockScrollH, blockOffsetH);
+    const h = Math.ceil(innerH + marginTop + marginBottom);
+
+    // ניקוי
+    if (host.parentNode) host.parentNode.removeChild(host);
+
     __fnAreaHeightCache.set(key, h);
+
+    __fnMeasureLogPush({
+        t: performance.now(),
+        fn: 'measureFootnoteAreaHeight',
+        kind: 'fresh-measure',
+        queueSize: queue.length,
+        firstNumber: queue[0].number,
+        numbers: queue.map(q => q.number).join(','),
+        textLens: queue.map(q => (q.text || '').length).join(','),
+        probeWidth, fnColumns, noteBodySize, layoutMode,
+        attachedToBody,
+        scrollHeight: blockScrollH,
+        offsetHeight: blockOffsetH,
+        marginTop, marginBottom,
+        returned: h,
+        ctxKey
+    });
     return h;
 }
+
+/* [חדש — בדיקת מהימנות] משווה את תחזית המדידה מול הגובה האמיתי בפועל של
+   אזורי הערות השוליים בעמודים שכבר רונדרו. מחזיר מערך פערים.
+   יש להפעיל אחרי typesetDocument(). */
+function auditFnMeasurement() {
+    const results = [];
+    const pages = document.querySelectorAll('#book-container .a4-page');
+    pages.forEach((pg, pIdx) => {
+        const area = pg.querySelector('.footnote-area');
+        if (!area) return;
+        const pNum = (pg.querySelector('.page-number-footer') || {}).textContent?.trim() || String(pIdx + 1);
+        const cs = getComputedStyle(area);
+        const realScroll = area.scrollHeight;
+        const realOffset = area.offsetHeight;
+        const marginTop = parseFloat(cs.marginTop) || 0;
+        const marginBottom = parseFloat(cs.marginBottom) || 0;
+        const realH = Math.ceil(Math.max(realScroll, realOffset) + marginTop + marginBottom);
+
+        // שחזור התור מתוך ה-DOM
+        const noteLines = area.querySelectorAll('.note-line');
+        const numbers = Array.from(noteLines).map(l => {
+            const num = l.querySelector('.note-line-num');
+            return num ? num.textContent.trim() : '?';
+        });
+
+        // חיפוש רשומת הלוג האחרונה שמתאימה ל-numbers.
+        // אנחנו משווים רק את החלק הראשון של מספר ההערה (לפני הנקודה/מפריד) כי הלוג
+        // שומר firstNumber בלי הנקודה, ואילו ה-DOM כולל את המפריד (note-num-separator).
+        const firstNumRaw = numbers[0] || '';
+        const firstNumCore = firstNumRaw.split(/[.\s,:;]/)[0].trim(); // "א." → "א"
+        const matching = window.__fnMeasureLog.filter(e =>
+            e.kind === 'fresh-measure' &&
+            e.queueSize === numbers.length &&
+            (
+                e.firstNumber === firstNumRaw ||
+                e.firstNumber === firstNumCore ||
+                (e.numbers && e.numbers.split(',')[0] === firstNumCore)
+            )
+        ).pop();
+
+        results.push({
+            pageIdx: pIdx,
+            pageLabel: pNum,
+            numbers,
+            measured: matching ? matching.returned : null,
+            measuredScrollH: matching ? matching.scrollHeight : null,
+            measuredOffsetH: matching ? matching.offsetHeight : null,
+            measuredMarginTop: matching ? matching.marginTop : null,
+            measuredMarginBottom: matching ? matching.marginBottom : null,
+            measuredAttachedToBody: matching ? matching.attachedToBody : null,
+            realH,
+            realScroll,
+            realOffset,
+            realMarginTop: marginTop,
+            realMarginBottom: marginBottom,
+            diff: matching ? (realH - matching.returned) : null,
+            // נתוני הקשר אמיתיים
+            realWidth: area.getBoundingClientRect().width,
+            realClientWidth: area.clientWidth,
+            realColCount: area.querySelectorAll('.note-block').length > 0 ?
+                (area.querySelector('.note-block').classList.contains('cols-2') ? 2 : 1) : null
+        });
+    });
+    return results;
+}
+
+// חשיפה גלובלית
+window.auditFnMeasurement = auditFnMeasurement;
+window.measureFootnoteAreaHeight = measureFootnoteAreaHeight;
 
 /* גופי הערות השוליים שמצויים בטקסט נתון ועוד לא נכנסו לתור (כדי לחשב מראש את השטח שיידרש להם) */
 function getPendingFootnoteItems(text) {

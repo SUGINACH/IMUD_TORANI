@@ -160,6 +160,159 @@
             e.source.postMessage({ type: 'html-result', html: html }, e.origin);
         } else if (msg.type === 'print') {
             window.print();
+        } else if (msg.type === 'fn-audit') {
+            // [חדש — מהימנות מדידה] מחזיר את תוצאות auditFnMeasurement + את הלוג המלא
+            try {
+                const audit = (typeof auditFnMeasurement === 'function') ? auditFnMeasurement() : [];
+                const log = window.__fnMeasureLog || [];
+                e.source.postMessage({ type: 'fn-audit-result', audit: audit, logSize: log.length, logSample: log.slice(-200) }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'fn-audit-error', error: err.message }, e.origin);
+            }
+        } else if (msg.type === 'fn-audit-clear-log') {
+            window.__fnMeasureLog = [];
+            e.source.postMessage({ type: 'fn-audit-log-cleared' }, e.origin);
+        } else if (msg.type === 'geom-extract') {
+            // [חדש — גיאומטריה] חלץ מודל גיאומטרי מה-iframe
+            try {
+                if (!window.__geomAudit) {
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    return;
+                }
+                const model = window.__geomAudit.extract();
+                e.source.postMessage({ type: 'geom-extract-result', model: model }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+            }
+        } else if (msg.type === 'geom-audit') {
+            // [חדש — גיאומטריה] הרץ בודק מתמטי + (אופציונלי) צייר overlay
+            try {
+                if (!window.__geomAudit) {
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    return;
+                }
+                const model = window.__geomAudit.extract();
+                const audit = window.__geomAudit.audit(model);
+                if (msg.opts && msg.opts.paint) {
+                    window.__geomAudit.paint(model, audit, { level: msg.opts.level || 2, labels: msg.opts.labels !== false });
+                }
+                e.source.postMessage({
+                    type: 'geom-audit-result',
+                    summary: audit.summary,
+                    issues: audit.issues,
+                    stats: model.stats
+                }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+            }
+        } else if (msg.type === 'geom-paint') {
+            // [חדש — גיאומטריה] צייר overlay על הדף
+            try {
+                if (!window.__geomAudit) {
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    return;
+                }
+                const model = window.__geomAudit.extract();
+                const audit = window.__geomAudit.audit(model);
+                window.__geomAudit.paint(model, audit, { level: msg.level || 2, labels: msg.labels !== false });
+                e.source.postMessage({
+                    type: 'geom-paint-done',
+                    summary: audit.summary,
+                    stats: model.stats
+                }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+            }
+        } else if (msg.type === 'geom-clear') {
+            // [חדש — גיאומטריה] נקה overlay
+            try {
+                if (window.__geomAudit) window.__geomAudit.clear();
+                e.source.postMessage({ type: 'geom-clear-done' }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message }, e.origin);
+            }
+        } else if (msg.type === 'geom-export') {
+            // [חדש — גיאומטריה] ייצוא פירוט מלא כ-JSON (כולל מילים/רווחים)
+            try {
+                if (!window.__geomAudit) {
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    return;
+                }
+                const model = window.__geomAudit.extract();
+                const audit = window.__geomAudit.audit(model);
+                // נקה את העץ מ-_parent (circular) לפני ייצוא
+                const cleanModel = {
+                    pages: model.pages.map(p => window.__geomAudit.cleanForExport(p)),
+                    stats: model.stats
+                };
+                e.source.postMessage({
+                    type: 'geom-export-result',
+                    model: cleanModel,
+                    audit: audit
+                }, e.origin);
+            } catch (err) {
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+            }
+        } else if (msg.type === 'geom-scroll-to-page') {
+            // [חדש — גיאומטריה] גלול לעמוד מסוים ב-iframe
+            try {
+                const pages = document.querySelectorAll('#book-container .a4-page');
+                const idx = msg.pageIdx;
+                // [תיקון חשוב] ה-<html> הוא overflow:hidden, וה-<body> הוא זה שגולל.
+                // לכן window.scrollTo לא עובד — צריך לגלול את body.scrollTop.
+                const body = document.body;
+                // [תיקון] אם יש issue עם childRect/rightRect, נגלול למיקום המדויק
+                if (msg.issue) {
+                    let targetRect = msg.issue.childRect || msg.issue.rightRect || msg.issue.aRect;
+                    if (targetRect) {
+                        // ה-childRect הוא יחסי ל-#book-container. נמיר ל-document-absolute.
+                        // bcRect.top הוא viewport-relative. בגלל ש-body גולל, bcRect.top כולל את ה-offset הנוכחי.
+                        const bc = document.getElementById('book-container');
+                        const bcRect = bc ? bc.getBoundingClientRect() : { top: 0 };
+                        const currentBodyScroll = body.scrollTop || 0;
+                        // document-absolute Y = currentBodyScroll + bcRect.top (viewport) + targetRect.y (relative to bc)
+                        const docAbsoluteY = currentBodyScroll + bcRect.top + targetRect.y;
+                        // נגלול כך שהאזור הבעייתי יהיה במרכז התצוגה
+                        const targetScrollY = docAbsoluteY - (window.innerHeight / 2) + (targetRect.h / 2);
+                        body.scrollTop = Math.max(0, targetScrollY);
+                        // הבהב את המסגרת אחרי הגלילה
+                        if (window.__geomAudit) {
+                            setTimeout(() => {
+                                window.__geomAudit.highlightIssue(msg.issue);
+                            }, 300);
+                        }
+                        return;
+                    }
+                }
+                // fallback: גלול לעמוד
+                if (pages[idx]) {
+                    const r = pages[idx].getBoundingClientRect();
+                    const currentBodyScroll = body.scrollTop || 0;
+                    body.scrollTop = currentBodyScroll + r.top - 20;
+                }
+                if (msg.issue && window.__geomAudit) {
+                    setTimeout(() => {
+                        window.__geomAudit.highlightIssue(msg.issue);
+                    }, 300);
+                }
+            } catch (err) {
+                console.error('scroll error:', err);
+            }
+        } else if (msg.type === 'geom-highlight') {
+            // [חדש — גיאומטריה] הבהב מסגרת על בעיה ספציפית
+            try {
+                if (window.__geomAudit && msg.issue) {
+                    window.__geomAudit.highlightIssue(msg.issue);
+                }
+            } catch (err) {
+                console.error('highlight error:', err);
+            }
+        } else if (msg.type === 'geom-clear-highlight') {
+            try {
+                if (window.__geomAudit) window.__geomAudit.clearHighlight();
+            } catch (err) {
+                console.error('clear highlight error:', err);
+            }
         }
     });
 
