@@ -2402,3 +2402,30 @@ Stage Summary:
 - **סנכרון קריטריונים**: markInsideParenParagraphs עכשיו משתמש באותו קריטריון כמו applyCrossParagraphParens (parenDepth > 0 && openCount === 0 && closeCount === 0) — אחרת היה פער בין "מה נמדד" ל"מה מוחל".
 - **לא ניתן היה להריץ בדיקת גאומטריה אוטומטית** כי agent-browser לא מצליח להתחבר ל-localhost מתוך הדפדפן שלו. המשתמש צריך לבדוק ויזואלית בדפדפן שלו.
 - **קבצים שהשתנו**: `typesetter.js` בלבד.
+
+---
+Task ID: paren-fix-round2
+Agent: main (GLM)
+Task: תיקון 3 בעיות שדווחו על-ידי המשתמש אחרי התיקון הראשון: (1) סוגריים חוצות-פסקאות — פסקת הסגירה עדיין קיבלה מילה ראשונה/חלון; (2) מתיחת איזון לא משכה איתה את כותרות הצד; (3) מתיחה כפולה — כשמתיחה אחת הירברה, במקום לכווץ חזרה, מתחו גם את הטור השני.
+
+Work Log:
+- **בעיה 1 — שני דגלים נפרדים**: זיהיתי שהתיקון הקודם השתמש בקריטריון קפדני אחד (parenDepth > 0 && openCount === 0 && closeCount === 0) גם ל-createDropWord וגם למדידה. אבל פסקת הסגירה (יש לה ) אבל אין לה () היא המשך בתוך סוגריים וצריכה לדלג על מילה ראשונה, אבל לא תעטף כולה ב-paren-text. לכן:
+  - החזרתי את `_insideParenMap` לקריטריון `parenDepth > 0` (ל-createDropWord — דלג על מילה ראשונה לכל פסקה שמתחילה בתוך סוגריים).
+  - הוספתי מפה נפרדת `_willParenWrapMap` עם הקריטריון הקפדני (למדידה — רק פסקאות שתעטפנה כולן).
+  - הוספתי פונקציות `willParenWrapToken(tok)` ו-`willParenWrapTokenId(tokId)`.
+  - עדכנתי את 4 הקריאות ל-getLinesFromParagraph להשתמש ב-willParenWrapToken/Id (למדידה).
+  - createDropWord ממשיך להשתמש ב-isInsideParenToken/Id (הקריטריון הרחב).
+
+- **בעיה 2 — repositionBlockNotes**: בבלוק post-balance (אחרי applyCrossParagraphParens), הוספתי קריאה ל-`repositionBlockNotes(blk, ...)` אחרי כל מתיחה/כיווץ. כך הערות הצד בשוליים יישארו מול הפסקאות שלהן גם אחרי שהטורים נמתחים/מתכווצים.
+
+- **בעיה 3 — יכולת כיווץ**: 
+  - כתבתי פונקציה חדשה `shrinkColumnVertically(col, targetHeight, styleObj, maxShrink)` שמסירה paddingBottom ומקטינה lineHeight בחזרה אל data-base-lh (לא מתחתיו). החלון (first-word-window) מוקטן באותו יחס עם רצפת מינימום.
+  - בבלוק post-balance, אחרי כל מתיחה, בדיקת יירוס: אם הטור המתוח נהיה גבוה מהיעד ביותר מ-1.5px, קוראים ל-shrinkColumnVertically כדי לכווץ חזרה. כך במקום למתוח גם את הטור השני, מכווצים את הטור המתוח.
+
+Stage Summary:
+- **3 בעיות תוקנו** ב-typesetter.js:
+  1. סוגריים חוצות-פסקאות: שני דגלים נפרדים (insideParen ל-createDropWord, willParenWrap למדידה).
+  2. כותרות צד: repositionBlockNotes אחרי כל מתיחה/כיווץ ב-post-balance.
+  3. מתיחה כפולה: shrinkColumnVertically + בדיקת יירוס.
+- **אימות**: 16/16 בדיקות regex עברו, תחביר תקין.
+- **קבצים שהשתנו**: typesetter.js בלבד.
