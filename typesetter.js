@@ -3861,12 +3861,6 @@ function typesetDocumentCore() {
                         // בלי איזון: הערות הצד שנוצרו במילוי הרגיל עדיין לא מוקמו (balanceColumns מקים את שלו בעצמו, וה-break שלמטה מדלג על ההקמה הרגילה)
                         finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
                     }
-                    // [תיקון] אחרי balanceColumns, סגור פער שנותר ע"י justifyColumnVertically
-                    {
-                        const fd = rCol.scrollHeight - lCol.scrollHeight;
-                        if (fd > 2 && fd <= 60) justifyColumnVertically(lCol, rCol.scrollHeight, styleObj);
-                        else if (fd < -2 && Math.abs(fd) <= 60) justifyColumnVertically(rCol, lCol.scrollHeight, styleObj);
-                    }
 
                     const divHTML = getSectionDividerHTML(secDivStyle);
                     if (divHTML) {
@@ -3889,22 +3883,10 @@ function typesetDocumentCore() {
                     // 2. לפני כותרת 3 רוחבית
                     if (nextPeekMode === 'span_1col' && !pendingWordTokens) {
                         balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                        // [תיקון] סגור פער שנותר אחרי balanceColumns
-                        {
-                            const fd = rCol.scrollHeight - lCol.scrollHeight;
-                            if (fd > 2 && fd <= 60) justifyColumnVertically(lCol, rCol.scrollHeight, styleObj);
-                            else if (fd < -2 && Math.abs(fd) <= 60) justifyColumnVertically(rCol, lCol.scrollHeight, styleObj);
-                        }
                     } 
                     // 3. הטור הימני גלש לתוך שטח ההערה (כי ההערה הייתה בטור שמאל) או שיש פער משמעותי
                     else if (rCol.scrollHeight > actualAvailH || Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 60) {
                         balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                        // [תיקון] סגור פער שנותר אחרי balanceColumns
-                        {
-                            const fd = rCol.scrollHeight - lCol.scrollHeight;
-                            if (fd > 2 && fd <= 60) justifyColumnVertically(lCol, rCol.scrollHeight, styleObj);
-                            else if (fd < -2 && Math.abs(fd) <= 60) justifyColumnVertically(rCol, lCol.scrollHeight, styleObj);
-                        }
                     } 
                     // 4. עמוד רגיל מאוזן שדורש רק יישור שורות עדין
                     else {
