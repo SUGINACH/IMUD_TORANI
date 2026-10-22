@@ -27,7 +27,7 @@ jobs:
       - name: Check CLI help
         run: node tools/geometry-audit-cli.js --help
       - name: Run geometry audit smoke test
-        run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/smoke-report.json --summary ./artifacts/smoke-summary.md --fail-on none
+        run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/smoke-report.json --summary ./artifacts/smoke-summary.md --fail-on none --repeat-check
       - name: Upload smoke report
         if: always()
         uses: actions/upload-artifact@v4
