@@ -385,15 +385,19 @@ function auditSiblingOverlap(node, issues) {
     for (let i = 0; i < node.children.length; i++) {
         for (let j = i + 1; j < node.children.length; j++) {
             const a = node.children[i], b = node.children[j];
-            const ov = rOverlap(a, b);
-            if (ov > TOL.overlap) {
+            const dx = Math.max(0, Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.x, b.rect.x));
+            const dy = Math.max(0, Math.min(a.rect.bottom, b.rect.bottom) - Math.max(a.rect.y, b.rect.y));
+            const ov = dx * dy;
+            // Ignore edge-only/subpixel contacts: area alone can label a 1px-wide seam
+            // as a serious overlap even when the rectangles are merely touching after rounding.
+            if (dx > 1.5 && dy > 1.5 && ov > TOL.overlap) {
                 // אם שניהם טורים (column) באותו בלוק — זה תקין (ם נמצאים זה ליד זה, לא חופפים)
                 if (a.type === 'column' && b.type === 'column') continue;
                 // הערות בתוך fn-line — לפעמים חופפות עם note-line-num
                 if (a.parentType === 'fn-line' || b.parentType === 'fn-line') continue;
                 issues.push({
                     kind: 'overlap',
-                    severity: 'high',
+                    severity: ov > 100 ? 'high' : (ov > 25 ? 'medium' : 'low'),
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
                     aType: a.type, aText: a.text,
