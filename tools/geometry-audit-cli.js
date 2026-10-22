@@ -342,21 +342,21 @@ async function main() {
         const byKind = report.audit.summary?.byKind || {};
         process.stdout.write('Issue kinds: ' + Object.entries(byKind)
           .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-          .map(([kind, count]) => kind + '=' + count).join(', ') + '\\n');
+          .map(([kind, count]) => kind + '=' + count).join(', ') + '\n');
         const highIssues = report.audit.issues.filter(i => i.severity === 'high');
         if (highIssues.length) {
-            process.stdout.write('High-severity issue samples (up to 20):\\n');
+            process.stdout.write('High-severity issue samples (up to 20):\n');
             for (const issue of highIssues.slice(0, 20)) {
                 const page = issue.pageIdx == null ? 'unknown' : String(issue.pageIdx + 1);
                 const detail = issue.message || issue.description || '';
                 process.stdout.write('- page ' + page + ' | ' + (issue.kind || 'unknown') +
                     ' | ' + (issue.location || 'unknown location') +
-                    (detail ? ' | ' + String(detail).replace(/[\\r\\n]+/g, ' ').slice(0, 240) : '') + '\\n');
+                    (detail ? ' | ' + String(detail).replace(/[\r\n]+/g, ' ').slice(0, 240) : '') + '\n');
             }
         }
         if (determinismCheck) {
             process.stdout.write('Determinism: ' + (determinismCheck.identical ? 'PASS' : 'FAIL') +
-                ' | first differing page: ' + (determinismCheck.firstDifferingPage == null ? 'none' : determinismCheck.firstDifferingPage + 1) + '\\n');
+                ' | first differing page: ' + (determinismCheck.firstDifferingPage == null ? 'none' : determinismCheck.firstDifferingPage + 1) + '\n');
         }
         const threshold = rank(args.failOn);
         const fail = threshold > 0 && report.audit.issues.some(i => rank(i.severity) >= threshold);
