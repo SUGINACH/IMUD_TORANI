@@ -2378,6 +2378,74 @@ if (gtocShows.length === 0) {
 - **sparse-line על p-end**: תוקן — רק p-cut נבדק עכשיו.
 
 ---
+Task ID: paren-balance-fix
+Agent: main (GLM)
+Task: תיקון אי-איזון טורים שנגרם על-ידי paren-text — המדידה ב-balanceColumns לא חישבה את הקטנת הגופן ש-applyCrossParagraphParens יחיל אחריו.
+
+Work Log:
+- אבחנתי שורש הבעיה: `applyCrossParagraphParens` רץ **אחרי** `balanceColumns` ומקטין גופן של פסקאות שלמות שבתוך סוגריים חוצות-פסקאות. אבל `balanceColumns` מדד אותן בלי לדעת שהן יקבלו גופן קטן יותר → מספר שורות שגוי → נקודת חצייה לא מאוזנת.
+- תיקנתי את `markInsideParenParagraphs` (שורה 4075) — עכשיו מסמן פסקה כ-insideParen רק אם parenDepth > 0 **ואין לה ( או ) משלה** (openCount === 0 && closeCount === 0), בדיוק כמו הקריטריון של `applyCrossParagraphParens`. לפני זה, היה מסמן כל פסקה ש-parenDepth > 0, מה שיצר פער בין המדידה למציאות.
+- הוספתי פרמטר `insideParen` ל-`measureLinesByRealMarkup` (שורה 386). כשהוא true, עוטף את כל ה-pMeasure ב-span של `paren-text` ומחיל `applyParenStyle` לפני המדידה — כך השורות שנמדדות תואמות את מה שיוצג בפועל.
+- הוספתי פרמטר `insideParen` ל-`getLinesFromParagraph` (שורה 451) והעברתיו ל-`measureLinesByRealMarkup`.
+- עדכנתי את כל 4 הקריאות ל-`getLinesFromParagraph`:
+  1. שורה 1327 (balanceColumns, שלב מדידת items) — מעביר `isInsideParenTokenId(item.id)`
+  2. שורה 1465 (balanceColumns, appendItemFinal, מדידה חוזרת של חלק מפוצל) — מעביר `_insideParen` (משתנה משותף)
+  3. שורה 3560 (הקדמה/h0) — מעביר `isInsideParenToken(currentTok)`
+  4. שורה 3782 (גוף ראשי) — מעביר `isInsideParenToken(currentTok)`
+- תיקנתי הגדרה כפולה של `_insideParen` ב-appendItemFinal — איחדתי למשתנה אחד שמשמש גם את getLinesFromParagraph וגם את createDropWord.
+- אימתתי תחביר עם `node -c` — תקין.
+- אימתתי שכל 8 השינויים במקום עם בדיקת regex — כולם עברו.
+
+Stage Summary:
+- **שורש הבעיה**: מדידת שורות ב-balanceColumns לא חישבה את הקטנת הגופן ש-paren-text יחיל על-ידי applyCrossParagraphParens אחריו.
+- **הפתרון**: מודדים עם הגופן הקטן מראש — על-ידי עטיפת ה-pMeasure ב-span paren-text כש-insideParen=true.
+- **סנכרון קריטריונים**: markInsideParenParagraphs עכשיו משתמש באותו קריטריון כמו applyCrossParagraphParens (parenDepth > 0 && openCount === 0 && closeCount === 0) — אחרת היה פער בין "מה נמדד" ל"מה מוחל".
+- **לא ניתן היה להריץ בדיקת גאומטריה אוטומטית** כי agent-browser לא מצליח להתחבר ל-localhost מתוך הדפדפן שלו. המשתמש צריך לבדוק ויזואלית בדפדפן שלו.
+- **קבצים שהשתנו**: `typesetter.js` בלבד.
+
+---
+Task ID: paren-fix-round2
+Agent: main (GLM)
+Task: תיקון 3 בעיות שדווחו על-ידי המשתמש אחרי התיקון הראשון: (1) סוגריים חוצות-פסקאות — פסקת הסגירה עדיין קיבלה מילה ראשונה/חלון; (2) מתיחת איזון לא משכה איתה את כותרות הצד; (3) מתיחה כפולה — כשמתיחה אחת הירברה, במקום לכווץ חזרה, מתחו גם את הטור השני.
+
+Work Log:
+- **בעיה 1 — שני דגלים נפרדים**: זיהיתי שהתיקון הקודם השתמש בקריטריון קפדני אחד (parenDepth > 0 && openCount === 0 && closeCount === 0) גם ל-createDropWord וגם למדידה. אבל פסקת הסגירה (יש לה ) אבל אין לה () היא המשך בתוך סוגריים וצריכה לדלג על מילה ראשונה, אבל לא תעטף כולה ב-paren-text. לכן:
+  - החזרתי את `_insideParenMap` לקריטריון `parenDepth > 0` (ל-createDropWord — דלג על מילה ראשונה לכל פסקה שמתחילה בתוך סוגריים).
+  - הוספתי מפה נפרדת `_willParenWrapMap` עם הקריטריון הקפדני (למדידה — רק פסקאות שתעטפנה כולן).
+  - הוספתי פונקציות `willParenWrapToken(tok)` ו-`willParenWrapTokenId(tokId)`.
+  - עדכנתי את 4 הקריאות ל-getLinesFromParagraph להשתמש ב-willParenWrapToken/Id (למדידה).
+  - createDropWord ממשיך להשתמש ב-isInsideParenToken/Id (הקריטריון הרחב).
+
+- **בעיה 2 — repositionBlockNotes**: בבלוק post-balance (אחרי applyCrossParagraphParens), הוספתי קריאה ל-`repositionBlockNotes(blk, ...)` אחרי כל מתיחה/כיווץ. כך הערות הצד בשוליים יישארו מול הפסקאות שלהן גם אחרי שהטורים נמתחים/מתכווצים.
+
+- **בעיה 3 — יכולת כיווץ**: 
+  - כתבתי פונקציה חדשה `shrinkColumnVertically(col, targetHeight, styleObj, maxShrink)` שמסירה paddingBottom ומקטינה lineHeight בחזרה אל data-base-lh (לא מתחתיו). החלון (first-word-window) מוקטן באותו יחס עם רצפת מינימום.
+  - בבלוק post-balance, אחרי כל מתיחה, בדיקת יירוס: אם הטור המתוח נהיה גבוה מהיעד ביותר מ-1.5px, קוראים ל-shrinkColumnVertically כדי לכווץ חזרה. כך במקום למתוח גם את הטור השני, מכווצים את הטור המתוח.
+
+Stage Summary:
+- **3 בעיות תוקנו** ב-typesetter.js:
+  1. סוגריים חוצות-פסקאות: שני דגלים נפרדים (insideParen ל-createDropWord, willParenWrap למדידה).
+  2. כותרות צד: repositionBlockNotes אחרי כל מתיחה/כיווץ ב-post-balance.
+  3. מתיחה כפולה: shrinkColumnVertically + בדיקת יירוס.
+- **אימות**: 16/16 בדיקות regex עברו, תחביר תקין.
+- **קבצים שהשתנו**: typesetter.js בלבד.
+
+---
+Task ID: header-h1-fix
+Agent: main (GLM)
+Task: תיקון בעיה — "הגדרת כותרת עליונה אמצעית כמציגה כותרת 1 (שם החלק) לא עובדת"
+
+Work Log:
+- **אבחון**: `currentH1Title` (שמועבר ל-`createPageLayout` ומשם לכותרת העליונה) התעדכן **רק** במקרה `sub_shaar` (שורה 3338). במקרה הרגיל (`new_page_1col` / `new_page_2col`), כותרת level 1 לא עודכנה ב-`currentH1Title` — רק `currentH2Title` התעדכן. לכן כשהמשתמש הגדיר את הכותרת האמצעית כ-h1, היא הייתה ריקה.
+- **בעיה נוספת**: במקרה `sub_shaar`, הטקסט נחתך לפי מקף (`split(/[-–—]/)[0]`) — לוקח רק את החלק הראשון (למשל "חלק א" במקום "חלק א - הלכות שבת"). שם החלק המלא צריך להופיע בכותרת העליונה.
+- **תיקון 1** (שורה 3338): שיניתי מ-`sec.token.text.split(/[-–—]/)[0].trim()` ל-`sec.token.text` (טקסט מלא).
+- **תיקון 2** (שורות 3381-3386): הוספתי עדכון של `currentH1Title` במקרה הרגיל כש-`sec.hToken.level === 1`: `currentH1Title = sec.hToken.text;`. כך גם במצב `new_page_1col` וגם במצב `sub_shaar`, `currentH1Title` מתעדכן עם הטקסט המלא.
+
+Stage Summary:
+- **שורש הבעיה**: `currentH1Title` לא התעדכן במקרה הרגיל (לא sub_shaar), ובמקרה sub_shaar הוא נחתך לפי מקף.
+- **פתרון**: עדכון `currentH1Title` בשני המקרים עם הטקסט המלא של כותרת level 1.
+- **קבצים שהשתנו**: typesetter.js בלבד.
+
 ## Task ID: v22-geometry-audit-review-and-fixes
 ### Agent: Claude (ענף V22)
 ### Task: הרצה בפועל של geometry-audit.js (V21) ותיקון הכללים שנמצאו שגויים

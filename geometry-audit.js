@@ -1313,17 +1313,26 @@ function highlightIssue(issue) {
     const color = issue.severity === 'high' ? '#dc2626' : (issue.severity === 'medium' ? '#d97706' : '#0ea5e9');
 
     rects.forEach(rect => {
+        // [תיקון] ודא שהמסגרת לפחות 30×30 — כדי שתהיה תמיד נראית
+        const minSize = 30;
+        const w = Math.max(rect.w, minSize);
+        const h = Math.max(rect.h, minSize);
+        // מרכז את המסגרת על האזור המקורי
+        const x = rect.x - (w - rect.w) / 2;
+        const y = rect.y - (h - rect.h) / 2;
+        
         const div = document.createElement('div');
         div.style.cssText = `
             position:absolute;
-            left:${rect.x}px; top:${rect.y}px;
-            width:${rect.w}px; height:${rect.h}px;
-            border:3px solid ${color};
-            background:${color}22;
-            box-shadow:0 0 12px ${color}, 0 0 24px ${color}aa;
+            left:${x}px; top:${y}px;
+            width:${w}px; height:${h}px;
+            border:4px solid ${color};
+            background:${color}33;
+            box-shadow:0 0 16px ${color}, 0 0 32px ${color}cc, inset 0 0 8px ${color}44;
             pointer-events:none; z-index:100010;
             box-sizing:border-box;
-            animation: __geom-blink 0.5s ease-in-out infinite alternate;
+            border-radius:4px;
+            animation: __geom-blink 0.4s ease-in-out infinite alternate;
         `;
         container.appendChild(div);
         __highlightElements.push(div);

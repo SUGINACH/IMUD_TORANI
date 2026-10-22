@@ -375,12 +375,29 @@ function createDropWord(text, isContinuation, isSingleLine, numLines = 2, inside
 
 /* מדידת שורות לפי ה-DOM האמיתי: מרנדרים את הפסקה בדיוק כמו בעמוד (createDropWord + סימוני הערות במצב יבש)
    וקובעים לכל מילה את השורה שלה לפי מלבן התו הראשון שלה (Range). מחזיר מערך שורות (טקסט גולמי של המילים),
-   או null כשמספר המילים ב-DOM שונה ממספר היחידות (אז המדידה הישנה, מילה-מילה, משמשת כגיבוי). */
-function measureLinesByRealMarkup(pMeasure, units, text, useWindow, shouldApplyWindow, numLinesEstimated, wordCount, withEndMarker = false) {
+   או null כשמספר המילים ב-DOM שונה ממספר היחידות (אז המדידה הישנה, מילה-מילה, משמשת כגיבוי).
+
+   [תיקון חשוב] insideParen=true מסמן שהפסקה תעטף כולה ב-span של paren-text על-ידי
+   applyCrossParagraphParens (אחרי balanceColumns). העטיפה הזו מקטינה את הגופן
+   (לרוב hostSize + sVal, למשל 12pt + (-2) = 10pt), מה שמקטין את גובה השורה ומשנה
+   את מספר השורות. לכן כש-insideParen=true, עוטפים את התוכן ב-span paren-text ומחילים
+   את applyParenStyle לפני המדידה — כדי שהשורות שנמדדות יהיו השורות שיוצגו בפועל.
+   בלי זה, balanceColumns מחלק פסקאות לפי מספר שורות שגוי → חוסר איזון טורים. */
+function measureLinesByRealMarkup(pMeasure, units, text, useWindow, shouldApplyWindow, numLinesEstimated, wordCount, withEndMarker = false, insideParen = false) {
     try {
         const words = units.map(u => u.raw);
-        pMeasure.innerHTML = createDropWord(text, !useWindow, !shouldApplyWindow, numLinesEstimated);
+        pMeasure.innerHTML = createDropWord(text, !useWindow, !shouldApplyWindow, numLinesEstimated, insideParen);
         applyDelimiterStyles(pMeasure, 'body', getBodySizePt(), true);
+        // [תיקון] אם הפסקה תעטף כולה ב-paren-text על-ידי applyCrossParagraphParens,
+        // עוטפים את התוכן ב-span paren-text ומחילים applyParenStyle — כדי שהמדידה
+        // תראה את אותו גובה שורה שיוצג בפועל.
+        if (insideParen) {
+            const parenSpan = document.createElement('span');
+            parenSpan.className = 'paren-text';
+            while (pMeasure.firstChild) parenSpan.appendChild(pMeasure.firstChild);
+            pMeasure.appendChild(parenSpan);
+            applyParenStyle(parenSpan, getBodySizePt());
+        }
         // [תיקון] סימון הערת סיום שיוצמד לסוף הפסקה נכלל במדידה (ראו createDryEndNoteMarker)
         if (withEndMarker) pMeasure.appendChild(createDryEndNoteMarker());
 
@@ -431,7 +448,7 @@ function measureLinesByRealMarkup(pMeasure, units, text, useWindow, shouldApplyW
 /* ============================================================
    מדידת שורות וחלוקת פסקאות דינמית לפי גופן, גודל ו-Line-Height
    ============================================================ */
-function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLines, withEndMarker = false) {
+function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLines, withEndMarker = false, insideParen = false) {
     const measureContainer = document.getElementById('measuring-box');
     measureContainer.style.width = colWidth + 'px';
     measureContainer.style.fontFamily = styleObj.fontFamily;
@@ -471,8 +488,9 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     /* [תיקון] מדידה במבנה האמיתי של הפסקה: אותו HTML שהעמוד יקבל בפועל (עיצוב מילה ראשונה לפי המצב, ד"ה אוטומטי,
        סימוני הערות), ובכך השורות שנמדדות הן השורות שיוצגו. קודם כל מילה נעטפה ב-span נפרד והמדידה התעלמה מעיצוב
        המילה הראשונה (מודגשת/מוגדלת) ומד"ה - ולכן בכמה מצבים הפסקה נרנדרה בשורות אחרות ממה שנמדד: חיתוכים
-       שנוחתים בשורה בודדת, טורים לא מאוזנים ופערי תחתית. כשהמיפוי אינו חד-חד-ערכי חוזרים לשיטה הישנה. */
-    const realLines = measureLinesByRealMarkup(pMeasure, units, text, useWindowIfMultipleLines, shouldApplyWindow, numLinesEstimated, wordCount, withEndMarker);
+       שנוחתים בשורה בודדת, טורים לא מאוזנים ופערי תחתית. כשהמיפוי אינו חד-חד-ערכי חוזרים לשיטה הישנה.
+       [תיקון נוסף] מעבירים insideParen כדי שהמדידה תחשב את הקטנת הגופן ש-paren-text יחול בפועל. */
+    const realLines = measureLinesByRealMarkup(pMeasure, units, text, useWindowIfMultipleLines, shouldApplyWindow, numLinesEstimated, wordCount, withEndMarker, insideParen);
     if (realLines) {
         measureContainer.innerHTML = '';
         return { lines: realLines, hasWindow: shouldApplyWindow, numLines: realLines.length };
@@ -1164,6 +1182,62 @@ function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, l
     return col.scrollHeight;
 }
 
+/* [חדש] כיווץ טור אנכית: מסיר רווחים וגובה-שורה שנוספו על-ידי justifyColumnVertically,
+   כדי להקטין את גובה הטור חזרה אל targetHeight. משמש כשמתיחה אחת הירברה (הטור המתוח נהיה
+   גבוה מהיעד) — במקום למתוח גם את הטור השני, מכווצים את הטור המתוח חזרה.
+   - מסיר paddingBottom שנוסף על-ידי המתיחה (עד 0).
+   - מקטין lineHeight בחזרה אל data-base-lh (לא מתחתיו).
+   - החלון (first-word-window) מוקטן באותו יחס, עם רצפת מינימום של base * numLines. */
+function shrinkColumnVertically(col, targetHeight, styleObj, maxShrink = 60) {
+    let diff = col.scrollHeight - targetHeight; // חיובי = צריך לכווץ
+    if (!(diff > 0.5 && diff <= maxShrink)) return col.scrollHeight;
+
+    const kids = Array.from(col.children);
+
+    // 1. הסר paddingBottom שנוסף על-ידי מתיחה (עד 0)
+    const gapKids = kids.filter((k, i) => k.tagName === 'P' && i < kids.length - 1);
+    if (gapKids.length) {
+        const per = diff / gapKids.length;
+        gapKids.forEach(k => {
+            const cur = parseFloat(k.style.paddingBottom) || 0;
+            const take = Math.max(0, Math.min(per, cur));
+            if (take > 0) k.style.paddingBottom = (cur - take) + 'px';
+        });
+    }
+
+    // 2. הקטן lineHeight בחזרה אל base (מעברים כמו במתיחה)
+    for (let pass = 0; pass < 3; pass++) {
+        const rest = col.scrollHeight - targetHeight;
+        if (!(rest > 0.5)) break;
+        const infos = kids.filter(k => k.tagName === 'P').map(p => {
+            const { lh, lines } = paraLineInfo(p);
+            return { p, lh, lines, base: parseFloat(p.getAttribute('data-base-lh')) || lh };
+        });
+        const totalLines = infos.reduce((a, i) => a + i.lines, 0);
+        if (!(totalLines > 0)) break;
+        const e = rest / totalLines; // כמה להסיר מכל שורה
+        let changed = false;
+        infos.forEach(i => {
+            if (i.lh <= i.base + 0.01) return; // כבר ב-base, לא יכול לכווץ
+            const newLh = Math.max(i.base, i.lh - e);
+            if (newLh >= i.lh - 0.01) return;
+            const win = i.p.querySelector('.first-word-window');
+            const setH = win ? parseFloat(win.style.height) : NaN;
+            const winH = win ? ((isFinite(setH) && setH > 0) ? setH : win.offsetHeight) : 0;
+            i.p.style.lineHeight = newLh + 'px';
+            // החלון מוקטן באותו יחס, עם רצפת מינימום (לא מתחת לגובה הטבעי ב-base)
+            if (win && winH > 0) {
+                const minWinH = i.base * i.lines - 1; // רצפה: base * numLines (בערך)
+                const newWinH = Math.max(minWinH, ((winH + 1) * newLh / i.lh) - 1);
+                win.style.height = newWinH + 'px';
+            }
+            changed = true;
+        });
+        if (!changed) break;
+    }
+    return col.scrollHeight;
+}
+
 /* מתיחת הבלוק האחרון בעמוד שהפרק ממשיך אחריו עד תחתית השטח הפנוי, כך שכל העמודים נגמרים על אותו קו.
    freeSpace = הרווח הפנוי בפועל (מדוד) בין תחתית הבלוק לתחתית השטח הפנוי בעמוד.
    בבלוק דו-טורי שני הטורים נמתחים לאותו יעד, והיעד מוגבל ליכולת המתיחה של הטור החלש יותר -
@@ -1302,7 +1376,10 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 
     const items = mergedItems.map(item => {
         if (item.type === 'p') {
-            const linesInfo = getLinesFromParagraph(item.rawText, colWidth, styleObj, !item.isCont, !!(item.endNote && !item.cut));
+            // [תיקון] מעבירים willParenWrap (לא insideParen) כדי שהמדידה תחשב את הקטנת הגופן
+            // ש-paren-text יחול רק על פסקאות שתעטפנה כולן (תואם ל-applyCrossParagraphParens).
+            const _willWrap = willParenWrapTokenId(item.id);
+            const linesInfo = getLinesFromParagraph(item.rawText, colWidth, styleObj, !item.isCont, !!(item.endNote && !item.cut), _willWrap);
             return { ...item, lines: linesInfo.lines, isSingleLine: linesInfo.lines.length <= 1, hasWindow: linesInfo.hasWindow, numLines: linesInfo.lines.length };
         }
         return item;
@@ -1431,18 +1508,22 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         if (item.sideNoteStyleId && !isCont) p.setAttribute('data-note-style-id', item.sideNoteStyleId);
         if (item.sideNoteLevel && !isCont) p.setAttribute('data-note-level', item.sideNoteLevel);
 
+        // [חדש] העבר דגל insideParen ל-createDropWord (ל-appendItemFinal ב-balanceColumns)
+        // וגם willParenWrap ל-getLinesFromParagraph למעלה — שני דגלים שונים בכוונה.
+        const _insideParen = isInsideParenTokenId(item.id);
+        const _willWrap = willParenWrapTokenId(item.id);
         let isSingleLine = false;
         let currentLineCount = item.numLines || 2;
         if (!isPartial) {
             isSingleLine = item.isSingleLine;
         } else {
-            const linesInfo = getLinesFromParagraph(textToRender, colWidth, styleObj, !isCont);
+            // [תיקון] מעבירים willParenWrap במדידה החוזרת של חלק מפוצל
+            const linesInfo = getLinesFromParagraph(textToRender, colWidth, styleObj, !isCont, false, _willWrap);
             isSingleLine = linesInfo.lines.length <= 1;
             currentLineCount = linesInfo.lines.length;
         }
 
         // [חדש] העבר דגל insideParen ל-createDropWord (ל-appendItemFinal ב-balanceColumns)
-        const _insideParen = isInsideParenTokenId(item.id);
         p.innerHTML = createDropWord(textToRender, isCont, isSingleLine, currentLineCount, _insideParen);
         applyDelimiterStyles(p, 'body', getBodySizePt(), false);
 
@@ -3251,7 +3332,10 @@ function typesetDocumentCore() {
                 pageIndex++;
             }
 
-            currentH1Title = sec.token.text.split(/[-–—]/)[0].trim();
+            // [תיקון] שם החלק לכותרת העליונה = הטקסט המלא של כותרת 1 (לא רק החלק לפני המקף).
+            // קודם היה: sec.token.text.split(/[-–—]/)[0].trim() — שלקח רק את titleMain (למשל "חלק א")
+            // במקום השם המלא ("חלק א - הלכות שבת"). הכותרת העליונה צריכה להציג את שם החלק המלא.
+            currentH1Title = sec.token.text;
             headingPageMap[sec.token.id] = toGematria(pageIndex);
 
             if (enableDetailedTOC) {
@@ -3293,6 +3377,13 @@ function typesetDocumentCore() {
         let rawH2Text = sec.isNewPage ? sec.hToken.text : '';
         let h2Id = sec.isNewPage ? sec.hToken.id : undefined;
         let isH0 = sec.isNewPage && sec.hToken.level === 0 && !sec.is2ColNewPage;
+
+        // [תיקון] עדכן currentH1Title כשהכותרת הפותחת של ה-section היא level 1 (במצב שאינו sub_shaar).
+        // קודם, currentH1Title התעדכן רק במקרה sub_shaar (שורה 3338). במקרה הרגיל (new_page_1col / new_page_2col),
+        // כותרת level 1 לא עודכנה ב-currentH1Title, ולכן הכותרת העליונה שמוגדרת כ-h1 הייתה ריקה.
+        if (sec.isNewPage && sec.hToken && sec.hToken.level === 1) {
+            currentH1Title = sec.hToken.text;
+        }
 
         let simanLabel = '';
         let displayH2Text = rawH2Text;
@@ -3531,7 +3622,8 @@ function typesetDocumentCore() {
                     }
 
                     if (currentTok.type === 'p') {
-                        let linesInfo = getLinesFromParagraph(currentTok.text, h0ColWidth, h0Style, true);
+                        // [תיקון] מעבירים willParenWrap (למדידה) — לא insideParen
+                        let linesInfo = getLinesFromParagraph(currentTok.text, h0ColWidth, h0Style, true, false, willParenWrapToken(currentTok));
                         let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
                         let isContinuation = !!pendingWordTokens;
                         let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
@@ -3752,7 +3844,8 @@ function typesetDocumentCore() {
                         }
 
                         if (currentTok.type === 'p') {
-                            let linesInfo = getLinesFromParagraph(currentTok.text, colWidth, styleObj, true);
+                            // [תיקון] מעבירים willParenWrap (למדידה) — לא insideParen
+                            let linesInfo = getLinesFromParagraph(currentTok.text, colWidth, styleObj, true, false, willParenWrapToken(currentTok));
                             let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
                             let isContinuation = !!pendingWordTokens;
                             let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
@@ -3916,6 +4009,26 @@ function typesetDocumentCore() {
                 pendingWordTokens = null;
                 tokenIndex++;
             }
+            // [תיקון] אחרי כל העימוד והמתיחה של העמוד, עבור על כל הבלוקים וסגור
+            // פערים שנותרו. balanceColumns כבר קרא ל-justifyColumnVertically,
+            // אבל stretchPageToBottom יכול לשנות את הגבהים של הבלוק האחרון, וה
+            // פערים בבלוקים הקודמים (שלא עברו stretchPageToBottom) נשארו.
+            // זהירות: רק על block-2col, רק פער 2-100px, רק על הטור הקצר.
+            {
+                const flow = pageLayout.bodyFlow;
+                const allBlocks = flow.querySelectorAll('.block-2col');
+                allBlocks.forEach(blk => {
+                    const rC = blk.querySelector('.right-col');
+                    const lC = blk.querySelector('.left-col');
+                    if (!rC || !lC) return;
+                    const fDiff = rC.scrollHeight - lC.scrollHeight;
+                    if (fDiff > 2 && fDiff <= 100) {
+                        justifyColumnVertically(lC, rC.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+                    } else if (fDiff < -2 && Math.abs(fDiff) <= 100) {
+                        justifyColumnVertically(rC, lC.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+                    }
+                });
+            }
         }
     }
 
@@ -3962,6 +4075,53 @@ function typesetDocumentCore() {
     // הפונקציה הזו עוברת על כל הפסקאות בסדר מסמך, עוקבת אחרי עומק הסוגריים, ועוטפת פסקאות
     // שלמות ב-span של paren-text כשהן בתוך סוגריים פתוחות.
     applyCrossParagraphParens(container);
+
+    // [תיקון קריטי] אחרי applyCrossParagraphParens, עבור על כל הבלוקים בכל העמודים
+    // וסגור פערים שנוצרו. applyCrossParagraphParens עוטף פסקאות שלמות ב-span עם גופן
+    // קטן יותר, מה שמשנה את גובה הטורים ופוגע באיזון ש-balanceColumns עשה לפני כן.
+    // זה הסיבה העיקרית לאי-איזון טורים עם paren-text!
+    // חשוב: משתמשים ב-lhCap=null כדי לאפשר מתיחה גם כשיש paren-text span פנימי
+    // שמקטין את גובה השורה — ה-cap הרגיל מונע מתיחה מספקת במקרה זה.
+    //
+    // [תיקון נוסף] אחרי המתיחה:
+    // 1) repositionBlockNotes — כדי שהערות הצד בשוליים יישארו מול הפסקאות שלהן.
+    // 2) בדיקת יירוס: אם המתיחה הירברה (הטור המתוח נהיה גבוה מהיעד), מכווצים אותו חזרה
+    //    במקום למתוח גם את הטור השני. כך שני הטורים נשארים מאוזנים בלי מתיחה כפולה.
+    {
+        const styleObj = { fontFamily: document.getElementById('font-body')?.value || 'Frank Ruhl Libre, serif',
+                           fontSize: (parseFloat(document.getElementById('size-body')?.value) || 12) + 'pt',
+                           lineHeight: document.getElementById('line-height-body')?.value || '1.45' };
+        const allBlocks = container.querySelectorAll('.block-2col');
+        allBlocks.forEach(blk => {
+            const rC = blk.querySelector('.right-col');
+            const lC = blk.querySelector('.left-col');
+            if (!rC || !lC) return;
+            let rH = rC.scrollHeight, lH = lC.scrollHeight;
+            const fDiff = rH - lH;
+            if (Math.abs(fDiff) <= 2 || Math.abs(fDiff) > 150) return;
+
+            if (fDiff > 2) {
+                // טור ימין גבוה יותר — מותחים את שמאל להגיע אליו
+                justifyColumnVertically(lC, rH, styleObj, 150, null);
+                // בדיקת יירוס: אם שמאל הירבר ונהיה גבוה מימין — מכווצים חזרה
+                const lHafter = lC.scrollHeight;
+                if (lHafter > rH + 1.5) {
+                    shrinkColumnVertically(lC, rH, styleObj, 150);
+                }
+            } else {
+                // טור שמאל גבוה יותר — מותחים את ימין להגיע אליו
+                justifyColumnVertically(rC, lH, styleObj, 150, null);
+                // בדיקת יירוס: אם ימין הירבר ונהיה גבוה משמאל — מכווצים חזרה
+                const rHafter = rC.scrollHeight;
+                if (rHafter > lH + 1.5) {
+                    shrinkColumnVertically(rC, lH, styleObj, 150);
+                }
+            }
+
+            // [תיקון] החזרת הערות הצד למקומן אחרי המתיחה/כיווץ
+            repositionBlockNotes(blk, Math.max(rC.scrollHeight, lC.scrollHeight));
+        });
+    }
 }
 
 /* [חדש] טיפול בסוגריים שחוצות פסקאות.
@@ -4018,20 +4178,28 @@ function wrapEntireParagraphInParenStyle(p) {
 }
 
 /* [חדש] Pre-pass: עובר על כל הטוקנים של כל ה-sections בסדר מסמך, עוקב אחרי עומק הסוגריים
-   (count מצטבר של ( פתוחות), ומחזיר מפה: token.id → insideParen (boolean).
-   פסקה שנמצאת בתוך עומק סוגריים פתוחות (parenDepth > 0 לפני הפסקה) מקבלת insideParen=true.
-   המפה משמשת את createDropWord כדי לדלג על עיצוב מילה ראשונה לפסקאות שבתוך סוגריים. */
+   (count מצטבר של ( פתוחות), ובונה שתי מפות:
+   1) insideParenMap: token.id → boolean — האם הפסקה מתחילה בתוך סוגריים פתוחות (parenDepth > 0).
+      משמש את createDropWord כדי לדלג על עיצוב מילה ראשונה לפסקאות שהן המשך בתוך סוגריים.
+   2) willParenWrapMap: token.id → boolean — האם הפסקה תעטף כולה ב-span של paren-text על-ידי
+      applyCrossParagraphParens (parenDepth > 0 **ואין לה ( או ) משלה**). משמש את getLinesFromParagraph
+      כדי למדוד עם גודל הגופן הקטן שיוחל בפועל.
+
+   [הסבר] שתי המפות שונות בכוונה:
+   - פסקת סגירה (יש לה ) אבל אין לה ( ): היא המשך בתוך סוגריים, אז insideParen=true (דלג על מילה ראשונה).
+     אבל applyCrossParagraphParens לא תעטוף אותה כולה (יש לה סוגר משלה), אז willParenWrap=false (מדוד בגופן רגיל).
+   - פסקת פתיחה (יש לה ( ): הטקסט לפני ה( הוא רגיל, אז insideParen=false (אפשר מילה ראשונה אם לא מתחיל ב().
+     וגם willParenWrap=false (לא תעטף כולה).
+   - פסקה אמצעית (אין לה ( או )): insideParen=true וגם willParenWrap=true. */
 function markInsideParenParagraphs(sections) {
-    const map = {};  // token.id → insideParen
+    const insideParenMap = {};  // token.id → insideParen (ל-createDropWord)
+    const willParenWrapMap = {};  // token.id → willParenWrap (למדידה)
     let parenDepth = 0;
 
     sections.forEach(sec => {
         if (!sec.tokens) return;
         sec.tokens.forEach(tok => {
             if (tok.type !== 'p') return;
-            // סמן את הפסקה לפי העומק הנוכחי (לפני ספירת הסוגריים של הפסקה עצמה)
-            map[tok.id] = (parenDepth > 0);
-            // ספור ( ו- ) בטקסט של הפסקה — אבל התעלם מסוגריים שבתוך [...] (הערות שוליים)
             const text = tok.text || '';
             let openCount = 0, closeCount = 0;
             let inBracket = false;
@@ -4042,12 +4210,17 @@ function markInsideParenParagraphs(sections) {
                 if (ch === '(') openCount++;
                 else if (ch === ')') closeCount++;
             }
+            // insideParen: הפסקה מתחילה בתוך סוגריים פתוחות → דלג על מילה ראשונה
+            insideParenMap[tok.id] = (parenDepth > 0);
+            // willParenWrap: הפסקה תעטף כולה ב-paren-text → מדוד בגופן קטן
+            willParenWrapMap[tok.id] = (parenDepth > 0 && openCount === 0 && closeCount === 0);
             parenDepth += openCount - closeCount;
             if (parenDepth < 0) parenDepth = 0;
         });
     });
 
-    return map;
+    window._willParenWrapMap = willParenWrapMap;
+    return insideParenMap;
 }
 
 /* [חדש] בודק אם טוקן נתון נמצא בתוך עומק סוגריים פתוחות.
@@ -4061,4 +4234,17 @@ function isInsideParenToken(tok) {
 function isInsideParenTokenId(tokId) {
     if (tokId == null || !window._insideParenMap) return false;
     return !!window._insideParenMap[tokId];
+}
+
+/* [חדש] בודק אם טוקן יעטף כולו ב-span של paren-text על-ידי applyCrossParagraphParens.
+   משמש את getLinesFromParagraph כדי למדוד עם גודל הגופן הקטן שיוחל בפועל.
+   קריטריון: parenDepth > 0 **ואין לפסקה ( או ) משלה** (תואם ל-applyCrossParagraphParens). */
+function willParenWrapToken(tok) {
+    if (!tok || !window._willParenWrapMap) return false;
+    return !!window._willParenWrapMap[tok.id];
+}
+
+function willParenWrapTokenId(tokId) {
+    if (tokId == null || !window._willParenWrapMap) return false;
+    return !!window._willParenWrapMap[tokId];
 }

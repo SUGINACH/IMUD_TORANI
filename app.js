@@ -2725,9 +2725,11 @@ function renderGeomResults(container, result) {
                 + `</tr>`;
         });
         html += '</tbody></table>';
-        // שמור את ה-issues במקום נגיש ל-scrollToIssuePage
-        html += `<script>window.__lastGeomIssues = ${JSON.stringify(issues.slice(0, 200))};</script>`;
     }
+
+    // [תיקון חשוב] שמור את ה-issues ישירות ב-window — לא דרך <script> ב-innerHTML
+    // (scripts ב-innerHTML לא מורצים על ידי דפדפנים)
+    window.__lastGeomIssues = issues.slice(0, 200);
 
     // מקרא צבעים
     html += '<div style="padding:6px;font-size:7pt;color:#475569;background:#f1f5f9;border-radius:0 0 4px 4px;">';
