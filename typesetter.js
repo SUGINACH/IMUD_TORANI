@@ -4138,7 +4138,14 @@ function typesetDocumentCore() {
                 }
 
                 // חישוב הגובה המותר האמיתי לשני הטורים (לאחר שכל הערות העמוד ידועות!)
-                const actualAvailH = remPageHeight - reservedNow();
+                const actualAvailH = Math.max(0, remPageHeight - reservedNow());
+                // scrollHeight omits some outer line-box/margin contributions. Use the rendered
+                // block box as a second hard-fit constraint, and reserve the measured excess
+                // when asking balanceColumns to choose a split.
+                const initialOuterBlockH = block2Col.getBoundingClientRect().height;
+                const initialInnerColumnsH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
+                const outerBlockOverflow = Math.max(0, initialOuterBlockH - actualAvailH);
+                const balanceAvailH = Math.max(0, actualAvailH - outerBlockOverflow);
 
                 // 1. סיום פרק
                 if (tokenIndex >= secTokens.length && !pendingWordTokens) {
@@ -4147,9 +4154,11 @@ function typesetDocumentCore() {
                     // ורק כשהבלוק נכנס בגובה הפנוי - אחרת מאזנים כרגיל כדי לא לחרוג מהעמוד.
                     const keepChapterEndUnbalanced =
                         document.getElementById('balance-chapter-end')?.value === 'fill' &&
-                        Math.max(rCol.scrollHeight, lCol.scrollHeight) <= actualAvailH;
+                        Math.max(rCol.scrollHeight, lCol.scrollHeight) <= actualAvailH &&
+                        block2Col.getBoundingClientRect().height <= actualAvailH;
                     if (!keepChapterEndUnbalanced) {
-                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
+                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot,
+                            block2Col.getBoundingClientRect().height > actualAvailH ? balanceAvailH : actualAvailH);
                     } else {
                         // בלי איזון: הערות הצד שנוצרו במילוי הרגיל עדיין לא מוקמו (balanceColumns מקים את שלו בעצמו, וה-break שלמטה מדלג על ההקמה הרגילה)
                         finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
@@ -4180,8 +4189,11 @@ function typesetDocumentCore() {
                         balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
                     } 
                     // 3. הטור הימני גלש לתוך שטח ההערה (כי ההערה הייתה בטור שמאל) או שיש פער משמעותי
-                    else if (Math.max(rCol.scrollHeight, lCol.scrollHeight) > actualAvailH || Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 60) {
-                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
+                    else if (Math.max(rCol.scrollHeight, lCol.scrollHeight) > actualAvailH ||
+                        block2Col.getBoundingClientRect().height > actualAvailH ||
+                        Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 60) {
+                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot,
+                            block2Col.getBoundingClientRect().height > actualAvailH ? balanceAvailH : actualAvailH);
                     } 
                     // 4. עמוד רגיל מאוזן שדורש רק יישור שורות עדין
                     else {
