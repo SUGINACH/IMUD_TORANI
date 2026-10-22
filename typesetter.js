@@ -3983,7 +3983,7 @@ function typesetDocumentCore() {
                             const placeLines = resolveParagraphSplit(
                                 lines.length,
                                 bestFitLine,
-                                !pageHasContent && !pageBodyHasContent && !hasHeadingBefore
+                                !pageHasContent && !pageBodyHasContent && !hasHeadingBefore && !currentTok.sideNote
                             );
                             if (placeLines === 0) {
                                 targetCol.removeChild(pElem);
