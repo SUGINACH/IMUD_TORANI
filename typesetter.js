@@ -769,12 +769,14 @@ function getSplitRules() {
 /* כמה שורות להציב מפסקה בת totalLines שורות כשבפועל נכנסות fitLines שורות.
    מחזיר 0 כשאי אפשר לפצל בלי להפר את הכללים - הפסקה כולה (והכותרות שלפניה) עוברות לטור/עמוד הבא.
    mustPlace=true כשזו הפסקה הראשונה בעמוד ואין לאן לדחות (מונע לולאה אינסופית). */
-function resolveParagraphSplit(totalLines, fitLines, mustPlace) {
+function resolveParagraphSplit(totalLines, fitLines) {
     if (fitLines >= totalLines) return totalLines;
     const { minFirst, minLast } = getSplitRules();
     const k = Math.min(fitLines, totalLines - minLast);
     if (k >= minFirst) return k;
-    if (mustPlace && fitLines >= 1) return Math.max(1, Math.min(fitLines, totalLines - 1));
+
+    // Widow/orphan rules are hard constraints: never force a one-line fragment
+    // just to make progress. The page loop has a deterministic no-progress guard.
     return 0;
 }
 
@@ -3537,8 +3539,26 @@ function typesetDocumentCore() {
         let secTokens = sec.tokens.slice();
         let tokenIndex = 0;
         let pendingWordTokens = null;
+        let previousPageProgressKey = null;
+        let previousProgressPageIndex = null;
+        let noProgressPageCount = 0;
 
         while (tokenIndex < secTokens.length || pendingWordTokens) {
+            const pendingProgressKey = pendingWordTokens
+                ? String(pendingWordTokens.token?.id || pendingWordTokens.token?.text || '') + '|' + (pendingWordTokens.remainingLines || []).join(' ')
+                : '';
+            const pageProgressKey = String(tokenIndex) + '|' + pendingProgressKey;
+            if (previousProgressPageIndex !== null && pageIndex > previousProgressPageIndex) {
+                if (pageProgressKey === previousPageProgressKey) noProgressPageCount++;
+                else noProgressPageCount = 0;
+                if (noProgressPageCount >= 2) {
+                    throw new Error('Layout infeasible without violating widow/orphan rules: no content progress across ' +
+                        noProgressPageCount + ' pages at tokenIndex=' + tokenIndex + ', pending=' + pendingProgressKey.slice(0, 120));
+                }
+            }
+            previousPageProgressKey = pageProgressKey;
+            previousProgressPageIndex = pageIndex;
+
             if (prevPageEl) flushFootnotesInto(prevPageEl);
             if (isFirstPage && h2Text && sec.hToken) ensureOddPageStart(sec.hToken.level);
 
@@ -3775,12 +3795,7 @@ function typesetDocumentCore() {
                             (txt) => remPageHeight - reservedNow(txt));
 
                         // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
-                        // Never force a one-line fragment when a heading is waiting for its paragraph.
-                        // In that case move the heading and paragraph together to the next page.
-                        const hasHeadingBefore = Array.from(targetCol.children).some(el =>
-                            el !== pElem && /(^|\s)title-level-/.test(String(el.className || ''))
-                        );
-                        const placeLines = resolveParagraphSplit(lines.length, bestFitLine, !pageHasContent && !hasHeadingBefore);
+                        const placeLines = resolveParagraphSplit(lines.length, bestFitLine);
                         if (placeLines === 0) {
                             targetCol.removeChild(pElem);
                             tokenIndex -= rollbackTrailingHeadings(targetCol);
@@ -4014,15 +4029,7 @@ function typesetDocumentCore() {
                                 (txt) => remPageHeight - reservedNow(txt));
 
                             // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
-                            // The no-progress fallback may force a fragment only on a genuinely empty
-                            // body page. If any heading is waiting in this block, roll it back with the
-                            // paragraph instead of stranding a single line beneath it.
-                            const hasHeadingBefore = !!block2Col.querySelector('[class*="title-level-"]');
-                            const placeLines = resolveParagraphSplit(
-                                lines.length,
-                                bestFitLine,
-                                !pageHasContent && !pageBodyHasContent && !hasHeadingBefore && !currentTok.sideNote
-                            );
+                            const placeLines = resolveParagraphSplit(lines.length, bestFitLine);
                             if (placeLines === 0) {
                                 targetCol.removeChild(pElem);
                                 tokenIndex -= rollbackTrailingHeadings(targetCol);
