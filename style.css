@@ -1069,7 +1069,7 @@ body.tabs-not-ready #sidebar::before {
     font-size: var(--sz-h2);
     font-weight: 700;
     text-align: center;
-    margin-top: 0;
+    margin-top: var(--flow-mt-h2, 0);
     margin-bottom: 20px;
     width: 100%;
     line-height: 1.25;

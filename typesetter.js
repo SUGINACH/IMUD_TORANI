@@ -705,7 +705,7 @@ function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR
 
     return `<div class="top-header-grid${hdrPn ? ' has-hdr-pn' : ''}">
         <div class="header-col-r" style="text-align:${hdrRAlign}; justify-content:${hdrRAlign}; font-family:${hdrRFont}; font-size:${hdrRSize};">${hdrRHTML}</div>
-        <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign};">${hdrCHTML}</div>
+        <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign}; font-family:${cSet.font || hdrRFont}; font-size:${(cSet.size || 11) + 'pt'};">${hdrCHTML}</div>
         <div class="header-col-l" style="text-align:${hdrLAlign}; justify-content:${hdrLAlign}; font-family:${hdrLFont}; font-size:${hdrLSize};">${hdrLHTML}</div>${hdrPn ? `
         <span class="hdr-pagenum">${pnInfo.framedPageNum}</span>` : ''}
       </div>`;
