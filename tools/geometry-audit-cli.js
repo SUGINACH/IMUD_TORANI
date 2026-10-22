@@ -115,6 +115,10 @@ async function main() {
         await page.goto(baseUrl + '/renderer.html', { waitUntil: 'load', timeout: args.timeoutMs });
         await page.waitForFunction(() => typeof window.typesetDocument === 'function' && window.__geomAudit && typeof window.__geomAudit.audit === 'function', null, { timeout: 30000 });
 
+        // settings-manager loads default_settings.json asynchronously. Do not start
+        // pagination against empty hidden controls before those defaults are applied.
+        await page.waitForFunction(() => typeof window.getDefaultSettings === 'function' && window.getDefaultSettings() !== null, null, { timeout: 30000 });
+
         // Wait for initial CSS/web fonts before pagination decisions are made.
         // Waiting only after typesetting can leave page breaks measured with fallback fonts.
         await page.evaluate(async () => {
