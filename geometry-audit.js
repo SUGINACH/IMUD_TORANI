@@ -223,8 +223,11 @@ function buildNode(el, parent, pageOffset) {
     // דלג על אלמנטים בלי גודל
     if (rect.w < 1 || rect.h < 1) return null;
 
+    const siblingIndex = parent && Array.isArray(parent.children) ? parent.children.length : 0;
     const node = {
-        id: (el.id || '') + ':' + Math.random().toString(36).slice(2, 8),
+        // Stable traversal-path IDs make repeated geometry exports comparable.
+        // Do not use Math.random(): it makes identical layouts produce different reports.
+        id: (parent && parent.id ? parent.id : 'root') + '/' + cls.type + '[' + siblingIndex + ']',
         type: cls.type,
         tag: cls.tag,
         cls: typeof el.className === 'string' ? el.className.slice(0, 80) : '',
@@ -232,6 +235,8 @@ function buildNode(el, parent, pageOffset) {
         rect,
         children: [],
         lines: [],
+        tokenId: el.getAttribute('data-token-id') || null,
+        isContinuation: el.getAttribute('data-is-cont') === 'true',
         parentType: parent ? parent.type : null
     };
 
@@ -270,6 +275,7 @@ function extractGeometry() {
     pageEls.forEach((pgEl, pIdx) => {
         const pgRect = rectOf(pgEl);
         const page = {
+            id: 'page-' + pIdx,
             idx: pIdx,
             label: (pgEl.querySelector('.page-number-footer')?.textContent?.trim() || String(pIdx + 1)),
             rect: pgRect,
@@ -446,34 +452,40 @@ function auditColumnBalance(node, issues) {
 }
 
 function auditWidowOrphan(node, issues) {
-    // בכל טור — בדוק את הפסקה הראשונה והאחרונה
     if (node.type === 'column') {
         const ps = node.children.filter(c => c.type === 'p' || c.type === 'p-cut' || c.type === 'p-end');
         if (ps.length > 0) {
             const first = ps[0];
-            // אלמנה: פסקה אחרונה בטור עם שורה אחת
             const last = ps[ps.length - 1];
-            if (last.lines.length === 1 && last.type === 'p-end') {
+
+            // A short complete paragraph is NOT a widow. A widow is the single
+            // final line of a paragraph continued from a previous column/page,
+            // stranded at the top of this column.
+            if (first.lines.length === 1 && first.type === 'p-end' && first.isContinuation) {
                 issues.push({
                     kind: 'widow',
                     severity: 'medium',
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
-                    pText: last.text,
-                    childRect: { x: Math.round(last.rect.x), y: Math.round(last.rect.y), w: Math.round(last.rect.w), h: Math.round(last.rect.h) },
-                    message: `אלמנה: שורה אחת בודדת בסוף טור ${node.side} ("${last.text.slice(0, 30)}...")`
+                    tokenId: first.tokenId,
+                    pText: first.text,
+                    childRect: { x: Math.round(first.rect.x), y: Math.round(first.rect.y), w: Math.round(first.rect.w), h: Math.round(first.rect.h) },
+                    message: `אלמנה: השורה האחרונה של פסקה נמשכת מופיעה לבדה בראש טור ${node.side} ("${first.text.slice(0, 30)}...")`
                 });
             }
-            // יתום: פסקה ראשונה בטור עם שורה אחת שהיא p-cut (ממשיכה מהטור הקודם)
-            if (first.lines.length === 1 && first.type === 'p-cut' && ps.length > 1) {
+
+            // An orphan is the first line of a paragraph stranded at the bottom
+            // of a column while the same paragraph continues in the next column/page.
+            if (last.lines.length === 1 && last.type === 'p-cut') {
                 issues.push({
                     kind: 'orphan',
                     severity: 'medium',
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
-                    pText: first.text,
-                    childRect: { x: Math.round(first.rect.x), y: Math.round(first.rect.y), w: Math.round(first.rect.w), h: Math.round(first.rect.h) },
-                    message: `יתום: שורה אחת בודדת בתחילת טור ${node.side} ("${first.text.slice(0, 30)}...")`
+                    tokenId: last.tokenId,
+                    pText: last.text,
+                    childRect: { x: Math.round(last.rect.x), y: Math.round(last.rect.y), w: Math.round(last.rect.w), h: Math.round(last.rect.h) },
+                    message: `יתום: שורה ראשונה של פסקה מופיעה לבדה בתחתית טור ${node.side} ("${last.text.slice(0, 30)}...")`
                 });
             }
         }
