@@ -2521,3 +2521,26 @@ Stage Summary:
 - Commit `a61dc4f1cedd2fd1e014b040158ec8e2ffcfcbca` on `V23` adds outer block height to the balance trigger and the chapter-end `keepChapterEndUnbalanced` condition.
 - When the rendered outer block exceeds the available height, the balancing call receives an available height reduced by the measured outer-box overhead (`outer block height - max(column scrollHeight)`), so the selected inner column content leaves room for the observed box overhead.
 - `V21` remains unchanged. Long-document validation for this commit is pending; no claim is made yet that all high-severity issues are resolved.
+
+---
+
+## Task ID: v23-audit-d405-no-regression-and-live-height-mismatch-2026-10-22
+**Agent:** ChatGPT
+**Date:** 2026-10-22
+**Task:** Record the full 601-page audit after the outer-box fit changes and isolate the remaining high-severity geometry pattern.
+
+### Verified audit result
+- Audit commit: `d4057671427c51b5606e1738574f66d1413d8887`.
+- Rendered 601 pages; repeated render was deterministic (identical layout hash).
+- Audit result: 100 issues — 7 high, 33 medium, 60 low. The long-document workflow failed because the audit is configured to fail on high-severity issues; the CLI workflow succeeded.
+- The seven high issues are six block/body-flow containment overflows and one side-note overflow. The largest block overflows are on pages 197 (~106.1px), 219 (~127.8px), and 581 (~79.8px).
+- Crucially, all seven high block issues still have null `data-layout-balance-*` metrics. The outer-box trigger/available-height change did not remove these cases; do not claim the high-severity problem is fixed.
+
+### Further evidence
+- On page 197, the measured body-flow height is ~778.6px and the block starts ~258px from its top, leaving ~520.9px of actual body-flow extent, while `data-layout-fill-remaining` is ~627.5px and the block height is ~627.1px. The stored fit-height and final geometry therefore disagree by about 106px.
+- CSS defines `.page-body-flow` as a flex column with `flex-grow: 1` and default flex-shrink behavior. This is a plausible interaction to investigate, but not yet proven to be the sole cause.
+- Next implementation step must trace when `remPageHeight`, `reservedNow()`, and the final `.page-body-flow` rectangle are measured relative to footnote insertion and flex layout. Do not add another heuristic balance patch until the stale/live height discrepancy is understood. A true overflow beyond the final available height requires deterministic carryover/reflow to the next page, not merely choosing the least-overflowing column split.
+
+### Branch safety
+- All changes remain on `V23`.
+- `V21` remains untouched at `b972501409a69ff32931ad414e4d0f9f2655718b`.
