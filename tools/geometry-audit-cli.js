@@ -34,9 +34,9 @@ function parseArgs(argv) {
     return o;
 }
 function help() {
-    process.stdout.write('Geometry audit CLI\\nRequired: --input <text-file>\\n' +
-      'Options: --settings <json-file>, --report <json-file>, --summary <md-file>, --full-model,\\n' +
-      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>\\n');
+    process.stdout.write('Geometry audit CLI\nRequired: --input <text-file>\n' +
+      'Options: --settings <json-file>, --report <json-file>, --summary <md-file>, --full-model,\n' +
+      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>\n');
 }
 function abs(p) { return path.resolve(process.cwd(), p); }
 function ensureParent(p) { fs.mkdirSync(path.dirname(p), { recursive: true }); }
@@ -80,7 +80,7 @@ function markdown(r) {
     else for (const i of r.audit.issues) lines.push('- **' + String(i.severity || 'unknown').toUpperCase() +
       '** — ' + (i.kind || 'unknown kind') + ' — page ' + (i.pageIdx ?? 'unknown') + ' — ' + (i.message || i.description || JSON.stringify(i)));
     lines.push('');
-    return lines.join('\\n');
+    return lines.join('\n');
 }
 
 async function main() {
@@ -113,7 +113,7 @@ async function main() {
         page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
         page.on('requestfailed', req => consoleErrors.push('Request failed: ' + req.url() + ' (' + (req.failure()?.errorText || 'unknown') + ')'));
         await page.goto(baseUrl + '/renderer.html', { waitUntil: 'load', timeout: args.timeoutMs });
-        await page.waitForFunction(() => typeof window.typesetDocument === 'function' && window.__geomAudit && typeof window.__geomAudit.audit === 'function', { timeout: 30000 });
+        await page.waitForFunction(() => typeof window.typesetDocument === 'function' && window.__geomAudit && typeof window.__geomAudit.audit === 'function', null, { timeout: 30000 });
 
         const renderResult = await page.evaluate(({ text, settings, timeoutMs }) => new Promise((resolve,reject) => {
             let settled = false;
@@ -165,17 +165,17 @@ async function main() {
         if (args.fullModel) report.geometry.model = data.model;
         ensureParent(reportPath); fs.writeFileSync(reportPath,JSON.stringify(report,null,2),'utf8');
         ensureParent(summaryPath); fs.writeFileSync(summaryPath,markdown(report),'utf8');
-        process.stdout.write('Geometry audit complete\\nPages: ' + report.pageCount + '\\nIssues: ' +
+        process.stdout.write('Geometry audit complete\nPages: ' + report.pageCount + '\nIssues: ' +
           (report.audit.summary?.total ?? report.audit.issues.length) + ' (high ' + (report.audit.summary?.high || 0) +
-          ', medium ' + (report.audit.summary?.medium || 0) + ', low ' + (report.audit.summary?.low || 0) + ')\\nJSON: ' +
-          path.relative(root,reportPath) + '\\nSummary: ' + path.relative(root,summaryPath) + '\\n');
+          ', medium ' + (report.audit.summary?.medium || 0) + ', low ' + (report.audit.summary?.low || 0) + ')\nJSON: ' +
+          path.relative(root,reportPath) + '\nSummary: ' + path.relative(root,summaryPath) + '\n');
         const threshold = rank(args.failOn);
         const fail = threshold > 0 && report.audit.issues.some(i => rank(i.severity) >= threshold);
-        if (pageErrors.length) { process.stderr.write('Browser JavaScript errors: ' + pageErrors.length + '\\n'); process.exitCode = 2; }
+        if (pageErrors.length) { process.stderr.write('Browser JavaScript errors: ' + pageErrors.length + '\n'); process.exitCode = 2; }
         else if (fail) process.exitCode = 1;
     } finally {
         if (browser) await browser.close().catch(() => {});
         await new Promise(resolve => server.close(resolve));
     }
 }
-main().catch(err => { process.stderr.write('geometry-audit-cli: ' + (err.stack || err) + '\\n'); process.exitCode = 2; });
+main().catch(err => { process.stderr.write('geometry-audit-cli: ' + (err.stack || err) + '\n'); process.exitCode = 2; });
