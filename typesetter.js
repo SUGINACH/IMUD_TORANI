@@ -29,10 +29,13 @@ function formatPageNumberDisplay(pNum) {
     const pageNumFormat = document.getElementById('page-num-format')?.value || 'gematria';
     const pageNumFrame = document.getElementById('page-num-frame')?.value || 'none';
     const startIdx = parseInt(document.getElementById('page-num-start-idx')?.value, 10) || 1;
+    // [תיקון] page-num-initial-value — הערך שהעמוד הראשון שנספר יתחיל ממנו (למשל 87 לכרך ב').
+    // קודם היה קשית +1, ולכן המספור תמיד התחיל מ-1 וההגדרה הוזנחה.
+    const initialValue = parseInt(document.getElementById('page-num-initial-value')?.value, 10) || 1;
 
     let displayPageNum = '';
     if (pageNumPos !== 'none' && pNum >= startIdx) {
-        const effectiveNum = pNum - startIdx + 1;
+        const effectiveNum = pNum - startIdx + initialValue;
         if (pageNumFormat === 'gematria') {
             displayPageNum = toGematria(effectiveNum);
         } else if (pageNumFormat === 'page_gematria') {
@@ -141,6 +144,10 @@ function updateStyles() {
     const hdrDividerMode = document.getElementById('hdr-divider-style')?.value || 'gray';
     const hdrDividerColorMap = { none: 'transparent', gray: 'rgba(0,0,0,0.06)', black: '#000' };
     root.style.setProperty('--hdr-divider-color', hdrDividerColorMap[hdrDividerMode] || hdrDividerColorMap.gray);
+
+    // [תיקון] body-last-line-align — יישור שורה אחרונה של פסקה (p-end).
+    // קודם המשתנה --last-line-align היה קשית ל-center וההגדרה הוזנחה.
+    root.style.setProperty('--last-line-align', document.getElementById('body-last-line-align')?.value || 'center');
 
     // כותרות 0 עד 7
     root.style.setProperty('--fn-h0', document.getElementById('f-h0')?.value || 'serif');
@@ -493,7 +500,10 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     const realLines = measureLinesByRealMarkup(pMeasure, units, text, useWindowIfMultipleLines, shouldApplyWindow, numLinesEstimated, wordCount, withEndMarker, insideParen);
     if (realLines) {
         measureContainer.innerHTML = '';
-        return { lines: realLines, hasWindow: shouldApplyWindow, numLines: realLines.length };
+        // [תיקון] avoid-runt-word — מנע מילה בודדת בשורה האחרונה
+        const finalLines = (document.getElementById('avoid-runt-word')?.checked ?? true)
+            ? applyAvoidRuntWord(realLines) : realLines;
+        return { lines: finalLines, hasWindow: shouldApplyWindow, numLines: finalLines.length };
     }
 
     let html = '';
@@ -536,10 +546,13 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     }
 
     measureContainer.innerHTML = '';
+    // [תיקון] avoid-runt-word — מנע מילה בודדת בשורה האחרונה (גם ב-fallback)
+    const finalLines2 = (document.getElementById('avoid-runt-word')?.checked ?? true)
+        ? applyAvoidRuntWord(lines) : lines;
     return {
-        lines,
+        lines: finalLines2,
         hasWindow: shouldApplyWindow,
-        numLines: lines.length
+        numLines: finalLines2.length
     };
 }
 
@@ -554,6 +567,23 @@ function extractH1TitleMain(text) {
     if (!text) return '';
     if (!/[-–—]/.test(text)) return text;
     return text.split(/[-–—]/)[0].trim();
+}
+
+/* [חדש] מונע מילה בודדת בשורה האחרונה של פסקה (runt word).
+   אם השורה האחרונה מכילה מילה אחת בלבד ויש יותר משורה אחת,
+   מוזג אותה עם השורה הקודמת — כך שתי המילים האחרונות נשארות יחד.
+   פועל רק כש-avoid-runt-word מסומן. */
+function applyAvoidRuntWord(lines) {
+    if (lines.length < 2) return lines;
+    const last = lines[lines.length - 1];
+    const lastWords = last.split(/\s+/).filter(Boolean);
+    if (lastWords.length === 1) {
+        // השורה האחרונה היא מילה אחת — מזג עם הקודמת
+        const merged = lines.slice(0, -2);
+        merged.push(lines[lines.length - 2] + ' ' + last);
+        return merged;
+    }
+    return lines;
 }
 
 /* "חיצוני"/"פנימי" מתורגם לימין/שמאל לפי העמודה הפיזית (ולא לפי איזה
@@ -2613,7 +2643,7 @@ function buildStructuredTOC(tokenList, showLevels, groupLevels) {
     return entries;
 }
 
-function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, pageIndex, curH1, curH2, tocPrefix) {
+function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, pageIndex, curH1, curH2, tocPrefix, showNumbering = true) {
     if (entries.length === 0) return 0;
 
     let pagesCount = 0;
@@ -2647,9 +2677,10 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
         const tocHeaderHTML = buildHeaderGridHTML(pageIndex + pagesCount - 1, curH1 || titleText, curH2 || titleText, '', bookTitle, customR, customC, customL, {}, titleText);
         // [תיקון] מספר העמוד בתחתית עמוד תוכן עניינים נגזר מאותן הגדרות מספור כמו עמודי התוכן (מיקום, פורמט, מסגרת, עמוד התחלה).
         // בברירת המחדל (אותיות, תחתית במרכז, מתחיל מ-1) התוצאה זהה לקודמת.
+        // [תיקון נוסף] showNumbering — אם false, לא מציגים מספר עמוד (general-toc-show-numbering / detailed-toc-show-numbering).
         const tocPN = formatPageNumberDisplay(pageIndex + pagesCount - 1);
         const tocFooterClass = (tocPN.pageNumPos === 'bottom_outer') ? 'pos-outer' : 'pos-center';
-        const tocShowFooter = (tocPN.pageNumPos === 'bottom_center' || tocPN.pageNumPos === 'bottom_outer') && tocPN.displayPageNum;
+        const tocShowFooter = showNumbering && (tocPN.pageNumPos === 'bottom_center' || tocPN.pageNumPos === 'bottom_outer') && tocPN.displayPageNum;
         page.innerHTML = `
       <div class="page-content-wrapper">
         ${tocHeaderHTML}
@@ -3335,8 +3366,13 @@ function typesetDocumentCore() {
 
     if (enableGeneralTOC) {
         const generalTocEntries = buildStructuredTOC(tokens, gtocShows, gtocGroups);
-        const pagesRendered = renderPaginatedTOC(container, generalTocEntries, "תוכן עניינים כללי", bookTitle, "תוכן עניינים כללי", pageIndex, "תוכן עניינים כללי", "תוכן עניינים כללי", "gtoc");
-        pageIndex += pagesRendered;
+        // [תיקון] general-toc-show-numbering — האם להציג מספר עמוד על תוכן כללי
+        const gtocShowNumber = document.getElementById('general-toc-show-numbering')?.checked ?? true;
+        const pagesRendered = renderPaginatedTOC(container, generalTocEntries, "תוכן עניינים כללי", bookTitle, "תוכן עניינים כללי", pageIndex, "תוכן עניינים כללי", "תוכן עניינים כללי", "gtoc", gtocShowNumber);
+        // [תיקון] general-toc-count-numbering — האם עמודי תוכן כללי נכללים ברצף המספור
+        if (document.getElementById('general-toc-count-numbering')?.checked ?? true) {
+            pageIndex += pagesRendered;
+        }
     }
     renderExtAnchor(container, 'afterGeneralToc', rawText);
 
@@ -3422,8 +3458,13 @@ function typesetDocumentCore() {
                 }
                 const detailedTocEntries = buildStructuredTOC(thisH1Tokens, dtocShows, dtocGroups);
                 // [תוקן] הפרמטר הרביעי הוא שם הספר (קודם הועבר כאן שם החלק, ולכן כותרת עליונה מסוג "שם הספר" הציגה את שם החלק בתוכן המפורט)
-                const dtocPages = renderPaginatedTOC(container, detailedTocEntries, "תוכן עניינים מפורט", bookTitle, "תוכן עניינים מפורט", pageIndex, currentH1Title, "תוכן עניינים מפורט", "dtoc");
-                pageIndex += dtocPages;
+                // [תיקון] detailed-toc-show-numbering — האם להציג מספר עמוד על תוכן מפורט
+                const dtocShowNumber = document.getElementById('detailed-toc-show-numbering')?.checked ?? true;
+                const dtocPages = renderPaginatedTOC(container, detailedTocEntries, "תוכן עניינים מפורט", bookTitle, "תוכן עניינים מפורט", pageIndex, currentH1Title, "תוכן עניינים מפורט", "dtoc", dtocShowNumber);
+                // [תיקון] detailed-toc-count-numbering — האם עמודי תוכן מפורט נכללים ברצף המספור
+                if (document.getElementById('detailed-toc-count-numbering')?.checked ?? true) {
+                    pageIndex += dtocPages;
+                }
             }
             renderExtAnchor(container, 'afterEachPart', rawText);
             continue;

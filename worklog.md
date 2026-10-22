@@ -2492,3 +2492,27 @@ Stage Summary:
 - **שורש הבעיה**: התיקון הקודם (c953dc5) החזיר את הטקסט המלא במקום רק את titleMain.
 - **פתרון**: פונקציית extractH1TitleMain שתואמת ל-titleMain ב-renderSubShaar.
 - **קבצים שהשתנו**: typesetter.js בלבד.
+
+---
+Task ID: settings-audit-fixes
+Agent: main (GLM)
+Task: בדיקה יסודית של כל הגדרה — מציאת ותיקון 7 באגים אמיתיים
+
+Work Log:
+- **בדיקה יסודית**: כתבתי סקריפט (audit-settings-v2.js) שבודק את כל 251 ההגדרות ב-SETTING_IDS מול הקוד. הסקריפט מזהה גם קריאות דינמיות (template literals).
+- **ממצאים**: 52 הגדרות לא הופיעו כ-string literal. לאחר בדיקה ידנית, 45 מתוכן נקראות דינמית (hdr-*-align דרך getHeaderSettings, s-dtoc-* דרך getTocStyle, cbg-* דרך getContentBgCSS, dim-* דרך prefix). **7 הגדרות הנותרות היו באגים אמיתיים** — נטענות אבל לא נקראות.
+- **7 באגים שתוקנו**:
+  1. **page-num-initial-value** — ערך התחלתי למספור (למשל 87 לכרך ב'). ב-formatPageNumberDisplay היה קשית +1 במקום +initialValue. תוקן.
+  2. **general-toc-count-numbering** — האם עמודי תוכן כללי נכללים ברצף המספור. תוקן: pageIndex += pagesRendered מותנה ב-checkbox.
+  3. **general-toc-show-numbering** — האם להציג מספר על תוכן כללי. תוקן: הועבר פרמטר showNumbering ל-renderPaginatedTOC.
+  4. **detailed-toc-count-numbering** — אותו דבר לתוכן מפורט. תוקן.
+  5. **detailed-toc-show-numbering** — אותו דבר. תוקן.
+  6. **avoid-runt-word** — מניעת מילה בודדת בשורה האחרונה. תוקן: פונקציה חדשה applyAvoidRuntWord שממזגת שורה אחרונה בת מילה אחת עם הקודמת. מופעלת ב-getLinesFromParagraph (גם ב-realLines וגם ב-fallback).
+  7. **body-last-line-align** — יישור שורה אחרונה. תוקן: הוספתי setProperty('--last-line-align', ...) ב-updateStyles. קודם המשתנה היה קשית ל-center.
+- **אימות**: סימולציות עברו נכון. ספירת באגים ירדה מ-52 ל-45 (7 פחות). ה-45 שנשארו נקראים דינמית.
+
+Stage Summary:
+- **שורש הבעיה**: 7 הגדרות היו רשומות ב-SETTING_IDS וב-default_settings.json אבל שום קוד לא קרא אותן.
+- **פתרון**: הוספתי קריאות לכל 7 ההגדרות במקומות הנכונים.
+- **קבצים שהשתנו**: typesetter.js בלבד.
+- **סקריפט בדיקה**: /home/z/my-project/scripts/audit-settings-v2.js
