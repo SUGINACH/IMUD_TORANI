@@ -556,6 +556,39 @@ function resolveHeaderAlign(align, slot) {
     return align;
 }
 
+/* [חדש] פונקציית עזר לקריאת הגדרות כותרת עליונה לפי side (r/c/l) וזוגיות העמוד.
+   כש-hdr-distinct-even-odd מופעל והעמוד זוגי, קורא את הגדרות hdr-verso-{side}-*.
+   טיפול ב-same_as_odd/same_as_even: נופל להגדרה הראשית (או מחזיר ריק במעגליות).
+   מחזיר { type, align, font, size, custom }. */
+function getHeaderSettings(side, isEven) {
+    const isDistinct = !!document.getElementById('hdr-distinct-even-odd')?.checked;
+    const useVerso = isDistinct && isEven;
+
+    const typePrefix = useVerso ? 'hdr-verso-' : 'hdr-';
+    const fontPrefix = useVerso ? 'f-hdr-verso-' : 'f-hdr-';
+    const sizePrefix = useVerso ? 's-hdr-verso-' : 's-hdr-';
+
+    let type = document.getElementById(typePrefix + side + '-type')?.value || '';
+
+    // טפל ב-same_as_odd (ב-verso) — נופל ל-primary
+    if (type === 'same_as_odd') {
+        type = document.getElementById('hdr-' + side + '-type')?.value || '';
+        if (type === 'same_as_even') type = ''; // מעגליות — ריק
+    }
+    // טפל ב-same_as_even (ב-primary) — נופל ל-verso
+    if (type === 'same_as_even') {
+        type = document.getElementById('hdr-verso-' + side + '-type')?.value || '';
+        if (type === 'same_as_odd') type = ''; // מעגליות — ריק
+    }
+
+    const align = document.getElementById(typePrefix + side + '-align')?.value || '';
+    const font = document.getElementById(fontPrefix + side)?.value || '';
+    const size = document.getElementById(sizePrefix + side)?.value || '';
+    const custom = document.getElementById(typePrefix + side + '-custom')?.value || '';
+
+    return { type, align, font, size, custom };
+}
+
 /* [חדש] בונה את HTML של פס הכותרת העליונה (שלוש עמודות) לעמוד לפי כל הגדרות הכותרות העליונות:
    כותרות מתחלפות (בעמוד זוגי), "פצל שם ספר", יישור חיצוני/פנימי לפי העמודה הפיזית, וגופן/גודל לכל צד.
    משמש גם את עמודי התוכן וגם את עמודי תוכן העניינים - כך שההתנהגות זהה בכל עמוד בספר.
@@ -565,29 +598,42 @@ function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR
     // טוגל "פצל שם ספר": קובע בעצמו את תוכן הכותרת הימנית (חצי ראשון של שם הספר) והשמאלית (חצי שני),
     // בלי לבחור ידנית בכל כותרת, ומבטל את ההחלפה בין עמודים (כותרות מתחלפות) - שתי האפשרויות סותרות.
     const isSplitTitle = !!document.getElementById('hdr-title-split')?.checked;
-    const isAlternating = !isSplitTitle && document.getElementById('hdr-alternating')?.checked;
+    const isDistinct = !!document.getElementById('hdr-distinct-even-odd')?.checked;
+    // [תיקון] כותרות מתחלפות (alternating) לא פועלות יחד עם הפרדה (distinct) — הן סותרות.
+    const isAlternating = !isSplitTitle && !isDistinct && !!document.getElementById('hdr-alternating')?.checked;
 
-    let hdrRType = document.getElementById('hdr-r-type')?.value || 'h1';
-    let hdrCType = document.getElementById('hdr-c-type')?.value || 'spear';
-    let hdrLType = document.getElementById('hdr-l-type')?.value || 'h2';
+    // [תיקון] קרא הגדרות לפי זוגיות העמוד ו-hdr-distinct-even-odd.
+    // קודם, הקוד תמיד קרא hdr-{side}-type גם בעמוד זוגי, והתעלם מ-hdr-verso-{side}-type.
+    // לכן כותרת אמצעית שהוגדרה כ-h1 בעמוד זוגי לא הופיעה — תמיד הופיע h2.
+    const rSet = getHeaderSettings('r', isEven);
+    const cSet = getHeaderSettings('c', isEven);
+    const lSet = getHeaderSettings('l', isEven);
+
+    let hdrRType = rSet.type || 'h1';
+    let hdrCType = cSet.type || 'spear';
+    let hdrLType = lSet.type || 'h2';
     if (isSplitTitle) { hdrRType = 'book_title_split_r'; hdrLType = 'book_title_split_l'; }
 
-    let hdrRAlign = document.getElementById('hdr-r-align')?.value || 'right';
-    let hdrCAlign = document.getElementById('hdr-c-align')?.value || 'center';
-    let hdrLAlign = document.getElementById('hdr-l-align')?.value || 'left';
+    let hdrRAlign = rSet.align || 'right';
+    let hdrCAlign = cSet.align || 'center';
+    let hdrLAlign = lSet.align || 'left';
 
-    let hdrRFont = document.getElementById('f-hdr-r')?.value || "'Livorna','David Libre',serif";
-    let hdrRSize = (document.getElementById('s-hdr-r')?.value || 13) + 'pt';
-    let hdrLFont = document.getElementById('f-hdr-l')?.value || "'Livorna','David Libre',serif";
-    let hdrLSize = (document.getElementById('s-hdr-l')?.value || 13) + 'pt';
+    let hdrRFont = rSet.font || "'Livorna','David Libre',serif";
+    let hdrRSize = (rSet.size || 13) + 'pt';
+    let hdrLFont = lSet.font || "'Livorna','David Libre',serif";
+    let hdrLSize = (lSet.size || 13) + 'pt';
 
-    let cR = customR, cL = customL;
+    let cR = rSet.custom || customR;
+    let cL = lSet.custom || customL;
+    // [תיקון] גם customC צריך להיקרא מ-verso כש-useVerso
+    const cCustom = cSet.custom || customC;
 
     // היפוך תוכן (לא יישור) בעמודים זוגיים בעת הפעלת כותרות מתחלפות.
     // היישור נשאר צמוד לעמודה הפיזית ונפתר למטה דרך resolveHeaderAlign,
     // כך ש"חיצוני/פנימי" ממשיך להצביע על הקצה הנכון גם אחרי ההיפוך.
     // הגופן/הגודל מתחלפים יחד עם התוכן - אחרת תוכן שעבר לעמודה השנייה
     // ימשיך להיראות בגופן שהוגדר לעמודה המקורית שלו, לא לתוכן שבו.
+    // [תיקון] החלפה זו רלוונטית רק כש-isAlternating (לא עם isDistinct — שם כל צד מקבל את הגדרותיו).
     if (isAlternating && isEven) {
         const tempType = hdrRType; hdrRType = hdrLType; hdrLType = tempType;
         const tempCust = cR; cR = cL; cL = tempCust;
@@ -608,7 +654,7 @@ function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR
     // בלי סימן, כפי שקרה כשהטקסט היה צאצא ישיר של מיכל ה-flex). עיטורים (SVG) לא נעטפים.
     const wrapHdrText = html => (html && !/^<span class="header-ornament-wrap"/.test(html)) ? `<span class="hdr-txt">${html}</span>` : html;
     const hdrRHTML = wrapHdrText(renderHeaderSectionHTML(hdrRType, cR, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
-    const hdrCHTML = wrapHdrText(renderHeaderSectionHTML(hdrCType, customC, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
+    const hdrCHTML = wrapHdrText(renderHeaderSectionHTML(hdrCType, cCustom, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
     const hdrLHTML = wrapHdrText(renderHeaderSectionHTML(hdrLType, cL, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
 
     // [חדש] "מיקום מספור: משולב בכותרת עליונה חיצונית" - מספר העמוד נכנס לפס הכותרת בפינה החיצונית

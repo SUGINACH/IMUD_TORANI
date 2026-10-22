@@ -2445,3 +2445,33 @@ Stage Summary:
 - **שורש הבעיה**: `currentH1Title` לא התעדכן במקרה הרגיל (לא sub_shaar), ובמקרה sub_shaar הוא נחתך לפי מקף.
 - **פתרון**: עדכון `currentH1Title` בשני המקרים עם הטקסט המלא של כותרת level 1.
 - **קבצים שהשתנו**: typesetter.js בלבד.
+
+---
+Task ID: header-verso-fix
+Agent: main (GLM)
+Task: תיקון בעיה — "כותרת עליונה אמצעית מציגה כותרת 2 בעמוד זוגי, למרות שהוגדרה ככותרת 1 (שם החלק)"
+
+Work Log:
+- **אבחון מעמיק**: חקרתי את שלושת הכיוונים שהמשתמש הציע:
+  1. צורת טעינת הגדרות ברירת המחדל — תקינה. renderer-bridge.js מכיל את כל מזהי hdr-verso-*.
+  2. צורת החלת הגדרות ששונו — **זו הבעיה!** buildHeaderGridHTML לא החיל את hdr-distinct-even-odd ואת hdr-verso-*. הוא תמיד קרא hdr-c-type (h2_without_siman) גם בעמוד זוגי, במקום hdr-verso-c-type (h1).
+  3. פונקציית fallback מ-h1 ל-h2 — **לא קיימת**. ה"תופעה" נבעה מזה ש-hdr-verso-c-type=h1 לא נקרא אף פעם.
+
+- **ממצא מרכזי**: default_settings.json מגדיר:
+  - hdr-distinct-even-odd: true
+  - hdr-c-type: h2_without_siman (אי-זוגי)
+  - hdr-verso-c-type: h1 (זוגי)
+  אבל buildHeaderGridHTML תמיד קרא hdr-c-type, ולכן עמוד זוגי הציג h2 במקום h1.
+
+- **התיקון** (ב-typesetter.js):
+  1. פונקציית עזר חדשה getHeaderSettings(side, isEven) — כש-hdr-distinct-even-odd מופעל והעמוד זוגי, קורא hdr-verso-{side}-*. מטפל ב-same_as_odd/same_as_even (נופל להגדרה השנייה, או ריק במעגליות).
+  2. עדכון buildHeaderGridHTML — קורא את כל ההגדרות (type, align, font, size, custom) דרך getHeaderSettings.
+  3. isAlternating לא פועל יחד עם isDistinct (סותרים).
+  4. customC גם נקרא מ-verso כש-useVerso.
+
+- **סימולציה** (6 מקרים): הכל עובר נכון — עמוד זוגי מציג h1, אי-זוגי מציג h2_without_siman, same_as_odd נופל ל-primary, same_as_even נופל ל-verso, מעגליות מחזירה ריק.
+
+Stage Summary:
+- **שורש הבעיה**: buildHeaderGridHTML לא יישם את hdr-distinct-even-odd ואת hdr-verso-*.
+- **פתרון**: פונקציית getHeaderSettings שקוראת את ההגדרות הנכונות לפי זוגיות העמוד.
+- **קבצים שהשתנו**: typesetter.js בלבד.
