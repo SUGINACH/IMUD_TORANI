@@ -2494,3 +2494,14 @@ Stage Summary:
 - בדיקת המסמך הארוך על commit זה עדיין הייתה בתהליך בבדיקה האחרונה; אין עדיין הוכחה שהחריגות החמורות נעלמו.
 - commit 77e9ceead3b846c39b0443ca6ce843a0f481149d כולל את שחזור כל מאפייני ה-DOM. ריצות CLI והמסמך הארוך נפתחו עבורו; יש לבדוק את התוצאות לפני קביעה שהשינוי תקין.
 - **היעד לא הושג עדיין:** אפס חריגות high במסמך הארוך. השלב הבא הוא לבחון את `data-layout-balance-fits` ואת היכולת להחזיר תוכן לעמוד הבא כאשר אין מועמד חוקי שנכנס בגובה הזמין, וכן לטפל בנפרד בחריגות הערות הצד.
+
+---
+
+## Task ID: v23-overflow-diagnostic-causality-2026-10-22
+**Agent:** ChatGPT
+**Date:** 2026-10-22
+**Task:** Remove unsupported causal attribution in geometry audit output.
+
+- The audit previously labeled every `block-2col` overflow above 20px as caused by `stretchPageToBottom`, although the audit only measured containment and did not establish causality.
+- Updated `geometry-audit.js` messages to describe the measured overflow neutrally and request source investigation instead of asserting a cause.
+- Change is on `V23` only. Long-document audit for `09d6088` was still running when checked; no claim of zero high-severity issues is made.
