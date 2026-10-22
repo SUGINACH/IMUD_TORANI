@@ -4180,7 +4180,7 @@ function typesetDocumentCore() {
                         balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
                     } 
                     // 3. הטור הימני גלש לתוך שטח ההערה (כי ההערה הייתה בטור שמאל) או שיש פער משמעותי
-                    else if (rCol.scrollHeight > actualAvailH || Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 60) {
+                    else if (Math.max(rCol.scrollHeight, lCol.scrollHeight) > actualAvailH || Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 60) {
                         balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
                     } 
                     // 4. עמוד רגיל מאוזן שדורש רק יישור שורות עדין
