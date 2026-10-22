@@ -356,8 +356,8 @@ function auditContainment(node, issues) {
             const overflowPx = Math.max(overflow.left, overflow.top, overflow.right, overflow.bottom);
 
             // [תיקון] התאם את החומרה והסיווג לפי סוג הגלישה:
-            // - block-2col שגולש מ-body-flow: המנוע מותח את הבלוק האחרון בכוונה
-            //   (stretchPageToBottom). גלישה עד 10px היא "טבעית" = low, מעבר לזה = medium/high.
+            // - block-2col שגולש מ-body-flow: מסווגים לפי גודל הגלישה בלבד.
+            //   אין להסיק שהגלישה נגרמה מ-stretchPageToBottom בלי ראיה ממדדי הפריסה.
             // - note-marker שגולש מ-p-cut/p-end: עיגול פיקסלים של סמן הערה (1.3px) = low.
             // - side-note שגולש מ-margin-col: גלישה אמיתית של הערות צד.
             // - כל השאר: גלישה אמיתית.
@@ -371,13 +371,13 @@ function auditContainment(node, issues) {
             if (isBlockFromBodyFlow) {
                 if (overflowPx <= 10) {
                     severity = 'low';
-                    note = ' (גלישה טבעית מ-stretchPageToBottom)';
+                    note = ' (גלישה קטנה של block-2col מ-body-flow)';
                 } else if (overflowPx <= 20) {
                     severity = 'medium';
-                    note = ' (גלישה מ-stretchPageToBottom)';
+                    note = ' (גלישת block-2col מ-body-flow)';
                 } else {
                     severity = 'high';
-                    note = ' (גלישה חמורה מ-stretchPageToBottom)';
+                    note = ' (גלישה חמורה של block-2col מ-body-flow; נדרשת בדיקת מקור)';
                 }
             } else if (isNoteMarker && overflowPx <= 3) {
                 // Inline/superscript note markers can extend slightly beyond the paragraph
