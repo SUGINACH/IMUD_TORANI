@@ -2573,3 +2573,38 @@ Stage Summary:
 - **פתרון**: ה-iframe טוען עכשיו את כל נכסי ה-JSON לפני ששולח renderer-ready.
 - **קבצים שהשתנו**: app.js בלבד.
 - **מתי נשבר**: commit cb489ed (2026-10-17) — מעבר לארכיטקטורת iframe.
+
+---
+Task ID: h2-ornament-scope-4options
+Agent: main (GLM)
+Task: הוספת 4 אפשרויות תחולת עיטורי h2 + תיקון התאמת רוחב + מימוש עיטורים נפרדים וצדדיים
+
+Work Log:
+- **אבחון**: מצאתי 3 גוסטים:
+  1. h2-orn-scope — נקרא בקוד אבל לא היה אלמנט HTML (תמיד 'both')
+  2. h2-title-ornament-top/bottom-style — ב-HTML אבל לעולם לא נקראו ברינדור
+  3. h2-title-ornament-r/l — ב-HTML אבל לעולם לא נקראו ברינדור
+
+- **התיקונים**:
+  1. **HTML** (index.html): הוספתי select חדש h2-orn-scope עם 4 אפשרויות: both / siman_only / title_only / separate. עדכנתי h2-title-orn-mode להיות רק none+side (הסרתי top_bottom כי separate מחליף אותו).
+  2. **app.js**: הוספתי onH2OrnScopeChange שמציג/מסתיר את שורות עיטורי הכותרת הנפרדים. עדכנתי onH2TitleOrnamentModeChange.
+  3. **typesetter.js — רינדור**: מימשתי 4 מצבים:
+     - both: עליון מעל סימן, תחתון מתחת כותרת
+     - siman_only: שניהם סביב הסימן
+     - title_only: שניהם סביב הכותרת
+     - separate: עיטורי סימן סביב הסימן + עיטורי כותרת נפרדים סביב הכותרת
+  4. **typesetter.js — עיטורי צד**: מימשתי רינדור של h2-title-ornament-r/l כש-h2-title-orn-mode=side.
+  5. **typesetter.js — fitH2OrnamentsToText**: תיקנתי — כל עיטור יותאם לרוחב הטקסט שלו בנפרד:
+     - both: עליון→רוחב סימן, תחתון→רוחב כותרת
+     - siman_only: שניהם→רוחב סימן
+     - title_only: שניהם→רוחב כותרת
+     - separate: עיטורי סימן→רוחב סימן, עיטורי כותרת→רוחב כותרת
+  6. **style.css**: הוספתי CSS עבור h2-title-ornament-top/bottom.
+  7. **default_settings.json**: הוספתי h2-orn-scope=both.
+
+Stage Summary:
+- **4 אפשרויות תחולה** מומשו: both / siman_only / title_only / separate
+- **עיטורים נפרדים** לכותרת מומשו (היו גוסט)
+- **עיטורי צד** לכותרת מומשו (היו גוסט)
+- **התאמת רוחב** תוקנה — כל עיטור מותאם לטקסט שלו
+- **קבצים שהשתנו**: index.html, app.js, typesetter.js, style.css, default_settings.json

@@ -1195,6 +1195,13 @@ body.tabs-not-ready #sidebar::before {
     margin-top: -0.08em;
 }
 
+/* [תיקון] עיטורים עליון/תחתון נפרדים לכותרת (h2-orn-scope=separate) */
+.h2-title-ornament-top,
+.h2-title-ornament-bottom {
+    text-align: center;
+    margin: 4px auto;
+}
+
 .title-level-4 {
     font-family: var(--fn-h4); font-size: var(--sz-h4); font-weight: 900;
     text-align: center; margin: 9px 0 4px 0; line-height: 1.22;

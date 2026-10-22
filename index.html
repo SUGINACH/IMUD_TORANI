@@ -406,6 +406,15 @@
               <!-- עיטורי שורת הסימן בכותרת 2 -->
               <div class="panel-sub-header">כותרת 2 — עיטור שורת הסימן (עליון/תחתון)</div>
               <div class="inline-cfg-row">
+                <label>תחולת עיטורים:</label>
+                <select id="h2-orn-scope" style="flex:1;" onchange="onH2OrnScopeChange()">
+                  <option value="both" selected="selected">על סימן וכותרת יחד</option>
+                  <option value="siman_only">רק על הסימן</option>
+                  <option value="title_only">רק על הכותרת</option>
+                  <option value="separate">נפרד לסימן ולכותרת</option>
+                </select>
+              </div>
+              <div class="inline-cfg-row">
                 <label>סט שלם (ע+ת):</label>
                 <select id="h2-ornament-set" style="flex:1;" onchange="onH2OrnamentSetChange(this.value)">
                   <option value="none" selected="selected">ללא עיטורים</option>
@@ -444,26 +453,26 @@
               <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">עיטורים אלו חלים על שורת הסימן בלבד. אם מיספור הסימנים כבוי, הם יחולו על הכותרת עצמה.</div>
 
               <!-- עיטור עצמאי לטקסט כותרת 2 (גרסה 4) -->
-              <div class="panel-sub-header">כותרת 2 — עיטור עצמאי לטקסט הכותרת</div>
+              <div class="panel-sub-header">כותרת 2 — עיטורי צד לטקסט הכותרת</div>
               <div class="inline-cfg-row">
-                <label>סוג עיטור לכותרת:</label>
+                <label>עיטורי צד:</label>
                 <select id="h2-title-orn-mode" style="flex:1;" onchange="onH2TitleOrnamentModeChange()">
-                  <option value="none" selected="selected">ללא עיטור נפרד לכותרת</option>
-                  <option value="top_bottom">עליון/תחתון (סביב טקסט הכותרת)</option>
+                  <option value="none" selected="selected">ללא עיטורי צד</option>
                   <option value="side">צדדי (ימין/שמאל - כמו כותרת 3)</option>
                 </select>
               </div>
               <div id="h2-title-orn-tb-rows" style="display:none;">
+                <!-- [תיקון] עיטורי עליון/תחתון נפרדים לכותרת מוצגים כעת דרך h2-orn-scope=separate -->
                 <div class="inline-cfg-row">
                   <label>עיטור עליון לכותרת:</label>
-                  <select id="h2-title-ornament-top-style" style="flex:1;">
+                  <select id="h2-title-ornament-top-style" style="flex:1;" onchange="typesetDocument()">
                     <option value="none" selected="selected">ללא עיטור עליון</option>
                     <optgroup id="h2-title-top-json-optgroup" label="עיטורים עליונים מ-JSON"></optgroup>
                   </select>
                 </div>
                 <div class="inline-cfg-row">
                   <label>עיטור תחתון לכותרת:</label>
-                  <select id="h2-title-ornament-bottom-style" style="flex:1;">
+                  <select id="h2-title-ornament-bottom-style" style="flex:1;" onchange="typesetDocument()">
                     <option value="none" selected="selected">ללא עיטור תחתון</option>
                     <optgroup id="h2-title-btm-json-optgroup" label="עיטורים תחתונים מ-JSON"></optgroup>
                   </select>

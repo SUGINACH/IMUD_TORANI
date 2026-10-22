@@ -2806,17 +2806,40 @@ function measureTextWidthOf(el) {
 function fitH2OrnamentsToText(flowEl, scope, simanElem, titleEl) {
     const wTitle = measureTextWidthOf(titleEl);
     const wSiman = simanElem ? measureTextWidthOf(simanElem) : 0;
-    let w;
-    if (scope === 'siman_only' && simanElem) w = wSiman;
-    else if (scope === 'title_only') w = wTitle;
-    else w = Math.max(wTitle, wSiman);
-    if (!(w > 1)) return 0;
-    w = Math.round(w * 10) / 10;
-    flowEl.querySelectorAll('.h2-ornament-top .fit-heading-text .ornament-svg-inner, .h2-ornament-bottom .fit-heading-text .ornament-svg-inner, .h2-ornament-top .fit-heading-text > img, .h2-ornament-bottom .fit-heading-text > img').forEach(box => {
-        box.style.width = w + 'px';
-        box.style.maxWidth = '100%';
-    });
-    return w;
+
+    // [תיקון] כל עיטור יותאם לרוחב הטקסט שלו בנפרד:
+    // - עיטורי סימן (h2-ornament-top/bottom) → רוחב הסימן
+    // - עיטורי כותרת (h2-title-ornament-top/bottom) → רוחב הכותרת
+    // במצב 'both': העליון מותאם לסימן (כי הוא מעל הסימן), התחתון לכותרת (כי הוא מתחת לכותרת)
+
+    const setWidth = (selector, w) => {
+        if (!(w > 1)) return;
+        const wRounded = Math.round(w * 10) / 10;
+        flowEl.querySelectorAll(selector + ' .fit-heading-text .ornament-svg-inner, ' + selector + ' .fit-heading-text > img').forEach(box => {
+            box.style.width = wRounded + 'px';
+            box.style.maxWidth = '100%';
+        });
+    };
+
+    if (scope === 'both') {
+        // עליון מעל סימן → רוחב סימן; תחתון מתחת כותרת → רוחב כותרת
+        setWidth('.h2-ornament-top', wSiman);
+        setWidth('.h2-ornament-bottom', wTitle);
+    } else if (scope === 'siman_only') {
+        // שניהם סביב הסימן → רוחב סימן
+        setWidth('.h2-ornament-top', wSiman);
+        setWidth('.h2-ornament-bottom', wSiman);
+    } else if (scope === 'title_only') {
+        // שניהם סביב הכותרת → רוחב כותרת
+        setWidth('.h2-ornament-top', wTitle);
+        setWidth('.h2-ornament-bottom', wTitle);
+    } else if (scope === 'separate') {
+        // עיטורי סימן → רוחב סימן; עיטורי כותרת → רוחב כותרת
+        setWidth('.h2-ornament-top', wSiman);
+        setWidth('.h2-ornament-bottom', wSiman);
+        setWidth('.h2-title-ornament-top', wTitle);
+        setWidth('.h2-title-ornament-bottom', wTitle);
+    }
 }
 
 /* [חדש] קו ההפרדה האנכי בין הטורים: מותאם בדיוק לתחום הטקסט של הבלוק - מראש השורה הראשונה ועד סוף השורה האחרונה
@@ -3099,6 +3122,13 @@ function typesetDocumentCore() {
     const h2OrnTopStyle = document.getElementById('h2-ornament-top-style')?.value || 'none';
     const h2OrnBtmStyle = document.getElementById('h2-ornament-bottom-style')?.value || 'none';
     const h2OrnScope = document.getElementById('h2-orn-scope')?.value || 'both';
+    // [תיקון] עיטורים נפרדים לכותרת (כש-h2-orn-scope=separate)
+    const h2TitleOrnTopStyle = document.getElementById('h2-title-ornament-top-style')?.value || 'none';
+    const h2TitleOrnBtmStyle = document.getElementById('h2-title-ornament-bottom-style')?.value || 'none';
+    // [תיקון] עיטורי צד לכותרת
+    const h2TitleOrnMode = document.getElementById('h2-title-orn-mode')?.value || 'none';
+    const h2TitleOrnR = document.getElementById('h2-title-ornament-r')?.value || 'none';
+    const h2TitleOrnL = document.getElementById('h2-title-ornament-l')?.value || 'none';
     const h3OrnR = document.getElementById('h3-ornament-r')?.value || 'none';
     const h3OrnL = document.getElementById('h3-ornament-l')?.value || 'none';
     const colDividerStyle = document.getElementById('col-divider-style')?.value || 'none';
@@ -3560,54 +3590,67 @@ function typesetDocumentCore() {
                         title.parentNode.insertBefore(simanElem, title);
                     }
 
-                    // טיפול בתחולת עיטורי כותרת 2 (על שניהם / רק סימן / רק כותרת)
+                    // טיפול בתחולת עיטורי כותרת 2 (4 מצבים: both / siman_only / title_only / separate)
+                    // [תיקון מהותי] 4 אפשרויות תחולה + עיטורים נפרדים לכותרת + עיטורי צד
                     const topOrnHTML = (h2OrnTopStyle && h2OrnTopStyle !== 'none') ? getHeadingOrnamentHTML(h2OrnTopStyle, true, true) : '';
                     const btmOrnHTML = (h2OrnBtmStyle && h2OrnBtmStyle !== 'none') ? getHeadingOrnamentHTML(h2OrnBtmStyle, false, true) : '';
+                    // עיטורים נפרדים לכותרת (רק כש-separate)
+                    const titleTopOrnHTML = (h2OrnScope === 'separate' && h2TitleOrnTopStyle && h2TitleOrnTopStyle !== 'none')
+                        ? getHeadingOrnamentHTML(h2TitleOrnTopStyle, true, true) : '';
+                    const titleBtmOrnHTML = (h2OrnScope === 'separate' && h2TitleOrnBtmStyle && h2TitleOrnBtmStyle !== 'none')
+                        ? getHeadingOrnamentHTML(h2TitleOrnBtmStyle, false, true) : '';
+
+                    // פונקציית עזר — צור והכנס אלמנט עיטור
+                    function insertOrn(html, className, insertBefore) {
+                        if (!html) return;
+                        const ornWrap = document.createElement('div');
+                        ornWrap.className = className;
+                        ornWrap.innerHTML = html;
+                        insertBefore.parentNode.insertBefore(ornWrap, insertBefore);
+                    }
 
                     if (h2OrnScope === 'both' || !simanElem) {
-                        if (topOrnHTML) {
-                            const ornWrap = document.createElement('div');
-                            ornWrap.className = 'h2-ornament-top';
-                            ornWrap.innerHTML = topOrnHTML;
-                            const insertTarget = simanElem || title;
-                            insertTarget.parentNode.insertBefore(ornWrap, insertTarget);
-                        }
-                        if (btmOrnHTML) {
-                            const ornWrap = document.createElement('div');
-                            ornWrap.className = 'h2-ornament-bottom';
-                            ornWrap.innerHTML = btmOrnHTML;
-                            title.parentNode.insertBefore(ornWrap, title.nextSibling);
-                        }
-                    } else if (h2OrnScope === 'siman_only' && simanElem) {
-                        if (topOrnHTML) {
-                            const ornWrap = document.createElement('div');
-                            ornWrap.className = 'h2-ornament-top';
-                            ornWrap.innerHTML = topOrnHTML;
-                            simanElem.parentNode.insertBefore(ornWrap, simanElem);
-                        }
-                        if (btmOrnHTML) {
-                            const ornWrap = document.createElement('div');
-                            ornWrap.className = 'h2-ornament-bottom';
-                            ornWrap.innerHTML = btmOrnHTML;
-                            simanElem.parentNode.insertBefore(ornWrap, title);
-                        }
+                        // על סימן וכותרת יחד: עליון מעל הסימן, תחתון מתחת לכותרת
+                        insertOrn(topOrnHTML, 'h2-ornament-top', simanElem || title);
+                        insertOrn(btmOrnHTML, 'h2-ornament-bottom', title.nextSibling);
+                    } else if (h2OrnScope === 'siman_only') {
+                        // רק על הסימן: עליון מעל הסימן, תחתון מתחת לסימן (לפני הכותרת)
+                        insertOrn(topOrnHTML, 'h2-ornament-top', simanElem);
+                        insertOrn(btmOrnHTML, 'h2-ornament-bottom', title);
                     } else if (h2OrnScope === 'title_only') {
-                        if (topOrnHTML) {
-                            const ornWrap = document.createElement('div');
-                            ornWrap.className = 'h2-ornament-top';
-                            ornWrap.innerHTML = topOrnHTML;
-                            title.parentNode.insertBefore(ornWrap, title);
+                        // רק על הכותרת: עליון מעל הכותרת, תחתון מתחת לכותרת
+                        insertOrn(topOrnHTML, 'h2-ornament-top', title);
+                        insertOrn(btmOrnHTML, 'h2-ornament-bottom', title.nextSibling);
+                    } else if (h2OrnScope === 'separate') {
+                        // נפרד: עיטורי סימן סביב הסימן + עיטורי כותרת נפרדים סביב הכותרת
+                        insertOrn(topOrnHTML, 'h2-ornament-top', simanElem);
+                        insertOrn(btmOrnHTML, 'h2-ornament-bottom', title);
+                        insertOrn(titleTopOrnHTML, 'h2-title-ornament-top', title);
+                        insertOrn(titleBtmOrnHTML, 'h2-title-ornament-bottom', title.nextSibling);
+                    }
+
+                    // [חדש] עיטורי צד לכותרת (כש-h2-title-orn-mode=side)
+                    if (h2TitleOrnMode === 'side' && (h2TitleOrnR !== 'none' || h2TitleOrnL !== 'none')) {
+                        const sideWrap = document.createElement('div');
+                        sideWrap.className = 'block-h2-title-side';
+                        title.parentNode.insertBefore(sideWrap, title);
+                        sideWrap.appendChild(title);
+                        if (h2TitleOrnR !== 'none' && typeof renderSideOrnamentHTML === 'function') {
+                            const rElem = document.createElement('span');
+                            rElem.className = 'h2-title-ornament-right';
+                            rElem.innerHTML = renderSideOrnamentHTML(h2TitleOrnR, false, 'h2title');
+                            sideWrap.appendChild(rElem);
                         }
-                        if (btmOrnHTML) {
-                            const ornWrap = document.createElement('div');
-                            ornWrap.className = 'h2-ornament-bottom';
-                            ornWrap.innerHTML = btmOrnHTML;
-                            title.parentNode.insertBefore(ornWrap, title.nextSibling);
+                        if (h2TitleOrnL !== 'none' && typeof renderSideOrnamentHTML === 'function') {
+                            const lElem = document.createElement('span');
+                            lElem.className = 'h2-title-ornament-left';
+                            lElem.innerHTML = renderSideOrnamentHTML(h2TitleOrnL, true, 'h2title');
+                            sideWrap.appendChild(lElem);
                         }
                     }
 
                     // [חדש] התאמת רוחב העיטורים לרוחב טקסט הכותרת (כשהאפשרות מסומנת)
-                    if (document.getElementById('h2-orn-fit-text')?.checked && (topOrnHTML || btmOrnHTML)) {
+                    if (document.getElementById('h2-orn-fit-text')?.checked && (topOrnHTML || btmOrnHTML || titleTopOrnHTML || titleBtmOrnHTML)) {
                         fitH2OrnamentsToText(pageLayout.bodyFlow, h2OrnScope, simanElem, title);
                     }
                 }

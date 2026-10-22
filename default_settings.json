@@ -244,5 +244,6 @@
   "general-toc-count-numbering": true,
   "general-toc-show-numbering": true,
   "detailed-toc-count-numbering": true,
-  "detailed-toc-show-numbering": true
+  "detailed-toc-show-numbering": true,
+  "h2-orn-scope": "both"
 }

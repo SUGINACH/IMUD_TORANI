@@ -1481,10 +1481,18 @@ function onHdrDistinctToggle() {
 
 function onH2TitleOrnamentModeChange() {
     const mode = document.getElementById('h2-title-orn-mode')?.value || 'none';
-    const tbRows = document.getElementById('h2-title-orn-tb-rows');
     const sideRows = document.getElementById('h2-title-orn-side-rows');
-    if (tbRows) tbRows.style.display = (mode === 'top_bottom') ? 'block' : 'none';
     if (sideRows) sideRows.style.display = (mode === 'side') ? 'block' : 'none';
+    typesetDocument();
+}
+
+// [חדש] תחולת עיטורי h2 — 4 אפשרויות: both / siman_only / title_only / separate
+function onH2OrnScopeChange() {
+    const scope = document.getElementById('h2-orn-scope')?.value || 'both';
+    const tbRows = document.getElementById('h2-title-orn-tb-rows');
+    // הצג עיטורי עליון/תחתון נפרדים לכותרת רק כש-separate
+    if (tbRows) tbRows.style.display = (scope === 'separate') ? 'block' : 'none';
+    typesetDocument();
 }
 
 function onH2OrnamentSetChange(val) {
