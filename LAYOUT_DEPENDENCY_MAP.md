@@ -250,6 +250,7 @@ node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --fail-on hig
 3. להוסיף אות סיום אמין ל-typesetting, כולל שלבים מאוחרים כמו `applyCrossParagraphParens`, איזון טורים, `fitColumnDividers`, עדכון מספרי עמודים ו-`applyHeadingOrnamentTextFit`.
 4. [נוסף ב-V23] `tools/geometry-audit-cli.js` — runner headless שמזין fixture, מפעיל את ה-API הקיים ומייצא דוחות JSON/Markdown; יש לאמת אותו ב-CI.
 5. [נוסף ב-V23] `package.json`, `.github/workflows/geometry-audit-cli.yml` ו-`tests/fixtures/geometry-audit-smoke.txt` לבדיקת smoke אוטומטית.
-6. להריץ על `very_long_test_text.txt`, לשמור baseline ולהשוות אותו ל-V21.
+6. [בתהליך] `geometry-audit.js` הורחב לסיווג `.top-header-grid`, עמודות הכותרת, טקסט/מספור הכותרת ועיטורי כותרת ההערות; גם סדר זיהוי מספר הערה תוקן כך ש-`.note-line-num` לא ייבלע בסיווג הכללי של `.note-line`.
+7. להריץ על `very_long_test_text.txt`, לשמור baseline ולהשוות אותו ל-V21.
 
 **סטטוס נוכחי:** ה-runner וה-smoke fixture נוספו, אך טרם אומתו בריצה בפועל. אין להכריז שהיכולת הושלמה עד שה-CI עובר ודוח מלא נוצר על fixture הארוך.
