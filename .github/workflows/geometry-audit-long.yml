@@ -1,0 +1,45 @@
+name: Geometry audit long document
+
+on:
+  push:
+    branches: [V23]
+    paths:
+      - 'typesetter.js'
+      - 'geometry-audit.js'
+      - 'renderer-bridge.js'
+      - 'tools/geometry-audit-cli.js'
+      - 'very_long_test_text.txt'
+      - 'package.json'
+      - '.github/workflows/geometry-audit-long.yml'
+  workflow_dispatch:
+
+jobs:
+  geometry-audit-long:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify long input
+        run: |
+          test -s ./very_long_test_text.txt
+          wc -c ./very_long_test_text.txt
+      - name: Run long-document geometry audit
+        run: npm run audit:geometry:long -- --fail-on high
+      - name: Upload long-document audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: geometry-audit-long-report
+          path: |
+            artifacts/geometry-audit.json
+            artifacts/geometry-audit-summary.md
+          if-no-files-found: warn
