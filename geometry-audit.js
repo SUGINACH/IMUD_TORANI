@@ -238,6 +238,19 @@ function buildNode(el, parent, pageOffset) {
         tokenId: el.getAttribute('data-token-id') || null,
         isContinuation: el.getAttribute('data-is-cont') === 'true',
         rawText: (el.getAttribute('data-raw-text') || '').slice(0, 160),
+        layoutMetrics: cls.type === 'block-2col' ? {
+            fillRemaining: el.getAttribute('data-layout-fill-remaining'),
+            fillFlowHeight: el.getAttribute('data-layout-fill-flow-height'),
+            fillTopOffset: el.getAttribute('data-layout-fill-top-offset'),
+            balanceAvailable: el.getAttribute('data-layout-balance-available'),
+            balanceCandidates: el.getAttribute('data-layout-balance-candidates'),
+            balanceItems: el.getAttribute('data-layout-balance-items'),
+            balanceFits: el.getAttribute('data-layout-balance-fits'),
+            balanceOver: el.getAttribute('data-layout-balance-over'),
+            balanceRight: el.getAttribute('data-layout-balance-right'),
+            balanceLeft: el.getAttribute('data-layout-balance-left'),
+            balanceDiff: el.getAttribute('data-layout-balance-diff')
+        } : null,
         parentType: parent ? parent.type : null
     };
 
@@ -392,6 +405,7 @@ function auditContainment(node, issues) {
                     rect: { x: Math.round(s.rect.x), y: Math.round(s.rect.y), w: Math.round(s.rect.w), h: Math.round(s.rect.h), bottom: Math.round(s.rect.bottom) }
                 })),
                 childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h), bottom: Math.round(child.rect.bottom) },
+                layoutMetrics: child.layoutMetrics || null,
                 childDetails: child.type === 'block-2col' ? child.children.filter(c => c.type === 'column').map(col => ({
                     side: col.side,
                     rect: { x: Math.round(col.rect.x), y: Math.round(col.rect.y), w: Math.round(col.rect.w), h: Math.round(col.rect.h), bottom: Math.round(col.rect.bottom) },
