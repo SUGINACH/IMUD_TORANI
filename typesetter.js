@@ -1253,6 +1253,33 @@ function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
     if (!(freeSpace > 0.5 && freeSpace <= maxStretch)) return false;
     const last = bodyFlow.lastElementChild;
     if (!last) return false;
+
+    // A column's scrollHeight does not necessarily equal the outer grid item's
+    // rendered height (paragraph margins, line boxes and grid sizing contribute
+    // to the latter). Snapshot inline styles so the stretch can be rolled back
+    // if its *measured outer-box growth* exceeds the real free space.
+    const snapshotInlineStyles = () => Array.from(last.querySelectorAll('*'))
+        .map(el => [el, el.getAttribute('style')]);
+    const restoreInlineStyles = snapshot => {
+        for (const [el, style] of snapshot) {
+            if (style === null) el.removeAttribute('style');
+            else el.setAttribute('style', style);
+        }
+    };
+    const initialOuterHeight = last.getBoundingClientRect().height;
+    const snapshot = snapshotInlineStyles();
+    const stretchFitsOuterBox = () => {
+        const actualGrowth = last.getBoundingClientRect().height - initialOuterHeight;
+        if (actualGrowth <= freeSpace + 0.5) return true;
+        restoreInlineStyles(snapshot);
+        repositionBlockNotes(last, Math.max(
+            last.querySelector('.right-col')?.scrollHeight || 0,
+            last.querySelector('.left-col')?.scrollHeight || 0,
+            last.querySelector('.single-wide-col')?.scrollHeight || 0
+        ));
+        return false;
+    };
+
     if (last.classList.contains('block-2col')) {
         const rCol = last.querySelector('.right-col');
         const lCol = last.querySelector('.left-col');
@@ -1264,6 +1291,7 @@ function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
         if (target - top < 0.5) return false;
         justifyColumnVertically(rCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA);
         justifyColumnVertically(lCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA);
+        if (!stretchFitsOuterBox()) return false;
         repositionBlockNotes(last, Math.max(rCol.scrollHeight, lCol.scrollHeight));
         return true;
     }
@@ -1274,6 +1302,7 @@ function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
         const target = Math.min(h + freeSpace, h + columnStretchCapacity(col));
         if (target - h < 0.5) return false;
         justifyColumnVertically(col, target, styleObj, maxStretch + 1, JUSTIFY_MAX_LH_EXTRA);
+        if (!stretchFitsOuterBox()) return false;
         repositionBlockNotes(last, col.scrollHeight);   // הערות צד של ההקדמה נשארות מול הפסקאות שלהן אחרי המתיחה
         return true;
     }
