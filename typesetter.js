@@ -2559,15 +2559,44 @@ function flushFootnotesInto(pageEl) {
         return;
     }
 
+    // Record live geometry immediately before and after the real footnote area is inserted.
+    // This distinguishes a bad footnote-height estimate from flex redistribution / flow movement.
+    const queueCountBeforeFlush = footnoteQueueForPage.length;
+    const predictedFootnoteHeight = measureFootnoteAreaHeight(footnoteQueueForPage);
+    const wrapper = pageEl.querySelector('.page-content-wrapper');
+    const bodyFlowBefore = wrapper?.querySelector('.page-body-flow');
+    const beforeFlowRect = bodyFlowBefore?.getBoundingClientRect();
+    const beforeLastBlock = bodyFlowBefore?.lastElementChild;
+    const beforeLastBlockRect = beforeLastBlock?.getBoundingClientRect();
     const area = buildFootnoteAreaElement(footnoteQueueForPage);
 
-    const wrapper = pageEl.querySelector('.page-content-wrapper');
     const footer = pageEl.querySelector('.page-number-footer');
     if (wrapper && footer) {
         wrapper.insertBefore(area, footer);
     } else {
         pageEl.appendChild(area);
     }
+
+    // Force a synchronous layout read after insertion, then preserve the measured delta
+    // on the page so the long-document audit can report the exact source of live overflow.
+    const bodyFlowAfter = wrapper?.querySelector('.page-body-flow');
+    const afterFlowRect = bodyFlowAfter?.getBoundingClientRect();
+    const afterLastBlock = bodyFlowAfter?.lastElementChild;
+    const afterLastBlockRect = afterLastBlock?.getBoundingClientRect();
+    const setMetric = (name, value) => {
+        if (value !== null && value !== undefined && Number.isFinite(value)) {
+            pageEl.setAttribute(name, String(Math.round(value * 100) / 100));
+        }
+    };
+    pageEl.setAttribute('data-fn-reflow-queue-count', String(queueCountBeforeFlush));
+    setMetric('data-fn-reflow-predicted-height', predictedFootnoteHeight);
+    setMetric('data-fn-reflow-before-flow-height', beforeFlowRect?.height);
+    setMetric('data-fn-reflow-after-flow-height', afterFlowRect?.height);
+    setMetric('data-fn-reflow-flow-height-delta', beforeFlowRect && afterFlowRect ? afterFlowRect.height - beforeFlowRect.height : null);
+    setMetric('data-fn-reflow-before-last-block-height', beforeLastBlockRect?.height);
+    setMetric('data-fn-reflow-after-last-block-height', afterLastBlockRect?.height);
+    setMetric('data-fn-reflow-after-last-block-overflow', afterLastBlockRect && afterFlowRect ? afterLastBlockRect.bottom - afterFlowRect.bottom : null);
+    setMetric('data-fn-reflow-last-block-top-offset', afterLastBlockRect && afterFlowRect ? afterLastBlockRect.top - afterFlowRect.top : null);
 
     // [חדש] אחרי שהאזור חובר ל-DOM, מסמנים את השורה האחרונה של בלוק רציף
     // (אם יש שם 2+ הערות — מפעיל text-align-last: justify כדי שהן יתפרסו על כל הרוחב)
