@@ -2271,11 +2271,23 @@ function measureFootnoteAreaHeight(queue, opts) {
     const blockScrollH = area.scrollHeight;
     const blockOffsetH = area.offsetHeight;
     const noteBlock = area.querySelector('.note-block');
+    const noteBlockStyle = noteBlock ? getComputedStyle(noteBlock) : null;
+    const noteLine = noteBlock ? noteBlock.querySelector('.note-line') : null;
+    const noteLineStyle = noteLine ? getComputedStyle(noteLine) : null;
     const areaWidth = area.getBoundingClientRect().width;
     const noteBlockWidth = noteBlock ? noteBlock.getBoundingClientRect().width : null;
     const noteBlockScrollH = noteBlock ? noteBlock.scrollHeight : null;
     const noteBlockOffsetH = noteBlock ? noteBlock.offsetHeight : null;
     const noteBlockClass = noteBlock ? noteBlock.className : null;
+    const noteBlockTextLength = noteBlock ? noteBlock.textContent.length : null;
+    const noteLineCount = noteBlock ? noteBlock.querySelectorAll('.note-line').length : 0;
+    const noteBlockFontSize = noteBlockStyle ? noteBlockStyle.fontSize : null;
+    const noteBlockLineHeight = noteBlockStyle ? noteBlockStyle.lineHeight : null;
+    const noteBlockFontFamily = noteBlockStyle ? noteBlockStyle.fontFamily : null;
+    const noteBlockColumnCount = noteBlockStyle ? noteBlockStyle.columnCount : null;
+    const noteBlockTextAlign = noteBlockStyle ? noteBlockStyle.textAlign : null;
+    const noteLineFontSize = noteLineStyle ? noteLineStyle.fontSize : null;
+    const noteLineLineHeight = noteLineStyle ? noteLineStyle.lineHeight : null;
     // נשתמש ב-max(scrollHeight, offsetHeight) — scrollHeight תופס גלישה, offsetHeight תופס border
     const innerH = Math.max(blockScrollH, blockOffsetH);
     const h = Math.ceil(innerH + marginTop + marginBottom);
@@ -2303,6 +2315,15 @@ function measureFootnoteAreaHeight(queue, opts) {
         noteBlockScrollH,
         noteBlockOffsetH,
         noteBlockClass,
+        noteBlockTextLength,
+        noteLineCount,
+        noteBlockFontSize,
+        noteBlockLineHeight,
+        noteBlockFontFamily,
+        noteBlockColumnCount,
+        noteBlockTextAlign,
+        noteLineFontSize,
+        noteLineLineHeight,
         marginTop, marginBottom,
         returned: h,
         ctxKey
@@ -2348,6 +2369,10 @@ function auditFnMeasurement() {
         // Prefer the original fresh measurement, which carries measured dimensions;
         // a later cache-hit record only contains the returned height.
         const matching = matchingLogs.filter(e => e.kind === 'fresh-measure').pop() || matchingLogs.pop();
+        const realNoteBlock = area.querySelector('.note-block');
+        const realNoteBlockStyle = realNoteBlock ? getComputedStyle(realNoteBlock) : null;
+        const realNoteLine = realNoteBlock ? realNoteBlock.querySelector('.note-line') : null;
+        const realNoteLineStyle = realNoteLine ? getComputedStyle(realNoteLine) : null;
 
         results.push({
             pageIdx: pIdx,
@@ -2366,10 +2391,28 @@ function auditFnMeasurement() {
             measuredNoteBlockScrollH: matching ? (matching.noteBlockScrollH ?? null) : null,
             measuredNoteBlockOffsetH: matching ? (matching.noteBlockOffsetH ?? null) : null,
             measuredNoteBlockClass: matching ? (matching.noteBlockClass ?? null) : null,
-            realNoteBlockWidth: area.querySelector('.note-block')?.getBoundingClientRect().width ?? null,
-            realNoteBlockScrollH: area.querySelector('.note-block')?.scrollHeight ?? null,
-            realNoteBlockOffsetH: area.querySelector('.note-block')?.offsetHeight ?? null,
-            realNoteBlockClass: area.querySelector('.note-block')?.className ?? null,
+            measuredNoteBlockTextLength: matching ? (matching.noteBlockTextLength ?? null) : null,
+            measuredNoteLineCount: matching ? (matching.noteLineCount ?? null) : null,
+            measuredNoteBlockFontSize: matching ? (matching.noteBlockFontSize ?? null) : null,
+            measuredNoteBlockLineHeight: matching ? (matching.noteBlockLineHeight ?? null) : null,
+            measuredNoteBlockFontFamily: matching ? (matching.noteBlockFontFamily ?? null) : null,
+            measuredNoteBlockColumnCount: matching ? (matching.noteBlockColumnCount ?? null) : null,
+            measuredNoteBlockTextAlign: matching ? (matching.noteBlockTextAlign ?? null) : null,
+            measuredNoteLineFontSize: matching ? (matching.noteLineFontSize ?? null) : null,
+            measuredNoteLineLineHeight: matching ? (matching.noteLineLineHeight ?? null) : null,
+            realNoteBlockWidth: realNoteBlock?.getBoundingClientRect().width ?? null,
+            realNoteBlockScrollH: realNoteBlock?.scrollHeight ?? null,
+            realNoteBlockOffsetH: realNoteBlock?.offsetHeight ?? null,
+            realNoteBlockClass: realNoteBlock?.className ?? null,
+            realNoteBlockTextLength: realNoteBlock ? realNoteBlock.textContent.length : null,
+            realNoteLineCount: realNoteBlock ? realNoteBlock.querySelectorAll('.note-line').length : null,
+            realNoteBlockFontSize: realNoteBlockStyle?.fontSize ?? null,
+            realNoteBlockLineHeight: realNoteBlockStyle?.lineHeight ?? null,
+            realNoteBlockFontFamily: realNoteBlockStyle?.fontFamily ?? null,
+            realNoteBlockColumnCount: realNoteBlockStyle?.columnCount ?? null,
+            realNoteBlockTextAlign: realNoteBlockStyle?.textAlign ?? null,
+            realNoteLineFontSize: realNoteLineStyle?.fontSize ?? null,
+            realNoteLineLineHeight: realNoteLineStyle?.lineHeight ?? null,
             matchFound: !!matching,
             realH,
             realScroll,
