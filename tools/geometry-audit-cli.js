@@ -70,6 +70,7 @@ function markdown(r) {
     const s = r.audit.summary || {};
     const lines = ['# Geometry audit report', '', '- Input: ' + r.run.input,
       '- Generated: ' + r.run.generatedAt, '- Render duration: ' + r.run.renderMs + ' ms',
+      '- Repeat-render determinism: ' + (r.run.determinismCheck ? (r.run.determinismCheck.identical ? 'PASS' : 'FAIL') : 'not run'),
       '- Geometry extraction: ' + (r.geometry.stats.extractMs ?? 'n/a') + ' ms',
       '- Pages: ' + r.pageCount, '- Issues: ' + (s.total ?? r.audit.issues.length),
       '- High: ' + (s.high || 0) + ' | Medium: ' + (s.medium || 0) + ' | Low: ' + (s.low || 0),
