@@ -761,9 +761,11 @@ function estimateSectionFillRatio(tokens) {
    - כותרת (רמות 2-6) לעולם לא נשארת לבדה בתחתית טור: היא עוברת יחד עם הפסקה שאחריה.
    ========================================================================== */
 function getSplitRules() {
-    const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;   // שורה בודדת בסוף טור/עמוד
-    const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true; // שורה בודדת בראש טור/עמוד
-    return { minFirst: avoidWidows ? 2 : 1, minLast: avoidOrphans ? 2 : 1 };
+    const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;   // שורה אחרונה של פסקה בודדת בראש טור/עמוד
+    const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true; // שורה ראשונה של פסקה בודדת בתחתית טור/עמוד
+    // The first split chunk stays at the bottom of the current column (orphan risk);
+    // the remaining chunk starts at the top of the next column (widow risk).
+    return { minFirst: avoidOrphans ? 2 : 1, minLast: avoidWidows ? 2 : 1 };
 }
 
 /* כמה שורות להציב מפסקה בת totalLines שורות כשבפועל נכנסות fitLines שורות.
