@@ -2842,8 +2842,21 @@ window.renderFnAuditResults = renderFnAuditResults;
    15. אירוע טעינת הדף הראשי (Window Onload)
    ========================================================================== */
 window.onload = async function() {
-    // במצב renderer (iframe) — דלג על אתחול UI
-    if (window.__isRenderer) return;
+    // במצב renderer (iframe) — טען נכסי JSON (עיטורים, שערים) אבל דלג על אתחול UI.
+    // [תיקון חשוב] קודם, ה-iframe חזר מיד ולא טען את קבצי ה-JSON, ולכן עיטורים
+    // מ-JSON (כמו orn_ud_022) לא היו זמינים ב-iframe ולא הופיעו בעימוד.
+    if (window.__isRenderer) {
+        if (typeof loadDefaultSettings === 'function') {
+            try { await loadDefaultSettings(); } catch(e) {}
+        }
+        try { await loadExternalJSONAssets(); } catch(e) { console.warn('loadExternalJSONAssets (iframe):', e); }
+        try { await loadFolderAssetsAndThemes(); } catch(e) {}
+        // הודע לדף הראשי שה-iframe מוכן (כולל נכסים)
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'renderer-ready' }, '*');
+        }
+        return;
+    }
 
     initFontPickers();
     // טען הגדרות ברירת מחדל מ-default_settings.json דרך settings-manager.js

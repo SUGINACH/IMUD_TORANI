@@ -2545,3 +2545,31 @@ Work Log:
 Stage Summary:
 - **2 באגים אמיתיים תוקנו**: f-hdr-c/s-hdr-verso-c (גופן כותרת אמצעית) ו-prop-mt-h2 (margin-top של h2).
 - **קבצים שהשתנו**: typesetter.js, style.css.
+
+---
+Task ID: ornaments-broken-fix
+Agent: main (GLM)
+Task: תיקון עיטורים שלא עובדים — ה-iframe לא טען קבצי JSON
+
+Work Log:
+- **אבחון**: המשתמש דיווח שעיטורים לא עובדים. בדקתי את הקוד ומצאתי את שורש הבעיה:
+  - ב-commit cb489ed (2026-10-17) נוסף מנגנון iframe לעימוד.
+  - ב-app.js window.onload, ה-guard `if (window.__isRenderer) return;` חזר מיד לפני `loadExternalJSONAssets()`.
+  - לכן ה-iframe לעולם לא טען את קבצי ה-JSON (ornaments_up_down.json, ornaments_left_right.json, וכו').
+  - רק עיטורים מובנים (diamonds, spear, swash, pen) היו זמינים ב-iframe (מ-decorations.js).
+  - עיטורים מ-JSON (כמו orn_ud_022) לא היו זמינים ולא הופיעו בעימוד.
+
+- **התיקון**: שיניתי את ה-guard ב-app.js window.onload. עכשיו, כשהקוד רץ ב-iframe:
+  1. טוען default_settings.json (דרך loadDefaultSettings)
+  2. טוען נכסי JSON (דרך loadExternalJSONAssets) — עיטורים, שערים, מפרידים
+  3. טוען נכסי תיקייה (דרך loadFolderAssetsAndThemes) — ערכות נושא
+  4. שולח renderer-ready לדף הראשי
+  5. חוזר (דילוג על אתחול UI)
+
+- **הגנות**: עטפתי כל קריאה ב-try/catch כדי ששגיאה באחת לא תמנע את השליחה של renderer-ready.
+
+Stage Summary:
+- **שורש הבעיה**: ה-iframe לא טען קבצי JSON של עיטורים בגלל guard מוקדם מדי.
+- **פתרון**: ה-iframe טוען עכשיו את כל נכסי ה-JSON לפני ששולח renderer-ready.
+- **קבצים שהשתנו**: app.js בלבד.
+- **מתי נשבר**: commit cb489ed (2026-10-17) — מעבר לארכיטקטורת iframe.
