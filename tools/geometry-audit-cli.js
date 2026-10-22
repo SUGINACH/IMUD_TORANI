@@ -186,6 +186,7 @@ async function main() {
                 pageCount: document.querySelectorAll('#book-container .a4-page').length,
                 summary:audit.summary, issues:audit.issues, stats:model.stats, model:clean,
                 footnoteMeasurementAudit:fnAudit, fontsStatus:document.fonts ? document.fonts.status : 'unknown',
+                fontPreflight:window.__fontPreflight || null,
                 bodyScrollHeight:document.body.scrollHeight,
                 bookContainerScrollHeight:document.getElementById('book-container')?.scrollHeight ?? null
             };
@@ -199,7 +200,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, settings, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
