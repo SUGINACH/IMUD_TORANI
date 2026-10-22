@@ -248,8 +248,8 @@ node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --fail-on hig
 1. להשתמש ב-API שכבר קיים בסוף `geometry-audit.js` ובטיפול בהודעות `geom-extract` / `geom-audit` / `geom-export` ב-`renderer-bridge.js`; לא ליצור עותק שני של מנגנון הביקורת.
 2. להפוך את חילוץ/בדיקת הגיאומטריה ל-API קריא ויציב, בלי תלות בהצגת overlay.
 3. להוסיף אות סיום אמין ל-typesetting, כולל שלבים מאוחרים כמו `applyCrossParagraphParens`, איזון טורים, `fitColumnDividers`, עדכון מספרי עמודים ו-`applyHeadingOrnamentTextFit`.
-4. ליצור runner headless שמזין fixture, מפעיל API זה ומייצא דוחות.
-5. להוסיף בדיקה סטטית מהירה ובדיקת CI/רגרסיה.
+4. [נוסף ב-V23] `tools/geometry-audit-cli.js` — runner headless שמזין fixture, מפעיל את ה-API הקיים ומייצא דוחות JSON/Markdown; יש לאמת אותו ב-CI.
+5. [נוסף ב-V23] `package.json`, `.github/workflows/geometry-audit-cli.yml` ו-`tests/fixtures/geometry-audit-smoke.txt` לבדיקת smoke אוטומטית.
 6. להריץ על `very_long_test_text.txt`, לשמור baseline ולהשוות אותו ל-V21.
 
-**לא להכריז שהיכולת הושלמה עד שקיימת פקודת CLI עובדת ודוח מלא נוצר בפועל על fixture הארוך.**
+**סטטוס נוכחי:** ה-runner וה-smoke fixture נוספו, אך טרם אומתו בריצה בפועל. אין להכריז שהיכולת הושלמה עד שה-CI עובר ודוח מלא נוצר על fixture הארוך.
