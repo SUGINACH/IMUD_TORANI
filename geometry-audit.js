@@ -237,6 +237,7 @@ function buildNode(el, parent, pageOffset) {
         lines: [],
         tokenId: el.getAttribute('data-token-id') || null,
         isContinuation: el.getAttribute('data-is-cont') === 'true',
+        rawText: (el.getAttribute('data-raw-text') || '').slice(0, 160),
         parentType: parent ? parent.type : null
     };
 
@@ -378,7 +379,19 @@ function auditContainment(node, issues) {
                 location: describePath(node),
                 childType: child.type,
                 childText: child.text,
-                childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h) },
+                parentRect: { x: Math.round(node.rect.x), y: Math.round(node.rect.y), w: Math.round(node.rect.w), h: Math.round(node.rect.h), bottom: Math.round(node.rect.bottom) },
+                childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h), bottom: Math.round(child.rect.bottom) },
+                childDetails: child.type === 'block-2col' ? child.children.filter(c => c.type === 'column').map(col => ({
+                    side: col.side,
+                    rect: { x: Math.round(col.rect.x), y: Math.round(col.rect.y), w: Math.round(col.rect.w), h: Math.round(col.rect.h), bottom: Math.round(col.rect.bottom) },
+                    paragraphCount: col.children.filter(p => ['p', 'p-cut', 'p-end'].includes(p.type)).length,
+                    firstParagraphs: col.children.filter(p => ['p', 'p-cut', 'p-end'].includes(p.type)).slice(0, 2).map(p => ({
+                        type: p.type, tokenId: p.tokenId, isContinuation: p.isContinuation, lineCount: p.lines.length, text: p.rawText || p.text
+                    })),
+                    lastParagraphs: col.children.filter(p => ['p', 'p-cut', 'p-end'].includes(p.type)).slice(-3).map(p => ({
+                        type: p.type, tokenId: p.tokenId, isContinuation: p.isContinuation, lineCount: p.lines.length, text: p.rawText || p.text
+                    }))
+                })) : undefined,
                 overflow,
                 overflowPx: Math.round(overflowPx * 10) / 10,
                 note: note.trim(),
