@@ -1169,6 +1169,33 @@ function buildNodeWithRefs(el, parent) {
         rect,
         children: [],
         lines: [],
+        footnoteReflowMetrics: cls.type === 'page' ? {
+            queueCount: el.getAttribute('data-fn-reflow-queue-count'),
+            predictedHeight: el.getAttribute('data-fn-reflow-predicted-height'),
+            beforeFlowHeight: el.getAttribute('data-fn-reflow-before-flow-height'),
+            afterFlowHeight: el.getAttribute('data-fn-reflow-after-flow-height'),
+            flowHeightDelta: el.getAttribute('data-fn-reflow-flow-height-delta'),
+            beforeLastBlockHeight: el.getAttribute('data-fn-reflow-before-last-block-height'),
+            afterLastBlockHeight: el.getAttribute('data-fn-reflow-after-last-block-height'),
+            afterLastBlockOverflow: el.getAttribute('data-fn-reflow-after-last-block-overflow'),
+            lastBlockTopOffset: el.getAttribute('data-fn-reflow-last-block-top-offset')
+        } : null,
+        layoutMetrics: cls.type === 'block-2col' ? {
+            fillRemaining: el.getAttribute('data-layout-fill-remaining'),
+            fillFlowHeight: el.getAttribute('data-layout-fill-flow-height'),
+            fillTopOffset: el.getAttribute('data-layout-fill-top-offset'),
+            balanceAvailable: el.getAttribute('data-layout-balance-available'),
+            balanceCandidates: el.getAttribute('data-layout-balance-candidates'),
+            balanceItems: el.getAttribute('data-layout-balance-items'),
+            balanceFits: el.getAttribute('data-layout-balance-fits'),
+            balanceValid: el.getAttribute('data-layout-balance-valid'),
+            balanceRightPartLines: el.getAttribute('data-layout-balance-right-part-lines'),
+            balanceLeftPartLines: el.getAttribute('data-layout-balance-left-part-lines'),
+            balanceOver: el.getAttribute('data-layout-balance-over'),
+            balanceRight: el.getAttribute('data-layout-balance-right'),
+            balanceLeft: el.getAttribute('data-layout-balance-left'),
+            balanceDiff: el.getAttribute('data-layout-balance-diff')
+        } : null,
         parentType: parent ? parent.type : null,
         _parent: parent  // [תיקון] חיוני כדי שgetPageIdx יעבוד
     };
