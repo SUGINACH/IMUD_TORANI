@@ -238,6 +238,17 @@ function buildNode(el, parent, pageOffset) {
         tokenId: el.getAttribute('data-token-id') || null,
         isContinuation: el.getAttribute('data-is-cont') === 'true',
         rawText: (el.getAttribute('data-raw-text') || '').slice(0, 160),
+        footnoteReflowMetrics: cls.type === 'page' ? {
+            queueCount: el.getAttribute('data-fn-reflow-queue-count'),
+            predictedHeight: el.getAttribute('data-fn-reflow-predicted-height'),
+            beforeFlowHeight: el.getAttribute('data-fn-reflow-before-flow-height'),
+            afterFlowHeight: el.getAttribute('data-fn-reflow-after-flow-height'),
+            flowHeightDelta: el.getAttribute('data-fn-reflow-flow-height-delta'),
+            beforeLastBlockHeight: el.getAttribute('data-fn-reflow-before-last-block-height'),
+            afterLastBlockHeight: el.getAttribute('data-fn-reflow-after-last-block-height'),
+            afterLastBlockOverflow: el.getAttribute('data-fn-reflow-after-last-block-overflow'),
+            lastBlockTopOffset: el.getAttribute('data-fn-reflow-last-block-top-offset')
+        } : null,
         layoutMetrics: cls.type === 'block-2col' ? {
             fillRemaining: el.getAttribute('data-layout-fill-remaining'),
             fillFlowHeight: el.getAttribute('data-layout-fill-flow-height'),
