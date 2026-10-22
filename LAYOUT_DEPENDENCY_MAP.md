@@ -34,7 +34,7 @@
 - עיטורי SVG אינם בהכרח עטופים ב-`.hdr-txt`; אין למדוד את טקסט הכותרת בלבד ולהניח שהעיטור אינו תופס מקום.
 - יש לכלול במפה גם את HTML שמוחזר מ-`renderHeaderSectionHTML` ואת `renderSideOrnamentHTML`, ולבדוק את כל צורות הפלט האפשריות ולא רק כותרת טקסט פשוטה.
 
-**סיכון שנמצא בבדיקת הקוד:** `geometry-audit.js` מזהה `.page-header`, אך ב-`typesetter.js` המכולה שנוצרת היא `.top-header-grid`. בנוסף, סיווג המכולה העליונה כ-`other` עלול לגרום לכך שילדיה (כגון `.header-col-r/c/l`) לא ייכנסו לעץ הגיאומטריה, כי בניית העץ יורדת לילדים רק כאשר סוגם מוכר. יש לאמת זאת ב-DOM ולהוסיף סיווג/ירידה מפורשים — לא להניח שכותרות עליונות כבר נבדקות במלואן.
+**תיקון קוד שבוצע ב-V23, ממתין לאימות DOM:** `geometry-audit.js` מסווג כעת `.top-header-grid` כ-`header`, את `.header-col-r/c/l` כ-`header-col`, ומוסיף ירידה רקורסיבית וסוגי טקסט לעיטורים/מספור. גם `.note-line-num` מסווג לפני `.note-line`. עדיין צריך לאשר בדוח הריצה שהרכיבים אכן נכנסים לעץ ונבדקים כמצופה.
 
 ### 3.3 גוף הטקסט, טורים ובלוקים ברוחב מלא
 
@@ -216,15 +216,15 @@
 
 ### שימוש מתוכנן
 
-דוגמאות לממשק CLI עתידי (התחביר להמחשה עד שה-runner ייכתב):
+ממשק ה-CLI שנוסף ב-V23 (הקוד קיים, אך טרם אומת בהרצה מלאה):
 
 ```text
 node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --report ./artifacts/geometry-audit.json
-node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --settings ./fixtures/default-settings.json --format json,summary
+node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --settings ./path/to/settings.json --full-model
 node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --fail-on high
 ```
 
-הפקודה הראשונה צריכה להיות ברירת המחדל ולספק את כל הנתונים הדרושים בלי פתיחת המרנדר ידנית.
+הפקודה הראשונה מפעילה את המרנדר ב-Chromium headless בלי פתיחה ידנית של ממשק המשתמש; יש עדיין לאמת את הריצה מקצה לקצה.
 
 ### תנאי קבלה
 
@@ -250,7 +250,7 @@ node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --fail-on hig
 3. להוסיף אות סיום אמין ל-typesetting, כולל שלבים מאוחרים כמו `applyCrossParagraphParens`, איזון טורים, `fitColumnDividers`, עדכון מספרי עמודים ו-`applyHeadingOrnamentTextFit`.
 4. [נוסף ב-V23] `tools/geometry-audit-cli.js` — runner headless שמזין fixture, מפעיל את ה-API הקיים ומייצא דוחות JSON/Markdown; יש לאמת אותו ב-CI.
 5. [נוסף ב-V23] `package.json`, `.github/workflows/geometry-audit-cli.yml` ו-`tests/fixtures/geometry-audit-smoke.txt` לבדיקת smoke אוטומטית.
-6. [בתהליך] `geometry-audit.js` הורחב לסיווג `.top-header-grid`, עמודות הכותרת, טקסט/מספור הכותרת ועיטורי כותרת ההערות; גם סדר זיהוי מספר הערה תוקן כך ש-`.note-line-num` לא ייבלע בסיווג הכללי של `.note-line`.
+6. [בוצע בקוד, ממתין לאימות ריצה] `geometry-audit.js` הורחב לסיווג `.top-header-grid`, עמודות הכותרת, טקסט/מספור הכותרת ועיטורי כותרת ההערות; גם סדר זיהוי מספר הערה תוקן כך ש-`.note-line-num` לא ייבלע בסיווג הכללי של `.note-line`.
 7. להריץ על `very_long_test_text.txt`, לשמור baseline ולהשוות אותו ל-V21.
 
-**סטטוס נוכחי:** ה-runner וה-smoke fixture נוספו, אך טרם אומתו בריצה בפועל. אין להכריז שהיכולת הושלמה עד שה-CI עובר ודוח מלא נוצר על fixture הארוך.
+**סטטוס נוכחי:** ה-runner, ה-smoke fixture וה-CI נוספו. ה-runner עודכן להמתין לגופנים לפני העימוד, סקריפט הטקסט הארוך קיבל timeout של 15 דקות, ותיקון קטן בוצע בעיצוב תקציר Markdown. עם זאת, בסביבת העבודה הנוכחית אין גישה לרשת כדי להתקין/להריץ את Playwright מול עותק מלא של המאגר, וממשק GitHub הזמין כאן אינו מחזיר ריצות push של Actions. לכן טרם אומתו תחביר ה-CLI, מעבר ה-smoke test או דוח על `very_long_test_text.txt`; אין להכריז שהיכולת הושלמה עד שאחת מהריצות האלה תעבור.
