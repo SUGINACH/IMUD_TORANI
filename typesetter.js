@@ -4144,8 +4144,8 @@ function typesetDocumentCore() {
                 // when asking balanceColumns to choose a split.
                 const initialOuterBlockH = block2Col.getBoundingClientRect().height;
                 const initialInnerColumnsH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
-                const outerBlockOverflow = Math.max(0, initialOuterBlockH - actualAvailH);
-                const balanceAvailH = Math.max(0, actualAvailH - outerBlockOverflow);
+                const outerBoxOverhead = Math.max(0, initialOuterBlockH - initialInnerColumnsH);
+                const balanceAvailH = Math.max(0, actualAvailH - outerBoxOverhead);
 
                 // 1. סיום פרק
                 if (tokenIndex >= secTokens.length && !pendingWordTokens) {
