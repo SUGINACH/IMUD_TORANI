@@ -3570,10 +3570,8 @@ function typesetDocumentCore() {
             }
 
             let totalFlowH = pageLayout.bodyFlow.clientHeight || 870;
-            let used = 0;
 
             if (isFirstPage && h2Text) {
-                const spacer = pageLayout.bodyFlow.querySelector('.h2-spacer');
                 const title = pageLayout.bodyFlow.querySelector('.title-level-2-standalone');
                 if (title) {
                     if (sec.hToken.customStyleId) {
@@ -3645,16 +3643,16 @@ function typesetDocumentCore() {
                     }
                 }
 
-                if (spacer) used += layoutHeightOf(spacer);
-                const headerEls = pageLayout.bodyFlow.querySelectorAll('.h2-ornament-top, .h2-siman-badge, .title-level-2-standalone, .h2-ornament-bottom');
-                headerEls.forEach(el => {
-                    used += layoutHeightOf(el);
-                    const st = window.getComputedStyle(el);
-                    used += (parseFloat(st.marginTop) || 0) + (parseFloat(st.marginBottom) || 0);
-                });
             }
 
-            let remPageHeight = isFirstPage ? (totalFlowH - used) : totalFlowH;
+            // Measure remaining height from actual DOM coordinates. Summing element heights
+            // misses collapsed/flex margins and was allowing section-opening blocks to exceed
+            // the real body area by 100px or more.
+            const initialFlowTop = pageLayout.bodyFlow.getBoundingClientRect().top;
+            const initialFlowBottom = initialFlowTop + totalFlowH;
+            const initialLastChild = pageLayout.bodyFlow.lastElementChild;
+            let remPageHeight = Math.max(0, initialFlowBottom -
+                (initialLastChild ? initialLastChild.getBoundingClientRect().bottom : initialFlowTop));
             isFirstPage = false;
 
             const redoCheck = () => {
@@ -3893,14 +3891,17 @@ function typesetDocumentCore() {
                     /* [תיקון] כותרת רוחבית לא נשארת יתומה בתחתית העמוד: אחרי הצבתה חייב להישאר מקום לשתי שורות תוכן לפחות
                        (הלולאה הזו לא פותחת בלוק חדש כשנשארו 45px או פחות - ואז הכותרת הייתה נשארת אחרונה בעמוד בלי טקסט אחריה).
                        בעמוד שעוד אין בו תוכן גוף הכותרת מוצבת בכל מקרה (אחרת העמוד היה נשאר ריק לנצח). */
-                    const spanFree = remPageHeight - reservedNow();
+                    const flowTop = pageLayout.bodyFlow.getBoundingClientRect().top;
+                    const flowBottom = flowTop + totalFlowH;
+                    const spanTop = spanBlock.getBoundingClientRect().top;
+                    const spanFree = Math.max(0, flowBottom - spanTop) - reservedNow();
                     if (spanHeight > spanFree || (pageBodyHasContent && spanFree - spanHeight <= 45)) {
                         pageLayout.bodyFlow.removeChild(spanBlock);
                         break;
                     }
 
                     headingPageMap[peekTok.id] = toGematria(pageIndex - 1);
-                    remPageHeight -= spanHeight;
+                    remPageHeight = Math.max(0, flowBottom - spanBlock.getBoundingClientRect().bottom);
                     tokenIndex++;
                     continue;
                 }
@@ -3917,12 +3918,15 @@ function typesetDocumentCore() {
           <div class="margin-notes-column left-margin"></div>
         `;
                 pageLayout.bodyFlow.appendChild(block2Col);
-                // Diagnostic contract: compare the available height used by the fill loop
-                // with the actual DOM offset from body-flow top to this block's top.
+                // Use the real start position of this block, including all preceding content
+                // and CSS gaps, as the available-height origin for paragraph fitting.
+                const blockFlowTop = pageLayout.bodyFlow.getBoundingClientRect().top;
+                const blockFlowBottom = blockFlowTop + totalFlowH;
+                const blockTop = block2Col.getBoundingClientRect().top;
+                remPageHeight = Math.max(0, blockFlowBottom - blockTop);
                 block2Col.setAttribute('data-layout-fill-remaining', String(remPageHeight));
                 block2Col.setAttribute('data-layout-fill-flow-height', String(totalFlowH));
-                block2Col.setAttribute('data-layout-fill-top-offset',
-                    String(block2Col.getBoundingClientRect().top - pageLayout.bodyFlow.getBoundingClientRect().top));
+                block2Col.setAttribute('data-layout-fill-top-offset', String(blockTop - blockFlowTop));
                 pagePendingNotes = [];
 
                 const blockNoteSnapshot = {
@@ -4118,7 +4122,9 @@ function typesetDocumentCore() {
                     /* [תיקון] גם בבלוק האחרון של הפרק מנכים את גובהו מהנותר בעמוד: בלי זה בדיקת עתודת הערות השוליים (redoCheck)
                        ראתה את העמוד כאילו ריק, ולא זיהתה הערה מאוחרת בטור השמאלי שהגדילה את אזור ההערות אחרי שהטור הימני כבר מולא
                        (בהערות שוליים ב-2 טורים הטקסט חרג אל תוך אזור ההערות). כשהכול נכנס - אין שום שינוי. */
-                    remPageHeight -= Math.max(rCol.scrollHeight, lCol.scrollHeight);
+                    const lastBodyChild = pageLayout.bodyFlow.lastElementChild;
+                    remPageHeight = Math.max(0, blockFlowBottom -
+                        (lastBodyChild ? lastBodyChild.getBoundingClientRect().bottom : blockFlowTop));
                     break;
                 } else {
                     let nextPeekTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
@@ -4146,7 +4152,7 @@ function typesetDocumentCore() {
                     }
                 }
 
-                remPageHeight -= Math.max(rCol.scrollHeight, lCol.scrollHeight);
+                remPageHeight = Math.max(0, blockFlowBottom - block2Col.getBoundingClientRect().bottom);
                 pageBodyHasContent = true;
                 finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
             }
