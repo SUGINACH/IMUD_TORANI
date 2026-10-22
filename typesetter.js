@@ -1429,55 +1429,67 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         rCol.innerHTML = '';
         lCol.innerHTML = '';
         for (let i = 0; i < c.i; i++) renderSingleItemFast(rCol, items[i]);
+        let valid = true;
+        let rightPartLines = null, leftPartLines = null;
         if (c.l > 0) {
             const item = items[c.i];
+            const rightText = item.lines.slice(0, c.l).join(' ');
+            const leftText = item.lines.slice(c.l).join(' ');
+            const _insideParenR = isInsideParenTokenId(item.id);
+            const _willWrap = willParenWrapTokenId(item.id);
+
+            // Match the final renderer's decision: first measure the actual chunk, then
+            // decide whether it is genuinely multi-line before applying a first-word window.
+            // Forcing a window just because the source split had l>=2 can manufacture a
+            // second line during measurement and then collapse to one line in the final DOM.
+            const rightInfo = getLinesFromParagraph(rightText, colWidth, styleObj, !item.isCont, false, _willWrap);
+            const leftInfo = getLinesFromParagraph(leftText, colWidth, styleObj, false, !!(item.endNote && !item.cut), _willWrap);
+            rightPartLines = rightInfo.lines.length;
+            leftPartLines = leftInfo.lines.length;
+            valid = rightPartLines >= rules.minFirst && leftPartLines >= rules.minLast;
+
             const pRight = document.createElement('p');
             pRight.className = 'p-cut';
-            const _insideParenR = isInsideParenTokenId(item.id);
-            pRight.innerHTML = createDropWord(item.lines.slice(0, c.l).join(' '), item.isCont, false, c.l, _insideParenR);
+            pRight.innerHTML = createDropWord(rightText, item.isCont, rightPartLines <= 1, rightPartLines, _insideParenR);
             applyDelimiterStyles(pRight, 'body', getBodySizePt(), true);
             rCol.appendChild(pRight);
 
             const pLeft = document.createElement('p');
             pLeft.className = item.cut ? 'p-cut' : 'p-end';
-            // isContinuation=true for left part, but insideParen is the same
-            pLeft.innerHTML = createDropWord(item.lines.slice(c.l).join(' '), true, false, item.lines.length - c.l, _insideParenR);
+            // The left chunk is always a continuation, so it receives no first-word window.
+            pLeft.innerHTML = createDropWord(leftText, true, leftPartLines <= 1, leftPartLines, _insideParenR);
             applyDelimiterStyles(pLeft, 'body', getBodySizePt(), true);
-            if (item.endNote && !item.cut) pLeft.appendChild(createDryEndNoteMarker());   // סימון הערת הסיום שיוצמד לסוף הפסקה
+            if (item.endNote && !item.cut) pLeft.appendChild(createDryEndNoteMarker());
             lCol.appendChild(pLeft);
         }
         for (let i = c.l > 0 ? c.i + 1 : c.i; i < items.length; i++) renderSingleItemFast(lCol, items[i]);
         const rH = rCol.scrollHeight, lH = lCol.scrollHeight;
         const diff = rH - lH;
-        const res = { k, rH, lH, diff, abs: Math.abs(diff), fits: Math.max(rH, lH) <= availableHeight, over: Math.max(rH, lH) };
+        const res = { k, rH, lH, diff, abs: Math.abs(diff), fits: Math.max(rH, lH) <= availableHeight, over: Math.max(rH, lH), valid, rightPartLines, leftPartLines };
         memo.set(k, res);
         return res;
     }
     function better(a, b) {
+        // Lexicographic objective: legal split first, then page fit, then overflow/imbalance,
+        // then a stable tie-break (prefer right column slightly taller, then earlier candidate).
+        if (a.valid !== b.valid) return a.valid;
         if (a.fits !== b.fits) return a.fits;
-        if (!a.fits) return a.over < b.over; // אף אחד לא נכנס: הפחות גולש
+        if (!a.fits && a.over !== b.over) return a.over < b.over;
         if (a.abs !== b.abs) return a.abs < b.abs;
-        return a.diff >= 0 && b.diff < 0; // שוויון: עדיפות לטור ימין גבוה יותר
+        const aRightTaller = a.diff >= 0, bRightTaller = b.diff >= 0;
+        if (aRightTaller !== bRightTaller) return aRightTaller;
+        return a.k < b.k;
     }
 
-    // חיפוש בינארי של נקודת החצייה (R-L הופך מחיובי לשלילי) ובדיקת סביבתה
+    // Exact deterministic search over every legal split candidate.
+    // The candidate set is finite; binary-searching only near the crossing can miss
+    // the true optimum when paragraph/heading margins and actual rendered line counts
+    // make the height difference discontinuous.
     const m = cands.length;
-    let lo = 0, hi = m - 1, cross = m - 1;
-    while (lo <= hi) {
-        const mid = (lo + hi) >> 1;
-        if (evalCand(mid).diff >= 0) { cross = mid; hi = mid - 1; } else lo = mid + 1;
-    }
     let best = null;
-    const consider = (k) => {
-        if (k < 0 || k >= m) return;
+    for (let k = 0; k < m; k++) {
         const e = evalCand(k);
         if (!best || better(e, best)) best = e;
-    };
-    for (let k = cross - 3; k <= cross + 3; k++) consider(k);
-    // אם שום מועמד בסביבה לא נכנס בגובה הפנוי - מרחיבים החוצה עד שנמצא כזה
-    for (let d = 4; d <= 80 && !best.fits && (cross - d >= 0 || cross + d < m); d++) {
-        consider(cross - d);
-        consider(cross + d);
     }
     const bestSplit = cands[best.k];
 
@@ -1486,6 +1498,9 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     block.setAttribute('data-layout-balance-candidates', String(cands.length));
     block.setAttribute('data-layout-balance-items', String(items.length));
     block.setAttribute('data-layout-balance-fits', String(best.fits));
+    block.setAttribute('data-layout-balance-valid', String(best.valid));
+    block.setAttribute('data-layout-balance-right-part-lines', String(best.rightPartLines ?? ''));
+    block.setAttribute('data-layout-balance-left-part-lines', String(best.leftPartLines ?? ''));
     block.setAttribute('data-layout-balance-over', String(best.over));
     block.setAttribute('data-layout-balance-right', String(best.rH));
     block.setAttribute('data-layout-balance-left', String(best.lH));
