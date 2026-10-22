@@ -75,6 +75,25 @@ function markdown(r) {
     const kinds = Object.entries(s.byKind || {}).sort((a,b) => b[1]-a[1]);
     if (!kinds.length) lines.push('| None | 0 |');
     for (const [k,v] of kinds) lines.push('| ' + String(k).replaceAll('|', '¦') + ' | ' + v + ' |');
+    const fnRows = Array.isArray(r.footnoteMeasurementAudit) ? r.footnoteMeasurementAudit : [];
+    const fnMatched = fnRows.filter(x => x.matchFound && Number.isFinite(x.diff));
+    const fnUnmatched = fnRows.filter(x => !x.matchFound);
+    const fnLargeDiffs = fnMatched.filter(x => Math.abs(x.diff) > 5);
+    const fnMaxAbsDiff = fnMatched.length ? Math.max(...fnMatched.map(x => Math.abs(x.diff))) : null;
+    lines.push('', '## Footnote measurement consistency', '',
+      '- Pages with footnote areas: ' + fnRows.length,
+      '- Exact queue matches: ' + fnRows.filter(x => x.matchFound).length + '/' + fnRows.length,
+      '- Matched samples with |actual − measured| > 5px: ' + fnLargeDiffs.length,
+      '- Maximum absolute difference: ' + (fnMaxAbsDiff === null ? 'n/a' : fnMaxAbsDiff + 'px'));
+    if (fnUnmatched.length) lines.push('- **Unmatched measurements: ' + fnUnmatched.length + '**');
+    if (fnLargeDiffs.length) {
+      lines.push('', '| Page | Measured (px) | Actual (px) | Δ (px) | Probe width (px) | Measured area width (px) |',
+        '|---:|---:|---:|---:|---:|---:|');
+      for (const x of [...fnLargeDiffs].sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0,10)) {
+        lines.push('| ' + (x.pageLabel || x.pageIdx) + ' | ' + x.measured + ' | ' + x.realH + ' | ' + x.diff +
+          ' | ' + (x.measuredProbeWidth ?? 'n/a') + ' | ' + (x.measuredAreaWidth ?? 'n/a') + ' |');
+      }
+    }
     lines.push('', '## Issues', '');
     if (!r.audit.issues.length) lines.push('No issues reported by the current geometry audit.');
     else for (const i of r.audit.issues) lines.push('- **' + String(i.severity || 'unknown').toUpperCase() +
