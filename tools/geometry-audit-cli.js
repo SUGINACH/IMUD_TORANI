@@ -74,7 +74,7 @@ function markdown(r) {
       '', '## Issue counts by kind', '', '| Kind | Count |', '|---|---:|'];
     const kinds = Object.entries(s.byKind || {}).sort((a,b) => b[1]-a[1]);
     if (!kinds.length) lines.push('| None | 0 |');
-    for (const [k,v] of kinds) lines.push('| ' + String(k).replace(/\\|/g,'\\\\|') + ' | ' + v + ' |');
+    for (const [k,v] of kinds) lines.push('| ' + String(k).replaceAll('|', '¦') + ' | ' + v + ' |');
     lines.push('', '## Issues', '');
     if (!r.audit.issues.length) lines.push('No issues reported by the current geometry audit.');
     else for (const i of r.audit.issues) lines.push('- **' + String(i.severity || 'unknown').toUpperCase() +
