@@ -8,11 +8,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
+const crypto = require('node:crypto');
 
 function parseArgs(argv) {
     const o = { input: null, settings: null, report: './artifacts/geometry-audit.json',
         summary: './artifacts/geometry-audit-summary.md', fullModel: false, failOn: 'high',
-        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, help: false };
+        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, help: false };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         const take = () => { if (i + 1 >= argv.length) throw new Error('Missing value for ' + arg); return argv[++i]; };
@@ -22,6 +23,7 @@ function parseArgs(argv) {
             case '--report': o.report = take(); break;
             case '--summary': o.summary = take(); break;
             case '--full-model': o.fullModel = true; break;
+            case '--repeat-check': o.repeatCheck = true; break;
             case '--fail-on': o.failOn = take(); break;
             case '--timeout-ms': o.timeoutMs = Number(take()); break;
             case '--viewport-width': o.viewportWidth = Number(take()); break;
@@ -35,7 +37,7 @@ function parseArgs(argv) {
 }
 function help() {
     process.stdout.write('Geometry audit CLI\nRequired: --input <text-file>\n' +
-      'Options: --settings <json-file>, --report <json-file>, --summary <md-file>, --full-model,\n' +
+      'Options: --settings <json-file>, --report <json-file>, --summary <md-file>, --full-model, --repeat-check,\n' +
       '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>\n');
 }
 function abs(p) { return path.resolve(process.cwd(), p); }
@@ -102,6 +104,77 @@ function markdown(r) {
     return lines.join('\n');
 }
 
+async function triggerTypeset(page, text, settings, timeoutMs) {
+    return page.evaluate(({ text, settings, timeoutMs }) => new Promise((resolve, reject) => {
+        let settled = false;
+        const cleanup = () => { window.removeEventListener('message', onMessage); clearTimeout(timer); };
+        const finish = (fn, val) => { if (settled) return; settled = true; cleanup(); fn(val); };
+        const onMessage = event => {
+            const msg = event.data;
+            if (!msg || typeof msg !== 'object') return;
+            if (msg.type === 'render-error') finish(reject, new Error(msg.error || 'Renderer error'));
+            if (msg.type === 'render-done') finish(resolve, { pageCountAtDone: msg.pageCount });
+        };
+        const timer = setTimeout(() => finish(reject, new Error('Renderer timeout after ' + timeoutMs + ' ms')), timeoutMs);
+        window.addEventListener('message', onMessage);
+        window.postMessage({ type: 'typeset', text, settings }, '*');
+    }), { text, settings, timeoutMs });
+}
+
+async function captureLayoutSignature(page) {
+    return page.evaluate(() => {
+        const round = n => Math.round(n * 1000) / 1000;
+        const rect = el => {
+            const r = el.getBoundingClientRect();
+            return [round(r.x), round(r.y), round(r.width), round(r.height)];
+        };
+        const paragraph = p => ({
+            cls: String(p.className || ''),
+            tokenId: p.getAttribute('data-token-id') || '',
+            continuation: p.getAttribute('data-is-cont') || '',
+            rawText: p.getAttribute('data-raw-text') || p.textContent || '',
+            rect: rect(p)
+        });
+        const column = el => ({
+            cls: String(el.className || ''),
+            rect: rect(el),
+            paragraphs: Array.from(el.children).filter(x => x.tagName === 'P').map(paragraph)
+        });
+        return Array.from(document.querySelectorAll('#book-container .a4-page')).map((pg, idx) => {
+            const flow = pg.querySelector('.page-body-flow');
+            const blocks = flow ? Array.from(flow.children).map(el => ({
+                cls: String(el.className || ''),
+                rect: rect(el),
+                text: /title-level|sec-divider|h2-|h3-/.test(String(el.className || '')) ? (el.textContent || '') : '',
+                columns: Array.from(el.querySelectorAll('.right-col, .left-col, .single-wide-col')).map(column),
+                sideNotes: Array.from(el.querySelectorAll('.side-note-anchor')).map(n => ({
+                    tokenId: n.getAttribute('data-for-token') || '',
+                    text: n.textContent || '',
+                    rect: rect(n)
+                }))
+            })) : [];
+            const fn = pg.querySelector('.footnote-area');
+            return {
+                index: idx,
+                label: pg.querySelector('.page-number-footer')?.textContent?.trim() || String(idx + 1),
+                rect: rect(pg),
+                flowRect: flow ? rect(flow) : null,
+                blocks,
+                footnotes: fn ? {
+                    rect: rect(fn),
+                    notes: Array.from(fn.querySelectorAll('.note-line')).map(n => ({
+                        id: n.id || '', text: n.textContent || '', rect: rect(n)
+                    }))
+                } : null
+            };
+        });
+    });
+}
+
+function sha256(value) {
+    return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
 async function main() {
     const args = parseArgs(process.argv.slice(2));
     if (args.help) return help();
@@ -153,20 +226,30 @@ async function main() {
             if (document.fonts && document.fonts.ready) await document.fonts.ready;
         });
 
-        const renderResult = await page.evaluate(({ text, settings, timeoutMs }) => new Promise((resolve,reject) => {
-            let settled = false;
-            const cleanup = () => { window.removeEventListener('message', onMessage); clearTimeout(timer); };
-            const finish = (fn,val) => { if (settled) return; settled = true; cleanup(); fn(val); };
-            const onMessage = event => {
-                const msg = event.data;
-                if (!msg || typeof msg !== 'object') return;
-                if (msg.type === 'render-error') finish(reject,new Error(msg.error || 'Renderer error'));
-                if (msg.type === 'render-done') finish(resolve,{ pageCountAtDone: msg.pageCount });
+        const renderResult = await triggerTypeset(page, inputText, settings, args.timeoutMs);
+        let determinismCheck = null;
+        if (args.repeatCheck) {
+            const firstSignature = await captureLayoutSignature(page);
+            const firstPageHashes = firstSignature.map(sha256);
+            const secondRenderResult = await triggerTypeset(page, inputText, settings, args.timeoutMs);
+            const secondSignature = await captureLayoutSignature(page);
+            const secondPageHashes = secondSignature.map(sha256);
+            const common = Math.min(firstPageHashes.length, secondPageHashes.length);
+            let firstDifferingPage = null;
+            for (let i = 0; i < common; i++) {
+                if (firstPageHashes[i] !== secondPageHashes[i]) { firstDifferingPage = i; break; }
+            }
+            if (firstDifferingPage === null && firstPageHashes.length !== secondPageHashes.length) firstDifferingPage = common;
+            determinismCheck = {
+                identical: firstPageHashes.length === secondPageHashes.length && firstPageHashes.every((h, i) => h === secondPageHashes[i]),
+                firstPageCount: firstPageHashes.length,
+                secondPageCount: secondPageHashes.length,
+                firstHash: sha256(firstPageHashes),
+                secondHash: sha256(secondPageHashes),
+                firstDifferingPage,
+                secondRenderResult
             };
-            const timer = setTimeout(() => finish(reject,new Error('Renderer timeout after ' + timeoutMs + ' ms')),timeoutMs);
-            window.addEventListener('message',onMessage);
-            window.postMessage({ type:'typeset', text, settings },'*');
-        }), { text: inputText, settings, timeoutMs: args.timeoutMs });
+        }
 
         await page.evaluate(async () => {
             if (document.fonts && document.fonts.ready) await document.fonts.ready;
@@ -198,7 +281,7 @@ async function main() {
             run:{ input:path.relative(root,inputPath).split(path.sep).join('/'), inputBytes:Buffer.byteLength(inputText,'utf8'),
               generatedAt:new Date().toISOString(), branch:process.env.GITHUB_REF_NAME || null,
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
-              renderMs:Date.now()-started, renderResult, settings, failOn:args.failOn, browser:'Chromium headless' },
+              renderMs:Date.now()-started, renderResult, determinismCheck, settings, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
             geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
@@ -214,7 +297,9 @@ async function main() {
           path.relative(root,reportPath) + '\nSummary: ' + path.relative(root,summaryPath) + '\n');
         const threshold = rank(args.failOn);
         const fail = threshold > 0 && report.audit.issues.some(i => rank(i.severity) >= threshold);
+        const nondeterministic = report.run.determinismCheck && !report.run.determinismCheck.identical;
         if (pageErrors.length) { process.stderr.write('Browser JavaScript errors: ' + pageErrors.length + '\n'); process.exitCode = 2; }
+        else if (nondeterministic) { process.stderr.write('Determinism check failed at page ' + report.run.determinismCheck.firstDifferingPage + '\n'); process.exitCode = 3; }
         else if (fail) process.exitCode = 1;
     } finally {
         if (browser) await browser.close().catch(() => {});
