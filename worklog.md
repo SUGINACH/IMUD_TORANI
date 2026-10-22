@@ -2475,3 +2475,20 @@ Stage Summary:
 - **שורש הבעיה**: buildHeaderGridHTML לא יישם את hdr-distinct-even-odd ואת hdr-verso-*.
 - **פתרון**: פונקציית getHeaderSettings שקוראת את ההגדרות הנכונות לפי זוגיות העמוד.
 - **קבצים שהשתנו**: typesetter.js בלבד.
+
+---
+Task ID: header-h1-titlemain-fix
+Agent: main (GLM)
+Task: תיקון — כותרת עליונה מציגה את כל הטקסט של כותרת 1, במקום רק את החלק הראשון (titleMain)
+
+Work Log:
+- **אבחון**: בתיקון הקודם (commit c953dc5) שיניתי את currentH1Title מ-sec.token.text.split(/[-–—]/)[0].trim() ל-sec.token.text (טקסט מלא). אבל המשתמש מבהיר שהכותרת העליונה צריכה להציג רק את החלק הראשון (לפני המקף הראשון), בדיוק כמו titleMain ב-renderSubShaar (החלק העליון של שער המשנה).
+- **התיקון**:
+  1. כתבתי פונקציית עזר extractH1TitleMain(text) — מחזיר את text.split(/[-–—]/)[0].trim(), או את כל הטקסט אם אין מקף. תואם ל-titleMain ב-renderSubShaar.
+  2. עדכנתי את שני המקומות שבהם currentH1Title מתעדכן (sub_shaar ו-new_page) להשתמש ב-extractH1TitleMain.
+- **סימולציה**: "כותרת 1 מספר 1 - הקדמות וכללים - יום השבת" → "כותרת 1 מספר 1". בלי מקף → כל הטקסט. ריק → ריק. הכל עובר.
+
+Stage Summary:
+- **שורש הבעיה**: התיקון הקודם (c953dc5) החזיר את הטקסט המלא במקום רק את titleMain.
+- **פתרון**: פונקציית extractH1TitleMain שתואמת ל-titleMain ב-renderSubShaar.
+- **קבצים שהשתנו**: typesetter.js בלבד.

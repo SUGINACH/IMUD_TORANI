@@ -546,6 +546,16 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
 /* ============================================================
    בניית מעטפת עמוד (Page Layout) כולל כותרות מתחלפות ומספור עמודים
    ============================================================ */
+/* [חדש] מחלץ את החלק הראשון של כותרת 1 (הטקסט שלפני המקף "-" הראשון).
+   תואם לחלוקה ב-renderSubShaar: titleMain = parts[0].trim().
+   למשל: "כותרת 1 מספר 1 - הקדמות וכללים - יום השבת - גדרי מלאכה" → "כותרת 1 מספר 1".
+   אם אין מקף, מחזיר את כל הטקסט. */
+function extractH1TitleMain(text) {
+    if (!text) return '';
+    if (!/[-–—]/.test(text)) return text;
+    return text.split(/[-–—]/)[0].trim();
+}
+
 /* "חיצוני"/"פנימי" מתורגם לימין/שמאל לפי העמודה הפיזית (ולא לפי איזה
    תוכן יושב בה) - כך שכותרת שמוגדרת "חיצונית" תמיד תיצמד לשוליים
    החיצוניים של הדף, גם בעמוד ימני וגם בעמוד שמאלי (אחרי היפוך בכותרות
@@ -3378,10 +3388,10 @@ function typesetDocumentCore() {
                 pageIndex++;
             }
 
-            // [תיקון] שם החלק לכותרת העליונה = הטקסט המלא של כותרת 1 (לא רק החלק לפני המקף).
-            // קודם היה: sec.token.text.split(/[-–—]/)[0].trim() — שלקח רק את titleMain (למשל "חלק א")
-            // במקום השם המלא ("חלק א - הלכות שבת"). הכותרת העליונה צריכה להציג את שם החלק המלא.
-            currentH1Title = sec.token.text;
+            // [תיקון] שם החלק לכותרת העליונה = החלק הראשון של כותרת 1 (לפני המקף הראשון),
+            // בדיוק כמו titleMain ב-renderSubShaar (החלק העליון של שער המשנה).
+            // למשל: "כותרת 1 מספר 1 - הקדמות וכללים - יום השבת" → "כותרת 1 מספר 1".
+            currentH1Title = extractH1TitleMain(sec.token.text);
             headingPageMap[sec.token.id] = toGematria(pageIndex);
 
             if (enableDetailedTOC) {
@@ -3425,10 +3435,12 @@ function typesetDocumentCore() {
         let isH0 = sec.isNewPage && sec.hToken.level === 0 && !sec.is2ColNewPage;
 
         // [תיקון] עדכן currentH1Title כשהכותרת הפותחת של ה-section היא level 1 (במצב שאינו sub_shaar).
-        // קודם, currentH1Title התעדכן רק במקרה sub_shaar (שורה 3338). במקרה הרגיל (new_page_1col / new_page_2col),
+        // קודם, currentH1Title התעדכן רק במקרה sub_shaar (שורה 3394). במקרה הרגיל (new_page_1col / new_page_2col),
         // כותרת level 1 לא עודכנה ב-currentH1Title, ולכן הכותרת העליונה שמוגדרת כ-h1 הייתה ריקה.
+        // [תיקון נוסף] משתמשים ב-extractH1TitleMain כדי לקבל רק את החלק הראשון (לפני המקף הראשון),
+        // בדיוק כמו titleMain ב-renderSubShaar.
         if (sec.isNewPage && sec.hToken && sec.hToken.level === 1) {
-            currentH1Title = sec.hToken.text;
+            currentH1Title = extractH1TitleMain(sec.hToken.text);
         }
 
         let simanLabel = '';
