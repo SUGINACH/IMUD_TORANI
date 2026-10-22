@@ -2429,3 +2429,19 @@ Stage Summary:
   3. מתיחה כפולה: shrinkColumnVertically + בדיקת יירוס.
 - **אימות**: 16/16 בדיקות regex עברו, תחביר תקין.
 - **קבצים שהשתנו**: typesetter.js בלבד.
+
+---
+Task ID: header-h1-fix
+Agent: main (GLM)
+Task: תיקון בעיה — "הגדרת כותרת עליונה אמצעית כמציגה כותרת 1 (שם החלק) לא עובדת"
+
+Work Log:
+- **אבחון**: `currentH1Title` (שמועבר ל-`createPageLayout` ומשם לכותרת העליונה) התעדכן **רק** במקרה `sub_shaar` (שורה 3338). במקרה הרגיל (`new_page_1col` / `new_page_2col`), כותרת level 1 לא עודכנה ב-`currentH1Title` — רק `currentH2Title` התעדכן. לכן כשהמשתמש הגדיר את הכותרת האמצעית כ-h1, היא הייתה ריקה.
+- **בעיה נוספת**: במקרה `sub_shaar`, הטקסט נחתך לפי מקף (`split(/[-–—]/)[0]`) — לוקח רק את החלק הראשון (למשל "חלק א" במקום "חלק א - הלכות שבת"). שם החלק המלא צריך להופיע בכותרת העליונה.
+- **תיקון 1** (שורה 3338): שיניתי מ-`sec.token.text.split(/[-–—]/)[0].trim()` ל-`sec.token.text` (טקסט מלא).
+- **תיקון 2** (שורות 3381-3386): הוספתי עדכון של `currentH1Title` במקרה הרגיל כש-`sec.hToken.level === 1`: `currentH1Title = sec.hToken.text;`. כך גם במצב `new_page_1col` וגם במצב `sub_shaar`, `currentH1Title` מתעדכן עם הטקסט המלא.
+
+Stage Summary:
+- **שורש הבעיה**: `currentH1Title` לא התעדכן במקרה הרגיל (לא sub_shaar), ובמקרה sub_shaar הוא נחתך לפי מקף.
+- **פתרון**: עדכון `currentH1Title` בשני המקרים עם הטקסט המלא של כותרת level 1.
+- **קבצים שהשתנו**: typesetter.js בלבד.

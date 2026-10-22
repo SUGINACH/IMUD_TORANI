@@ -3332,7 +3332,10 @@ function typesetDocumentCore() {
                 pageIndex++;
             }
 
-            currentH1Title = sec.token.text.split(/[-–—]/)[0].trim();
+            // [תיקון] שם החלק לכותרת העליונה = הטקסט המלא של כותרת 1 (לא רק החלק לפני המקף).
+            // קודם היה: sec.token.text.split(/[-–—]/)[0].trim() — שלקח רק את titleMain (למשל "חלק א")
+            // במקום השם המלא ("חלק א - הלכות שבת"). הכותרת העליונה צריכה להציג את שם החלק המלא.
+            currentH1Title = sec.token.text;
             headingPageMap[sec.token.id] = toGematria(pageIndex);
 
             if (enableDetailedTOC) {
@@ -3374,6 +3377,13 @@ function typesetDocumentCore() {
         let rawH2Text = sec.isNewPage ? sec.hToken.text : '';
         let h2Id = sec.isNewPage ? sec.hToken.id : undefined;
         let isH0 = sec.isNewPage && sec.hToken.level === 0 && !sec.is2ColNewPage;
+
+        // [תיקון] עדכן currentH1Title כשהכותרת הפותחת של ה-section היא level 1 (במצב שאינו sub_shaar).
+        // קודם, currentH1Title התעדכן רק במקרה sub_shaar (שורה 3338). במקרה הרגיל (new_page_1col / new_page_2col),
+        // כותרת level 1 לא עודכנה ב-currentH1Title, ולכן הכותרת העליונה שמוגדרת כ-h1 הייתה ריקה.
+        if (sec.isNewPage && sec.hToken && sec.hToken.level === 1) {
+            currentH1Title = sec.hToken.text;
+        }
 
         let simanLabel = '';
         let displayH2Text = rawH2Text;
