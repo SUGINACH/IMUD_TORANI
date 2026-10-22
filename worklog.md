@@ -2519,5 +2519,5 @@ Stage Summary:
 
 ### Change
 - Commit `a61dc4f1cedd2fd1e014b040158ec8e2ffcfcbca` on `V23` adds outer block height to the balance trigger and the chapter-end `keepChapterEndUnbalanced` condition.
-- When the rendered outer block exceeds the available height, the balancing call receives an available height reduced by the measured outer overflow, so the selected inner column content leaves room for the observed box overhead.
+- When the rendered outer block exceeds the available height, the balancing call receives an available height reduced by the measured outer-box overhead (`outer block height - max(column scrollHeight)`), so the selected inner column content leaves room for the observed box overhead.
 - `V21` remains unchanged. Long-document validation for this commit is pending; no claim is made yet that all high-severity issues are resolved.
