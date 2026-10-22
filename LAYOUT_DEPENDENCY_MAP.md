@@ -191,7 +191,7 @@
 
 ### API בדיקה מפורש
 
-יש להוסיף ממשק בדיקה יציב שאינו תלוי בכפתורי UI. הצורה המדויקת תיקבע לאחר בדיקת סוף `geometry-audit.js` והזרימה הקיימת ב-`renderer-bridge.js`; היעד הוא API בסגנון:
+**ממצא נוסף מקריאת הקוד:** API גיאומטרי כבר קיים ב-`window.__geomAudit`: `extract()`, `audit(model)`, `paint(...)`, `clear()`, `cleanForExport(node)`. גם `renderer-bridge.js` כבר תומך בהודעות `geom-extract`, `geom-audit` ו-`geom-export`. לכן אין צורך להמציא בודק חדש; צריך לחשוף את ה-API הקיים לחוזה בדיקה יציב ולחבר אליו runner אוטומטי. עם זאת, API הגיאומטריה עצמו אינו מפעיל את `typesetDocument()` ואינו יודע מתי כל שלבי העימוד הסתיימו — אלה עדיין חלק מהעבודה. היעד הוא ממשק בדיקה מפורש בסגנון:
 
 - `runTypesetForAudit({ text, settings })` — מזין טקסט והגדרות ומפעיל את `typesetDocument()`.
 - `waitForTypesetComplete()` — מחזיר הצלחה/כשל רק לאחר סיום כל שלבי העימוד והעדכונים המאוחרים.
@@ -199,7 +199,7 @@
 - `getFootnoteMeasurementAudit()` — מחזיר את ההשוואה בין מדידת אזור ההערות החזויה לזו שב-DOM, ככל שהמנגנון הקיים מספק אותה.
 - `exportAuditReport()` — מפיק נתונים עם מזהים יציבים, גרסת קוד, הגדרות, מידות viewport/scale, סטטוס טעינת גופנים וזמני ביצוע.
 
-אלו חוזי יעד ולא שמות פונקציות שכבר קיימות; יש לממש ולתעד אותם לפני חיבור ה-CLI.
+אלו חוזי יעד ל-runner ולסנכרון; `window.__geomAudit.extract/audit/cleanForExport` ומנגנוני הודעות הביקורת הקיימים כבר קיימים, אך אין עדיין runner CLI מאומת שמפעיל אותם מקצה לקצה.
 
 ### שתי שכבות בדיקה
 
@@ -245,7 +245,7 @@ node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --fail-on hig
 
 ### סדר מימוש
 
-1. לבדוק את API הייצוא הקיים בסוף `geometry-audit.js` ואת הודעות `geom-extract` / `geom-audit` ב-`renderer-bridge.js`.
+1. להשתמש ב-API שכבר קיים בסוף `geometry-audit.js` ובטיפול בהודעות `geom-extract` / `geom-audit` / `geom-export` ב-`renderer-bridge.js`; לא ליצור עותק שני של מנגנון הביקורת.
 2. להפוך את חילוץ/בדיקת הגיאומטריה ל-API קריא ויציב, בלי תלות בהצגת overlay.
 3. להוסיף אות סיום אמין ל-typesetting, כולל שלבים מאוחרים כמו `applyCrossParagraphParens`, איזון טורים, `fitColumnDividers`, עדכון מספרי עמודים ו-`applyHeadingOrnamentTextFit`.
 4. ליצור runner headless שמזין fixture, מפעיל API זה ומייצא דוחות.
