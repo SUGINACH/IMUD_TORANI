@@ -60,8 +60,8 @@ function classifyElement(el) {
     if (cls.includes('footnote-header-wrap')) return { type: 'fn-header', tag };
     if (cls.includes('note-rule-') || cls.includes('note-rule')) return { type: 'fn-rule', tag };
     if (cls.includes('note-block')) return { type: 'fn-block', tag };
-    if (cls.includes('note-line')) return { type: 'fn-line', tag };
     if (cls.includes('note-line-num')) return { type: 'fn-num', tag };
+    if (cls.includes('note-line')) return { type: 'fn-line', tag };
     if (cls.includes('block-2col')) return { type: 'block-2col', tag };
     if (cls.includes('block-h3-span')) return { type: 'block-h3-span', tag };
     if (cls.includes('block-single-col')) return { type: 'block-single-col', tag };
