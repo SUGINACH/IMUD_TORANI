@@ -1258,20 +1258,20 @@ function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
     // rendered height (paragraph margins, line boxes and grid sizing contribute
     // to the latter). Snapshot inline styles so the stretch can be rolled back
     // if its *measured outer-box growth* exceeds the real free space.
-    const snapshotInlineStyles = () => Array.from(last.querySelectorAll('*'))
-        .map(el => [el, el.getAttribute('style')]);
-    const restoreInlineStyles = snapshot => {
-        for (const [el, style] of snapshot) {
-            if (style === null) el.removeAttribute('style');
-            else el.setAttribute('style', style);
+    const snapshotElementAttributes = () => Array.from(last.querySelectorAll('*'))
+        .map(el => [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
+    const restoreElementAttributes = snapshot => {
+        for (const [el, attributes] of snapshot) {
+            for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+            for (const [name, value] of attributes) el.setAttribute(name, value);
         }
     };
     const initialOuterHeight = last.getBoundingClientRect().height;
-    const snapshot = snapshotInlineStyles();
+    const snapshot = snapshotElementAttributes();
     const stretchFitsOuterBox = () => {
         const actualGrowth = last.getBoundingClientRect().height - initialOuterHeight;
         if (actualGrowth <= freeSpace + 0.5) return true;
-        restoreInlineStyles(snapshot);
+        restoreElementAttributes(snapshot);
         repositionBlockNotes(last, Math.max(
             last.querySelector('.right-col')?.scrollHeight || 0,
             last.querySelector('.left-col')?.scrollHeight || 0,
