@@ -1021,7 +1021,7 @@ function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) 
     }
 
     // שטח פנוי נוכחי בתחתית העמוד (בין תחתית הבלוק האחרון לתחתית שטח הגוף, פחות עתודת הערות)
-    const flowBottom = flow.getBoundingClientRect().top + totalFlowH;
+    const flowBottom = flow.getBoundingClientRect().bottom;
     const currentFree = (flowBottom - reservedNow()) - lastBlock.getBoundingClientRect().bottom - 1;
 
     // אילו טורים לכווץ? הזנב היתום נכנס לטור שמאל (הטור השני שמתמלא).
@@ -3674,7 +3674,7 @@ function typesetDocumentCore() {
             // misses collapsed/flex margins and was allowing section-opening blocks to exceed
             // the real body area by 100px or more.
             const initialFlowTop = pageLayout.bodyFlow.getBoundingClientRect().top;
-            const initialFlowBottom = initialFlowTop + totalFlowH;
+            const initialFlowBottom = pageLayout.bodyFlow.getBoundingClientRect().bottom;
             const initialLastChild = pageLayout.bodyFlow.lastElementChild;
             let remPageHeight = Math.max(0, initialFlowBottom -
                 (initialLastChild ? initialLastChild.getBoundingClientRect().bottom : initialFlowTop));
@@ -3724,7 +3724,7 @@ function typesetDocumentCore() {
                 singleBlock.innerHTML = `<div class="single-wide-col"></div>`;
                 pageLayout.bodyFlow.appendChild(singleBlock);
                 const h0FlowTop = pageLayout.bodyFlow.getBoundingClientRect().top;
-                const h0FlowBottom = h0FlowTop + totalFlowH;
+                const h0FlowBottom = pageLayout.bodyFlow.getBoundingClientRect().bottom;
                 remPageHeight = Math.max(0, h0FlowBottom - singleBlock.getBoundingClientRect().top);
                 const targetCol = singleBlock.querySelector('.single-wide-col');
                 let pageHasContent = false;
@@ -3915,7 +3915,7 @@ function typesetDocumentCore() {
                        (הלולאה הזו לא פותחת בלוק חדש כשנשארו 45px או פחות - ואז הכותרת הייתה נשארת אחרונה בעמוד בלי טקסט אחריה).
                        בעמוד שעוד אין בו תוכן גוף הכותרת מוצבת בכל מקרה (אחרת העמוד היה נשאר ריק לנצח). */
                     const flowTop = pageLayout.bodyFlow.getBoundingClientRect().top;
-                    const flowBottom = flowTop + totalFlowH;
+                    const flowBottom = pageLayout.bodyFlow.getBoundingClientRect().bottom;
                     const spanTop = spanBlock.getBoundingClientRect().top;
                     const spanFree = Math.max(0, flowBottom - spanTop) - reservedNow();
                     if (spanHeight > spanFree || (pageBodyHasContent && spanFree - spanHeight <= 45)) {
@@ -3944,7 +3944,7 @@ function typesetDocumentCore() {
                 // Use the real start position of this block, including all preceding content
                 // and CSS gaps, as the available-height origin for paragraph fitting.
                 const blockFlowTop = pageLayout.bodyFlow.getBoundingClientRect().top;
-                const blockFlowBottom = blockFlowTop + totalFlowH;
+                const blockFlowBottom = pageLayout.bodyFlow.getBoundingClientRect().bottom;
                 const blockTop = block2Col.getBoundingClientRect().top;
                 remPageHeight = Math.max(0, blockFlowBottom - blockTop);
                 block2Col.setAttribute('data-layout-fill-remaining', String(remPageHeight));
@@ -4132,13 +4132,13 @@ function typesetDocumentCore() {
                         const divEl = divContainer.firstElementChild;
                         pageLayout.bodyFlow.appendChild(divEl);
                         // המפריד חייב להיכנס בגוף העמוד (מעל אזור הערות השוליים) - ראו fitSectionDividerToPage
-                        fitSectionDividerToPage(divEl, pageLayout.bodyFlow.getBoundingClientRect().top + totalFlowH - reservedNow());
+                        fitSectionDividerToPage(divEl, pageLayout.bodyFlow.getBoundingClientRect().bottom - reservedNow());
                     }
                     /* [תיקון] גם בבלוק האחרון של הפרק מנכים את גובהו מהנותר בעמוד: בלי זה בדיקת עתודת הערות השוליים (redoCheck)
                        ראתה את העמוד כאילו ריק, ולא זיהתה הערה מאוחרת בטור השמאלי שהגדילה את אזור ההערות אחרי שהטור הימני כבר מולא
                        (בהערות שוליים ב-2 טורים הטקסט חרג אל תוך אזור ההערות). כשהכול נכנס - אין שום שינוי. */
                     const lastBodyChild = pageLayout.bodyFlow.lastElementChild;
-                    remPageHeight = Math.max(0, blockFlowBottom -
+                    remPageHeight = Math.max(0, pageLayout.bodyFlow.getBoundingClientRect().bottom -
                         (lastBodyChild ? lastBodyChild.getBoundingClientRect().bottom : blockFlowTop));
                     break;
                 } else {
@@ -4167,7 +4167,7 @@ function typesetDocumentCore() {
                     }
                 }
 
-                remPageHeight = Math.max(0, blockFlowBottom - block2Col.getBoundingClientRect().bottom);
+                remPageHeight = Math.max(0, pageLayout.bodyFlow.getBoundingClientRect().bottom - block2Col.getBoundingClientRect().bottom);
                 pageBodyHasContent = true;
                 finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
             }
