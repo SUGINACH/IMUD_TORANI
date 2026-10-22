@@ -120,7 +120,7 @@ const DESCEND_INTO = new Set([
 ]);
 
 /* רכיבים שהם "טקסט" — נמדוד את השורות שלהם */
-const TEXT_TYPES = new Set(['p', 'p-cut', 'p-end', 'fn-line', 'h2-title', 'h3-title', 'h3', 'h4', 'h5', 'h6', 'h7']);
+const TEXT_TYPES = new Set(['p', 'p-cut', 'p-end', 'fn-line', 'h2-title', 'h3-title', 'h3', 'h4', 'h5', 'h6', 'h7', 'header-text', 'header-page-number', 'fn-header-title']);
 
 /* אוסף שורות טקסט מתוך אלמנט טקסט ע"י getClientRects על Range */
 function collectLines(el) {
