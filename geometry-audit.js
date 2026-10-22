@@ -349,10 +349,17 @@ function auditContainment(node, issues) {
                     severity = 'high';
                     note = ' (גלישה חמורה מ-stretchPageToBottom)';
                 }
-            } else if (isNoteMarker && overflowPx <= 2) {
+            } else if (isNoteMarker && overflowPx <= 3) {
+                // Inline/superscript note markers can extend slightly beyond the paragraph
+                // line box; a ~2–3px vertical protrusion is not a page-layout failure.
                 severity = 'low';
                 kind = 'containment-rounding';
-                note = ' (עיגול פיקסלים של סמן הערה)';
+                note = ' (חריגה אנכית קטנה של סמן הערה בתוך שורת טקסט)';
+            } else if (child.type === 'header-col') {
+                // Header text/SVG can exceed the grid row by a few pixels because of line boxes.
+                // Keep small overflow visible as a warning, not a critical geometry failure.
+                severity = overflowPx > 8 ? 'high' : (overflowPx > 3 ? 'medium' : 'low');
+                note = ' (חריגה אנכית של עמודת כותרת)';
             } else if (isSideNote) {
                 severity = overflowPx > 20 ? 'high' : 'medium';
                 note = ' (הערת צד גולשת משטח המרזב)';
