@@ -1568,24 +1568,35 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     object-fit: contain;
 }
 
-.title-level-2-standalone:has(+ .h2-ornament-bottom),
-.h2-siman-badge:has(+ .title-level-2-standalone) {
-    margin-bottom: 6px !important;
+/* [תיקון] מרחק סימטרי בין עיטורים לטקסט — 8px מכל צד.
+   קודם, margin-collapse מבלבל גרם למרחק שונה בין עליון לתחתון.
+   עכשיו: padding על ה-wrap החיצוני מונע margin-collapse, ו-margin אחיד. */
+.h2-ornament-top,
+.h2-ornament-bottom,
+.h2-title-ornament-top,
+.h2-title-ornament-bottom {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 4px 0 !important; /* padding מונע margin-collapse מה-wrap הפנימי */
+    line-height: 1 !important;
 }
 
-/* תיקון אופטי קריטי: ביטול כפל המרווח שנוצר מתחת לכותרת 2 */
-.title-level-2-standalone:has(+ .h2-ornament-bottom) + .h2-ornament-bottom {
-    margin-top: 0 !important;
+.h2-ornament-top,
+.h2-title-ornament-top {
+    margin: 0 0 8px 0 !important;
 }
 
-.h2-ornament-top {
-    margin-top: 0 !important;
-    margin-bottom: 6px !important;
+.h2-ornament-bottom,
+.h2-title-ornament-bottom {
+    margin: 8px 0 25px 0 !important;
 }
 
-.h2-ornament-bottom {
-    margin-top: 6px !important;
-    margin-bottom: 25px !important;
+/* [תיקון] בטל את margin הפנימי של heading-ornament-wrap — הוא גרם ל-margin-collapse */
+.heading-ornament-wrap {
+    text-align: center;
+    margin: 0 auto !important;
+    line-height: 0;
 }
 
 /* כוונון אינטראקטיבי של תיבות שער בעכבר */

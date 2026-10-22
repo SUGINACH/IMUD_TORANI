@@ -2807,17 +2807,23 @@ function fitH2OrnamentsToText(flowEl, scope, simanElem, titleEl) {
     const wTitle = measureTextWidthOf(titleEl);
     const wSiman = simanElem ? measureTextWidthOf(simanElem) : 0;
 
-    // [תיקון] כל עיטור יותאם לרוחב הטקסט שלו בנפרד:
-    // - עיטורי סימן (h2-ornament-top/bottom) → רוחב הסימן
-    // - עיטורי כותרת (h2-title-ornament-top/bottom) → רוחב הכותרת
-    // במצב 'both': העליון מותאם לסימן (כי הוא מעל הסימן), התחתון לכותרת (כי הוא מתחת לכותרת)
+    // [תיקון] כל עיטור יותאם לרוחב הטקסט שלו בנפרד + הוספת margin קטן (20px מכל צד)
+    // ומתיחת ה-SVG לרוחב המלא (preserveAspectRatio=none) כדי למלא את הרוחב.
+    const MARGIN_PX = 20; // תוספת רוחב מכל צד
 
     const setWidth = (selector, w) => {
         if (!(w > 1)) return;
-        const wRounded = Math.round(w * 10) / 10;
+        const wRounded = Math.round((w + MARGIN_PX * 2) * 10) / 10;
         flowEl.querySelectorAll(selector + ' .fit-heading-text .ornament-svg-inner, ' + selector + ' .fit-heading-text > img').forEach(box => {
             box.style.width = wRounded + 'px';
             box.style.maxWidth = '100%';
+            // [תיקון] מתח את ה-SVG הפנימי לרוחב המלא (לא יחסי)
+            const svg = box.querySelector('svg');
+            if (svg) {
+                svg.setAttribute('preserveAspectRatio', 'none');
+                svg.style.width = '100%';
+                svg.style.height = (svg.style.height || '1.25em');
+            }
         });
     };
 

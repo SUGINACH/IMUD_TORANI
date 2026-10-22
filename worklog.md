@@ -2608,3 +2608,23 @@ Stage Summary:
 - **עיטורי צד** לכותרת מומשו (היו גוסט)
 - **התאמת רוחב** תוקנה — כל עיטור מותאם לטקסט שלו
 - **קבצים שהשתנו**: index.html, app.js, typesetter.js, style.css, default_settings.json
+
+---
+Task ID: h2-ornament-width-symmetry
+Agent: main (GLM)
+Task: תיקון רוחב עיטור (קטן מהטקסט) + מרחק לא סימטרי בין עליון לתחתון
+
+Work Log:
+- **נקודה 1 — רוחב העיטור**: ב-fitH2OrnamentsToText, הרוחב היה בדיוק רוחב הטקסט. תוקן:
+  - הוספתי MARGIN_PX = 20 (תוספת רוחב מכל צד)
+  - מתיחת ה-SVG הפנימי לרוחב המלא: preserveAspectRatio="none" + width:100%
+
+- **נקודה 2 — מרחק לא סימטרי**: מצאתי margin-collapse מבלבל:
+  - .heading-ornament-wrap (margin: 6px auto) בורח החוצה דרך .h2-ornament-top/bottom (שאין להם padding)
+  - :has() לא תמיד תופס (במצב siman_only, התחתון בא אחרי הסימן, לא הכותרת)
+  - תוקן: הוספתי padding: 4px 0 על ה-wrap החיצוני (מונע margin-collapse), margin אחיד 8px, וביטול margin הפנימי של heading-ornament-wrap.
+
+Stage Summary:
+- רוחב העיטור עכשיו = רוחב טקסט + 40px (20 מכל צד), עם מתיחת SVG.
+- מרחק סימטרי: 8px מכל צד (עליון ותחתון זהים).
+- קבצים שהשתנו: typesetter.js, style.css.
