@@ -3752,7 +3752,7 @@ function typesetDocumentCore() {
                         // Never force a one-line fragment when a heading is waiting for its paragraph.
                         // In that case move the heading and paragraph together to the next page.
                         const hasHeadingBefore = Array.from(targetCol.children).some(el =>
-                            el !== pElem && /(^|\\s)title-level-/.test(String(el.className || ''))
+                            el !== pElem && /(^|\s)title-level-/.test(String(el.className || ''))
                         );
                         const placeLines = resolveParagraphSplit(lines.length, bestFitLine, !pageHasContent && !hasHeadingBefore);
                         if (placeLines === 0) {
