@@ -115,6 +115,12 @@ async function main() {
         await page.goto(baseUrl + '/renderer.html', { waitUntil: 'load', timeout: args.timeoutMs });
         await page.waitForFunction(() => typeof window.typesetDocument === 'function' && window.__geomAudit && typeof window.__geomAudit.audit === 'function', null, { timeout: 30000 });
 
+        // Wait for initial CSS/web fonts before pagination decisions are made.
+        // Waiting only after typesetting can leave page breaks measured with fallback fonts.
+        await page.evaluate(async () => {
+            if (document.fonts && document.fonts.ready) await document.fonts.ready;
+        });
+
         const renderResult = await page.evaluate(({ text, settings, timeoutMs }) => new Promise((resolve,reject) => {
             let settled = false;
             const cleanup = () => { window.removeEventListener('message', onMessage); clearTimeout(timer); };
