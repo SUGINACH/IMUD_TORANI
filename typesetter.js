@@ -2207,6 +2207,39 @@ function __findProbeHost() {
     return candidates[candidates.length - 1];
 }
 
+function __footnoteDomSignature(root, maxLines = 3) {
+    if (!root) return null;
+    const lines = Array.from(root.querySelectorAll('.note-line')).slice(0, maxLines);
+    return lines.map(line => {
+        const nodes = [line, ...Array.from(line.querySelectorAll('*'))].slice(0, 30);
+        return {
+            id: line.id || '',
+            textLength: line.textContent.length,
+            htmlLength: line.innerHTML.length,
+            html: line.innerHTML.slice(0, 1200),
+            nodes: nodes.map(node => {
+                const cs = getComputedStyle(node);
+                const rect = node.getBoundingClientRect();
+                return {
+                    tag: node.tagName,
+                    className: typeof node.className === 'string' ? node.className : '',
+                    style: node.getAttribute('style') || '',
+                    textLength: node.childElementCount ? null : (node.textContent || '').length,
+                    fontFamily: cs.fontFamily,
+                    fontSize: cs.fontSize,
+                    fontWeight: cs.fontWeight,
+                    lineHeight: cs.lineHeight,
+                    letterSpacing: cs.letterSpacing,
+                    wordSpacing: cs.wordSpacing,
+                    display: cs.display,
+                    width: Math.round(rect.width * 100) / 100,
+                    height: Math.round(rect.height * 100) / 100
+                };
+            })
+        };
+    });
+}
+
 function measureFootnoteAreaHeight(queue, opts) {
     opts = opts || {};
     if (!queue.length) return 0;
@@ -2288,6 +2321,7 @@ function measureFootnoteAreaHeight(queue, opts) {
     const noteBlockTextAlign = noteBlockStyle ? noteBlockStyle.textAlign : null;
     const noteLineFontSize = noteLineStyle ? noteLineStyle.fontSize : null;
     const noteLineLineHeight = noteLineStyle ? noteLineStyle.lineHeight : null;
+    const noteDomSignature = __footnoteDomSignature(noteBlock, 3);
     // נשתמש ב-max(scrollHeight, offsetHeight) — scrollHeight תופס גלישה, offsetHeight תופס border
     const innerH = Math.max(blockScrollH, blockOffsetH);
     const h = Math.ceil(innerH + marginTop + marginBottom);
@@ -2324,6 +2358,7 @@ function measureFootnoteAreaHeight(queue, opts) {
         noteBlockTextAlign,
         noteLineFontSize,
         noteLineLineHeight,
+        noteDomSignature,
         marginTop, marginBottom,
         returned: h,
         ctxKey
@@ -2400,6 +2435,8 @@ function auditFnMeasurement() {
             measuredNoteBlockTextAlign: matching ? (matching.noteBlockTextAlign ?? null) : null,
             measuredNoteLineFontSize: matching ? (matching.noteLineFontSize ?? null) : null,
             measuredNoteLineLineHeight: matching ? (matching.noteLineLineHeight ?? null) : null,
+            measuredNoteDomSignature: matching ? (matching.noteDomSignature ?? null) : null,
+            realNoteDomSignature: __footnoteDomSignature(realNoteBlock, 3),
             realNoteBlockWidth: realNoteBlock?.getBoundingClientRect().width ?? null,
             realNoteBlockScrollH: realNoteBlock?.scrollHeight ?? null,
             realNoteBlockOffsetH: realNoteBlock?.offsetHeight ?? null,
