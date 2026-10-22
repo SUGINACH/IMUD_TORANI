@@ -323,6 +323,13 @@ function rOverlap(a, b) {
 
 function auditContainment(node, issues) {
     for (const child of node.children) {
+        // Side notes are absolutely positioned anchors. Their height intentionally
+        // does not contribute to the margin-column box, so containment against that
+        // box is not a valid geometric invariant; audit them against body/page bounds below.
+        if (node.type === 'margin-col' && child.type === 'side-note') {
+            auditContainment(child, issues);
+            continue;
+        }
         if (!rContains(node, child, TOL.containment)) {
             const overflow = {
                 left: Math.max(0, node.rect.x - child.rect.x),
@@ -404,6 +411,44 @@ function auditContainment(node, issues) {
         }
         auditContainment(child, issues);
     }
+}
+
+function auditSideNoteBounds(node, issues) {
+    if (node.type === 'side-note') {
+        let ancestor = node._parent;
+        let marginCol = null, bodyFlow = null;
+        while (ancestor) {
+            if (!marginCol && ancestor.type === 'margin-col') marginCol = ancestor;
+            if (!bodyFlow && ancestor.type === 'body-flow') bodyFlow = ancestor;
+            ancestor = ancestor._parent;
+        }
+        const horizontalOverflow = marginCol ? Math.max(
+            0,
+            marginCol.rect.x - node.rect.x,
+            node.rect.right - marginCol.rect.right
+        ) : 0;
+        const verticalOverflow = bodyFlow ? Math.max(
+            0,
+            bodyFlow.rect.y - node.rect.y,
+            node.rect.bottom - bodyFlow.rect.bottom
+        ) : 0;
+        const overflowPx = Math.max(horizontalOverflow, verticalOverflow);
+        if (overflowPx > TOL.containment) {
+            issues.push({
+                kind: 'side-note-overflow',
+                severity: overflowPx > 20 ? 'high' : (overflowPx > 8 ? 'medium' : 'low'),
+                pageIdx: getPageIdx(node),
+                location: describePath(node),
+                tokenId: node.tokenId,
+                childRect: { x: Math.round(node.rect.x), y: Math.round(node.rect.y), w: Math.round(node.rect.w), h: Math.round(node.rect.h), bottom: Math.round(node.rect.bottom) },
+                marginRect: marginCol ? { x: Math.round(marginCol.rect.x), y: Math.round(marginCol.rect.y), w: Math.round(marginCol.rect.w), h: Math.round(marginCol.rect.h), bottom: Math.round(marginCol.rect.bottom) } : null,
+                bodyFlowRect: bodyFlow ? { x: Math.round(bodyFlow.rect.x), y: Math.round(bodyFlow.rect.y), w: Math.round(bodyFlow.rect.w), h: Math.round(bodyFlow.rect.h), bottom: Math.round(bodyFlow.rect.bottom) } : null,
+                overflowPx: Math.round(overflowPx * 10) / 10,
+                message: 'הערת צד חורגת מתחום השוליים או מגבולות גוף העמוד: ' + Math.round(overflowPx * 10) / 10 + 'px'
+            });
+        }
+    }
+    for (const child of node.children) auditSideNoteBounds(child, issues);
 }
 
 function auditSiblingOverlap(node, issues) {
@@ -757,6 +802,7 @@ function auditGeometry(model) {
         // עדכן getPageIdx דרך _parent
         for (const c of page.children) {
             auditContainment(c, issues);
+            auditSideNoteBounds(c, issues);
             auditSiblingOverlap(c, issues);
             auditColumnBalance(c, issues);
             auditWidowOrphan(c, issues);
