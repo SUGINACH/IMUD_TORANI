@@ -144,11 +144,15 @@ async function main() {
             if (document.fonts && document.fonts.ready) await document.fonts.ready;
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
-        const data = await page.evaluate(() => {
+        const data = await page.evaluate(({ includeFullModel }) => {
             if (!window.__geomAudit) throw new Error('Geometry audit API unavailable');
             const model = window.__geomAudit.extract();
             const audit = window.__geomAudit.audit(model);
-            const clean = { pages:model.pages.map(p => window.__geomAudit.cleanForExport(p)), stats:model.stats };
+            // The full per-page export can be large. Build it only when explicitly requested;
+            // the default report needs summary/issues/stats, not a duplicate serialized DOM model.
+            const clean = includeFullModel
+                ? { pages:model.pages.map(p => window.__geomAudit.cleanForExport(p)), stats:model.stats }
+                : null;
             const fnAudit = typeof window.auditFnMeasurement === 'function' ? window.auditFnMeasurement() : null;
             return {
                 pageCount: document.querySelectorAll('#book-container .a4-page').length,
@@ -157,7 +161,7 @@ async function main() {
                 bodyScrollHeight:document.body.scrollHeight,
                 bookContainerScrollHeight:document.getElementById('book-container')?.scrollHeight ?? null
             };
-        });
+        }, { includeFullModel: args.fullModel });
 
         const reportPath = abs(args.report), summaryPath = abs(args.summary);
         const report = {
