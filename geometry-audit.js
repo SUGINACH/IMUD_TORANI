@@ -380,6 +380,10 @@ function auditContainment(node, issues) {
                 childType: child.type,
                 childText: child.text,
                 parentRect: { x: Math.round(node.rect.x), y: Math.round(node.rect.y), w: Math.round(node.rect.w), h: Math.round(node.rect.h), bottom: Math.round(node.rect.bottom) },
+                previousSiblings: node.children.slice(Math.max(0, node.children.indexOf(child) - 5), node.children.indexOf(child)).map(s => ({
+                    type: s.type, cls: s.cls, text: s.text,
+                    rect: { x: Math.round(s.rect.x), y: Math.round(s.rect.y), w: Math.round(s.rect.w), h: Math.round(s.rect.h), bottom: Math.round(s.rect.bottom) }
+                })),
                 childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h), bottom: Math.round(child.rect.bottom) },
                 childDetails: child.type === 'block-2col' ? child.children.filter(c => c.type === 'column').map(col => ({
                     side: col.side,
