@@ -115,9 +115,18 @@ async function main() {
         await page.goto(baseUrl + '/renderer.html', { waitUntil: 'load', timeout: args.timeoutMs });
         await page.waitForFunction(() => typeof window.typesetDocument === 'function' && window.__geomAudit && typeof window.__geomAudit.audit === 'function', null, { timeout: 30000 });
 
-        // settings-manager loads default_settings.json asynchronously. Do not start
-        // pagination against empty hidden controls before those defaults are applied.
-        await page.waitForFunction(() => typeof window.getDefaultSettings === 'function' && window.getDefaultSettings() !== null, null, { timeout: 30000 });
+        // renderer.html sets __isRenderer=true, so app.js intentionally skips its normal
+        // window.onload initialization. That also skips loadDefaultSettings(); call it
+        // explicitly here instead of waiting for a promise that can never be fulfilled.
+        await page.evaluate(async () => {
+            if (typeof window.loadDefaultSettings !== 'function' || typeof window.getDefaultSettings !== 'function') {
+                throw new Error('Settings manager API unavailable in renderer');
+            }
+            await window.loadDefaultSettings();
+            if (window.getDefaultSettings() === null) {
+                throw new Error('default_settings.json did not load; refusing to typeset with implicit fallback settings');
+            }
+        });
 
         // Wait for initial CSS/web fonts before pagination decisions are made.
         // Waiting only after typesetting can leave page breaks measured with fallback fonts.
