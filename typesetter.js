@@ -1506,10 +1506,11 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         return res;
     }
     function better(a, b) {
-        // Lexicographic objective: legal split first, then page fit, then overflow/imbalance,
-        // then a stable tie-break (prefer right column slightly taller, then earlier candidate).
-        if (a.valid !== b.valid) return a.valid;
+        // Hard page-fit constraint first: never prefer an overflowing split when any
+        // candidate fits. Among candidates with equal fit status, preserve widow/orphan
+        // legality; if every candidate overflows, minimize overflow before imbalance.
         if (a.fits !== b.fits) return a.fits;
+        if (a.valid !== b.valid) return a.valid;
         if (!a.fits && a.over !== b.over) return a.over < b.over;
         if (a.abs !== b.abs) return a.abs < b.abs;
         const aRightTaller = a.diff >= 0, bRightTaller = b.diff >= 0;
