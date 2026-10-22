@@ -2505,3 +2505,19 @@ Stage Summary:
 - The audit previously labeled every `block-2col` overflow above 20px as caused by `stretchPageToBottom`, although the audit only measured containment and did not establish causality.
 - Updated `geometry-audit.js` messages to describe the measured overflow neutrally and request source investigation instead of asserting a cause.
 - Change is on `V23` only. Long-document audit for `09d6088` was still running when checked; no claim of zero high-severity issues is made.
+
+---
+
+## Task ID: v23-outer-block-height-hard-fit-2026-10-22
+**Agent:** ChatGPT
+**Date:** 2026-10-22
+**Task:** Make column balancing account for the rendered outer block box, not only column `scrollHeight`.
+
+### Evidence
+- The 601-page audit on `09d60881cbc56cd2753a7da83b8ad52ee187585c` still reported 7 high-severity issues. The layout diagnostics show, for example, page 84: `body-flow` height 915.14px versus `block-2col` height 945.08px; page 445: 915.13px versus 944.47px.
+- Those blocks had all `data-layout-balance-*` attributes null, indicating that the balancing routine had not run for these blocks. The ordinary trigger used column `scrollHeight` and column difference, but not the rendered outer block height.
+
+### Change
+- Commit `a61dc4f1cedd2fd1e014b040158ec8e2ffcfcbca` on `V23` adds outer block height to the balance trigger and the chapter-end `keepChapterEndUnbalanced` condition.
+- When the rendered outer block exceeds the available height, the balancing call receives an available height reduced by the measured outer overflow, so the selected inner column content leaves room for the observed box overhead.
+- `V21` remains unchanged. Long-document validation for this commit is pending; no claim is made yet that all high-severity issues are resolved.
