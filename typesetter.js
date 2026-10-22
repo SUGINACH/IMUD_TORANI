@@ -3698,6 +3698,9 @@ function typesetDocumentCore() {
                 singleBlock.className = 'block-single-col';
                 singleBlock.innerHTML = `<div class="single-wide-col"></div>`;
                 pageLayout.bodyFlow.appendChild(singleBlock);
+                const h0FlowTop = pageLayout.bodyFlow.getBoundingClientRect().top;
+                const h0FlowBottom = h0FlowTop + totalFlowH;
+                remPageHeight = Math.max(0, h0FlowBottom - singleBlock.getBoundingClientRect().top);
                 const targetCol = singleBlock.querySelector('.single-wide-col');
                 let pageHasContent = false;
 
