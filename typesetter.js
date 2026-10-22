@@ -2231,6 +2231,9 @@ function measureFootnoteAreaHeight(queue, opts) {
             kind: 'cache-hit',
             queueSize: queue.length,
             firstNumber: queue[0].number,
+            numbers: queue.map(q => q.number).join(','),
+            uids: queue.map(q => q.uid).join(','),
+            textLens: queue.map(q => (q.text || '').length).join(','),
             probeWidth, fnColumns, noteBodySize, layoutMode,
             returned: cached,
             ctxKey
@@ -2283,6 +2286,7 @@ function measureFootnoteAreaHeight(queue, opts) {
         queueSize: queue.length,
         firstNumber: queue[0].number,
         numbers: queue.map(q => q.number).join(','),
+        uids: queue.map(q => q.uid).join(','),
         textLens: queue.map(q => (q.text || '').length).join(','),
         probeWidth, fnColumns, noteBodySize, layoutMode,
         attachedToBody,
@@ -2319,19 +2323,16 @@ function auditFnMeasurement() {
             return num ? num.textContent.trim() : '?';
         });
 
-        // חיפוש רשומת הלוג האחרונה שמתאימה ל-numbers.
-        // אנחנו משווים רק את החלק הראשון של מספר ההערה (לפני הנקודה/מפריד) כי הלוג
-        // שומר firstNumber בלי הנקודה, ואילו ה-DOM כולל את המפריד (note-num-separator).
-        const firstNumRaw = numbers[0] || '';
-        const firstNumCore = firstNumRaw.split(/[.\s,:;]/)[0].trim(); // "א." → "א"
+        // Match the measurement to this exact queue by stable note UIDs.
+        // Note numbers repeat across pages, so queue length + first number is not unique.
+        const noteUids = Array.from(area.querySelectorAll('.note-line')).map(line =>
+            line.id && line.id.startsWith('note-') ? line.id.slice(5) : line.id || ''
+        );
+        const noteUidsKey = noteUids.join(',');
         const matching = window.__fnMeasureLog.filter(e =>
-            e.kind === 'fresh-measure' &&
-            e.queueSize === numbers.length &&
-            (
-                e.firstNumber === firstNumRaw ||
-                e.firstNumber === firstNumCore ||
-                (e.numbers && e.numbers.split(',')[0] === firstNumCore)
-            )
+            (e.kind === 'fresh-measure' || e.kind === 'cache-hit') &&
+            typeof e.uids === 'string' &&
+            e.uids === noteUidsKey
         ).pop();
 
         results.push({
@@ -2343,7 +2344,8 @@ function auditFnMeasurement() {
             measuredOffsetH: matching ? matching.offsetHeight : null,
             measuredMarginTop: matching ? matching.marginTop : null,
             measuredMarginBottom: matching ? matching.marginBottom : null,
-            measuredAttachedToBody: matching ? matching.attachedToBody : null,
+            measuredAttachedToBody: matching ? (matching.attachedToBody ?? null) : null,
+            matchFound: !!matching,
             realH,
             realScroll,
             realOffset,
