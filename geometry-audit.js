@@ -48,6 +48,13 @@ function classifyElement(el) {
     if (cls.includes('page-content-wrapper')) return { type: 'wrapper', tag };
     if (cls.includes('page-body-flow')) return { type: 'body-flow', tag };
     if (cls.includes('page-header')) return { type: 'header', tag };
+    if (cls.includes('top-header-grid')) return { type: 'header', tag };
+    if (cls.includes('header-col-r') || cls.includes('header-col-c') || cls.includes('header-col-l')) return { type: 'header-col', tag };
+    if (cls.includes('header-ornament-wrap')) return { type: 'header-ornament', tag };
+    if (cls.includes('hdr-txt')) return { type: 'header-text', tag };
+    if (cls.includes('hdr-pagenum')) return { type: 'header-page-number', tag };
+    if (cls.includes('note-header-ornament-right') || cls.includes('note-header-ornament-left')) return { type: 'fn-ornament', tag };
+    if (cls.includes('footnote-header-title')) return { type: 'fn-header-title', tag };
     if (cls.includes('page-number-footer')) return { type: 'page-number', tag };
     if (cls.includes('footnote-area')) return { type: 'footnote-area', tag };
     if (cls.includes('footnote-header-wrap')) return { type: 'fn-header', tag };
@@ -89,7 +96,7 @@ function classifyElement(el) {
 /* צבע לכל סוג רכיב (ל-overlay) */
 const TYPE_COLORS = {
     'page': '#1e40af', 'wrapper': '#3b82f6', 'body-flow': '#60a5fa',
-    'header': '#a78bfa', 'page-number': '#f472b6',
+    'header': '#a78bfa', 'header-col': '#c4b5fd', 'header-ornament': '#818cf8', 'header-text': '#a5b4fc', 'header-page-number': '#f472b6', 'fn-ornament': '#fb7185', 'fn-header-title': '#fca5a5', 'page-number': '#f472b6',
     'footnote-area': '#dc2626', 'fn-header': '#ef4444', 'fn-rule': '#f87171',
     'fn-block': '#fca5a5', 'fn-line': '#fecaca', 'fn-num': '#fee2e2',
     'block-2col': '#059669', 'block-h3-span': '#10b981', 'block-single-col': '#34d399',
@@ -107,7 +114,7 @@ const TYPE_COLORS = {
 
 /* רכיבים שכדאי לרדת לתוכם רקורסיבית */
 const DESCEND_INTO = new Set([
-    'page', 'wrapper', 'body-flow', 'footnote-area',
+    'page', 'wrapper', 'body-flow', 'header', 'header-col', 'footnote-area', 'fn-header',
     'block-2col', 'block-h3-span', 'block-single-col',
     'column', 'margin-col', 'fn-block'
 ]);
