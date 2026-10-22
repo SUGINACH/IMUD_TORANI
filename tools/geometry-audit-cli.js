@@ -271,6 +271,49 @@ async function main() {
                 summary:audit.summary, issues:audit.issues, stats:model.stats, model:clean,
                 footnoteMeasurementAudit:fnAudit, fontsStatus:document.fonts ? document.fonts.status : 'unknown',
                 fontPreflight:window.__fontPreflight || null,
+                layoutDiagnostics: Array.from(document.querySelectorAll('#book-container .a4-page')).flatMap((pg, pageIdx) => {
+                    const flow = pg.querySelector('.page-body-flow');
+                    if (!flow) return [];
+                    const fr = flow.getBoundingClientRect();
+                    return Array.from(flow.children).filter(el => el.classList.contains('block-2col')).flatMap(el => {
+                        const r = el.getBoundingClientRect();
+                        const overflow = r.bottom - fr.bottom;
+                        if (overflow <= 15) return [];
+                        const cs = getComputedStyle(el);
+                        return [{
+                            pageIdx,
+                            pageLabel: pg.querySelector('.page-number-footer')?.textContent?.trim() || String(pageIdx + 1),
+                            flow: { top: fr.top, bottom: fr.bottom, rectHeight: fr.height, clientHeight: flow.clientHeight },
+                            block: { top: r.top, bottom: r.bottom, height: r.height, topOffset: r.top - fr.top, overflow },
+                            attrs: Object.fromEntries([
+                                'data-layout-fill-remaining','data-layout-fill-flow-height','data-layout-fill-top-offset',
+                                'data-layout-balance-available','data-layout-balance-candidates','data-layout-balance-items',
+                                'data-layout-balance-fits','data-layout-balance-valid','data-layout-balance-over',
+                                'data-layout-balance-right','data-layout-balance-left','data-layout-balance-diff',
+                                'data-layout-balance-right-part-lines','data-layout-balance-left-part-lines'
+                            ].map(k => [k, el.getAttribute(k)])),
+                            style: { display: cs.display, height: cs.height, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom },
+                            columns: ['.right-col','.left-col'].map(sel => {
+                                const col = el.querySelector(sel);
+                                if (!col) return null;
+                                const cc = getComputedStyle(col), cr = col.getBoundingClientRect();
+                                return {
+                                    side: sel, scrollHeight: col.scrollHeight, offsetHeight: col.offsetHeight,
+                                    rectHeight: cr.height, top: cr.top, bottom: cr.bottom,
+                                    lineHeight: cc.lineHeight, fontSize: cc.fontSize,
+                                    paragraphs: Array.from(col.children).filter(p => p.tagName === 'P').map(p => {
+                                        const pc = getComputedStyle(p), pr = p.getBoundingClientRect();
+                                        return { cls: p.className, tokenId: p.getAttribute('data-token-id'), continuation: p.getAttribute('data-is-cont'),
+                                            text: (p.getAttribute('data-raw-text') || p.textContent || '').slice(0,100),
+                                            rectHeight: pr.height, offsetHeight: p.offsetHeight, scrollHeight: p.scrollHeight,
+                                            lineHeight: pc.lineHeight, fontSize: pc.fontSize, marginTop: pc.marginTop, marginBottom: pc.marginBottom,
+                                            paddingBottom: pc.paddingBottom, baseLineHeight: p.getAttribute('data-base-lh') };
+                                    })
+                                };
+                            })
+                        }];
+                    });
+                }),
                 bodyScrollHeight:document.body.scrollHeight,
                 bookContainerScrollHeight:document.getElementById('book-container')?.scrollHeight ?? null
             };
@@ -284,7 +327,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,layoutDiagnostics:data.layoutDiagnostics,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
