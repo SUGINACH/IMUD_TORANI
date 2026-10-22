@@ -2270,6 +2270,12 @@ function measureFootnoteAreaHeight(queue, opts) {
     const marginBottom = parseFloat(cs.marginBottom) || 0;
     const blockScrollH = area.scrollHeight;
     const blockOffsetH = area.offsetHeight;
+    const noteBlock = area.querySelector('.note-block');
+    const areaWidth = area.getBoundingClientRect().width;
+    const noteBlockWidth = noteBlock ? noteBlock.getBoundingClientRect().width : null;
+    const noteBlockScrollH = noteBlock ? noteBlock.scrollHeight : null;
+    const noteBlockOffsetH = noteBlock ? noteBlock.offsetHeight : null;
+    const noteBlockClass = noteBlock ? noteBlock.className : null;
     // נשתמש ב-max(scrollHeight, offsetHeight) — scrollHeight תופס גלישה, offsetHeight תופס border
     const innerH = Math.max(blockScrollH, blockOffsetH);
     const h = Math.ceil(innerH + marginTop + marginBottom);
@@ -2292,6 +2298,11 @@ function measureFootnoteAreaHeight(queue, opts) {
         attachedToBody,
         scrollHeight: blockScrollH,
         offsetHeight: blockOffsetH,
+        areaWidth,
+        noteBlockWidth,
+        noteBlockScrollH,
+        noteBlockOffsetH,
+        noteBlockClass,
         marginTop, marginBottom,
         returned: h,
         ctxKey
@@ -2329,11 +2340,14 @@ function auditFnMeasurement() {
             line.id && line.id.startsWith('note-') ? line.id.slice(5) : line.id || ''
         );
         const noteUidsKey = noteUids.join(',');
-        const matching = window.__fnMeasureLog.filter(e =>
+        const matchingLogs = window.__fnMeasureLog.filter(e =>
             (e.kind === 'fresh-measure' || e.kind === 'cache-hit') &&
             typeof e.uids === 'string' &&
             e.uids === noteUidsKey
-        ).pop();
+        );
+        // Prefer the original fresh measurement, which carries measured dimensions;
+        // a later cache-hit record only contains the returned height.
+        const matching = matchingLogs.filter(e => e.kind === 'fresh-measure').pop() || matchingLogs.pop();
 
         results.push({
             pageIdx: pIdx,
@@ -2345,6 +2359,17 @@ function auditFnMeasurement() {
             measuredMarginTop: matching ? matching.marginTop : null,
             measuredMarginBottom: matching ? matching.marginBottom : null,
             measuredAttachedToBody: matching ? (matching.attachedToBody ?? null) : null,
+            measuredKind: matching ? matching.kind : null,
+            measuredProbeWidth: matching ? (matching.probeWidth ?? null) : null,
+            measuredAreaWidth: matching ? (matching.areaWidth ?? null) : null,
+            measuredNoteBlockWidth: matching ? (matching.noteBlockWidth ?? null) : null,
+            measuredNoteBlockScrollH: matching ? (matching.noteBlockScrollH ?? null) : null,
+            measuredNoteBlockOffsetH: matching ? (matching.noteBlockOffsetH ?? null) : null,
+            measuredNoteBlockClass: matching ? (matching.noteBlockClass ?? null) : null,
+            realNoteBlockWidth: area.querySelector('.note-block')?.getBoundingClientRect().width ?? null,
+            realNoteBlockScrollH: area.querySelector('.note-block')?.scrollHeight ?? null,
+            realNoteBlockOffsetH: area.querySelector('.note-block')?.offsetHeight ?? null,
+            realNoteBlockClass: area.querySelector('.note-block')?.className ?? null,
             matchFound: !!matching,
             realH,
             realScroll,
