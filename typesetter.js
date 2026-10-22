@@ -1481,6 +1481,16 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     }
     const bestSplit = cands[best.k];
 
+    // Keep deterministic, inspectable metrics for the geometry audit.
+    block.setAttribute('data-layout-balance-available', String(availableHeight));
+    block.setAttribute('data-layout-balance-candidates', String(cands.length));
+    block.setAttribute('data-layout-balance-items', String(items.length));
+    block.setAttribute('data-layout-balance-fits', String(best.fits));
+    block.setAttribute('data-layout-balance-over', String(best.over));
+    block.setAttribute('data-layout-balance-right', String(best.rH));
+    block.setAttribute('data-layout-balance-left', String(best.lH));
+    block.setAttribute('data-layout-balance-diff', String(best.diff));
+
     // ---- 4. רינדור סופי ----
     rCol.innerHTML = '';
     lCol.innerHTML = '';
@@ -3892,6 +3902,12 @@ function typesetDocumentCore() {
           <div class="margin-notes-column left-margin"></div>
         `;
                 pageLayout.bodyFlow.appendChild(block2Col);
+                // Diagnostic contract: compare the available height used by the fill loop
+                // with the actual DOM offset from body-flow top to this block's top.
+                block2Col.setAttribute('data-layout-fill-remaining', String(remPageHeight));
+                block2Col.setAttribute('data-layout-fill-flow-height', String(totalFlowH));
+                block2Col.setAttribute('data-layout-fill-top-offset',
+                    String(block2Col.getBoundingClientRect().top - pageLayout.bodyFlow.getBoundingClientRect().top));
                 pagePendingNotes = [];
 
                 const blockNoteSnapshot = {
