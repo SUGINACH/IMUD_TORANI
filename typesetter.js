@@ -3714,7 +3714,7 @@ function typesetDocumentCore() {
                 const flow = pageLayout.bodyFlow;
                 const lastEl = flow.lastElementChild;
                 if (!lastEl || !(lastEl.classList.contains('block-2col') || lastEl.classList.contains('block-single-col'))) return;
-                const flowBottom = flow.getBoundingClientRect().top + totalFlowH;
+                const flowBottom = flow.getBoundingClientRect().bottom;
                 const free = (flowBottom - reservedNow()) - lastEl.getBoundingClientRect().bottom - 1;
                 stretchLastBlockToBottom(flow, free, styleObj, PAGE_STRETCH_MAX);
             };
