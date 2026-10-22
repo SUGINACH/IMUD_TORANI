@@ -3749,7 +3749,12 @@ function typesetDocumentCore() {
                             (txt) => remPageHeight - reservedNow(txt));
 
                         // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
-                        const placeLines = resolveParagraphSplit(lines.length, bestFitLine, !pageHasContent);
+                        // Never force a one-line fragment when a heading is waiting for its paragraph.
+                        // In that case move the heading and paragraph together to the next page.
+                        const hasHeadingBefore = Array.from(targetCol.children).some(el =>
+                            el !== pElem && /(^|\\s)title-level-/.test(String(el.className || ''))
+                        );
+                        const placeLines = resolveParagraphSplit(lines.length, bestFitLine, !pageHasContent && !hasHeadingBefore);
                         if (placeLines === 0) {
                             targetCol.removeChild(pElem);
                             tokenIndex -= rollbackTrailingHeadings(targetCol);
@@ -3971,7 +3976,15 @@ function typesetDocumentCore() {
                                 (txt) => remPageHeight - reservedNow(txt));
 
                             // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
-                            const placeLines = resolveParagraphSplit(lines.length, bestFitLine, !pageHasContent && !pageBodyHasContent);
+                            // The no-progress fallback may force a fragment only on a genuinely empty
+                            // body page. If any heading is waiting in this block, roll it back with the
+                            // paragraph instead of stranding a single line beneath it.
+                            const hasHeadingBefore = !!block2Col.querySelector('[class*="title-level-"]');
+                            const placeLines = resolveParagraphSplit(
+                                lines.length,
+                                bestFitLine,
+                                !pageHasContent && !pageBodyHasContent && !hasHeadingBefore
+                            );
                             if (placeLines === 0) {
                                 targetCol.removeChild(pElem);
                                 tokenIndex -= rollbackTrailingHeadings(targetCol);
