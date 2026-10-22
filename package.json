@@ -1,0 +1,13 @@
+{
+  "name": "imud-torani",
+  "version": "23.0.0",
+  "private": true,
+  "description": "Hebrew Torah book typesetting app with automated headless geometry audit",
+  "scripts": {
+    "audit:geometry": "node tools/geometry-audit-cli.js",
+    "audit:geometry:long": "node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --timeout-ms 900000 --report ./artifacts/geometry-audit.json --summary ./artifacts/geometry-audit-summary.md"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
+  }
+}

@@ -48,13 +48,20 @@ function classifyElement(el) {
     if (cls.includes('page-content-wrapper')) return { type: 'wrapper', tag };
     if (cls.includes('page-body-flow')) return { type: 'body-flow', tag };
     if (cls.includes('page-header')) return { type: 'header', tag };
+    if (cls.includes('top-header-grid')) return { type: 'header', tag };
+    if (cls.includes('header-col-r') || cls.includes('header-col-c') || cls.includes('header-col-l')) return { type: 'header-col', tag };
+    if (cls.includes('header-ornament-wrap')) return { type: 'header-ornament', tag };
+    if (cls.includes('hdr-txt')) return { type: 'header-text', tag };
+    if (cls.includes('hdr-pagenum')) return { type: 'header-page-number', tag };
+    if (cls.includes('note-header-ornament-right') || cls.includes('note-header-ornament-left')) return { type: 'fn-ornament', tag };
+    if (cls.includes('footnote-header-title')) return { type: 'fn-header-title', tag };
     if (cls.includes('page-number-footer')) return { type: 'page-number', tag };
     if (cls.includes('footnote-area')) return { type: 'footnote-area', tag };
     if (cls.includes('footnote-header-wrap')) return { type: 'fn-header', tag };
     if (cls.includes('note-rule-') || cls.includes('note-rule')) return { type: 'fn-rule', tag };
     if (cls.includes('note-block')) return { type: 'fn-block', tag };
-    if (cls.includes('note-line')) return { type: 'fn-line', tag };
     if (cls.includes('note-line-num')) return { type: 'fn-num', tag };
+    if (cls.includes('note-line')) return { type: 'fn-line', tag };
     if (cls.includes('block-2col')) return { type: 'block-2col', tag };
     if (cls.includes('block-h3-span')) return { type: 'block-h3-span', tag };
     if (cls.includes('block-single-col')) return { type: 'block-single-col', tag };
@@ -89,7 +96,7 @@ function classifyElement(el) {
 /* צבע לכל סוג רכיב (ל-overlay) */
 const TYPE_COLORS = {
     'page': '#1e40af', 'wrapper': '#3b82f6', 'body-flow': '#60a5fa',
-    'header': '#a78bfa', 'page-number': '#f472b6',
+    'header': '#a78bfa', 'header-col': '#c4b5fd', 'header-ornament': '#818cf8', 'header-text': '#a5b4fc', 'header-page-number': '#f472b6', 'fn-ornament': '#fb7185', 'fn-header-title': '#fca5a5', 'page-number': '#f472b6',
     'footnote-area': '#dc2626', 'fn-header': '#ef4444', 'fn-rule': '#f87171',
     'fn-block': '#fca5a5', 'fn-line': '#fecaca', 'fn-num': '#fee2e2',
     'block-2col': '#059669', 'block-h3-span': '#10b981', 'block-single-col': '#34d399',
@@ -107,13 +114,13 @@ const TYPE_COLORS = {
 
 /* רכיבים שכדאי לרדת לתוכם רקורסיבית */
 const DESCEND_INTO = new Set([
-    'page', 'wrapper', 'body-flow', 'footnote-area',
+    'page', 'wrapper', 'body-flow', 'header', 'header-col', 'footnote-area', 'fn-header',
     'block-2col', 'block-h3-span', 'block-single-col',
     'column', 'margin-col', 'fn-block'
 ]);
 
 /* רכיבים שהם "טקסט" — נמדוד את השורות שלהם */
-const TEXT_TYPES = new Set(['p', 'p-cut', 'p-end', 'fn-line', 'h2-title', 'h3-title', 'h3', 'h4', 'h5', 'h6', 'h7']);
+const TEXT_TYPES = new Set(['p', 'p-cut', 'p-end', 'fn-line', 'h2-title', 'h3-title', 'h3', 'h4', 'h5', 'h6', 'h7', 'header-text', 'header-page-number', 'fn-header-title']);
 
 /* אוסף שורות טקסט מתוך אלמנט טקסט ע"י getClientRects על Range */
 function collectLines(el) {
@@ -216,8 +223,11 @@ function buildNode(el, parent, pageOffset) {
     // דלג על אלמנטים בלי גודל
     if (rect.w < 1 || rect.h < 1) return null;
 
+    const siblingIndex = parent && Array.isArray(parent.children) ? parent.children.length : 0;
     const node = {
-        id: (el.id || '') + ':' + Math.random().toString(36).slice(2, 8),
+        // Stable traversal-path IDs make repeated geometry exports comparable.
+        // Do not use Math.random(): it makes identical layouts produce different reports.
+        id: (parent && parent.id ? parent.id : 'root') + '/' + cls.type + '[' + siblingIndex + ']',
         type: cls.type,
         tag: cls.tag,
         cls: typeof el.className === 'string' ? el.className.slice(0, 80) : '',
@@ -225,6 +235,25 @@ function buildNode(el, parent, pageOffset) {
         rect,
         children: [],
         lines: [],
+        tokenId: el.getAttribute('data-token-id') || null,
+        isContinuation: el.getAttribute('data-is-cont') === 'true',
+        rawText: (el.getAttribute('data-raw-text') || '').slice(0, 160),
+        layoutMetrics: cls.type === 'block-2col' ? {
+            fillRemaining: el.getAttribute('data-layout-fill-remaining'),
+            fillFlowHeight: el.getAttribute('data-layout-fill-flow-height'),
+            fillTopOffset: el.getAttribute('data-layout-fill-top-offset'),
+            balanceAvailable: el.getAttribute('data-layout-balance-available'),
+            balanceCandidates: el.getAttribute('data-layout-balance-candidates'),
+            balanceItems: el.getAttribute('data-layout-balance-items'),
+            balanceFits: el.getAttribute('data-layout-balance-fits'),
+            balanceValid: el.getAttribute('data-layout-balance-valid'),
+            balanceRightPartLines: el.getAttribute('data-layout-balance-right-part-lines'),
+            balanceLeftPartLines: el.getAttribute('data-layout-balance-left-part-lines'),
+            balanceOver: el.getAttribute('data-layout-balance-over'),
+            balanceRight: el.getAttribute('data-layout-balance-right'),
+            balanceLeft: el.getAttribute('data-layout-balance-left'),
+            balanceDiff: el.getAttribute('data-layout-balance-diff')
+        } : null,
         parentType: parent ? parent.type : null
     };
 
@@ -263,6 +292,7 @@ function extractGeometry() {
     pageEls.forEach((pgEl, pIdx) => {
         const pgRect = rectOf(pgEl);
         const page = {
+            id: 'page-' + pIdx,
             idx: pIdx,
             label: (pgEl.querySelector('.page-number-footer')?.textContent?.trim() || String(pIdx + 1)),
             rect: pgRect,
@@ -309,6 +339,13 @@ function rOverlap(a, b) {
 
 function auditContainment(node, issues) {
     for (const child of node.children) {
+        // Side notes are absolutely positioned anchors. Their height intentionally
+        // does not contribute to the margin-column box, so containment against that
+        // box is not a valid geometric invariant; audit them against body/page bounds below.
+        if (node.type === 'margin-col' && child.type === 'side-note') {
+            auditContainment(child, issues);
+            continue;
+        }
         if (!rContains(node, child, TOL.containment)) {
             const overflow = {
                 left: Math.max(0, node.rect.x - child.rect.x),
@@ -342,10 +379,17 @@ function auditContainment(node, issues) {
                     severity = 'high';
                     note = ' (גלישה חמורה מ-stretchPageToBottom)';
                 }
-            } else if (isNoteMarker && overflowPx <= 2) {
+            } else if (isNoteMarker && overflowPx <= 3) {
+                // Inline/superscript note markers can extend slightly beyond the paragraph
+                // line box; a ~2–3px vertical protrusion is not a page-layout failure.
                 severity = 'low';
                 kind = 'containment-rounding';
-                note = ' (עיגול פיקסלים של סמן הערה)';
+                note = ' (חריגה אנכית קטנה של סמן הערה בתוך שורת טקסט)';
+            } else if (child.type === 'header-col') {
+                // Header text/SVG can exceed the grid row by a few pixels because of line boxes.
+                // Keep small overflow visible as a warning, not a critical geometry failure.
+                severity = overflowPx > 8 ? 'high' : (overflowPx > 3 ? 'medium' : 'low');
+                note = ' (חריגה אנכית של עמודת כותרת)';
             } else if (isSideNote) {
                 severity = overflowPx > 20 ? 'high' : 'medium';
                 note = ' (הערת צד גולשת משטח המרזב)';
@@ -358,7 +402,24 @@ function auditContainment(node, issues) {
                 location: describePath(node),
                 childType: child.type,
                 childText: child.text,
-                childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h) },
+                parentRect: { x: Math.round(node.rect.x), y: Math.round(node.rect.y), w: Math.round(node.rect.w), h: Math.round(node.rect.h), bottom: Math.round(node.rect.bottom) },
+                previousSiblings: node.children.slice(Math.max(0, node.children.indexOf(child) - 5), node.children.indexOf(child)).map(s => ({
+                    type: s.type, cls: s.cls, text: s.text,
+                    rect: { x: Math.round(s.rect.x), y: Math.round(s.rect.y), w: Math.round(s.rect.w), h: Math.round(s.rect.h), bottom: Math.round(s.rect.bottom) }
+                })),
+                childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h), bottom: Math.round(child.rect.bottom) },
+                layoutMetrics: child.layoutMetrics || null,
+                childDetails: child.type === 'block-2col' ? child.children.filter(c => c.type === 'column').map(col => ({
+                    side: col.side,
+                    rect: { x: Math.round(col.rect.x), y: Math.round(col.rect.y), w: Math.round(col.rect.w), h: Math.round(col.rect.h), bottom: Math.round(col.rect.bottom) },
+                    paragraphCount: col.children.filter(p => ['p', 'p-cut', 'p-end'].includes(p.type)).length,
+                    firstParagraphs: col.children.filter(p => ['p', 'p-cut', 'p-end'].includes(p.type)).slice(0, 2).map(p => ({
+                        type: p.type, tokenId: p.tokenId, isContinuation: p.isContinuation, lineCount: p.lines.length, text: p.rawText || p.text
+                    })),
+                    lastParagraphs: col.children.filter(p => ['p', 'p-cut', 'p-end'].includes(p.type)).slice(-3).map(p => ({
+                        type: p.type, tokenId: p.tokenId, isContinuation: p.isContinuation, lineCount: p.lines.length, text: p.rawText || p.text
+                    }))
+                })) : undefined,
                 overflow,
                 overflowPx: Math.round(overflowPx * 10) / 10,
                 note: note.trim(),
@@ -367,6 +428,44 @@ function auditContainment(node, issues) {
         }
         auditContainment(child, issues);
     }
+}
+
+function auditSideNoteBounds(node, issues) {
+    if (node.type === 'side-note') {
+        let ancestor = node._parent;
+        let marginCol = null, bodyFlow = null;
+        while (ancestor) {
+            if (!marginCol && ancestor.type === 'margin-col') marginCol = ancestor;
+            if (!bodyFlow && ancestor.type === 'body-flow') bodyFlow = ancestor;
+            ancestor = ancestor._parent;
+        }
+        const horizontalOverflow = marginCol ? Math.max(
+            0,
+            marginCol.rect.x - node.rect.x,
+            node.rect.right - marginCol.rect.right
+        ) : 0;
+        const verticalOverflow = bodyFlow ? Math.max(
+            0,
+            bodyFlow.rect.y - node.rect.y,
+            node.rect.bottom - bodyFlow.rect.bottom
+        ) : 0;
+        const overflowPx = Math.max(horizontalOverflow, verticalOverflow);
+        if (overflowPx > TOL.containment) {
+            issues.push({
+                kind: 'side-note-overflow',
+                severity: overflowPx > 20 ? 'high' : (overflowPx > 8 ? 'medium' : 'low'),
+                pageIdx: getPageIdx(node),
+                location: describePath(node),
+                tokenId: node.tokenId,
+                childRect: { x: Math.round(node.rect.x), y: Math.round(node.rect.y), w: Math.round(node.rect.w), h: Math.round(node.rect.h), bottom: Math.round(node.rect.bottom) },
+                marginRect: marginCol ? { x: Math.round(marginCol.rect.x), y: Math.round(marginCol.rect.y), w: Math.round(marginCol.rect.w), h: Math.round(marginCol.rect.h), bottom: Math.round(marginCol.rect.bottom) } : null,
+                bodyFlowRect: bodyFlow ? { x: Math.round(bodyFlow.rect.x), y: Math.round(bodyFlow.rect.y), w: Math.round(bodyFlow.rect.w), h: Math.round(bodyFlow.rect.h), bottom: Math.round(bodyFlow.rect.bottom) } : null,
+                overflowPx: Math.round(overflowPx * 10) / 10,
+                message: 'הערת צד חורגת מתחום השוליים או מגבולות גוף העמוד: ' + Math.round(overflowPx * 10) / 10 + 'px'
+            });
+        }
+    }
+    for (const child of node.children) auditSideNoteBounds(child, issues);
 }
 
 function auditSiblingOverlap(node, issues) {
@@ -378,15 +477,19 @@ function auditSiblingOverlap(node, issues) {
     for (let i = 0; i < node.children.length; i++) {
         for (let j = i + 1; j < node.children.length; j++) {
             const a = node.children[i], b = node.children[j];
-            const ov = rOverlap(a, b);
-            if (ov > TOL.overlap) {
+            const dx = Math.max(0, Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.x, b.rect.x));
+            const dy = Math.max(0, Math.min(a.rect.bottom, b.rect.bottom) - Math.max(a.rect.y, b.rect.y));
+            const ov = dx * dy;
+            // Ignore edge-only/subpixel contacts: area alone can label a 1px-wide seam
+            // as a serious overlap even when the rectangles are merely touching after rounding.
+            if (dx > 1.5 && dy > 1.5 && ov > TOL.overlap) {
                 // אם שניהם טורים (column) באותו בלוק — זה תקין (ם נמצאים זה ליד זה, לא חופפים)
                 if (a.type === 'column' && b.type === 'column') continue;
                 // הערות בתוך fn-line — לפעמים חופפות עם note-line-num
                 if (a.parentType === 'fn-line' || b.parentType === 'fn-line') continue;
                 issues.push({
                     kind: 'overlap',
-                    severity: 'high',
+                    severity: ov > 100 ? 'high' : (ov > 25 ? 'medium' : 'low'),
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
                     aType: a.type, aText: a.text,
@@ -428,34 +531,40 @@ function auditColumnBalance(node, issues) {
 }
 
 function auditWidowOrphan(node, issues) {
-    // בכל טור — בדוק את הפסקה הראשונה והאחרונה
     if (node.type === 'column') {
         const ps = node.children.filter(c => c.type === 'p' || c.type === 'p-cut' || c.type === 'p-end');
         if (ps.length > 0) {
             const first = ps[0];
-            // אלמנה: פסקה אחרונה בטור עם שורה אחת
             const last = ps[ps.length - 1];
-            if (last.lines.length === 1 && last.type === 'p-end') {
+
+            // A short complete paragraph is NOT a widow. A widow is the single
+            // final line of a paragraph continued from a previous column/page,
+            // stranded at the top of this column.
+            if (first.lines.length === 1 && first.type === 'p-end' && first.isContinuation) {
                 issues.push({
                     kind: 'widow',
                     severity: 'medium',
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
-                    pText: last.text,
-                    childRect: { x: Math.round(last.rect.x), y: Math.round(last.rect.y), w: Math.round(last.rect.w), h: Math.round(last.rect.h) },
-                    message: `אלמנה: שורה אחת בודדת בסוף טור ${node.side} ("${last.text.slice(0, 30)}...")`
+                    tokenId: first.tokenId,
+                    pText: first.text,
+                    childRect: { x: Math.round(first.rect.x), y: Math.round(first.rect.y), w: Math.round(first.rect.w), h: Math.round(first.rect.h) },
+                    message: `אלמנה: השורה האחרונה של פסקה נמשכת מופיעה לבדה בראש טור ${node.side} ("${first.text.slice(0, 30)}...")`
                 });
             }
-            // יתום: פסקה ראשונה בטור עם שורה אחת שהיא p-cut (ממשיכה מהטור הקודם)
-            if (first.lines.length === 1 && first.type === 'p-cut' && ps.length > 1) {
+
+            // An orphan is the first line of a paragraph stranded at the bottom
+            // of a column while the same paragraph continues in the next column/page.
+            if (last.lines.length === 1 && last.type === 'p-cut') {
                 issues.push({
                     kind: 'orphan',
                     severity: 'medium',
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
-                    pText: first.text,
-                    childRect: { x: Math.round(first.rect.x), y: Math.round(first.rect.y), w: Math.round(first.rect.w), h: Math.round(first.rect.h) },
-                    message: `יתום: שורה אחת בודדת בתחילת טור ${node.side} ("${first.text.slice(0, 30)}...")`
+                    tokenId: last.tokenId,
+                    pText: last.text,
+                    childRect: { x: Math.round(last.rect.x), y: Math.round(last.rect.y), w: Math.round(last.rect.w), h: Math.round(last.rect.h) },
+                    message: `יתום: שורה ראשונה של פסקה מופיעה לבדה בתחתית טור ${node.side} ("${last.text.slice(0, 30)}...")`
                 });
             }
         }
@@ -710,6 +819,7 @@ function auditGeometry(model) {
         // עדכן getPageIdx דרך _parent
         for (const c of page.children) {
             auditContainment(c, issues);
+            auditSideNoteBounds(c, issues);
             auditSiblingOverlap(c, issues);
             auditColumnBalance(c, issues);
             auditWidowOrphan(c, issues);

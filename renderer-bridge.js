@@ -134,7 +134,7 @@
     }
 
     // האזנה להודעות מהדף הראשי
-    window.addEventListener('message', function(e) {
+    window.addEventListener('message', async function(e) {
         const msg = e.data;
         if (!msg || !msg.type) return;
 
@@ -142,10 +142,34 @@
             try {
                 applySettings(msg.settings);
                 applyText(msg.text);
-                // עדכן CSS vars
+                // Update CSS variables before font preflight so settings-selected families are visible.
                 if (typeof updateGrid === 'function') updateGrid();
                 if (typeof updateStyles === 'function') updateStyles();
-                // עמד
+
+                // Deterministic pagination requires font metrics to be stable BEFORE the first
+                // measurement. Waiting for document.fonts.ready before injecting the Hebrew
+                // text is insufficient: unicode-range subsets may only be requested once that
+                // text is present, and would otherwise swap after pagination decisions.
+                if (document.fonts) {
+                    const fontFaces = Array.from(document.fonts);
+                    const fontResults = await Promise.all(fontFaces.map(async face => {
+                        try {
+                            await face.load();
+                            return { family: face.family, weight: face.weight, style: face.style, status: face.status };
+                        } catch (err) {
+                            return { family: face.family, weight: face.weight, style: face.style, status: 'error', error: String(err && err.message || err) };
+                        }
+                    }));
+                    await document.fonts.ready;
+                    window.__fontPreflight = {
+                        faceCount: fontResults.length,
+                        loaded: fontResults.filter(x => x.status === 'loaded').length,
+                        failed: fontResults.filter(x => x.status === 'error').length,
+                        failures: fontResults.filter(x => x.status === 'error')
+                    };
+                }
+
+                // Typeset only after the font face set has settled.
                 if (typeof typesetDocument === 'function') {
                     typesetDocument();
                 }
