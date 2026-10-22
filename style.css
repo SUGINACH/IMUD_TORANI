@@ -1559,6 +1559,20 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     display: inline-block;
 }
 
+/* [תיקון] כש-h2-orn-fit-text פעיל, ה-SVG נמתח לרוחב המלא של העיטור */
+.h2-ornament-top .fit-heading-text svg,
+.h2-ornament-bottom .fit-heading-text svg,
+.h2-title-ornament-top .fit-heading-text svg,
+.h2-title-ornament-bottom .fit-heading-text svg,
+.h2-ornament-top .fit-heading-text img,
+.h2-ornament-bottom .fit-heading-text img,
+.h2-title-ornament-top .fit-heading-text img,
+.h2-title-ornament-bottom .fit-heading-text img {
+    width: 100% !important;
+    max-width: 100% !important;
+    object-fit: fill !important;
+}
+
 .sec-divider-wrap svg,
 .sec-divider-wrap img {
     width: 100% !important;
@@ -1597,6 +1611,13 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     text-align: center;
     margin: 0 auto !important;
     line-height: 0;
+}
+
+/* [תיקון] איזון descenders — ה"סימן" מסתיים בנו"ן סופית (descender עמוק),
+   והכותרת מסתיימת באות רגילה. padding-bottom מאזן את ההבדל האופטי. */
+.h2-siman-badge,
+.title-level-2-standalone {
+    padding-bottom: 0.12em !important;
 }
 
 /* כוונון אינטראקטיבי של תיבות שער בעכבר */

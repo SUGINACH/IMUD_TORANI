@@ -2628,3 +2628,18 @@ Stage Summary:
 - רוחב העיטור עכשיו = רוחב טקסט + 40px (20 מכל צד), עם מתיחת SVG.
 - מרחק סימטרי: 8px מכל צד (עליון ותחתון זהים).
 - קבצים שהשתנו: typesetter.js, style.css.
+
+---
+Task ID: ornament-stretch-symmetry-v2
+Agent: main (GLM)
+Task: תיקון מתיחת SVG + מרחק סימטרי (descenders)
+
+Work Log:
+- **נקודה 1 — מתיחת SVG לא עבדה**: מצאתי ש-CSS קובע `width: auto` ו-`max-width: 65%` על כל ה-SVGים, וזה דרס את ה-`width: 100%` שהגדרתי ב-JS. תוקן: הוספתי כלל CSS ספציפי ל-`.fit-heading-text svg/img` עם `width: 100% !important; object-fit: fill !important`.
+
+- **נקודה 2 — מרחק לא סימטרי (descenders)**: המשתמש צדק — ה"סימן" מסתיים בנו"ן סופית (descender עמוק), והכותרת מסתיימת באות רגילה. הקצה התחתון של הכותרת גבוה יותר, ולכן המרחק האופטי לעיטור התחתון נראה גדול יותר. תוקן: הוספתי `padding-bottom: 0.12em` ל-`.h2-siman-badge` ול-`.title-level-2-standalone` — זה מוסיף רווח קבוע מתחת לטקסט שמכסה את ה-descenders, והקצה התחתון נראה אחיד.
+
+Stage Summary:
+- SVG נמתח עכשיו לרוחב המלא (width:100% !important + object-fit:fill).
+- מרחק סימטרי: padding-bottom 0.12em מאזן descenders.
+- קבצים שהשתנו: style.css.
