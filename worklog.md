@@ -2643,3 +2643,25 @@ Stage Summary:
 - SVG נמתח עכשיו לרוחב המלא (width:100% !important + object-fit:fill).
 - מרחק סימטרי: padding-bottom 0.12em מאזן descenders.
 - קבצים שהשתנו: style.css.
+
+---
+Task ID: ornament-symmetry-xheight
+Agent: main (GLM)
+Task: תיקון מרחק סימטרי — מדידה מאותיות רגילות (x-height), לא מ-descenders
+
+Work Log:
+- **הבנת הבעיה**: המשתמש רצה שהמרחק יחושב מהאותיות הרגילות (x-height), לא מ-descenders (כמו נו"ן סופית). הפתרון הקודם (padding-bottom: 0.12em) היה הפוך — הוא הוסיף רווח מתחת לטקסט, מה שהגדיל את המרחק התחתון עוד יותר.
+
+- **הסיבה האמיתית**: line-height גדול (1.25 על הכותרת, 1.1 על הסימן) יצר line-box גדול מה-x-height. המרחק נמדד מקצה ה-line-box, שכולל ascenders/descenders. כשיש descender (נו"ן סופית), הוא "אוכל" מהמרחק התחתון, וכשאין descender, המרחק נראה גדול יותר.
+
+- **התיקון**:
+  1. line-height: 1 על .h2-siman-badge ו-.title-level-2-standalone — מקרב את ה-line-box ל-x-height
+  2. padding-top: 0.15em — גדול, מפצה על ascenders (כי ascender > descender בדרך כלל)
+  3. padding-bottom: 0.05em — קטן, מפצה על descenders מינימלית
+  4. המרחק לעיטור נמדד מקצה ה-padding, שהוא קרוב ל-x-height (כי line-height: 1)
+  5. ה-descenders (כמו נו"ן סופית) בולטים מתחת ל-padding, אבל לא משפיעים על המרחק
+
+Stage Summary:
+- מרחק סימטרי: line-height: 1 + padding-top/padding-bottom לא שווים (מפצים על ascender > descender)
+- המרחק נמדד מ-x-height (אותיות רגילות), לא מ-descenders
+- קבצים שהשתנו: style.css
