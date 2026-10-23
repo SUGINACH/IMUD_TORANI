@@ -2707,3 +2707,24 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Inspect the new page-94 diagnostics, especially `data-layout-global-justify-rolled-back`, `data-layout-page-final-justify-rolled-back`, per-column paragraph line heights/padding, and whether the final difference persists after the cross-paragraph-parentheses pass.
 - Do not lower the high-severity threshold. Keep the remaining imbalance as a real failure until the layout cause is fixed and the long-document audit passes.
 - Keep all work on `V23`; do not merge with `V21`.
+
+
+## V23 — instrument the global-justify rollback on the remaining high-imbalance page
+**Date:** 2026-10-23
+
+### Evidence from long-document audit at `5a509b2472537a8f9e64148f88d12f68a566c165`
+- The report confirms the only high-severity issue is an imbalance on printed page צ״ה (pageIdx 94): right column 463.75px, left column 421.31px, absolute difference 42.44px.
+- The block starts at the top of body-flow and ends at 463.75px; body-flow is 915.14px tall, so the block itself is not close to the bottom boundary (about 451.39px remain below it).
+- `data-layout-global-justify-rolled-back=true`; the per-block balancing pass ran and considered its split valid. The global post-pass attempted to close the gap, but its hard postcondition restored the prior styles.
+- Determinism passed across 601 pages with identical hash `a037bf56fa197b372d3a2888d41c28a1b007985e8a85ee5685b63019a9a5f845`. Footnote measurements matched exactly for 59/59 pages. Audit remains 93 issues (1 high, 43 medium, 49 low).
+
+### Change
+- `typesetter.js`: record the before/after right and left column heights, outer/inner block heights, and explicit rollback reason for the late global equalization pass. This is diagnostic instrumentation only; it does not change the balancing decision or relax any fit guard.
+- `tools/geometry-audit-cli.js`: export those new attributes in `layoutDiagnostics` for the page with severe imbalance.
+- Commits: `2c3c34876354c30c1218bea7553dc11b3c3c24cd` (typesetter instrumentation), `1aa83c415067bbf9dbcedfcf30521161e9cf2284` (audit export).
+
+### Next step
+- Run the long-document audit on the current V23 head and inspect the recorded before/after values to identify whether the rollback is caused by outer-box growth, tallest-column growth, or both. Then make a narrowly scoped algorithmic fix based on the measured result. Do not weaken the hard-fit condition or lower the audit threshold.
+
+### Branch safety
+- All changes remain on `V23`; `V21` is an independent parallel branch and must not be merged.
