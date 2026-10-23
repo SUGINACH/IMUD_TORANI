@@ -4446,23 +4446,61 @@ function typesetDocumentCore() {
                     // adjustment only if neither the outer box nor the tallest column grows.
                     const outerBefore = blk.getBoundingClientRect().height;
                     const innerBefore = Math.max(rC.scrollHeight, lC.scrollHeight);
+                    const targetCol = fDiff > 2 ? lC : rC;
+                    const targetHeight = fDiff > 2 ? rC.scrollHeight : lC.scrollHeight;
+                    const captureJustifyColumn = col => ({
+                        side: col.classList.contains('right-col') ? 'right' : 'left',
+                        scrollHeight: col.scrollHeight,
+                        rectHeight: Math.round(col.getBoundingClientRect().height * 100) / 100,
+                        paragraphs: Array.from(col.children).filter(el => el.tagName === 'P').map(p => {
+                            const cs = getComputedStyle(p);
+                            const win = p.querySelector('.first-word-window');
+                            return {
+                                tokenId: p.getAttribute('data-token-id'),
+                                className: p.className,
+                                text: (p.getAttribute('data-raw-text') || p.textContent || '').trim().slice(0, 100),
+                                rectHeight: Math.round(p.getBoundingClientRect().height * 100) / 100,
+                                offsetHeight: p.offsetHeight,
+                                scrollHeight: p.scrollHeight,
+                                lineHeight: cs.lineHeight,
+                                paddingBottom: cs.paddingBottom,
+                                marginBottom: cs.marginBottom,
+                                baseLineHeight: p.getAttribute('data-base-lh'),
+                                firstWordWindow: win ? {
+                                    styleHeight: win.style.height || '',
+                                    offsetHeight: win.offsetHeight,
+                                    rectHeight: Math.round(win.getBoundingClientRect().height * 100) / 100
+                                } : null
+                            };
+                        })
+                    });
+                    const columnsBefore = [captureJustifyColumn(rC), captureJustifyColumn(lC)];
                     const elementsBefore = [blk, ...blk.querySelectorAll('*')];
                     const attrsBefore = elementsBefore.map(el =>
                         [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
 
-                    if (fDiff > 2) {
-                        justifyColumnVertically(lC, rC.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
-                    } else {
-                        justifyColumnVertically(rC, lC.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
-                    }
+                    justifyColumnVertically(targetCol, targetHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
 
                     const outerAfter = blk.getBoundingClientRect().height;
                     const innerAfter = Math.max(rC.scrollHeight, lC.scrollHeight);
-                    if (outerAfter > outerBefore + 0.5 || innerAfter > innerBefore + 0.5) {
+                    const columnsAfter = [captureJustifyColumn(rC), captureJustifyColumn(lC)];
+                    const grew = outerAfter > outerBefore + 0.5 || innerAfter > innerBefore + 0.5;
+                    if (grew) {
+                        const diagnostic = {
+                            version: 1,
+                            targetSide: targetCol.classList.contains('right-col') ? 'right' : 'left',
+                            requestedTargetHeight: targetHeight,
+                            initialDiff: Math.abs(fDiff),
+                            outerBefore, outerAfter,
+                            innerBefore, innerAfter,
+                            columnsBefore, columnsAfter
+                        };
                         for (const [el, attrs] of attrsBefore) {
                             for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
                             for (const [name, value] of attrs) el.setAttribute(name, value);
                         }
+                        // Preserve transient pre-rollback evidence separately from the restored layout.
+                        blk.setAttribute('data-layout-page-final-justify-diagnostic', JSON.stringify(diagnostic));
                         blk.setAttribute('data-layout-page-final-justify-rolled-back', 'true');
                     } else {
                         blk.setAttribute('data-layout-page-final-justify-rolled-back', 'false');
