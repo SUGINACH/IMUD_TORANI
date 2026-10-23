@@ -4440,6 +4440,13 @@ function typesetDocumentCore() {
             const fDiff = rH - lH;
             if (Math.abs(fDiff) <= 2 || Math.abs(fDiff) > 150) return;
 
+            // Snapshot before the final global balancing pass. This pass runs after the
+            // per-page hard-fit guard, so it must never make an already-laid-out block taller.
+            const outerBefore = blk.getBoundingClientRect().height;
+            const innerBefore = Math.max(rH, lH);
+            const attrsBefore = Array.from(blk.querySelectorAll('*')).map(el =>
+                [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
+
             if (fDiff > 2) {
                 // טור ימין גבוה יותר — מותחים את שמאל להגיע אליו
                 justifyColumnVertically(lC, rH, styleObj, 150, null);
@@ -4458,7 +4465,22 @@ function typesetDocumentCore() {
                 }
             }
 
-            // [תיקון] החזרת הערות הצד למקומן אחרי המתיחה/כיווץ
+            // Hard postcondition: this late pass must not increase the block's required
+            // height. The earlier per-block fit guard has already run; allowing this
+            // pass to expand a block can recreate the same ~30px body-flow overflow.
+            const outerAfter = blk.getBoundingClientRect().height;
+            const innerAfter = Math.max(rC.scrollHeight, lC.scrollHeight);
+            if (outerAfter > outerBefore + 0.5 || innerAfter > innerBefore + 0.5) {
+                for (const [el, attrs] of attrsBefore) {
+                    for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+                    for (const [name, value] of attrs) el.setAttribute(name, value);
+                }
+                blk.setAttribute('data-layout-global-justify-rolled-back', 'true');
+            } else {
+                blk.setAttribute('data-layout-global-justify-rolled-back', 'false');
+            }
+
+            // [תיקון] החזרת הערות הצד למקומן אחרי המתיחה/כיווץ/rollback
             repositionBlockNotes(blk, Math.max(rC.scrollHeight, lC.scrollHeight));
         });
     }
