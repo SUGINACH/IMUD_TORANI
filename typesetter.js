@@ -1164,24 +1164,29 @@ function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, l
         if (!(rest > 0.5)) break;
         const infos = kids.filter(k => k.tagName === 'P').map(p => {
             const { lh, lines } = paraLineInfo(p);
-            return { p, lh, lines, base: parseFloat(p.getAttribute('data-base-lh')) || lh };
+            const win = p.querySelector('.first-word-window');
+            // The float's height also contributes to the column's total height. Use the
+            // same effective height that the adjustment below will scale, so its growth
+            // is included in the denominator rather than added on top of the requested
+            // line-height increase (which caused overshoot on one-paragraph columns).
+            const setH = win ? parseFloat(win.style.height) : NaN;
+            const winH = win ? ((pass > 0 && isFinite(setH) && setH > 0) ? setH : win.offsetHeight) : 0;
+            const stretchUnits = lines + (win && winH > 0 && lh > 0 ? (winH + 1) / lh : 0);
+            return { p, lh, lines, win, winH, stretchUnits, base: parseFloat(p.getAttribute('data-base-lh')) || lh };
         });
-        const totalLines = infos.reduce((a, i) => a + i.lines, 0);
-        if (!(totalLines > 0)) break;
-        const e = rest / totalLines;
+        const totalStretchUnits = infos.reduce((a, i) => a + i.stretchUnits, 0);
+        if (!(totalStretchUnits > 0)) break;
+        const e = rest / totalStretchUnits;
         let changed = false;
         infos.forEach(i => {
             const cap = (lhCap === null) ? Math.max(JUSTIFY_MAX_LH_EXTRA, i.base * JUSTIFY_BALANCE_LH_RATIO) : lhCap;
             const newLh = Math.min(i.lh + e, i.base + cap);
             if (newLh <= i.lh + 0.01) return;
-            const win = i.p.querySelector('.first-word-window');
-            // במעבר ראשון כמו במקור (offsetHeight); במעברים נוספים נשענים על הגובה המדויק שנקבע קודם, בלי נדידת עיגול
-            const setH = win ? parseFloat(win.style.height) : NaN;
-            const winH = win ? ((pass > 0 && isFinite(setH) && setH > 0) ? setH : win.offsetHeight) : 0;
             if (!i.p.hasAttribute('data-base-lh')) i.p.setAttribute('data-base-lh', String(i.lh));
             i.p.style.lineHeight = newLh + 'px';
-            // החלון גדל באותו יחס, כדי שמספר השורות שמתחתיו/לצדו לא ישתנה (כולל השוליים הקבועים שלו - 1px)
-            if (win && winH > 0) win.style.height = (((winH + 1) * newLh / i.lh) - 1) + 'px';
+            // Scale the first-word float in the same ratio, but account for its height
+            // in totalStretchUnits above to avoid counting its growth twice.
+            if (i.win && i.winH > 0) i.win.style.height = (((i.winH + 1) * newLh / i.lh) - 1) + 'px';
             changed = true;
         });
         if (!changed) break;
