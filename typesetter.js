@@ -4470,6 +4470,9 @@ function typesetDocumentCore() {
             // per-page hard-fit guard, so it must never make an already-laid-out block taller.
             const outerBefore = blk.getBoundingClientRect().height;
             const innerBefore = Math.max(rH, lH);
+            blk.setAttribute('data-layout-global-justify-before-right', String(rH));
+            blk.setAttribute('data-layout-global-justify-before-left', String(lH));
+            blk.setAttribute('data-layout-global-justify-before-outer', String(outerBefore));
             const attrsBefore = Array.from(blk.querySelectorAll('*')).map(el =>
                 [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
 
@@ -4496,14 +4499,24 @@ function typesetDocumentCore() {
             // pass to expand a block can recreate the same ~30px body-flow overflow.
             const outerAfter = blk.getBoundingClientRect().height;
             const innerAfter = Math.max(rC.scrollHeight, lC.scrollHeight);
-            if (outerAfter > outerBefore + 0.5 || innerAfter > innerBefore + 0.5) {
+            blk.setAttribute('data-layout-global-justify-after-right', String(rC.scrollHeight));
+            blk.setAttribute('data-layout-global-justify-after-left', String(lC.scrollHeight));
+            blk.setAttribute('data-layout-global-justify-after-outer', String(outerAfter));
+            blk.setAttribute('data-layout-global-justify-after-inner', String(innerAfter));
+            const globalJustifyOuterGrowth = outerAfter > outerBefore + 0.5;
+            const globalJustifyTallestGrowth = innerAfter > innerBefore + 0.5;
+            if (globalJustifyOuterGrowth || globalJustifyTallestGrowth) {
                 for (const [el, attrs] of attrsBefore) {
                     for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
                     for (const [name, value] of attrs) el.setAttribute(name, value);
                 }
                 blk.setAttribute('data-layout-global-justify-rolled-back', 'true');
+                blk.setAttribute('data-layout-global-justify-rollback-reason',
+                    globalJustifyOuterGrowth && globalJustifyTallestGrowth ? 'outer-and-tallest-growth' :
+                    globalJustifyOuterGrowth ? 'outer-growth' : 'tallest-growth');
             } else {
                 blk.setAttribute('data-layout-global-justify-rolled-back', 'false');
+                blk.setAttribute('data-layout-global-justify-rollback-reason', 'none');
             }
 
             // [תיקון] החזרת הערות הצד למקומן אחרי המתיחה/כיווץ/rollback
