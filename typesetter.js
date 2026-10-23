@@ -4357,11 +4357,37 @@ function typesetDocumentCore() {
                     const lC = blk.querySelector('.left-col');
                     if (!rC || !lC) return;
                     const fDiff = rC.scrollHeight - lC.scrollHeight;
-                    if (fDiff > 2 && fDiff <= 100) {
+                    if (!(fDiff > 2 && fDiff <= 100) && !(fDiff < -2 && Math.abs(fDiff) <= 100)) return;
+
+                    // This late pass runs after the page's hard-fit guard and after
+                    // stretchPageToBottom(). A vertical-justify overshoot here can
+                    // recreate a body-flow overflow (observed: +29.94px on page פד).
+                    // Snapshot the block itself as well as descendants, then accept the
+                    // adjustment only if neither the outer box nor the tallest column grows.
+                    const outerBefore = blk.getBoundingClientRect().height;
+                    const innerBefore = Math.max(rC.scrollHeight, lC.scrollHeight);
+                    const elementsBefore = [blk, ...blk.querySelectorAll('*')];
+                    const attrsBefore = elementsBefore.map(el =>
+                        [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
+
+                    if (fDiff > 2) {
                         justifyColumnVertically(lC, rC.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
-                    } else if (fDiff < -2 && Math.abs(fDiff) <= 100) {
+                    } else {
                         justifyColumnVertically(rC, lC.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
                     }
+
+                    const outerAfter = blk.getBoundingClientRect().height;
+                    const innerAfter = Math.max(rC.scrollHeight, lC.scrollHeight);
+                    if (outerAfter > outerBefore + 0.5 || innerAfter > innerBefore + 0.5) {
+                        for (const [el, attrs] of attrsBefore) {
+                            for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+                            for (const [name, value] of attrs) el.setAttribute(name, value);
+                        }
+                        blk.setAttribute('data-layout-page-final-justify-rolled-back', 'true');
+                    } else {
+                        blk.setAttribute('data-layout-page-final-justify-rolled-back', 'false');
+                    }
+                    repositionBlockNotes(blk, Math.max(rC.scrollHeight, lC.scrollHeight));
                 });
             }
             // Final reservation check: stretching, orphan-tail reclamation, and the final
