@@ -160,6 +160,25 @@ function getSectionDividerHTML(type) {
     return `<div class="sec-divider-wrap" style="grid-column: 3 / 6; text-align: center; margin: 16px auto 6px auto; display:flex; justify-content:center; align-items:center; ${dimStyle}">${content}</div>`;
 }
 
+/* [חדש] עיטור הפרדה בין קטעי כותרות מאותה רמה.
+   גרסה פשוטה של getSectionDividerHTML — בלי grid-column, עם margin קטן יותר. */
+function getHeadingDividerHTML(type) {
+    if (!type || type === 'none') return '';
+    const userW = document.getElementById('dim-secdiv-w')?.value;
+    const userH = document.getElementById('dim-secdiv-h')?.value;
+    const dimStyle = (userW ? `width: ${userW}; ` : '') + (userH ? `height: ${userH}; max-height: ${userH}; ` : '');
+
+    let content = '';
+    if (SECTION_DIVIDERS[type]) {
+        // הסר את ה-grid-column וה-margin מהתוכן הפנימי
+        content = SECTION_DIVIDERS[type].replace(/grid-column: 3 \/ 6;\s*/g, '').replace(/margin: 16px auto 6px auto;\s*/g, '');
+    } else if (EXTERNAL_ALL_ORNAMENTS[type]) {
+        content = EXTERNAL_ALL_ORNAMENTS[type];
+    }
+    if (!content) return '';
+    return `<div class="heading-divider-wrap" style="text-align: center; margin: 10px auto; display:flex; justify-content:center; align-items:center; ${dimStyle}">${content}</div>`;
+}
+
 function getHeadingOrnamentHTML(type, isTop = false, isH2 = true) {
     if (!type || type === 'none') return '';
     const flipStyle = isTop ? 'transform: scaleY(-1);' : '';
@@ -376,6 +395,18 @@ function renderMainShaar(container, themeId, pageIndex) {
         }
     }
 
+    // [חדש] עיטור שער ראשי — מקור מ-section_dividers.json דרך shaar-main-divider
+    const shaarMainDividerType = document.getElementById('shaar-main-divider')?.value || 'none';
+    const shaarMainDividerHTML = (shaarMainDividerType !== 'none' && typeof getHeadingDividerHTML === 'function')
+        ? getHeadingDividerHTML(shaarMainDividerType) : '';
+    // ברירת מחדל — ה-SVG המקורי אם אין עיטור מוגדר
+    const defaultShaarOrnament = `<svg style="width: 180px; height: 24px; margin: 12px auto;" viewBox="0 0 400 40">
+          <circle cx="200" cy="20" r="10" fill="none" stroke="#000" stroke-width="4.5"/><circle cx="200" cy="20" r="4.5" fill="#000"/>
+          <path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#000"/>
+          <path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#000"/>
+        </svg>`;
+    const shaarOrnamentHTML = shaarMainDividerHTML || defaultShaarOrnament;
+
     page.innerHTML = `
     ${frameHTML}
     ${mainShaarFooterHTML}
@@ -386,11 +417,7 @@ function renderMainShaar(container, themeId, pageIndex) {
         <div class="sefer-label"></div>
         <div class="book-title-main">${title}</div>
         <div class="book-subtitle">${subtitle}</div>
-        <svg style="width: 180px; height: 24px; margin: 12px auto;" viewBox="0 0 400 40">
-          <circle cx="200" cy="20" r="10" fill="none" stroke="#000" stroke-width="4.5"/><circle cx="200" cy="20" r="4.5" fill="#000"/>
-          <path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#000"/>
-          <path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#000"/>
-        </svg>
+        ${shaarOrnamentHTML}
       </div>
       <div class="book-description">${desc}</div>
       <div class="book-sections-summary">${sections}</div>
@@ -532,6 +559,16 @@ function renderSubShaar(container, token, themeId, pageIndex) {
         }
     }
 
+    // [חדש] עיטור שער משנה — מקור מ-section_dividers.json דרך shaar-sub-divider
+    const shaarSubDividerType = document.getElementById('shaar-sub-divider')?.value || 'none';
+    const shaarSubDividerHTML = (shaarSubDividerType !== 'none' && typeof getHeadingDividerHTML === 'function')
+        ? getHeadingDividerHTML(shaarSubDividerType) : '';
+    // ברירת מחדל — ה-SVG המקורי אם אין עיטור מוגדר
+    const defaultSubShaarOrnament = `<svg style="width: 140px; height: 25px; margin: 15px auto;" viewBox="0 0 300 30">
+          <path d="M10,15 Q75,5 140,15 Q145,10 150,5 Q155,10 160,15 Q225,5 290,15 Q225,25 160,15 Q155,20 150,25 Q145,20 140,15 Q75,25 10,15 Z" fill="#222"/>
+        </svg>`;
+    const subShaarOrnamentHTML = shaarSubDividerHTML || defaultSubShaarOrnament;
+
     page.innerHTML = `
     ${bgHTML}
     ${subShaarFooterHTML}
@@ -540,9 +577,7 @@ function renderSubShaar(container, token, themeId, pageIndex) {
       <div class="sefer-label"></div>
       <div class="book-title-main" style="font-size: 36pt;">${titleMain}</div>
       ${titleSub ? `
-        <svg style="width: 140px; height: 25px; margin: 15px auto;" viewBox="0 0 300 30">
-          <path d="M10,15 Q75,5 140,15 Q145,10 150,5 Q155,10 160,15 Q225,5 290,15 Q225,25 160,15 Q155,20 150,25 Q145,20 140,15 Q75,25 10,15 Z" fill="#222"/>
-        </svg>
+        ${subShaarOrnamentHTML}
         <div class="book-subtitle" style="font-size: 21pt;">${titleSub}</div>` : ''}
     </div>
   `;

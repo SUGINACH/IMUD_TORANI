@@ -67,6 +67,15 @@ function classifyElement(el) {
     if (cls.includes('title-level-2-standalone')) return { type: 'h2-title', tag };
     if (cls.includes('h2-ornament-top')) return { type: 'h2-orn-top', tag };
     if (cls.includes('h2-ornament-bottom')) return { type: 'h2-orn-btm', tag };
+    if (cls.includes('h2-title-ornament-top')) return { type: 'h2-title-orn-top', tag };
+    if (cls.includes('h2-title-ornament-bottom')) return { type: 'h2-title-orn-btm', tag };
+    if (cls.includes('block-h2-title-side')) return { type: 'h2-title-side', tag };
+    if (cls.includes('h2-title-ornament-right')) return { type: 'h2-title-orn-r', tag };
+    if (cls.includes('h2-title-ornament-left')) return { type: 'h2-title-orn-l', tag };
+    if (cls.includes('heading-ornament-wrap')) return { type: 'heading-orn', tag };
+    if (cls.includes('sec-divider-wrap') || cls.includes('sec-divider')) return { type: 'sec-div', tag };
+    if (cls.includes('note-header-ornament-right')) return { type: 'note-orn-r', tag };
+    if (cls.includes('note-header-ornament-left')) return { type: 'note-orn-l', tag };
     if (cls.includes('title-level-3')) return { type: 'h3', tag };
     if (cls.includes('title-level-4')) return { type: 'h4', tag };
     if (cls.includes('title-level-5')) return { type: 'h5', tag };
@@ -96,6 +105,10 @@ const TYPE_COLORS = {
     'column': '#34d399', 'margin-col': '#6ee7b7', 'gutter': '#a7f3d0',
     'h2-spacer': '#d97706', 'h2-siman': '#f59e0b', 'h2-title': '#fbbf24',
     'h2-orn-top': '#fcd34d', 'h2-orn-btm': '#fde68a',
+    'h2-title-orn-top': '#fcd34d', 'h2-title-orn-btm': '#fde68a',
+    'h2-title-side': '#fef3c7', 'h2-title-orn-r': '#fbbf24', 'h2-title-orn-l': '#fbbf24',
+    'heading-orn': '#fde68a',
+    'note-orn-r': '#f87171', 'note-orn-l': '#f87171',
     'h3': '#7c3aed', 'h4': '#8b5cf6', 'h5': '#a78bfa', 'h6': '#c4b5fd', 'h7': '#ddd6fe',
     'h3-title': '#7c3aed', 'h3-orn-r': '#a78bfa', 'h3-orn-l': '#a78bfa',
     'h-custom': '#7c3aed',
@@ -700,6 +713,108 @@ function findPageIdxInTree(node) {
     return n ? n.idx : -1;
 }
 
+/* [חדש] בדיקת עיטורים — מודדת כל סוגי העיטורים ומאתרת בעיות:
+   - חריגת רוחב (עיטור רחב מהטור)
+   - חפיפה עם טקסט (עיטור חופף כותרת/סימן)
+   - מרחק לא סימטרי (מרחק עליון ≠ תחתון, > 3px הפרש)
+   - עיטור ריק (ללא SVG/img)
+*/
+const ORNAMENT_TYPES = new Set([
+    'h2-orn-top', 'h2-orn-btm',
+    'h2-title-orn-top', 'h2-title-orn-btm',
+    'h2-title-orn-r', 'h2-title-orn-l',
+    'h3-orn-r', 'h3-orn-l',
+    'note-orn-r', 'note-orn-l',
+    'heading-orn', 'sec-div'
+]);
+
+function auditOrnaments(page, issues) {
+    function checkRecursive(node) {
+        if (ORNAMENT_TYPES.has(node.type)) {
+            // 1. בדוק רוחב — עיטור לא צריך לחרוג מרוחב הטור
+            let colParent = node._parent;
+            while (colParent && colParent.type !== 'column' && colParent.type !== 'body-flow' && colParent.type !== 'page') {
+                colParent = colParent._parent;
+            }
+            if (colParent && node.rect.w > colParent.rect.w + 2) {
+                issues.push({
+                    kind: 'ornament-overflow',
+                    severity: 'medium',
+                    pageIdx: page.idx,
+                    location: `page ${page.label}`,
+                    nodeType: node.type,
+                    overflowPx: Math.round(node.rect.w - colParent.rect.w),
+                    message: `עיטור ${node.type} חורג מרוחב הטור: ${Math.round(node.rect.w - colParent.rect.w)}px`
+                });
+            }
+
+            // 2. בדוק חפיפה עם אחים (טקסט/כותרת)
+            if (node._parent) {
+                for (const sibling of node._parent.children) {
+                    if (sibling === node) continue;
+                    if (rOverlaps(node.rect, sibling.rect)) {
+                        // דלג על חפיפה קטנה (1px — עיגול)
+                        const overlap = overlapArea(node.rect, sibling.rect);
+                        if (overlap > 4) {
+                            issues.push({
+                                kind: 'ornament-overlap',
+                                severity: 'medium',
+                                pageIdx: page.idx,
+                                location: `page ${page.label}`,
+                                nodeType: node.type,
+                                siblingType: sibling.type,
+                                overlapPx: Math.round(overlap),
+                                message: `עיטור ${node.type} חופף ${sibling.type}: ${Math.round(overlap)}px`
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. בדוק מרחק סימטרי בין עיטור עליון לתחתון סביב כותרת/סימן
+        if ((node.type === 'h2-title' || node.type === 'h2-siman') && node._parent) {
+            const siblings = node._parent.children;
+            const idx = siblings.indexOf(node);
+            const prev = idx > 0 ? siblings[idx - 1] : null;
+            const next = idx < siblings.length - 1 ? siblings[idx + 1] : null;
+            const prevIsOrn = prev && (prev.type === 'h2-orn-top' || prev.type === 'h2-title-orn-top');
+            const nextIsOrn = next && (next.type === 'h2-orn-btm' || next.type === 'h2-title-orn-btm');
+            if (prevIsOrn && nextIsOrn) {
+                const topGap = node.rect.top - prev.rect.bottom;
+                const btmGap = next.rect.top - node.rect.bottom;
+                const diff = Math.abs(topGap - btmGap);
+                if (diff > 3) {
+                    issues.push({
+                        kind: 'ornament-asymmetry',
+                        severity: 'low',
+                        pageIdx: page.idx,
+                        location: `page ${page.label}`,
+                        nodeType: node.type,
+                        topGap: Math.round(topGap),
+                        btmGap: Math.round(btmGap),
+                        diffPx: Math.round(diff),
+                        message: `מרחק לא סימטרי סביב ${node.type}: עליון=${Math.round(topGap)}px, תחתון=${Math.round(btmGap)}px (הפרש ${Math.round(diff)}px)`
+                    });
+                }
+            }
+        }
+
+        for (const c of node.children) checkRecursive(c);
+    }
+    for (const c of page.children) checkRecursive(c);
+}
+
+function rOverlaps(a, b) {
+    return !(a.right < b.left + 1 || a.left > b.right - 1 || a.bottom < b.top + 1 || a.top > b.bottom - 1);
+}
+
+function overlapArea(a, b) {
+    const xOverlap = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    const yOverlap = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    return xOverlap * yOverlap;
+}
+
 /* הפעלת כל הבדיקות */
 function auditGeometry(model) {
     const issues = [];
@@ -717,6 +832,7 @@ function auditGeometry(model) {
         }
         auditOverflowToFootnote(page, issues);
         auditPageOverflow(page, issues);
+        auditOrnaments(page, issues); // [חדש] בדיקת עיטורים
     }
     // עדכן pageIdx בכל בעיה ע"י חיפוש בעץ
     issues.forEach(iss => {

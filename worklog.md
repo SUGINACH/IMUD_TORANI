@@ -2894,3 +2894,32 @@ Stage Summary:
 - 6 תיקונים אושרו על-ידי המשתמש
 - 3 תיקונים (רוחב + מרחק) בבדיקה / טרם אושרו
 - תבניות חוזרות זוהו ותועדו
+
+---
+Task ID: ornaments-audit-dividers-shaar
+Agent: main (GLM)
+Task: 4 בקשות — מרחק סימטרי + מדידת עיטורים בגיאומטריה + עיטורי הפרדה + עיטורי שער
+
+Work Log:
+- **בקשה 0 — מרחק סימטרי**: פישטתי את ה-CSS. עכשיו margin: 6px auto על כל העיטורים, עם :first-child ו-:last-child למקרי קצה. padding-bottom: 0.1em על כותרת/סימן כשיש עיטור תחתון (מפצה על descenders).
+
+- **בקשה 1 — מדידת עיטורים במנוע הגיאומטרי**:
+  - הוספתי 9 סוגי עיטורים חדשים ל-classifyElement (h2-title-orn-top/btm, h2-title-side, h2-title-orn-r/l, heading-orn, note-orn-r/l).
+  - הוספתי צבעים לכל הסוגים החדשים.
+  - כתבתי פונקציית auditOrnaments שבודקת: חריגת רוחב, חפיפה עם טקסט, מרחק לא סימטרי.
+  - הוספתי קריאה ל-auditOrnaments ב-auditGeometry.
+
+- **בקשה 2.1 — עיטורי הפרדה בין קטעי כותרת**:
+  - HTML: הוספתי 7 select חדשים (heading-divider-h1 עד h7) עם optgroups מ-JSON.
+  - app.js: טעינת עיטורי הפרדה מ-section_dividers.json לכל 7 הרמות.
+  - renderer-bridge.js + default_settings.json: הוספתי את 9 ההגדרות החדשות.
+  - decorations.js: פונקציה חדשה getHeadingDividerHTML (גרסה פשוטה של getSectionDividerHTML).
+  - typesetter.js: מעקב אחרי lastHeadingSeen (כותרת קודמת מכל רמה) + הכנסת עיטור לפני כותרת חדשה מאותה רמה (בשני המקומות: h0 וגוף ראשי). הסרה נכונה ב-rollback.
+
+- **בקשה 2.2 — עיטורי שער ראשי ומשנה**:
+  - HTML: 2 select חדשים (shaar-main-divider, shaar-sub-divider).
+  - decorations.js: renderMainShaar ו-renderSubShaar משתמשים בעיטור מוגדר, עם fallback ל-SVG המקורי.
+
+Stage Summary:
+- 4 בקשות מומשו.
+- קבצים שהשתנו: index.html, app.js, typesetter.js, decorations.js, geometry-audit.js, renderer-bridge.js, default_settings.json, style.css.

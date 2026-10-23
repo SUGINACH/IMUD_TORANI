@@ -874,7 +874,26 @@ function rollbackTrailingHeadings(col) {
         n++;
         last = col.lastElementChild;
     }
+    // [חדש] הסר גם עיטור הפרדה שהיה לפני הכותרת שהוסרה
+    last = col.lastElementChild;
+    if (last && last.classList.contains('heading-divider-wrap')) {
+        col.removeChild(last);
+        n++;
+    }
     return n;
+}
+
+/* [חדש] בודק אם צריך להכניס עיטור הפרדה לפני כותרת חדשה.
+   מחזיר את ה-HTML של העיטור, או '' אם לא צריך.
+   - level: רמת הכותרת החדשה
+   - lastHeadingSeen: אובייקט שמכיל את הכותרת הקודמת מכל רמה
+   - מחזיר עיטור רק אם יש כותרת קודמת מאותה רמה */
+function maybeGetHeadingDivider(level, lastHeadingSeen) {
+    if (!lastHeadingSeen || !lastHeadingSeen[level]) return '';
+    const dividerType = document.getElementById('heading-divider-h' + level)?.value || 'none';
+    if (dividerType === 'none') return '';
+    if (typeof getHeadingDividerHTML !== 'function') return '';
+    return getHeadingDividerHTML(dividerType);
 }
 
 /* מספר השורות המרבי של פסקה שנכנס בטור (נמדד בפועל, כולל סימוני הערות ועיצוב תוחמים).
@@ -3374,6 +3393,8 @@ function typesetDocumentCore() {
     let currentH2Title = '';
     let currentH3Title = '';
     let currentH4Title = '';
+    // [חדש] מעקב אחרי הכותרת הקודמת מכל רמה — לעיטורי הפרדה
+    const lastHeadingSeen = {1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null};
 
     const bookTitle = document.getElementById('inp-book-title')?.value || "ספר";
     const showMainShaar = document.getElementById('show-main-shaar')?.checked ?? true;
@@ -3745,6 +3766,15 @@ function typesetDocumentCore() {
                     let currentTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
 
                     if (currentTok.type.startsWith('h')) {
+                        // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה
+                        const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
+                        if (dividerHTML) {
+                            const divEl = document.createElement('div');
+                            divEl.innerHTML = dividerHTML;
+                            const divChild = divEl.firstElementChild;
+                            if (divChild) targetCol.appendChild(divChild);
+                        }
+
                         if (currentTok.level === 3) currentH3Title = currentTok.text;
                         if (currentTok.level === 4) currentH4Title = currentTok.text;
                         const hElem = document.createElement('div');
@@ -3762,15 +3792,23 @@ function typesetDocumentCore() {
 
                         if (targetCol.scrollHeight > (remPageHeight - reservedNow()) && targetCol.children.length > 1) {
                             targetCol.removeChild(hElem);
+                            // [חדש] הסר גם את עיטור ההפרדה אם הוכנס
+                            const lastDiv = targetCol.lastElementChild;
+                            if (lastDiv && lastDiv.classList.contains('heading-divider-wrap')) {
+                                targetCol.removeChild(lastDiv);
+                            }
                             tokenIndex -= rollbackTrailingHeadings(targetCol);
                             break;
                         }
                         headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
+                        // [חדש] עדכן את הכותרת הקודמת מרמה זו
+                        lastHeadingSeen[currentTok.level] = currentTok.id;
                         tokenIndex++;
                         continue;
                     }
 
                     if (currentTok.type === 'p') {
+                        // [חדש] lastHeadingSeen נשמר כדי לזהות את הכותרת הבאה מאותה רמה
                         // [תיקון] מעבירים willParenWrap (למדידה) — לא insideParen
                         let linesInfo = getLinesFromParagraph(currentTok.text, h0ColWidth, h0Style, true, false, willParenWrapToken(currentTok));
                         let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
@@ -3963,6 +4001,15 @@ function typesetDocumentCore() {
                         }
 
                         if (currentTok.type.startsWith('h')) {
+                            // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה
+                            const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
+                            if (dividerHTML) {
+                                const divEl = document.createElement('div');
+                                divEl.innerHTML = dividerHTML;
+                                const divChild = divEl.firstElementChild;
+                                if (divChild) targetCol.appendChild(divChild);
+                            }
+
                             if (currentTok.level === 3) currentH3Title = currentTok.text;
                             if (currentTok.level === 4) currentH4Title = currentTok.text;
                             const hElem = document.createElement('div');
@@ -3981,6 +4028,11 @@ function typesetDocumentCore() {
 
                             if (targetCol.scrollHeight > (remPageHeight - reservedNow()) && targetCol.children.length > 1) {
                                 targetCol.removeChild(hElem);
+                                // [חדש] הסר גם את עיטור ההפרדה אם הוכנס
+                                const lastDiv = targetCol.lastElementChild;
+                                if (lastDiv && lastDiv.classList.contains('heading-divider-wrap')) {
+                                    targetCol.removeChild(lastDiv);
+                                }
                                 tokenIndex -= rollbackTrailingHeadings(targetCol);
                                 break;
                             }
@@ -3988,6 +4040,8 @@ function typesetDocumentCore() {
                             if (!headingPageMap[currentTok.id]) {
                                 headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
                             }
+                            // [חדש] עדכן את הכותרת הקודמת מרמה זו
+                            lastHeadingSeen[currentTok.level] = currentTok.id;
                             tokenIndex++;
                             continue;
                         }

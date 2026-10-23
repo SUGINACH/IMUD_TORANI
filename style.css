@@ -1582,9 +1582,9 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     object-fit: contain;
 }
 
-/* [תיקון] מרחק סימטרי בין עיטורים לטקסט — 8px מכל צד.
-   קודם, margin-collapse מבלבל גרם למרחק שונה בין עליון לתחתון.
-   עכשיו: padding על ה-wrap החיצוני מונע margin-collapse, ו-margin אחיד. */
+/* [תיקון] מרחק סימטרי בין עיטורים לטקסט — 6px מכל צד.
+   גישה פשוטה: margin שווה + line-height:1 על העיטור עצמו (לא על הכותרת).
+   העיטור מתייחס לטקסט כאילו הוא באותה שורה, וה-margin יוצר רווח אחיד. */
 .h2-ornament-top,
 .h2-ornament-bottom,
 .h2-title-ornament-top,
@@ -1592,18 +1592,18 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
-    padding: 4px 0 !important; /* padding מונע margin-collapse מה-wrap הפנימי */
     line-height: 1 !important;
+    margin: 6px auto !important;
 }
 
-.h2-ornament-top,
-.h2-title-ornament-top {
-    margin: 0 0 8px 0 !important;
+.h2-ornament-top:first-child,
+.h2-title-ornament-top:first-child {
+    margin-top: 0 !important;
 }
 
-.h2-ornament-bottom,
-.h2-title-ornament-bottom {
-    margin: 8px 0 25px 0 !important;
+.h2-ornament-bottom:last-child,
+.h2-title-ornament-bottom:last-child {
+    margin-bottom: 25px !important;
 }
 
 /* [תיקון] בטל את margin הפנימי של heading-ornament-wrap — הוא גרם ל-margin-collapse */
@@ -1613,18 +1613,13 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     line-height: 0;
 }
 
-/* [תיקון] מרחק סימטרי מאותיות רגילות (x-height) — לא מ-descenders.
-   עובד רק כשיש עיטורים (כדי לא להזיז כותרות בלי עיטורים).
-   padding-top גדול מ-padding-bottom מפצה על ascender > descender. */
-.h2-ornament-top + .h2-siman-badge,
-.h2-ornament-top + .title-level-2-standalone,
+/* [תיקון] איזון descenders — padding-bottom קטן על הכותרת/סימן כשיש עיטור תחתון.
+   זה מפצה על כך ש-descenders (כמו ן סופית) מאריכים את הטקסט כלפי מטה. */
 .h2-siman-badge:has(+ .h2-ornament-bottom),
 .title-level-2-standalone:has(+ .h2-ornament-bottom),
-.h2-ornament-top + .h2-siman-badge,
-.h2-title-ornament-top + .title-level-2-standalone,
+.h2-siman-badge:has(+ .h2-title-ornament-bottom),
 .title-level-2-standalone:has(+ .h2-title-ornament-bottom) {
-    padding-top: 0.15em !important;
-    padding-bottom: 0.05em !important;
+    padding-bottom: 0.1em !important;
 }
 
 /* כוונון אינטראקטיבי של תיבות שער בעכבר */

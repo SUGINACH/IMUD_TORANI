@@ -1355,6 +1355,13 @@ async function loadExternalJSONAssets() {
                 } else if (asset.type === 'divider') {
                     registerExternalDivider(item.id, item.svg);
                     appendOptionToSelect('section-divider-style', item.id, item.name, 'עיטורי סיום מ-JSON', 'sec-div-json-optgroup');
+                    // [חדש] עיטורי הפרדה בין קטעי כותרות (מאותו קובץ JSON)
+                    for (let lvl = 1; lvl <= 7; lvl++) {
+                        appendOptionToSelect('heading-divider-h' + lvl, item.id, item.name, 'עיטורי הפרדה מ-JSON', 'h' + lvl + '-divider-json-optgroup');
+                    }
+                    // [חדש] עיטורי שער ראשי ומשנה (מאותו קובץ JSON)
+                    appendOptionToSelect('shaar-main-divider', item.id, item.name, 'עיטורים מ-JSON', 'shaar-main-divider-json-optgroup');
+                    appendOptionToSelect('shaar-sub-divider', item.id, item.name, 'עיטורים מ-JSON', 'shaar-sub-divider-json-optgroup');
                 } else if (asset.type === 'note_rule') {
                     registerExternalNoteRule(item.id, item.svg);
                     appendOptionToSelect('note-rule-style', item.id, item.name, 'מפרידים מ-JSON', 'note-rules-json-optgroup');
