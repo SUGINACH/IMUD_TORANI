@@ -1656,9 +1656,28 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     }
 
     // ---- 5. יישור עדין של הבסיס התחתון ----
+    // The selected split may fit exactly; a final line-height justification can still
+    // increase rendered paragraph/outer-box height. Snapshot attributes and roll back
+    // that cosmetic adjustment if it violates the hard fit constraint.
+    const beforeFinalJustify = Array.from(block.querySelectorAll('*')).map(el =>
+        [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
     const finalDiff = rCol.scrollHeight - lCol.scrollHeight;
     if (finalDiff > 0.5) justifyColumnVertically(lCol, rCol.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
     else if (finalDiff < -0.5) justifyColumnVertically(rCol, lCol.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+
+    const postJustifyInner = Math.max(rCol.scrollHeight, lCol.scrollHeight);
+    const postJustifyOuter = block.getBoundingClientRect().height;
+    const justifyOverflows = postJustifyInner > availableHeight + 0.5 || postJustifyOuter > availableHeight + 0.5;
+    if (best.fits && justifyOverflows) {
+        for (const [el, attrs] of beforeFinalJustify) {
+            for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+            for (const [name, value] of attrs) el.setAttribute(name, value);
+        }
+        block.setAttribute('data-layout-balance-final-justify-rolled-back', 'true');
+        repositionBlockNotes(block, Math.max(rCol.scrollHeight, lCol.scrollHeight));
+    } else {
+        block.setAttribute('data-layout-balance-final-justify-rolled-back', 'false');
+    }
 
     finalizeNotePositions(finalNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
     return { rH: rCol.scrollHeight, lH: lCol.scrollHeight, fits: Math.max(rCol.scrollHeight, lCol.scrollHeight) <= availableHeight };
