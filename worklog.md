@@ -2782,9 +2782,12 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Replaced `blk.closest('.body-flow')` with `blk.closest('.page-body-flow')` in `typesetter.js`.
 - Code commit: `f743f3c6a22deb36207168dfa5f9ef8cabed080f`.
 
-### Validation status
-- Static selector check: the global pass now targets the actual DOM class used by `createPageLayout()`.
-- The full long-document audit has not yet been observed after this commit. Required next validation: confirm the CLI and long-document workflow complete; inspect containment, page-95 balance, footnote metrics, and repeat-render determinism. Do not infer success from the code change alone.
+### Validation results
+- The full long-document workflow completed successfully on code commit `f743f3c6a22deb36207168dfa5f9ef8cabed080f`: 601 pages, repeat-render determinism PASS (identical SHA-256 page-layout signatures), 0 HIGH / 37 MEDIUM / 48 LOW issues.
+- Footnote measurement audit: 59 pages with footnote areas; exact queue matches 59/59; maximum absolute measured-vs-actual difference 0px.
+- Printed page צ״ה (pageIdx 94) has no imbalance issue in this report. Important attribution: the preceding `be41c316` report already had no issue at pageIdx 94, so the disappearance of the old 42.44px HIGH imbalance is attributable to the earlier safe subpixel-equalization change, not to this selector correction.
+- Compared with the immediately preceding `be41c316` report (84 issues; 0 HIGH / 37 MEDIUM / 47 LOW), this run has one additional LOW imbalance at pageIdx 237 (right 621px, left 630px, rounded gap 8px). Containment issue count remains 38; some measured small bottom overflows changed by subpixel amounts. This is not a high-severity regression, but its cause should be inspected rather than ignored.
+- A follow-up diagnostic-only CLI change at `dc0ccb9652936bf068fd0ca286e8b4fe0da5e0b0` now exports layout diagnostics for residual column gaps above 5px (instead of only gaps above 30px); its smoke workflow passed. The corresponding long-document diagnostic run is in progress at the time of this entry.
 
 ### Branch safety
 - Change is confined to `V23`. No merge into `V21`; `V21` remains a separate parallel development branch.
