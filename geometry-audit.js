@@ -1135,6 +1135,19 @@ function extractGeometryWithDomRefs() {
             idx: pIdx,
             label: (pgEl.querySelector('.page-number-footer')?.textContent?.trim() || String(pIdx + 1)),
             rect: pgRect,
+            // Page metrics must be read from pgEl here: the page itself is represented
+            // by this synthetic node, while buildNodeWithRefs starts at the wrapper.
+            footnoteReflowMetrics: {
+                queueCount: pgEl.getAttribute('data-fn-reflow-queue-count'),
+                predictedHeight: pgEl.getAttribute('data-fn-reflow-predicted-height'),
+                beforeFlowHeight: pgEl.getAttribute('data-fn-reflow-before-flow-height'),
+                afterFlowHeight: pgEl.getAttribute('data-fn-reflow-after-flow-height'),
+                flowHeightDelta: pgEl.getAttribute('data-fn-reflow-flow-height-delta'),
+                beforeLastBlockHeight: pgEl.getAttribute('data-fn-reflow-before-last-block-height'),
+                afterLastBlockHeight: pgEl.getAttribute('data-fn-reflow-after-last-block-height'),
+                afterLastBlockOverflow: pgEl.getAttribute('data-fn-reflow-after-last-block-overflow'),
+                lastBlockTopOffset: pgEl.getAttribute('data-fn-reflow-last-block-top-offset')
+            },
             children: [],
             issues: [],
             type: 'page'
