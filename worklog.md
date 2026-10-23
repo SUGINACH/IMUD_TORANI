@@ -2592,3 +2592,30 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - All changes remain on `V23`; no merge into `V21`.
+
+
+## Task ID: v23-post-layout-outer-fit-guard-2026-10-23
+**Agent:** ChatGPT
+**Date:** 2026-10-23
+**Task:** Use the completed retry/balance diagnostics to reduce remaining severe block overflow and make the final layout decision observable.
+
+### Evidence from the long-document audit at `6d0df62750edba5b480f22ec67af37583729e537`
+- Determinism passed: 601 pages in both renders, identical hash `399af509b25010324c4d4379f20eac774f395c0addb2fde6e539f8bfbdc783dd`.
+- The report contained 93 issues (2 high, 34 medium, 57 low), down from 100 issues (7 high, 33 medium, 60 low) in the preceding audited commit. The long-document workflow still failed because `failOn: high` is configured.
+- Two remaining high-severity overflows are on page indices 83 and 444 (printed labels in the DOM are פד and תמה): outer block overflow is approximately 29.94px and 29.34px.
+- Both detailed diagnostics had no `data-layout-balance-called` attribute, and their rendered columns reached about 945px against a body-flow height of about 915px. This indicates the overflow was not corrected by the existing balance call path; it does not by itself prove the exact mutation that first caused it.
+- Footnote area measurement was consistent in the report: 59/59 exact queue matches, no matched sample differed from the measured height by more than 5px. This does not eliminate late-state or retry-control-flow problems, but it means the broad measurement discrepancy from an earlier run was not reproduced in this report.
+
+### Changes
+- `typesetter.js`: added a hard postcondition after the normal fill/light-justification branch. It checks both the rendered outer block height and the maximum inner column scroll height against the actual available height. If either exceeds the limit, it records the measured overflow and reruns deterministic `balanceColumns()` with available height reduced by the measured outer-box overhead.
+- `tools/geometry-audit-cli.js`: added serialization of `data-layout-postfit-triggered`, `data-layout-postfit-outer-overflow`, and `data-layout-postfit-inner-overflow` to the detailed overflow report, so the next audit can show whether the new guard triggered on the remaining severe pages.
+- New commit with the guard: `831cbc051056cfd197d46b9b95b529c978167644`.
+- New commit with report serialization: `c86ed12f7adf80279c7dc94797d53f8ef204cdec`.
+
+### Validation status
+- Geometry audit CLI workflow passed on commit `6d0df62750edba5b480f22ec67af37583729e537`.
+- For commits `831cbc051056cfd197d46b9b95b529c978167644` and `c86ed12f7adf80279c7dc94797d53f8ef204cdec`, new CLI and long-document workflows were queued/running at the time of this entry. No claim is made that the new guard has fixed the severe overflows until the corresponding long-document report is inspected.
+
+### Branch safety
+- All changes remain on `V23`; no merge into `V21`.
+- `V21` remains untouched; last observed head is `f4863540203ceb29d42d710bf8780b545a2b87a4`.
