@@ -333,7 +333,8 @@ async function main() {
                                 'data-layout-balance-input-height','data-layout-balance-available','data-layout-balance-candidates','data-layout-balance-items',
                                 'data-layout-balance-fits','data-layout-balance-valid','data-layout-balance-over',
                                 'data-layout-balance-right','data-layout-balance-left','data-layout-balance-diff',
-                                'data-layout-balance-right-part-lines','data-layout-balance-left-part-lines'
+                                'data-layout-balance-right-part-lines','data-layout-balance-left-part-lines',
+                                'data-layout-postfit-triggered','data-layout-postfit-outer-overflow','data-layout-postfit-inner-overflow'
                             ].map(k => [k, el.getAttribute(k)])),
                             style: { display: cs.display, height: cs.height, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom },
                             columns: ['.right-col','.left-col'].map(sel => {
