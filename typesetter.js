@@ -4470,7 +4470,7 @@ function typesetDocumentCore() {
             // per-page hard-fit guard, so it must never make an already-laid-out block taller.
             const outerBefore = blk.getBoundingClientRect().height;
             const innerBefore = Math.max(rH, lH);
-            const flowForGlobalJustify = blk.closest('.body-flow');
+            const flowForGlobalJustify = blk.closest('.page-body-flow');
             const flowBottomBefore = flowForGlobalJustify
                 ? flowForGlobalJustify.getBoundingClientRect().bottom : null;
             const flowMaxChildBottomBefore = flowForGlobalJustify
