@@ -2834,3 +2834,22 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - Changes remain on `V23` only. Do not merge with `V21`.
+
+## V23 — preserve side-note fit correction evidence in the CLI report
+**Date:** 2026-10-23
+
+### Finding
+- The full production-default run at `29fe8a7f30b814e6bea25266f8c6c1e8658be8cb` completed deterministically on 627 pages with 0 HIGH, 26 MEDIUM, and 41 LOW issues; footnote measurement matched exactly on 60/60 pages.
+- The report's Markdown said “No side-note fit adjustments were needed,” but code inspection found the CLI did not copy `model.sideNoteFitCorrections` from `window.__geomAudit.extract()` into its serialized report object. Therefore that sentence was not supported by the data and must not be treated as proof that no correction was applied or blocked.
+
+### Fix
+- `tools/geometry-audit-cli.js`: include `sideNoteFitCorrections: model.sideNoteFitCorrections || []` in the browser-evaluation result. The report will now show each recorded shift or blocked correction instead of silently defaulting to an empty list.
+- This is a diagnostics/report-integrity fix only. It does not change typesetting, note positions, severity thresholds, or issue classification.
+
+### Validation required
+- Run the CLI smoke test and the full 627-page production-default audit. Verify repeat-render determinism and inspect the serialized correction list and Markdown section.
+- Do not claim the side-note fit adjustment evidence is complete until the new report has been inspected.
+
+### Branch safety
+- Changes remain on `V23` only. Do not merge with `V21`.
+

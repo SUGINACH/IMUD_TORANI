@@ -297,6 +297,9 @@ async function main() {
                 summary:audit.summary, issues:audit.issues, stats:model.stats, model:clean,
                 footnoteMeasurementAudit:fnAudit, fontsStatus:document.fonts ? document.fonts.status : 'unknown',
                 fontPreflight:window.__fontPreflight || null,
+                // Preserve fit-correction evidence from extractGeometry() in the report; otherwise
+                // the Markdown summary incorrectly defaults to 'no adjustments were needed'.
+                sideNoteFitCorrections: model.sideNoteFitCorrections || [],
                 // Read these directly from the live DOM. The default report intentionally
                 // omits the full extracted page tree, so synthetic-node fields alone would
                 // otherwise be lost from geometry-audit.json.
