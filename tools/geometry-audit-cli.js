@@ -98,6 +98,17 @@ function markdown(r) {
           ' | ' + (x.measuredProbeWidth ?? 'n/a') + ' | ' + (x.measuredAreaWidth ?? 'n/a') + ' |');
       }
     }
+    const noteCorrections = Array.isArray(r.geometry.sideNoteFitCorrections) ? r.geometry.sideNoteFitCorrections : [];
+    lines.push('', '## Side-note fit adjustments', '');
+    if (!noteCorrections.length) lines.push('No side-note fit adjustments were needed.');
+    else for (const x of noteCorrections) {
+      const action = String(x.correction || '');
+      const description = action.startsWith('blocked-')
+        ? 'not moved (' + action + ')'
+        : action + ' by ' + x.shiftPx + 'px';
+      lines.push('- Page ' + (x.pageLabel || x.pageIdx) + ' — token ' + (x.tokenId || 'unknown') +
+        ': ' + description + '; note height ' + (x.rect?.h ?? 'n/a') + 'px.');
+    }
     lines.push('', '## Issues', '');
     if (!r.audit.issues.length) lines.push('No issues reported by the current geometry audit.');
     else for (const i of r.audit.issues) lines.push('- **' + String(i.severity || 'unknown').toUpperCase() +
@@ -404,7 +415,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
