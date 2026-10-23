@@ -2728,3 +2728,21 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - All changes remain on `V23`; `V21` is an independent parallel branch and must not be merged.
+
+
+## V23 — align global-justify overshoot correction with hard rollback tolerance
+**Date:** 2026-10-23
+
+### Code-level finding
+- In the final global balancing pass, the postcondition rolls back if the tallest column grows by more than 0.5px. However, the pre-rollback correction called `shrinkColumnVertically` only when overshoot exceeded 1.5px. That left an inconsistent 0.5–1.5px interval: a small overshoot was not corrected, but still triggered rollback, potentially discarding a near-complete equalization and restoring a much larger gap.
+- The long-document report at `5a509b2472537a8f9e64148f88d12f68a566c165` establishes the remaining high imbalance (42.44px) and confirms the global pass was rolled back. The dedicated before/after diagnostic run is still needed to establish the exact overshoot size; this patch addresses the tolerance mismatch without weakening the hard-fit postcondition.
+
+### Change
+- `typesetter.js`: lower the two final global-pass overshoot-correction thresholds from 1.5px to 0.5px, matching the hard rollback tolerance. The same hard postcondition remains active; this change does not permit an over-tall block to survive.
+- Code commit: `78919c08ecafe66bbd2a77744dbb57203b1e4e62`.
+
+### Validation required
+- The new long-document run must verify whether page צ״ה now balances and whether any rollback still occurs. Confirm 601-page repeat-render determinism, no new high-severity issues, and no regression in containment/widow/sparse-line/side-note metrics. If the high imbalance remains, use the recorded attempted heights and rollback reason rather than weakening the hard-fit guard.
+
+### Branch safety
+- All changes remain on `V23`; do not merge with `V21`.
