@@ -2688,3 +2688,22 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - Changes remain on `V23`; no merge into `V21`.
+
+
+## V23 — follow-up audit: severe overflow reduced; capture the remaining high imbalance
+**Date:** 2026-10-23
+
+### Results at `c00be35e00b42fc44b190f3c785e364222ce51a5`
+- The long-document audit completed with 601 pages and repeat-render determinism PASS (identical hash across both renders).
+- Issue counts changed from 98 (4 high, 35 medium, 59 low) at `9671d600` to 93 (1 high, 43 medium, 49 low). The former high-severity containment failures on printed pages פ״ד and תמ״ה are no longer high: page פ״ד now has only a 9.94px low-severity overflow; page תמ״ה no longer has a containment issue, though its columns still differ by 14px.
+- Footnote measurement remains exact for all 59/59 queue matches, maximum difference 0px.
+- The remaining high-severity issue is column imbalance on printed page 94: right=464px, left=421px, reported gap=42px. The report did not include the block's layout attributes because diagnostics were emitted only for body-flow overflow greater than 15px. Therefore the exact reason the late equalization pass failed to close this gap was not yet observable.
+
+### Change
+- `tools/geometry-audit-cli.js`: emit detailed layout diagnostics when either body-flow overflow exceeds 15px **or** absolute column-height difference exceeds 30px. Include explicit `columnBalance` measurements, so a severe imbalance can be investigated even when the block fits inside body-flow.
+- Diagnostic commit: `5a509b2472537a8f9e64148f88d12f68a566c165`.
+
+### Next validation
+- Inspect the new page-94 diagnostics, especially `data-layout-global-justify-rolled-back`, `data-layout-page-final-justify-rolled-back`, per-column paragraph line heights/padding, and whether the final difference persists after the cross-paragraph-parentheses pass.
+- Do not lower the high-severity threshold. Keep the remaining imbalance as a real failure until the layout cause is fixed and the long-document audit passes.
+- Keep all work on `V23`; do not merge with `V21`.
