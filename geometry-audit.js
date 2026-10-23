@@ -267,7 +267,8 @@ function buildNode(el, parent, pageOffset) {
             balanceOver: el.getAttribute('data-layout-balance-over'),
             balanceRight: el.getAttribute('data-layout-balance-right'),
             balanceLeft: el.getAttribute('data-layout-balance-left'),
-            balanceDiff: el.getAttribute('data-layout-balance-diff')
+            balanceDiff: el.getAttribute('data-layout-balance-diff'),
+            pageFinalJustifyDiagnostic: el.getAttribute('data-layout-page-final-justify-diagnostic')
         } : null,
         parentType: parent ? parent.type : null
     };
@@ -1306,7 +1307,8 @@ function buildNodeWithRefs(el, parent) {
             balanceOver: el.getAttribute('data-layout-balance-over'),
             balanceRight: el.getAttribute('data-layout-balance-right'),
             balanceLeft: el.getAttribute('data-layout-balance-left'),
-            balanceDiff: el.getAttribute('data-layout-balance-diff')
+            balanceDiff: el.getAttribute('data-layout-balance-diff'),
+            pageFinalJustifyDiagnostic: el.getAttribute('data-layout-page-final-justify-diagnostic')
         } : null,
         parentType: parent ? parent.type : null,
         _parent: parent  // [תיקון] חיוני כדי שgetPageIdx יעבוד
