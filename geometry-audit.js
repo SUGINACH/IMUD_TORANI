@@ -584,6 +584,9 @@ function auditWidowOrphan(node, issues) {
             // An orphan is the first line of a paragraph stranded at the bottom
             // of a column while the same paragraph continues in the next column/page.
             if (last.lines.length === 1 && last.type === 'p-cut') {
+                const lastEl = _nodeToEl.get(last);
+                const splitAttr = name => lastEl?.getAttribute(name) ?? null;
+                const cs = lastEl ? getComputedStyle(lastEl) : null;
                 issues.push({
                     kind: 'orphan',
                     severity: 'medium',
@@ -591,6 +594,21 @@ function auditWidowOrphan(node, issues) {
                     location: describePath(node),
                     tokenId: last.tokenId,
                     pText: last.text,
+                    className: last.cls,
+                    isContinuation: last.isContinuation,
+                    renderedLineCount: last.lines.length,
+                    renderedLineWidths: last.lines.map(line => Math.round(line.w * 100) / 100),
+                    splitDiagnostics: {
+                        inputLines: splitAttr('data-layout-split-input-lines'),
+                        fitLines: splitAttr('data-layout-split-fit-lines'),
+                        placedLines: splitAttr('data-layout-split-placed-lines'),
+                        minFirst: splitAttr('data-layout-split-min-first'),
+                        minLast: splitAttr('data-layout-split-min-last'),
+                        insideParen: splitAttr('data-layout-split-inside-paren'),
+                        fontSize: cs?.fontSize ?? null,
+                        lineHeight: cs?.lineHeight ?? null,
+                        textAlignLast: cs?.textAlignLast ?? null
+                    },
                     childRect: { x: Math.round(last.rect.x), y: Math.round(last.rect.y), w: Math.round(last.rect.w), h: Math.round(last.rect.h) },
                     message: `יתום: שורה ראשונה של פסקה מופיעה לבדה בתחתית טור ${node.side} ("${last.text.slice(0, 30)}...")`
                 });

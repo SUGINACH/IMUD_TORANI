@@ -2792,3 +2792,23 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - Change is confined to `V23`. No merge into `V21`; `V21` remains a separate parallel development branch.
+
+
+
+## V23 — instrument split decisions for residual one-line paragraph fragments
+**Date:** 2026-10-23
+
+### Evidence
+- The current full audit reports four one-line `p-cut` fragments at pageIdx 24, 162, 198, and 350 even though `resolveParagraphSplit()` is intended to enforce a minimum of two lines in each split fragment.
+- The final DOM audit alone cannot distinguish whether the split routine placed one line or whether a chunk that passed the split rule later collapsed to one rendered line. Do not change widow/orphan rules until that distinction is measured.
+
+### Diagnostic-only change
+- `typesetter.js`: record the split-time input line count, measured fit count, placed count, min-first/min-last rules, and inside-parenthesis state on each paragraph fragment.
+- `geometry-audit.js`: include those split-time fields, continuation status, final rendered line count/widths, and computed font metrics in each orphan issue.
+- These are data attributes and audit fields only; they must not alter CSS or the layout decision.
+
+### Validation required
+- Run the full 601-page audit and inspect all four orphan records. If split-time placed lines are at least 2 but final rendered line count is 1, trace the post-layout style/DOM mutation that changes wrapping. If split-time placed lines is 1, trace the call path that bypasses the hard minimum. Preserve deterministic output and all current overflow guards.
+
+### Branch safety
+- Changes remain on `V23` only. Do not merge with `V21`.

@@ -3932,6 +3932,14 @@ function typesetDocumentCore() {
 
                         // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
                         const placeLines = resolveParagraphSplit(lines.length, bestFitLine);
+                        // Preserve the split-time decision so the final DOM audit can detect
+                        // post-layout line-collapse that turns a legal 2-line chunk into a 1-line orphan.
+                        const splitRules = getSplitRules();
+                        pElem.setAttribute('data-layout-split-input-lines', String(lines.length));
+                        pElem.setAttribute('data-layout-split-fit-lines', String(bestFitLine));
+                        pElem.setAttribute('data-layout-split-placed-lines', String(placeLines));
+                        pElem.setAttribute('data-layout-split-min-first', String(splitRules.minFirst));
+                        pElem.setAttribute('data-layout-split-min-last', String(splitRules.minLast));
                         if (placeLines === 0) {
                             targetCol.removeChild(pElem);
                             tokenIndex -= rollbackTrailingHeadings(targetCol);
@@ -3947,6 +3955,7 @@ function typesetDocumentCore() {
                         pElem.setAttribute('data-raw-text', chunk);
                         // [חדש] העבר דגל insideParen ל-createDropWord (לדילוג על מילה ראשונה בתוך סוגריים)
                         const _insideParen = isInsideParenToken(currentTok);
+                        pElem.setAttribute('data-layout-split-inside-paren', String(_insideParen));
                         pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length, _insideParen);
                         applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
 
@@ -4166,6 +4175,14 @@ function typesetDocumentCore() {
 
                             // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
                             const placeLines = resolveParagraphSplit(lines.length, bestFitLine);
+                        // Preserve the split-time decision so the final DOM audit can detect
+                        // post-layout line-collapse that turns a legal 2-line chunk into a 1-line orphan.
+                        const splitRules = getSplitRules();
+                        pElem.setAttribute('data-layout-split-input-lines', String(lines.length));
+                        pElem.setAttribute('data-layout-split-fit-lines', String(bestFitLine));
+                        pElem.setAttribute('data-layout-split-placed-lines', String(placeLines));
+                        pElem.setAttribute('data-layout-split-min-first', String(splitRules.minFirst));
+                        pElem.setAttribute('data-layout-split-min-last', String(splitRules.minLast));
                             if (placeLines === 0) {
                                 targetCol.removeChild(pElem);
                                 tokenIndex -= rollbackTrailingHeadings(targetCol);
@@ -4181,6 +4198,7 @@ function typesetDocumentCore() {
                             pElem.setAttribute('data-raw-text', chunk);
                             // [חדש] העבר דגל insideParen ל-createDropWord
                             const _insideParen = isInsideParenToken(currentTok);
+                        pElem.setAttribute('data-layout-split-inside-paren', String(_insideParen));
                             pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length, _insideParen);
                             applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
 
