@@ -2746,3 +2746,25 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - All changes remain on `V23`; do not merge with `V21`.
+
+
+## V23 — preserve safe subpixel equalization without permitting page overflow
+**Date:** 2026-10-23
+
+### Evidence
+- Long-document audit at `78919c08ecafe66bbd2a77744dbb57203b1e4e62` still had one HIGH issue: printed page צ״ה (pageIdx 94), right column 463.75px versus left 421.31px (42.44px gap).
+- Instrumentation proved the global pass successfully reached 464px in both columns, but rollback was triggered solely because the outer grid box grew from 463.75px to 464.36px (0.61px). The tallest column's `scrollHeight` remained 464px; the block ended about 451px above the body-flow bottom.
+- This is a subpixel box/scrollHeight rounding discrepancy, not a growth of the tallest content column. The previous unconditional 0.5px outer-box rollback discarded the whole 42px balancing improvement.
+
+### Change
+- `typesetter.js`: allow outer-box growth up to 1px only when the tallest content height does not grow and the mutation does not introduce overflow past the enclosing `.body-flow` boundary. The check compares the maximum bottom edge of the flow's direct children before and after the mutation, so it also catches a later sibling being pushed beyond the page boundary.
+- Keep rollback for tallest-column growth above 0.5px, outer-box growth above 1px, or newly introduced body-flow overflow. No audit severity threshold was weakened.
+- Code commit: `be41c316c274bd776437f0ceade5a64020f33f18`.
+
+### Validation required
+- Run the Geometry audit CLI and the full 601-page long-document audit on this commit.
+- Verify page צ״ה is balanced, determinism remains PASS, footnote queue/measurement remains exact, and no high-severity issue is introduced. Compare total issue counts and containment/imbalance/side-note/orphan/sparse-line counts against the previous audit (92 total; 1 high, 42 medium, 49 low).
+- If the high issue persists, inspect the new rollback reason and actual flow-boundary measurements; do not weaken hard-fit checks or lower the audit threshold.
+
+### Branch safety
+- All changes remain on `V23`; `V21` is an independent parallel branch and must not be merged.
