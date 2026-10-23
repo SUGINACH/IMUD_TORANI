@@ -161,12 +161,13 @@ function getSectionDividerHTML(type) {
 }
 
 /* [חדש] עיטור הפרדה בין קטעי כותרות מאותה רמה.
-   גרסה פשוטה של getSectionDividerHTML — בלי grid-column, עם margin קטן יותר. */
-function getHeadingDividerHTML(type) {
+   גרסה פשוטה של getSectionDividerHTML — בלי grid-column, עם margin קטן יותר.
+   [תיקון] widthPercent — אחוז מרוחב הטור (40% כברירת מחדל). העיטור מקבל max-width
+   בלבד, כדי שלא יהיה ענק. */
+function getHeadingDividerHTML(type, widthPercent) {
     if (!type || type === 'none') return '';
-    const userW = document.getElementById('dim-secdiv-w')?.value;
-    const userH = document.getElementById('dim-secdiv-h')?.value;
-    const dimStyle = (userW ? `width: ${userW}; ` : '') + (userH ? `height: ${userH}; max-height: ${userH}; ` : '');
+    const wp = widthPercent || 40;
+    const dimStyle = `max-width: ${wp}%; `;
 
     let content = '';
     if (SECTION_DIVIDERS[type]) {

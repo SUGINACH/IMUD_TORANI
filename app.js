@@ -1355,8 +1355,8 @@ async function loadExternalJSONAssets() {
                 } else if (asset.type === 'divider') {
                     registerExternalDivider(item.id, item.svg);
                     appendOptionToSelect('section-divider-style', item.id, item.name, 'עיטורי סיום מ-JSON', 'sec-div-json-optgroup');
-                    // [חדש] עיטורי הפרדה בין קטעי כותרות (מאותו קובץ JSON)
-                    for (let lvl = 1; lvl <= 7; lvl++) {
+                    // [חדש] עיטורי הפרדה בין קטעי כותרות (מאותו קובץ JSON) — רק h3-h6
+                    for (let lvl = 3; lvl <= 6; lvl++) {
                         appendOptionToSelect('heading-divider-h' + lvl, item.id, item.name, 'עיטורי הפרדה מ-JSON', 'h' + lvl + '-divider-json-optgroup');
                     }
                     // [חדש] עיטורי שער ראשי ומשנה (מאותו קובץ JSON)
@@ -1628,7 +1628,8 @@ function initVisualPickers() {
 
 function refreshVisualPicker(selectId) {
     const select = document.getElementById(selectId);
-    if (!select) return;
+    // [תיקון] דלג אם לא קיים או שאינו SELECT (למשל input hidden ב-iframe)
+    if (!select || select.tagName !== 'SELECT') return;
 
     const isShaar = selectId.includes('shaar') || selectId === 'active-theme-select';
 

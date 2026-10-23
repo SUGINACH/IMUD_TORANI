@@ -887,13 +887,26 @@ function rollbackTrailingHeadings(col) {
    מחזיר את ה-HTML של העיטור, או '' אם לא צריך.
    - level: רמת הכותרת החדשה
    - lastHeadingSeen: אובייקט שמכיל את הכותרת הקודמת מכל רמה
-   - מחזיר עיטור רק אם יש כותרת קודמת מאותה רמה */
-function maybeGetHeadingDivider(level, lastHeadingSeen) {
+   - lastHigherHeadingLevel: רמת הכותרת הגבוהה האחרונה שנראתה (אם גבוה מ-level, אין עיטור)
+   - מחזיר עיטור רק אם:
+     1. יש כותרת קודמת מאותה רמה
+     2. לא הייתה כותרת גבוהה יותר מאז (כי אז הקטע הקודם כבר נגמר על-ידי הכותרת הגבוהה)
+     3. רמה 3-6 בלבד (לא 1/2/7) */
+function maybeGetHeadingDivider(level, lastHeadingSeen, lastHigherHeadingLevel) {
     if (!lastHeadingSeen || !lastHeadingSeen[level]) return '';
+    // רק רמות 3-6 (1=שער, 2=סיום פרק, 7=צד)
+    if (level < 3 || level > 6) return '';
     const dividerType = document.getElementById('heading-divider-h' + level)?.value || 'none';
     if (dividerType === 'none') return '';
+    // דלג אם הייתה כותרת גבוהה יותר מאז הכותרת הקודמת מרמה זו
+    // (כי הכותרת הגבוהה כבר סגרה את הקטע)
+    if (lastHigherHeadingLevel && lastHigherHeadingLevel < level) return '';
     if (typeof getHeadingDividerHTML !== 'function') return '';
-    return getHeadingDividerHTML(dividerType);
+    // [תיקון] רוחב העיטור — 40% מרוחב הטקסט לפי רמה:
+    // - h3: טור אחד בעמוד (רוחב מלא)
+    // - h4/h5/h6: טור אחד בעימוד שני טורים (חצי רוחב)
+    // כל הרמות מקבלות 40% מרוחב הטור שלהן
+    return getHeadingDividerHTML(dividerType, 40);
 }
 
 /* מספר השורות המרבי של פסקה שנכנס בטור (נמדד בפועל, כולל סימוני הערות ועיצוב תוחמים).
@@ -3395,6 +3408,8 @@ function typesetDocumentCore() {
     let currentH4Title = '';
     // [חדש] מעקב אחרי הכותרת הקודמת מכל רמה — לעיטורי הפרדה
     const lastHeadingSeen = {1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null};
+    // [חדש] רמת הכותרת הגבוהה האחרונה שנראתה — לדילוג עיטור הפרדה
+    let lastHigherHeadingLevel = null;
 
     const bookTitle = document.getElementById('inp-book-title')?.value || "ספר";
     const showMainShaar = document.getElementById('show-main-shaar')?.checked ?? true;
@@ -3766,13 +3781,18 @@ function typesetDocumentCore() {
                     let currentTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
 
                     if (currentTok.type.startsWith('h')) {
-                        // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה
-                        const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
+                        // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה (ואין כותרת גבוהה יותר בינתיים)
+                        const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen, lastHigherHeadingLevel);
                         if (dividerHTML) {
                             const divEl = document.createElement('div');
                             divEl.innerHTML = dividerHTML;
                             const divChild = divEl.firstElementChild;
                             if (divChild) targetCol.appendChild(divChild);
+                        }
+
+                        // [חדש] עדכן lastHigherHeadingLevel — אם הכותרת הנוכחית גבוהה יותר מהקודמת
+                        if (lastHigherHeadingLevel === null || currentTok.level < lastHigherHeadingLevel) {
+                            lastHigherHeadingLevel = currentTok.level;
                         }
 
                         if (currentTok.level === 3) currentH3Title = currentTok.text;
@@ -3801,8 +3821,12 @@ function typesetDocumentCore() {
                             break;
                         }
                         headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
-                        // [חדש] עדכן את הכותרת הקודמת מרמה זו
+                        // [חדש] עדכן את הכותרת הקודמת מרמה זו, ונקה כותרות נמוכות יותר
+                        // (כי כותרת נמוכה יותר כבר לא באותו קטע)
                         lastHeadingSeen[currentTok.level] = currentTok.id;
+                        for (let l = currentTok.level + 1; l <= 7; l++) {
+                            lastHeadingSeen[l] = null;
+                        }
                         tokenIndex++;
                         continue;
                     }
@@ -4001,13 +4025,18 @@ function typesetDocumentCore() {
                         }
 
                         if (currentTok.type.startsWith('h')) {
-                            // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה
-                            const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
+                            // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה (ואין כותרת גבוהה יותר בינתיים)
+                            const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen, lastHigherHeadingLevel);
                             if (dividerHTML) {
                                 const divEl = document.createElement('div');
                                 divEl.innerHTML = dividerHTML;
                                 const divChild = divEl.firstElementChild;
                                 if (divChild) targetCol.appendChild(divChild);
+                            }
+
+                            // [חדש] עדכן lastHigherHeadingLevel — אם הכותרת הנוכחית גבוהה יותר מהקודמת
+                            if (lastHigherHeadingLevel === null || currentTok.level < lastHigherHeadingLevel) {
+                                lastHigherHeadingLevel = currentTok.level;
                             }
 
                             if (currentTok.level === 3) currentH3Title = currentTok.text;
@@ -4040,8 +4069,11 @@ function typesetDocumentCore() {
                             if (!headingPageMap[currentTok.id]) {
                                 headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
                             }
-                            // [חדש] עדכן את הכותרת הקודמת מרמה זו
+                            // [חדש] עדכן את הכותרת הקודמת מרמה זו, ונקה כותרות נמוכות יותר
                             lastHeadingSeen[currentTok.level] = currentTok.id;
+                            for (let l = currentTok.level + 1; l <= 7; l++) {
+                                lastHeadingSeen[l] = null;
+                            }
                             tokenIndex++;
                             continue;
                         }

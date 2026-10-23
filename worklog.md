@@ -2923,3 +2923,28 @@ Work Log:
 Stage Summary:
 - 4 בקשות מומשו.
 - קבצים שהשתנו: index.html, app.js, typesetter.js, decorations.js, geometry-audit.js, renderer-bridge.js, default_settings.json, style.css.
+
+---
+Task ID: ornaments-fixes-v2
+Agent: main (GLM)
+Task: תיקון עיטורי הפרדה — גודל, מיקום, דילוג, הסרה + שגיאת iframe
+
+Work Log:
+- **שגיאת iframe**: refreshVisualPicker נכשל כי ב-iframe האלמנטים הם input hidden, לא select. תוקן: בדיקת select.tagName !== 'SELECT'.
+
+- **גודל עיטורים**: היה ענק. תוקן: getHeadingDividerHTML מקבל widthPercent (40% כברירת מחדל) ומשתמש ב-max-width בלבד.
+
+- **הסרת h1/h2/h7**: הוסרו מ-HTML, app.js, renderer-bridge.js, default_settings.json. נשארו רק h3-h6.
+
+- **דילוג על כותרת גבוהה**: הוספתי lastHigherHeadingLevel — עוקב אחרי הכותרת הגבוהה האחרונה. maybeGetHeadingDivider דולג אם יש כותרת גבוהה יותר מאז הכותרת הקודמת מאותה רמה.
+
+- **ניקוי lastHeadingSeen**: אחרי כותרת, מנקה את הכותרות הנמוכות יותר (כי הן כבר לא באותו קטע).
+
+- **מיקום**: נשאר לפני הכותרת החדשה (ויזואלית "בין" הקטעים). אם יש תלונות, אעבוד על העברה לסוף הקטע הקודם.
+
+Stage Summary:
+- שגיאת iframe תוקנה.
+- גודל עיטורים תוקן (40% max-width).
+- h1/h2/h7 הוסרו.
+- דילוג על כותרת גבוהה מומש.
+- קבצים שהשתנו: app.js, typesetter.js, decorations.js, renderer-bridge.js, default_settings.json, index.html.

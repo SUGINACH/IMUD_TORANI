@@ -246,13 +246,10 @@
   "detailed-toc-count-numbering": true,
   "detailed-toc-show-numbering": true,
   "h2-orn-scope": "both",
-  "heading-divider-h1": "none",
-  "heading-divider-h2": "none",
   "heading-divider-h3": "none",
   "heading-divider-h4": "none",
   "heading-divider-h5": "none",
   "heading-divider-h6": "none",
-  "heading-divider-h7": "none",
   "shaar-main-divider": "none",
   "shaar-sub-divider": "none"
 }
