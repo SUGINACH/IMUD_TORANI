@@ -1769,6 +1769,68 @@ function finalizeNotePositions(notesList, columnBoundaryHeight) {
     }));
 }
 
+/* Final page-level safety pass for side notes.
+   Block-local positioning can leave a note taller than its short containing block.
+   Move only an actually overflowing note, and only when the candidate stays inside
+   the page body-flow and leaves a 4px gap from every other note on the same physical side.
+   If that cannot be proven, leave the note unchanged so the geometry audit still reports it. */
+function repositionOverflowingSideNotes(container) {
+    const SAFETY = 0.5;
+    const GAP = 4;
+    const pages = Array.from(container.querySelectorAll('.a4-page'));
+
+    pages.forEach(page => {
+        const flow = page.querySelector('.page-body-flow');
+        if (!flow) return;
+        const flowRect = flow.getBoundingClientRect();
+
+        ['right-margin', 'left-margin'].forEach(sideClass => {
+            const notes = Array.from(page.querySelectorAll('.margin-notes-column.' + sideClass + ' .side-note-anchor'))
+                .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+
+            notes.forEach(note => {
+                const r = note.getBoundingClientRect();
+                let delta = 0;
+                let correction = '';
+
+                if (r.bottom > flowRect.bottom + SAFETY) {
+                    delta = flowRect.bottom - SAFETY - r.bottom;
+                    correction = 'shift-up';
+                } else if (r.top < flowRect.top - SAFETY) {
+                    delta = flowRect.top + SAFETY - r.top;
+                    correction = 'shift-down';
+                }
+                if (!correction || Math.abs(delta) < 0.5) return;
+
+                const targetTop = r.top + delta;
+                const targetBottom = r.bottom + delta;
+                if (targetTop < flowRect.top + SAFETY - 0.1
+                    || targetBottom > flowRect.bottom - SAFETY + 0.1) {
+                    note.setAttribute('data-side-note-fit-correction', 'blocked-page-boundary');
+                    note.setAttribute('data-side-note-fit-shift-px', '0');
+                    return;
+                }
+
+                const collision = notes.some(other => {
+                    if (other === note) return false;
+                    const o = other.getBoundingClientRect();
+                    return targetTop < o.bottom + GAP && targetBottom > o.top - GAP;
+                });
+                if (collision) {
+                    note.setAttribute('data-side-note-fit-correction', 'blocked-collision');
+                    note.setAttribute('data-side-note-fit-shift-px', '0');
+                    return;
+                }
+
+                const currentTop = parseFloat(note.style.top);
+                note.style.top = ((Number.isFinite(currentTop) ? currentTop : 0) + delta) + 'px';
+                note.setAttribute('data-side-note-fit-correction', correction);
+                note.setAttribute('data-side-note-fit-shift-px', Math.abs(delta).toFixed(2));
+            });
+        });
+    });
+}
+
 /* ==========================================================================
    תוחמים (Delimiters) והערות שוליים
    ========================================================================== */
@@ -4566,6 +4628,9 @@ function typesetDocumentCore() {
             // [תיקון] החזרת הערות הצד למקומן אחרי המתיחה/כיווץ/rollback
             repositionBlockNotes(blk, Math.max(rC.scrollHeight, lC.scrollHeight));
         });
+        // All blocks and cross-paragraph styling are final at this point. Resolve only
+        // side-note page-boundary overflow that can be corrected without a same-side collision.
+        repositionOverflowingSideNotes(container);
     }
 }
 

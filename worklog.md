@@ -2823,7 +2823,7 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Evidence
 - The first full audit using the actual `default_settings.json` completed with 627 pages, repeat-render determinism PASS, exact footnote measurements 60/60, and 68 issues (1 HIGH / 26 MEDIUM / 41 LOW).
-- The sole HIGH issue is a side note at pageIdx 497 (printed page label to be captured by follow-up diagnostics), overflowing the body-flow/margin boundary by 24.6px. Its rendered height is 76px while its containing margin column is only 50px tall.
+- The sole HIGH issue is a side note at pageIdx 497 (printed page label רלח), overflowing the body-flow/margin boundary by 24.6px. Its rendered height is 76px while its containing margin column is only 50px tall.
 - The issue is a real production-default finding; unlike the four orphan records from the earlier empty-settings audit, it persists under the actual defaults. Do not lower the >20px HIGH threshold.
 
 ### Diagnostic-only change

@@ -335,8 +335,23 @@ function extractGeometry() {
         }
         pages.push(page);
     });
+    const sideNoteFitCorrections = Array.from(document.querySelectorAll('#book-container .a4-page .side-note-anchor[data-side-note-fit-correction]')).map(el => {
+        const pageEl = el.closest('.a4-page');
+        const pageIdx = Array.from(pageEls).indexOf(pageEl);
+        const rect = rectOf(el);
+        return {
+            pageIdx,
+            pageLabel: pageEl?.querySelector('.page-number-footer')?.textContent?.trim() || String(pageIdx + 1),
+            tokenId: el.getAttribute('data-for-token'),
+            correction: el.getAttribute('data-side-note-fit-correction'),
+            shiftPx: Number(el.getAttribute('data-side-note-fit-shift-px')) || 0,
+            noteText: (el.textContent || '').trim().slice(0, 160),
+            rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.w * 10) / 10,
+                h: Math.round(rect.h * 10) / 10, bottom: Math.round(rect.bottom * 10) / 10 }
+        };
+    });
     const t1 = performance.now();
-    return { pages, stats: { pageCount: pages.length, extractMs: +(t1 - t0).toFixed(2) } };
+    return { pages, sideNoteFitCorrections, stats: { pageCount: pages.length, extractMs: +(t1 - t0).toFixed(2) } };
 }
 
 /* ========================================================================
@@ -529,7 +544,9 @@ function auditSideNoteBounds(node, issues) {
                 blockRect: toRect(blockEl),
                 anchorRect: toRect(anchorEl),
                 anchorText: (anchorEl?.getAttribute('data-raw-text') || anchorEl?.textContent || '').trim().slice(0, 160),
-                noteStyle: cs ? { top: cs.top, position: cs.position, fontSize: cs.fontSize, lineHeight: cs.lineHeight } : null,
+                noteStyle: cs ? { top: cs.top, position: cs.position, fontSize: cs.fontSize, lineHeight: cs.lineHeight,
+                    fitCorrection: el?.getAttribute('data-side-note-fit-correction') || null,
+                    fitShiftPx: el?.getAttribute('data-side-note-fit-shift-px') || null } : null,
                 nearbySameSideNotes: nearbyNotes,
                 overflowPx: Math.round(overflowPx * 10) / 10,
                 message: 'הערת צד חורגת מתחום השוליים או מגבולות גוף העמוד: ' + Math.round(overflowPx * 10) / 10 + 'px'
