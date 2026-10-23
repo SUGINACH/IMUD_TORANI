@@ -4481,7 +4481,10 @@ function typesetDocumentCore() {
                 justifyColumnVertically(lC, rH, styleObj, 150, null);
                 // בדיקת יירוס: אם שמאל הירבר ונהיה גבוה מימין — מכווצים חזרה
                 const lHafter = lC.scrollHeight;
-                if (lHafter > rH + 1.5) {
+                // Match the hard postcondition tolerance below: even a 1px overshoot
+                // must be corrected before the rollback check, otherwise a near-perfect
+                // equalization is discarded and the original large imbalance returns.
+                if (lHafter > rH + 0.5) {
                     shrinkColumnVertically(lC, rH, styleObj, 150);
                 }
             } else {
@@ -4489,7 +4492,7 @@ function typesetDocumentCore() {
                 justifyColumnVertically(rC, lH, styleObj, 150, null);
                 // בדיקת יירוס: אם ימין הירבר ונהיה גבוה משמאל — מכווצים חזרה
                 const rHafter = rC.scrollHeight;
-                if (rHafter > lH + 1.5) {
+                if (rHafter > lH + 0.5) {
                     shrinkColumnVertically(rC, lH, styleObj, 150);
                 }
             }
