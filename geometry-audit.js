@@ -479,15 +479,58 @@ function auditSideNoteBounds(node, issues) {
         ) : 0;
         const overflowPx = Math.max(horizontalOverflow, verticalOverflow);
         if (overflowPx > TOL.containment) {
+            const el = _nodeToEl.get(node);
+            const pageEl = el?.closest('.a4-page');
+            const blockEl = el?.closest('.block-2col, .block-single-col');
+            const marginEl = el?.parentElement;
+            const tokenId = el?.getAttribute('data-for-token') || node.tokenId || null;
+            const findAnchor = (block, id) => block && id
+                ? Array.from(block.querySelectorAll('p[data-token-id]')).find(p =>
+                    p.getAttribute('data-token-id') === id && p.getAttribute('data-is-cont') !== 'true') || null
+                : null;
+            const anchorEl = findAnchor(blockEl, tokenId);
+            const toRect = elem => {
+                if (!elem) return null;
+                const r = rectOf(elem);
+                return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w * 10) / 10,
+                    h: Math.round(r.h * 10) / 10, bottom: Math.round(r.bottom * 10) / 10 };
+            };
+            const currentRect = toRect(el);
+            const rightMargin = !!marginEl?.classList.contains('right-margin');
+            const leftMargin = !!marginEl?.classList.contains('left-margin');
+            const nearbyNotes = pageEl ? Array.from(pageEl.querySelectorAll('.margin-notes-column .side-note-anchor'))
+                .filter(note => {
+                    const m = note.parentElement;
+                    return (!!m?.classList.contains('right-margin') === rightMargin)
+                        && (!!m?.classList.contains('left-margin') === leftMargin);
+                })
+                .map(note => {
+                    const r = toRect(note);
+                    const id = note.getAttribute('data-for-token');
+                    const noteBlock = note.closest('.block-2col, .block-single-col');
+                    const noteAnchor = findAnchor(noteBlock, id);
+                    return { tokenId: id, text: (note.textContent || '').trim().slice(0, 160),
+                        rect: r, anchorRect: toRect(noteAnchor),
+                        blockRect: toRect(noteBlock) };
+                })
+                .filter(note => note.rect && currentRect && Math.abs(note.rect.y - currentRect.y) <= 180)
+                .sort((x, y) => x.rect.y - y.rect.y) : [];
+            const cs = el ? getComputedStyle(el) : null;
             issues.push({
                 kind: 'side-note-overflow',
                 severity: overflowPx > 20 ? 'high' : (overflowPx > 8 ? 'medium' : 'low'),
                 pageIdx: getPageIdx(node),
                 location: describePath(node),
-                tokenId: node.tokenId,
+                tokenId,
+                noteText: (el?.textContent || '').trim().slice(0, 300),
                 childRect: { x: Math.round(node.rect.x), y: Math.round(node.rect.y), w: Math.round(node.rect.w), h: Math.round(node.rect.h), bottom: Math.round(node.rect.bottom) },
                 marginRect: marginCol ? { x: Math.round(marginCol.rect.x), y: Math.round(marginCol.rect.y), w: Math.round(marginCol.rect.w), h: Math.round(marginCol.rect.h), bottom: Math.round(marginCol.rect.bottom) } : null,
                 bodyFlowRect: bodyFlow ? { x: Math.round(bodyFlow.rect.x), y: Math.round(bodyFlow.rect.y), w: Math.round(bodyFlow.rect.w), h: Math.round(bodyFlow.rect.h), bottom: Math.round(bodyFlow.rect.bottom) } : null,
+                blockRect: toRect(blockEl),
+                anchorRect: toRect(anchorEl),
+                anchorText: (anchorEl?.getAttribute('data-raw-text') || anchorEl?.textContent || '').trim().slice(0, 160),
+                noteStyle: cs ? { top: cs.top, position: cs.position, fontSize: cs.fontSize, lineHeight: cs.lineHeight } : null,
+                nearbySameSideNotes: nearbyNotes,
                 overflowPx: Math.round(overflowPx * 10) / 10,
                 message: 'הערת צד חורגת מתחום השוליים או מגבולות גוף העמוד: ' + Math.round(overflowPx * 10) / 10 + 'px'
             });

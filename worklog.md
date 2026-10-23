@@ -2815,3 +2815,22 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - Changes remain on `V23` only. Do not merge with `V21`.
+
+
+
+## V23 — diagnose the production-default side-note overflow
+**Date:** 2026-10-23
+
+### Evidence
+- The first full audit using the actual `default_settings.json` completed with 627 pages, repeat-render determinism PASS, exact footnote measurements 60/60, and 68 issues (1 HIGH / 26 MEDIUM / 41 LOW).
+- The sole HIGH issue is a side note at pageIdx 497 (printed page label to be captured by follow-up diagnostics), overflowing the body-flow/margin boundary by 24.6px. Its rendered height is 76px while its containing margin column is only 50px tall.
+- The issue is a real production-default finding; unlike the four orphan records from the earlier empty-settings audit, it persists under the actual defaults. Do not lower the >20px HIGH threshold.
+
+### Diagnostic-only change
+- `geometry-audit.js`: enrich side-note overflow findings with the associated token ID/text, anchor paragraph and block rectangles, computed note metrics, and nearby same-side notes. This is intended to establish whether the note can be repositioned upward without colliding with another note or violating the page-flow boundary.
+
+### Validation required
+- Run the full audit again under automatic `default_settings.json` settings. Inspect the note's anchor, containing block, nearby notes, and exact position constraints before changing `finalizeNotePositions()` or the page-level margin-note layout. Keep the audit threshold unchanged and preserve deterministic output.
+
+### Branch safety
+- Changes remain on `V23` only. Do not merge with `V21`.
