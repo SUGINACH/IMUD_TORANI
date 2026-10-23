@@ -2619,3 +2619,26 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 ### Branch safety
 - All changes remain on `V23`; no merge into `V21`.
 - `V21` remains untouched; last observed head is `f4863540203ceb29d42d710bf8780b545a2b87a4`.
+
+
+## Task ID: v23-balance-final-justify-hard-fit-rollback-2026-10-23
+**Agent:** ChatGPT
+**Date:** 2026-10-23
+**Task:** Prevent the final vertical-justification pass inside `balanceColumns()` from undoing a fitting split.
+
+### Code finding
+- Inspection of `balanceColumns()` showed that after selecting a candidate, it always applies a final `justifyColumnVertically()` to the shorter column. The candidate's `fits` value is computed before this final adjustment. Therefore a candidate that fits can be made too tall after selection; the function's returned `fits` value is computed after the adjustment, but the chosen split is not searched again.
+- This is a plausible direct route by which a fit candidate can become an overflow after the selection stage. It is not claimed to be the sole cause of the two prior severe pages, where the audit had not recorded a balance call; the new post-layout guard is intended to force those blocks through the split search if their final rendered geometry exceeds the available height.
+
+### Change
+- `typesetter.js`: snapshot all descendant attributes before the final column justification. If the selected candidate had fit but the final justification pushes either the maximum column scroll height or the rendered outer block beyond `availableHeight + 0.5px`, restore the attributes and re-position side notes. The equalization adjustment is treated as subordinate to the hard page-fit constraint.
+- `tools/geometry-audit-cli.js`: expose `data-layout-balance-final-justify-rolled-back` in detailed overflow diagnostics.
+- Commit adding the rollback: `2d8a936f85978e8385dd1dc21f065583475b2db2`.
+- Commit exposing the metric: `258542a84879309c1c496bb482d3230aeea14eea`.
+
+### Validation status
+- This change is not validated by the previous report at `6d0df62750edba5b480f22ec67af37583729e537`; that report predates the hard-fit guard and final-justify rollback.
+- The latest CLI and long-document workflows must complete before claiming success. If the candidate itself does not fit, rollback of the final justification cannot solve that case; the audit must show whether the post-layout guard and deterministic split search can find a fitting candidate or whether carryover is required.
+
+### Branch safety
+- Changes remain on `V23`. No merge into `V21`.
