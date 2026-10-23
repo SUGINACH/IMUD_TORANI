@@ -2768,3 +2768,23 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - All changes remain on `V23`; `V21` is an independent parallel branch and must not be merged.
+
+
+## V23 — fix global-justify overflow guard selector
+**Date:** 2026-10-23
+
+### Static code finding
+- The final global equalization pass used `blk.closest('.body-flow')` to find the containing body-flow region.
+- The actual page DOM created by `createPageLayout()` uses `.page-body-flow`; a repository-wide scan of `typesetter.js` found only this one `.body-flow` selector and eight uses/references of `.page-body-flow`.
+- Therefore `flowForGlobalJustify` was always null for normal rendered blocks, disabling the intended enclosing-flow boundary check. This is a concrete instrumentation/guard bug, independent of whether it caused the previously observed page-95 imbalance.
+
+### Change
+- Replaced `blk.closest('.body-flow')` with `blk.closest('.page-body-flow')` in `typesetter.js`.
+- Code commit: `f743f3c6a22deb36207168dfa5f9ef8cabed080f`.
+
+### Validation status
+- Static selector check: the global pass now targets the actual DOM class used by `createPageLayout()`.
+- The full long-document audit has not yet been observed after this commit. Required next validation: confirm the CLI and long-document workflow complete; inspect containment, page-95 balance, footnote metrics, and repeat-render determinism. Do not infer success from the code change alone.
+
+### Branch safety
+- Change is confined to `V23`. No merge into `V21`; `V21` remains a separate parallel development branch.
