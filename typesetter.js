@@ -4603,6 +4603,34 @@ function typesetDocumentCore() {
             blk.setAttribute('data-layout-global-justify-before-right', String(rH));
             blk.setAttribute('data-layout-global-justify-before-left', String(lH));
             blk.setAttribute('data-layout-global-justify-before-outer', String(outerBefore));
+            const captureGlobalJustifyColumn = col => ({
+                side: col.classList.contains('right-col') ? 'right' : 'left',
+                scrollHeight: col.scrollHeight,
+                paragraphs: Array.from(col.children).filter(p => p.tagName === 'P').map(p => {
+                    const cs = getComputedStyle(p);
+                    const win = p.querySelector('.first-word-window');
+                    const lineInfo = paraLineInfo(p);
+                    return {
+                        tokenId: p.getAttribute('data-token-id'),
+                        className: p.className,
+                        text: (p.getAttribute('data-raw-text') || p.textContent || '').trim().slice(0, 90),
+                        lines: lineInfo.lines,
+                        rectHeight: Math.round(p.getBoundingClientRect().height * 100) / 100,
+                        offsetHeight: p.offsetHeight,
+                        scrollHeight: p.scrollHeight,
+                        lineHeight: cs.lineHeight,
+                        paddingBottom: cs.paddingBottom,
+                        marginBottom: cs.marginBottom,
+                        baseLineHeight: p.getAttribute('data-base-lh'),
+                        firstWordWindow: win ? {
+                            styleHeight: win.style.height || '',
+                            offsetHeight: win.offsetHeight,
+                            rectHeight: Math.round(win.getBoundingClientRect().height * 100) / 100
+                        } : null
+                    };
+                })
+            });
+            const globalColumnsBefore = [captureGlobalJustifyColumn(rC), captureGlobalJustifyColumn(lC)];
             const attrsBefore = Array.from(blk.querySelectorAll('*')).map(el =>
                 [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
 
@@ -4653,10 +4681,28 @@ function typesetDocumentCore() {
                 && flowMaxChildBottomAfter > flowMaxChildBottomBefore + 0.5;
             const globalJustifyTallestGrowth = innerAfter > innerBefore + 0.5;
             if (globalJustifyOuterGrowth || globalJustifyFlowOverflowIntroduced || globalJustifyTallestGrowth) {
+                const globalColumnsAfter = [captureGlobalJustifyColumn(rC), captureGlobalJustifyColumn(lC)];
+                const globalDiagnostic = {
+                    version: 1,
+                    initialDiff: Math.abs(fDiff),
+                    targetSide: fDiff > 2 ? 'left' : 'right',
+                    targetHeight: fDiff > 2 ? rH : lH,
+                    outerBefore, outerAfter, innerBefore, innerAfter,
+                    flowBottomBefore, flowBottomAfter,
+                    flowMaxChildBottomBefore, flowMaxChildBottomAfter,
+                    rollback: {
+                        outerGrowth: globalJustifyOuterGrowth,
+                        flowOverflowIntroduced: globalJustifyFlowOverflowIntroduced,
+                        tallestGrowth: globalJustifyTallestGrowth
+                    },
+                    columnsBefore: globalColumnsBefore,
+                    columnsAfter: globalColumnsAfter
+                };
                 for (const [el, attrs] of attrsBefore) {
                     for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
                     for (const [name, value] of attrs) el.setAttribute(name, value);
                 }
+                blk.setAttribute('data-layout-global-justify-diagnostic', JSON.stringify(globalDiagnostic));
                 blk.setAttribute('data-layout-global-justify-rolled-back', 'true');
                 blk.setAttribute('data-layout-global-justify-rollback-reason',
                     globalJustifyOuterGrowth && globalJustifyTallestGrowth ? 'outer-and-tallest-growth' :
