@@ -4470,6 +4470,13 @@ function typesetDocumentCore() {
             // per-page hard-fit guard, so it must never make an already-laid-out block taller.
             const outerBefore = blk.getBoundingClientRect().height;
             const innerBefore = Math.max(rH, lH);
+            const flowForGlobalJustify = blk.closest('.body-flow');
+            const flowBottomBefore = flowForGlobalJustify
+                ? flowForGlobalJustify.getBoundingClientRect().bottom : null;
+            const flowMaxChildBottomBefore = flowForGlobalJustify
+                ? Math.max(flowBottomBefore, ...Array.from(flowForGlobalJustify.children)
+                    .map(child => child.getBoundingClientRect().bottom))
+                : null;
             blk.setAttribute('data-layout-global-justify-before-right', String(rH));
             blk.setAttribute('data-layout-global-justify-before-left', String(lH));
             blk.setAttribute('data-layout-global-justify-before-outer', String(outerBefore));
@@ -4506,9 +4513,23 @@ function typesetDocumentCore() {
             blk.setAttribute('data-layout-global-justify-after-left', String(lC.scrollHeight));
             blk.setAttribute('data-layout-global-justify-after-outer', String(outerAfter));
             blk.setAttribute('data-layout-global-justify-after-inner', String(innerAfter));
-            const globalJustifyOuterGrowth = outerAfter > outerBefore + 0.5;
+            const flowBottomAfter = flowForGlobalJustify
+                ? flowForGlobalJustify.getBoundingClientRect().bottom : null;
+            const flowMaxChildBottomAfter = flowForGlobalJustify
+                ? Math.max(flowBottomAfter, ...Array.from(flowForGlobalJustify.children)
+                    .map(child => child.getBoundingClientRect().bottom))
+                : null;
+            // A subpixel grid/scrollHeight rounding delta is not, by itself, a fit failure.
+            // Accept up to 1px of outer-box growth when the tallest content height did not
+            // grow and this mutation does not push the flow's last child farther beyond
+            // the page's body-flow boundary. Real content growth and actual flow overflow
+            // still trigger the rollback below.
+            const globalJustifyOuterGrowth = outerAfter > outerBefore + 1.0;
+            const globalJustifyFlowOverflowIntroduced = flowBottomAfter !== null
+                && flowMaxChildBottomAfter > flowBottomAfter + 0.5
+                && flowMaxChildBottomAfter > flowMaxChildBottomBefore + 0.5;
             const globalJustifyTallestGrowth = innerAfter > innerBefore + 0.5;
-            if (globalJustifyOuterGrowth || globalJustifyTallestGrowth) {
+            if (globalJustifyOuterGrowth || globalJustifyFlowOverflowIntroduced || globalJustifyTallestGrowth) {
                 for (const [el, attrs] of attrsBefore) {
                     for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
                     for (const [name, value] of attrs) el.setAttribute(name, value);
@@ -4516,6 +4537,8 @@ function typesetDocumentCore() {
                 blk.setAttribute('data-layout-global-justify-rolled-back', 'true');
                 blk.setAttribute('data-layout-global-justify-rollback-reason',
                     globalJustifyOuterGrowth && globalJustifyTallestGrowth ? 'outer-and-tallest-growth' :
+                    globalJustifyOuterGrowth && globalJustifyFlowOverflowIntroduced ? 'outer-growth-and-flow-overflow' :
+                    globalJustifyFlowOverflowIntroduced ? 'flow-overflow' :
                     globalJustifyOuterGrowth ? 'outer-growth' : 'tallest-growth');
             } else {
                 blk.setAttribute('data-layout-global-justify-rolled-back', 'false');
