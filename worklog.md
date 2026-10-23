@@ -2807,8 +2807,11 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - `geometry-audit.js`: include those split-time fields, continuation status, final rendered line count/widths, and computed font metrics in each orphan issue.
 - These are data attributes and audit fields only; they must not alter CSS or the layout decision.
 
-### Validation required
-- Run the full 601-page audit and inspect all four orphan records. If split-time placed lines are at least 2 but final rendered line count is 1, trace the post-layout style/DOM mutation that changes wrapping. If split-time placed lines is 1, trace the call path that bypasses the hard minimum. Preserve deterministic output and all current overflow guards.
+### Initial diagnostic result — audit settings mismatch
+- The full run on `55aac38e568a85a7a7eb0bcd95d33cc7ca1bbcfb` completed: 601 pages, determinism PASS, 0 HIGH / 37 MEDIUM / 48 LOW issues, and exact footnote matches 59/59. However, this run is not yet a valid production-default audit for widow/orphan behavior.
+- All four reported orphan fragments had `minFirst=1` and `minLast=1`, despite the production defaults in `index.html` and `default_settings.json` setting both `avoid-widows` and `avoid-orphans` to true.
+- Root cause: `renderer-bridge.js` creates hidden inputs for settings; when the CLI sends `settings={}`, those inputs remain type=hidden and their `.checked` property is false. `getSplitRules()` reads `.checked`, so the headless audit silently disabled both hard split rules. The one-line fragments therefore cannot be treated as production-default failures from this run.
+- Fix the audit harness first: when `--settings` is omitted, load `default_settings.json` automatically and record the settings source in both JSON and Markdown reports. Then rerun the full document and reassess all geometry metrics; do not compare the resulting page count/issues to the empty-settings run as if they used identical settings.
 
 ### Branch safety
 - Changes remain on `V23` only. Do not merge with `V21`.

@@ -69,6 +69,7 @@ function rank(s) { return ({ high:3, medium:2, low:1 })[s] || 0; }
 function markdown(r) {
     const s = r.audit.summary || {};
     const lines = ['# Geometry audit report', '', '- Input: ' + r.run.input,
+      '- Settings: ' + (r.run.settingsSource || 'unknown'),
       '- Generated: ' + r.run.generatedAt, '- Render duration: ' + r.run.renderMs + ' ms',
       '- Repeat-render determinism: ' + (r.run.determinismCheck ? (r.run.determinismCheck.identical ? 'PASS' : 'FAIL') : 'not run'),
       '- Geometry extraction: ' + (r.geometry.stats.extractMs ?? 'n/a') + ' ms',
@@ -186,9 +187,23 @@ async function main() {
     const inputText = fs.readFileSync(inputPath, 'utf8');
     if (!inputText.trim()) throw new Error('Input file is empty: ' + inputPath);
     let settings = {};
+    let settingsSource = 'empty';
     if (args.settings) {
         settings = JSON.parse(fs.readFileSync(abs(args.settings), 'utf8'));
         if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('Settings JSON must be an object.');
+        settingsSource = path.relative(root, abs(args.settings)).split(path.sep).join('/');
+    } else {
+        // The real app applies default_settings.json before typesetting. Use the same defaults
+        // in headless audits; otherwise renderer-bridge's hidden inputs leave checkbox .checked
+        // false (even when the stored default value is true), silently disabling quality rules.
+        const defaultSettingsPath = abs('./default_settings.json');
+        if (fs.existsSync(defaultSettingsPath) && fs.statSync(defaultSettingsPath).isFile()) {
+            settings = JSON.parse(fs.readFileSync(defaultSettingsPath, 'utf8'));
+            if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('Default settings JSON must be an object.');
+            settingsSource = 'default_settings.json (automatic default)';
+        } else {
+            settingsSource = 'empty (default_settings.json not found)';
+        }
     }
     let chromium;
     try { chromium = require('playwright').chromium; }
@@ -387,7 +402,7 @@ async function main() {
             run:{ input:path.relative(root,inputPath).split(path.sep).join('/'), inputBytes:Buffer.byteLength(inputText,'utf8'),
               generatedAt:new Date().toISOString(), branch:process.env.GITHUB_REF_NAME || null,
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
-              renderMs:Date.now()-started, renderResult, determinismCheck, settings, failOn:args.failOn, browser:'Chromium headless' },
+              renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
             geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
