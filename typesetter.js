@@ -4325,6 +4325,11 @@ function typesetDocumentCore() {
                     }
                 });
             }
+            // Final reservation check: stretching, orphan-tail reclamation, and the final
+            // column-justification pass can change the page's note queue after the first
+            // redoCheck. Check again at the last point where the whole page can still be
+            // discarded and deterministically rebuilt from pageState.
+            if (redoCheck()) continue;
         }
     }
 
