@@ -348,7 +348,11 @@ async function main() {
                                 'data-layout-balance-right-part-lines','data-layout-balance-left-part-lines',
                                 'data-layout-postfit-triggered','data-layout-postfit-outer-overflow','data-layout-postfit-inner-overflow',
                                 'data-layout-balance-final-justify-rolled-back','data-layout-global-justify-rolled-back',
-                                'data-layout-page-final-justify-rolled-back'
+                                'data-layout-global-justify-rollback-reason',
+                                'data-layout-global-justify-before-right','data-layout-global-justify-before-left',
+                                'data-layout-global-justify-before-outer','data-layout-global-justify-after-right',
+                                'data-layout-global-justify-after-left','data-layout-global-justify-after-outer',
+                                'data-layout-global-justify-after-inner','data-layout-page-final-justify-rolled-back'
                             ].map(k => [k, el.getAttribute(k)])),
                             style: { display: cs.display, height: cs.height, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom },
                             columns: ['.right-col','.left-col'].map(sel => {
