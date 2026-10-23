@@ -328,10 +328,10 @@ async function main() {
                         const leftHeight = leftRect?.height ?? null;
                         const columnDiff = (rightHeight !== null && leftHeight !== null)
                             ? Math.abs(rightHeight - leftHeight) : null;
-                        // Capture severe imbalance even when the block fits inside body-flow.
-                        // Otherwise the only high-severity issue can lack the layout attrs
-                        // needed to diagnose why the final balancing pass did not close the gap.
-                        if (overflow <= 15 && !(columnDiff > 30)) return [];
+                        // Capture measurable column imbalance even when the block fits inside body-flow.
+                        // A >5px residual gap can reveal a global-justify rollback that the issue
+                        // summary alone cannot explain; keep overflow-only diagnostics as before.
+                        if (overflow <= 15 && !(columnDiff > 5)) return [];
                         const cs = getComputedStyle(el);
                         return [{
                             pageIdx,
