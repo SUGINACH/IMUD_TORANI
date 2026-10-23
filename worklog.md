@@ -2574,3 +2574,21 @@ Stage Summary:
 
 ### Branch safety
 - Changes are confined to `V23`; `V21` is not modified and no merge is performed.
+
+
+## Task ID: v23-redo-check-and-balance-skip-diagnostics-2026-10-23
+**Agent:** ChatGPT
+**Date:** 2026-10-23
+**Task:** Instrument the existing page retry and column-balancing decisions after confirming that footnote insertion shrinks body-flow while leaving the block unchanged.
+
+### Change
+- `typesetter.js`: `redoCheck()` now records the actual reserve, pre-reserve remaining height, free height after reserve, body-flow height, last-child overflow, retry count, and the exact decision reason on the page. This does not alter the retry decision.
+- `typesetter.js`: `balanceColumns()` now records whether it was called, its input height and available height, and a skip reason when it exits before evaluating candidates (missing column, empty block, or no legal candidates). The candidate-selection policy is unchanged.
+- `tools/geometry-audit-cli.js`: serializes the retry diagnostics for all pages and includes the balance-call/status/skip attributes in detailed overflow diagnostics.
+- `geometry-audit.js`: exposes the new balance diagnostics in both geometry tree paths.
+
+### Why
+The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dcf04a0b76d`) measured four footnote-related overflows where insertion reduced body-flow by 54.5–308.9px but did not reduce the last block's height. The next audit must identify whether the retry sees no reserve, considers the reserve satisfied, reaches its retry limit, or fails to evaluate legal balance candidates. No balancing or pagination behavior is changed by this diagnostic commit.
+
+### Branch safety
+- All changes remain on `V23`; no merge into `V21`.

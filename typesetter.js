@@ -1361,6 +1361,11 @@ function repositionBlockNotes(block, boundaryHeight) {
    - חלק פסקה שממשיך לעמוד הבא נשאר p-cut, וסימון הערת סיום מוצמד לסוף הפסקה האמיתי.
    ========================================================================== */
 function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = Infinity) {
+    block.setAttribute('data-layout-balance-called', 'true');
+    block.setAttribute('data-layout-balance-available', String(availableHeight));
+    block.setAttribute('data-layout-balance-input-height', String(block.getBoundingClientRect().height));
+    block.setAttribute('data-layout-balance-status', 'started');
+    block.setAttribute('data-layout-balance-skip-reason', '');
     if (snapshot) {
         footnoteQueueForPage.length = snapshot.footnoteQueueLen;
         endnoteQueueForPart.length = snapshot.endnoteQueueLen;
@@ -1371,9 +1376,23 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 
     const rCol = block.querySelector('.right-col');
     const lCol = block.querySelector('.left-col');
-    if (!rCol || !lCol) return;
+    if (!rCol || !lCol) {
+        block.setAttribute('data-layout-balance-status', 'skipped');
+        block.setAttribute('data-layout-balance-skip-reason', 'missing-column');
+        block.setAttribute('data-layout-balance-candidates', '0');
+        block.setAttribute('data-layout-balance-items', '0');
+        return;
+    }
     const allChildren = [...Array.from(rCol.children), ...Array.from(lCol.children)];
-    if (allChildren.length === 0) return;
+    if (allChildren.length === 0) {
+        block.setAttribute('data-layout-balance-status', 'skipped');
+        block.setAttribute('data-layout-balance-skip-reason', 'empty-block');
+        block.setAttribute('data-layout-balance-candidates', '0');
+        block.setAttribute('data-layout-balance-items', '0');
+        block.setAttribute('data-layout-balance-right', String(rCol.scrollHeight));
+        block.setAttribute('data-layout-balance-left', String(lCol.scrollHeight));
+        return;
+    }
 
     // ---- 1. איחוד חלקי פסקאות רצופים של אותו טוקן ----
     const mergedItems = [];
@@ -1438,6 +1457,16 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         }
     }
     if (cands.length === 0) {
+        block.setAttribute('data-layout-balance-status', 'skipped');
+        block.setAttribute('data-layout-balance-skip-reason', 'no-legal-candidates');
+        block.setAttribute('data-layout-balance-candidates', '0');
+        block.setAttribute('data-layout-balance-items', String(items.length));
+        block.setAttribute('data-layout-balance-fits', 'false');
+        block.setAttribute('data-layout-balance-valid', 'false');
+        block.setAttribute('data-layout-balance-right', String(rCol.scrollHeight));
+        block.setAttribute('data-layout-balance-left', String(lCol.scrollHeight));
+        block.setAttribute('data-layout-balance-over', String(Math.max(rCol.scrollHeight, lCol.scrollHeight)));
+        block.setAttribute('data-layout-balance-diff', String(rCol.scrollHeight - lCol.scrollHeight));
         finalizeNotePositions([], 0);
         return;
     }
@@ -1531,6 +1560,8 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     const bestSplit = cands[best.k];
 
     // Keep deterministic, inspectable metrics for the geometry audit.
+    block.setAttribute('data-layout-balance-status', 'evaluated');
+    block.setAttribute('data-layout-balance-skip-reason', '');
     block.setAttribute('data-layout-balance-available', String(availableHeight));
     block.setAttribute('data-layout-balance-candidates', String(cands.length));
     block.setAttribute('data-layout-balance-items', String(items.length));
@@ -3741,7 +3772,29 @@ function typesetDocumentCore() {
 
             const redoCheck = () => {
                 const reserve = getFootnotesReservedHeight();
-                if (!reserve || remPageHeight - reserve >= -0.5 || redoAttempts >= 2) return false;
+                const freeAfterReserve = remPageHeight - reserve;
+                const flowRect = pageLayout.bodyFlow.getBoundingClientRect();
+                const lastFlowChild = pageLayout.bodyFlow.lastElementChild;
+                const lastFlowRect = lastFlowChild?.getBoundingClientRect();
+                const retryLimitReached = redoAttempts >= 2;
+                const reason = !reserve ? 'no-reserve'
+                    : freeAfterReserve >= -0.5 ? 'reserve-fits'
+                    : retryLimitReached ? 'retry-limit'
+                    : 'retry-triggered';
+                const setRedoMetric = (name, value) => {
+                    if (value !== null && value !== undefined && Number.isFinite(value)) {
+                        pageLayout.page.setAttribute(name, String(Math.round(value * 100) / 100));
+                    }
+                };
+                pageLayout.page.setAttribute('data-layout-redo-reason', reason);
+                pageLayout.page.setAttribute('data-layout-redo-attempts', String(redoAttempts));
+                setRedoMetric('data-layout-redo-reserve', reserve);
+                setRedoMetric('data-layout-redo-rem-height', remPageHeight);
+                setRedoMetric('data-layout-redo-free-after-reserve', freeAfterReserve);
+                setRedoMetric('data-layout-redo-flow-height', flowRect.height);
+                setRedoMetric('data-layout-redo-last-child-height', lastFlowRect?.height);
+                setRedoMetric('data-layout-redo-last-child-overflow', lastFlowRect ? lastFlowRect.bottom - flowRect.bottom : null);
+                if (!reserve || freeAfterReserve >= -0.5 || retryLimitReached) return false;
                 if (pageLayout.page.parentNode) pageLayout.page.parentNode.removeChild(pageLayout.page);
                 tokenIndex = pageState.tokenIndex;
                 pendingWordTokens = pageState.pendingWordTokens;
