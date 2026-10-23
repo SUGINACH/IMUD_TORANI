@@ -565,6 +565,7 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
    אם אין מקף, מחזיר את כל הטקסט. */
 function extractH1TitleMain(text) {
     if (!text) return '';
+    text = text.trim();
     if (!/[-–—]/.test(text)) return text;
     return text.split(/[-–—]/)[0].trim();
 }

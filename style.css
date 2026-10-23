@@ -1614,15 +1614,15 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
 }
 
 /* [תיקון] מרחק סימטרי מאותיות רגילות (x-height) — לא מ-descenders.
-   קודם היה line-height:1 !important, אבל זה עלול לגרום לחפיפה בכותרות בנות שתי שורות.
-   עכשיו: שומרים על line-height מקורי (1.25 לכותרת, 1.1 לסימן), ו-padding-top גדול
-   מ-padding-bottom מפצה על ascender > descender. */
-.h2-siman-badge {
-    padding-top: 0.15em !important;
-    padding-bottom: 0.05em !important;
-}
-
-.title-level-2-standalone {
+   עובד רק כשיש עיטורים (כדי לא להזיז כותרות בלי עיטורים).
+   padding-top גדול מ-padding-bottom מפצה על ascender > descender. */
+.h2-ornament-top + .h2-siman-badge,
+.h2-ornament-top + .title-level-2-standalone,
+.h2-siman-badge:has(+ .h2-ornament-bottom),
+.title-level-2-standalone:has(+ .h2-ornament-bottom),
+.h2-ornament-top + .h2-siman-badge,
+.h2-title-ornament-top + .title-level-2-standalone,
+.title-level-2-standalone:has(+ .h2-title-ornament-bottom) {
     padding-top: 0.15em !important;
     padding-bottom: 0.05em !important;
 }
