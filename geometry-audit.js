@@ -307,6 +307,19 @@ function extractGeometry() {
             idx: pIdx,
             label: (pgEl.querySelector('.page-number-footer')?.textContent?.trim() || String(pIdx + 1)),
             rect: pgRect,
+            // The CLI report uses this synthetic page node (not the DOM page node).
+            // Copy instrumentation attributes here so page-level reflow measurements survive serialization.
+            footnoteReflowMetrics: {
+                queueCount: pgEl.getAttribute('data-fn-reflow-queue-count'),
+                predictedHeight: pgEl.getAttribute('data-fn-reflow-predicted-height'),
+                beforeFlowHeight: pgEl.getAttribute('data-fn-reflow-before-flow-height'),
+                afterFlowHeight: pgEl.getAttribute('data-fn-reflow-after-flow-height'),
+                flowHeightDelta: pgEl.getAttribute('data-fn-reflow-flow-height-delta'),
+                beforeLastBlockHeight: pgEl.getAttribute('data-fn-reflow-before-last-block-height'),
+                afterLastBlockHeight: pgEl.getAttribute('data-fn-reflow-after-last-block-height'),
+                afterLastBlockOverflow: pgEl.getAttribute('data-fn-reflow-after-last-block-overflow'),
+                lastBlockTopOffset: pgEl.getAttribute('data-fn-reflow-last-block-top-offset')
+            },
             children: [],
             issues: []
         };
