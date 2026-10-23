@@ -2664,3 +2664,27 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - Changes remain on `V23`; `V21` remains an independent parallel branch and must not be merged.
+
+
+## V23 — guard page-final column equalization against vertical overflow
+**Date:** 2026-10-23
+
+### New audit evidence at `463769a6c8c13d4f998289fdea7adae98534145c`
+- Repeat-render determinism passed: both renders produced 601 pages with identical hash `14c758305995026a17d6a76a1c42427f49b9dd17481a61a84b52b249f6d5f051`.
+- The audit still failed `--fail-on high`: 98 issues (4 high, 35 medium, 59 low), compared with 93 issues (2 high, 34 medium, 57 low) before this change.
+- Printed page פ״ד still had a 29.94px block overflow. Its block reported `data-layout-postfit-triggered=false`, then ended at 945.08px against a 915px body-flow. Its columns were both 945px tall and the right column's paragraphs had 9px bottom padding. This shows the per-block fit check had passed before a later page-level adjustment; the final per-page equalization block had no hard postcondition.
+- Printed page תמה had 27.94px overflow. Its post-fit guard had triggered and `balanceColumns` had run, but the final rendered block still exceeded the body-flow. The earlier global rollback alone was therefore insufficient; the next audit must determine whether the page-final guard removes this path and what remains afterward.
+- Footnote measurements remained internally consistent: 59/59 queue matches, maximum measured/actual difference 0px.
+
+### Change
+- `typesetter.js`: added a hard postcondition to the page-final equalization pass that runs after `stretchPageToBottom()`. It snapshots the block root and descendants, and rolls back the adjustment if either the rendered outer height or tallest column grows by more than 0.5px. Side notes are repositioned after the accepted adjustment or rollback.
+- `tools/geometry-audit-cli.js`: expose `data-layout-page-final-justify-rolled-back` in the detailed overflow diagnostics.
+- Code commit: `c00be35e00b42fc44b190f3c785e364222ce51a5`.
+- Diagnostic commit: `ff1e4c0eb2cda055d6ac75d7b4a11b76d0133d26`.
+
+### Validation required
+- The long-document geometry audit on the new V23 head must complete. Required checks: zero high-severity containment issues, no regressions in imbalance/widow/sparse-line metrics, 601 pages (unless a justified pagination change is demonstrated), and repeat-render determinism PASS.
+- The new rollback metric must be inspected on printed pages פ״ד and תמה. If either remains high-severity, use its post-patch geometry diagnostics to locate the remaining mutation; do not weaken `--fail-on high`.
+
+### Branch safety
+- Changes remain on `V23`; no merge into `V21`.
