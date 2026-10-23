@@ -271,6 +271,40 @@ async function main() {
                 summary:audit.summary, issues:audit.issues, stats:model.stats, model:clean,
                 footnoteMeasurementAudit:fnAudit, fontsStatus:document.fonts ? document.fonts.status : 'unknown',
                 fontPreflight:window.__fontPreflight || null,
+                // Read these directly from the live DOM. The default report intentionally
+                // omits the full extracted page tree, so synthetic-node fields alone would
+                // otherwise be lost from geometry-audit.json.
+                footnoteReflowDiagnostics: Array.from(document.querySelectorAll('#book-container .a4-page')).map((pg, pageIdx) => {
+                    const flow = pg.querySelector('.page-body-flow');
+                    const flowRect = flow?.getBoundingClientRect();
+                    const last = flow?.lastElementChild;
+                    const lastRect = last?.getBoundingClientRect();
+                    const note = pg.querySelector('.footnote-area');
+                    const noteRect = note?.getBoundingClientRect();
+                    const attr = name => pg.getAttribute(name);
+                    const num = name => {
+                        const v = attr(name);
+                        return v == null || v === '' ? null : Number(v);
+                    };
+                    return {
+                        pageIdx,
+                        pageLabel: pg.querySelector('.page-number-footer')?.textContent?.trim() || String(pageIdx + 1),
+                        queueCount: num('data-fn-reflow-queue-count'),
+                        predictedHeight: num('data-fn-reflow-predicted-height'),
+                        beforeFlowHeight: num('data-fn-reflow-before-flow-height'),
+                        afterFlowHeight: num('data-fn-reflow-after-flow-height'),
+                        flowHeightDelta: num('data-fn-reflow-flow-height-delta'),
+                        beforeLastBlockHeight: num('data-fn-reflow-before-last-block-height'),
+                        afterLastBlockHeight: num('data-fn-reflow-after-last-block-height'),
+                        afterLastBlockOverflow: num('data-fn-reflow-after-last-block-overflow'),
+                        lastBlockTopOffset: num('data-fn-reflow-last-block-top-offset'),
+                        finalFlowHeight: flowRect ? Math.round(flowRect.height * 100) / 100 : null,
+                        finalLastBlockHeight: lastRect ? Math.round(lastRect.height * 100) / 100 : null,
+                        finalLastBlockOverflow: lastRect && flowRect ? Math.round((lastRect.bottom - flowRect.bottom) * 100) / 100 : null,
+                        finalLastBlockTopOffset: lastRect && flowRect ? Math.round((lastRect.top - flowRect.top) * 100) / 100 : null,
+                        finalFootnoteAreaHeight: noteRect ? Math.round(noteRect.height * 100) / 100 : null
+                    };
+                }),
                 layoutDiagnostics: Array.from(document.querySelectorAll('#book-container .a4-page')).flatMap((pg, pageIdx) => {
                     const flow = pg.querySelector('.page-body-flow');
                     if (!flow) return [];
@@ -327,7 +361,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,layoutDiagnostics:data.layoutDiagnostics,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
