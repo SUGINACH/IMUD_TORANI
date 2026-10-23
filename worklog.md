@@ -2853,3 +2853,22 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 ### Branch safety
 - Changes remain on `V23` only. Do not merge with `V21`.
 
+
+
+## V23 — capture transient paragraph geometry when final justification is rolled back
+**Date:** 2026-10-23
+
+### Evidence motivating the instrumentation
+- The production-default 627-page audit recorded a late-justification attempt on printed page תקלא: the right column grew from 486px to 561px while the target was 499px, then the guard rolled it back. The left column stayed at 499px.
+- Existing diagnostics recorded column totals but not paragraph-level geometry during the temporary state. They could not distinguish a line-count/reflow change from a padding, line-height, or first-word-window effect.
+
+### Change
+- `typesetter.js`: when the late page-final justification increases the outer block or tallest column by more than 0.5px, capture the target side/height and each paragraph's before/after box dimensions, computed line-height, margins, padding, base line-height, and first-word-window dimensions.
+- The existing rollback remains unchanged: temporary styles are restored, then transient diagnostic JSON is attached to the block. No thresholds, layout decisions, or audit severities are changed.
+- `geometry-audit.js`: expose the diagnostic string in `layoutMetrics.pageFinalJustifyDiagnostic` so the report preserves the evidence.
+
+### Validation status
+- Instrumentation change only; not yet validated by smoke test or the full 627-page audit. Inspect the new diagnostic on page תקלא and other rollback pages before changing justification behavior.
+
+### Branch safety
+- Changes remain on `V23` only. Do not merge with `V21`.
