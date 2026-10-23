@@ -4291,6 +4291,26 @@ function typesetDocumentCore() {
                     }
                 }
 
+                // Hard postcondition after the ordinary-fill / light-justification branch:
+                // a small vertical-justification pass can increase line boxes after the
+                // pre-pass fit checks, so validate the *rendered outer box* once more.
+                // If it no longer fits, rerun the deterministic split search with the
+                // available height reduced by the measured outer-box overhead.
+                const postLayoutOuterHeight = block2Col.getBoundingClientRect().height;
+                const postLayoutInnerHeight = Math.max(rCol.scrollHeight, lCol.scrollHeight);
+                if (postLayoutOuterHeight > actualAvailH + 0.5 || postLayoutInnerHeight > actualAvailH + 0.5) {
+                    block2Col.setAttribute('data-layout-postfit-triggered', 'true');
+                    block2Col.setAttribute('data-layout-postfit-outer-overflow', String(Math.round((postLayoutOuterHeight - actualAvailH) * 100) / 100));
+                    block2Col.setAttribute('data-layout-postfit-inner-overflow', String(Math.round((postLayoutInnerHeight - actualAvailH) * 100) / 100));
+                    const postFitOverhead = Math.max(0, postLayoutOuterHeight - postLayoutInnerHeight);
+                    balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot,
+                        Math.max(0, actualAvailH - postFitOverhead));
+                } else {
+                    block2Col.setAttribute('data-layout-postfit-triggered', 'false');
+                    block2Col.setAttribute('data-layout-postfit-outer-overflow', '0');
+                    block2Col.setAttribute('data-layout-postfit-inner-overflow', '0');
+                }
+
                 remPageHeight = Math.max(0, pageLayout.bodyFlow.getBoundingClientRect().bottom - block2Col.getBoundingClientRect().bottom);
                 pageBodyHasContent = true;
                 finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
