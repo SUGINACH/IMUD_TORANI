@@ -2642,3 +2642,25 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - Changes remain on `V23`. No merge into `V21`.
+
+
+## V23 — prevent the post-page global equalization pass from recreating overflow
+**Date:** 2026-10-23
+
+### Evidence
+- Long-document audit at commit `258542a84879309c1c496bb482d3230aeea14eea` completed with 601 pages, 93 issues (2 high, 34 medium, 57 low), and deterministic repeat-check PASS.
+- The two high-severity containment failures remained on printed pages 84 and 445 (about 29.94px and 29.34px overflow). The workflow failed specifically because `--fail-on high` detected these geometry issues, not because Chromium, dependencies, input validation, or artifact upload failed.
+- Code inspection found a second vertical-justification pass after `applyCrossParagraphParens(container)`, at the end of the full document layout. This pass runs after the per-block post-fit guard and can expand a block after that guard has already run. This is a concrete path capable of reintroducing overflow late in the pipeline.
+
+### Change
+- `typesetter.js`: snapshot descendant attributes and original outer/inner heights before the final global column equalization. If the pass increases the block's outer height or maximum column height by more than 0.5px, restore the pre-pass attributes. Record `data-layout-global-justify-rolled-back` and reposition side notes after either outcome.
+- `tools/geometry-audit-cli.js`: include the new rollback attribute in detailed block diagnostics.
+- Code commit: `463769a6c8c13d4f998289fdea7adae98534145c`.
+- Diagnostic commit: `9671d6005137a1768bcf25c30df52bd305841a86`.
+
+### Validation required
+- A new long-document run on the updated V23 head is required. Success criterion: zero high-severity containment issues and repeat-check determinism PASS. Do not infer success from CLI syntax checks alone.
+- If the two known pages still overflow, inspect their final diagnostics and pursue the next cause; do not relax `--fail-on high`.
+
+### Branch safety
+- Changes remain on `V23`; `V21` remains an independent parallel branch and must not be merged.
