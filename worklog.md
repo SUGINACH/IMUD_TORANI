@@ -2560,3 +2560,17 @@ Stage Summary:
 ### Branch safety
 - All changes remain on `V23`; no merge was performed.
 - `V21` was not modified by this task; latest observed head `f4863540203ceb29d42d710bf8780b545a2b87a4`.
+
+
+## Task ID: v23-cli-geometry-tree-metrics-route-fix-2026-10-23
+**Agent:** ChatGPT
+**Date:** 2026-10-23
+**Task:** Ensure footnote reflow metrics reach the JSON report used by the CLI audit.
+
+### Finding and correction
+- A second call-path inspection found that the long-document CLI uses `extractGeometry()`, whose synthetic page node is separate from the node created by `extractGeometryWithDomRefs()` (used for interactive DOM-backed inspection). The previous synthetic-node fix only covered the latter path, so it was insufficient for the report generator.
+- Added the same page-level `data-fn-reflow-*` collection to the synthetic page object in `extractGeometry()`. This is the relevant serialization path for the long-document JSON report.
+- The CLI audit passed on the prior code commit, but that does not validate the new metrics path. A fresh long-document run must confirm non-null metrics on pages where `flushFootnotesInto()` actually inserts notes.
+
+### Branch safety
+- Changes are confined to `V23`; `V21` is not modified and no merge is performed.
