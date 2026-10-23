@@ -320,13 +320,25 @@ async function main() {
                     return Array.from(flow.children).filter(el => el.classList.contains('block-2col')).flatMap(el => {
                         const r = el.getBoundingClientRect();
                         const overflow = r.bottom - fr.bottom;
-                        if (overflow <= 15) return [];
+                        const rightCol = el.querySelector('.right-col');
+                        const leftCol = el.querySelector('.left-col');
+                        const rightRect = rightCol?.getBoundingClientRect();
+                        const leftRect = leftCol?.getBoundingClientRect();
+                        const rightHeight = rightRect?.height ?? null;
+                        const leftHeight = leftRect?.height ?? null;
+                        const columnDiff = (rightHeight !== null && leftHeight !== null)
+                            ? Math.abs(rightHeight - leftHeight) : null;
+                        // Capture severe imbalance even when the block fits inside body-flow.
+                        // Otherwise the only high-severity issue can lack the layout attrs
+                        // needed to diagnose why the final balancing pass did not close the gap.
+                        if (overflow <= 15 && !(columnDiff > 30)) return [];
                         const cs = getComputedStyle(el);
                         return [{
                             pageIdx,
                             pageLabel: pg.querySelector('.page-number-footer')?.textContent?.trim() || String(pageIdx + 1),
                             flow: { top: fr.top, bottom: fr.bottom, rectHeight: fr.height, clientHeight: flow.clientHeight },
                             block: { top: r.top, bottom: r.bottom, height: r.height, topOffset: r.top - fr.top, overflow },
+                            columnBalance: { rightHeight, leftHeight, absoluteDiff: columnDiff },
                             attrs: Object.fromEntries([
                                 'data-layout-fill-remaining','data-layout-fill-flow-height','data-layout-fill-top-offset',
                                 'data-layout-balance-called','data-layout-balance-status','data-layout-balance-skip-reason',
