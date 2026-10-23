@@ -2543,4 +2543,20 @@ Stage Summary:
 
 ### Branch safety
 - All changes remain on `V23`.
-- `V21` remains untouched at `b972501409a69ff32931ad414e4d0f9f2655718b`.
+- `V21` was not modified by this work. Its observed head at the latest check is `f4863540203ceb29d42d710bf8780b545a2b87a4` (a separate worklog-only commit; no merge occurred).
+
+
+## Task ID: v23-footnote-reflow-metrics-synthetic-page-fix-2026-10-23
+**Agent:** ChatGPT
+**Date:** 2026-10-23
+**Task:** Correct the audit instrumentation so live footnote-reflow metrics are actually serialized in the page tree.
+
+### Findings
+- The long audit at `bff75ef813ae20c953eb43e69475a43b90af7b84` still rendered 601 pages deterministically and reported 100 issues (7 high, 33 medium, 60 low); the workflow failed at the configured high-severity threshold.
+- The first instrumentation attempt wrote the footnote metrics to the real `.a4-page` DOM element, but the audit builds a synthetic `type: 'page'` node and begins recursive DOM extraction at `.page-content-wrapper`. Therefore the metrics were not present in the JSON report (`pages with metrics: 0`). This was a defect in the diagnostic path, not evidence about the suspected layout cause.
+- Fixed `geometry-audit.js` to read `data-fn-reflow-*` attributes directly from `pgEl` while constructing the synthetic page node. The next long-document report must be checked to confirm these fields are populated before interpreting any measurements.
+- CLI syntax/smoke had passed on the prior instrumentation commit; validation for the synthetic-page fix is pending.
+
+### Branch safety
+- All changes remain on `V23`; no merge was performed.
+- `V21` was not modified by this task; latest observed head `f4863540203ceb29d42d710bf8780b545a2b87a4`.
