@@ -9,6 +9,11 @@ on:
     branches: [V23]
     paths:
       - 'typesetter.js'
+      - 'style.css'
+      - 'decorations.js'
+      - 'app.js'
+      - 'index.html'
+      - 'default_settings.json'
       - 'geometry-audit.js'
       - 'renderer-bridge.js'
       - 'tools/geometry-audit-cli.js'
