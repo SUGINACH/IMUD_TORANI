@@ -423,3 +423,19 @@ GitHub Actions run [40142401962](https://github.com/SUGINACH/IMUD_TORANI/actions
 - instrumentation integrity PASS.
 
 This verifies the memory-storage refactor on the smoke fixture. The corresponding long-document run is still pending/running and is the necessary performance and full-document check.
+
+### 8.16 Local final-justify overshoot: reproduced and corrected
+
+Analysis of the long-document report from run `40142215120` reproduced the earlier candidate/final discrepancy on page label `לג`:
+- selected candidate: right `293px`, left `307px`;
+- local final-justify target: `307px`;
+- final before the patch: right `314px`, left `307px`;
+- parenthesis-stage deltas: `0/0px`.
+
+The cause is not the parenthesis wrapper in this case. `justifyColumnVertically()` overshot the target while distributing padding and line-height; local final justification previously checked only page-fit overflow, not whether the target column overshot its target. The later global pass attempted another correction but rolled it back.
+
+Commit `647cdd719e271b740ff730396b91d715a40031c8` adds a local overshoot correction: after stretching, if the target column exceeds the requested height, it calls `shrinkColumnVertically()` to remove the overshoot. It also rolls back the local adjustment if it worsens absolute column imbalance or violates the existing hard-fit constraint. The attempt, target, before/after heights, overshoot before/after shrink, and rollback reason are recorded in DOM attributes.
+
+Commit `88a41b1846c45f9dc06abf3ae963b47972d1655a` exports those local final-justify details into each decision record. Commit `590306126c9e08c1586322e903b191fb4b9fff90` adds audit counters for attempts, corrected/remaining overshoots, rollbacks, and balance-improved attempts.
+
+The three-page smoke fixture passes with the updated algorithm and reports one final-justify attempt, no overshoot, no rollback, and improved balance. The long-document run for this algorithm change is still running; no claim is made yet that the 627-page imbalance count has decreased.
