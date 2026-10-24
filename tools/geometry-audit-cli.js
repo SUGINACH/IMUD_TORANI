@@ -592,7 +592,28 @@ async function main() {
                 return Math.abs(p.rightHeight - x.rightHeight) > 0.5 ||
                     Math.abs(p.leftHeight - x.leftHeight) > 0.5 ||
                     Math.abs(p.outerHeight - x.decision.final.outerHeight) > 0.5;
-            }).length
+            }).length,
+            localFinalJustifyAttemptCount: ledger.filter(x =>
+                ['left', 'right'].includes(x.decision?.finalJustify?.targetSide)).length,
+            localFinalJustifyOvershootCount: ledger.filter(x =>
+                Number.isFinite(x.decision?.finalJustify?.overshootBeforeShrink) &&
+                x.decision.finalJustify.overshootBeforeShrink > 0.5).length,
+            localFinalJustifyOvershootCorrectedCount: ledger.filter(x =>
+                Number.isFinite(x.decision?.finalJustify?.overshootBeforeShrink) &&
+                x.decision.finalJustify.overshootBeforeShrink > 0.5 &&
+                Number.isFinite(x.decision.finalJustify.overshootAfterShrink) &&
+                x.decision.finalJustify.overshootAfterShrink <= 0.5).length,
+            localFinalJustifyOvershootRemainingCount: ledger.filter(x =>
+                Number.isFinite(x.decision?.finalJustify?.overshootAfterShrink) &&
+                x.decision.finalJustify.overshootAfterShrink > 0.5).length,
+            localFinalJustifyRollbackCount: ledger.filter(x =>
+                x.decision?.finalJustify?.rollbackReason &&
+                x.decision.finalJustify.rollbackReason !== 'none').length,
+            localFinalJustifyBalanceImprovedCount: ledger.filter(x =>
+                Number.isFinite(x.decision?.finalJustify?.balanceBeforeDiff) &&
+                Number.isFinite(x.decision?.finalJustify?.balanceAttemptDiff) &&
+                Math.abs(x.decision.finalJustify.balanceAttemptDiff) <
+                    Math.abs(x.decision.finalJustify.balanceBeforeDiff) - 0.5).length
         };
         const reportPath = abs(args.report), summaryPath = abs(args.summary);
         const report = {
@@ -630,6 +651,11 @@ async function main() {
           '; post-global height-delta blocks ' + (la.crossParenPostGlobalHeightDeltaBlockCount ?? 'n/a') +
           '; final-snapshot mismatches ' + (la.crossParenFinalSnapshotMismatchCount ?? 'n/a') +
           '; capture errors ' + (la.crossParenDiagnosticErrorCount ?? 'n/a') + '\n');
+        process.stdout.write('Local final-justify: attempts ' + (la.localFinalJustifyAttemptCount ?? 'n/a') +
+          '; overshoots corrected ' + (la.localFinalJustifyOvershootCorrectedCount ?? 'n/a') +
+          '; overshoots remaining ' + (la.localFinalJustifyOvershootRemainingCount ?? 'n/a') +
+          '; rollbacks ' + (la.localFinalJustifyRollbackCount ?? 'n/a') +
+          '; balance-improved attempts ' + (la.localFinalJustifyBalanceImprovedCount ?? 'n/a') + '\n');
         const highIssues = report.audit.issues.filter(i => i.severity === 'high');
         if (highIssues.length) {
             process.stdout.write('High-severity issue samples (up to 20):\n');
