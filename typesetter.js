@@ -4600,7 +4600,89 @@ function typesetDocumentCore() {
     // כש- ( נפתח בפסקה אחת ו- ) נסגר בפסקה אחרת, הפסקאות שביניהן צריכות גם לקבל סגנון טקסט-מוסגר.
     // הפונקציה הזו עוברת על כל הפסקאות בסדר מסמך, עוקבת אחרי עומק הסוגריים, ועוטפת פסקאות
     // שלמות ב-span של paren-text כשהן בתוך סוגריים פתוחות.
+    // Capture the exact geometry immediately before and after cross-paragraph
+    // parenthesis styling. This is diagnostics only: it must not alter layout decisions.
+    const crossParenBefore = new Map();
+    const captureCrossParenBlock = blk => {
+        const captureCol = col => ({
+            scrollHeight: col.scrollHeight,
+            rectHeight: Math.round(col.getBoundingClientRect().height * 1000) / 1000,
+            paragraphs: Array.from(col.children).filter(p => p.tagName === 'P').map((p, index) => {
+                const r = p.getBoundingClientRect();
+                const cs = getComputedStyle(p);
+                const range = document.createRange();
+                range.selectNodeContents(p);
+                const lineTops = new Set(Array.from(range.getClientRects())
+                    .filter(q => q.width > 0.1 && q.height > 0.1)
+                    .map(q => Math.round(q.top * 2) / 2));
+                return {
+                    index,
+                    tokenId: p.getAttribute('data-token-id') || '',
+                    rawTextLength: (p.getAttribute('data-raw-text') || p.textContent || '').length,
+                    height: Math.round(r.height * 1000) / 1000,
+                    y: Math.round(r.y * 1000) / 1000,
+                    lineCount: lineTops.size,
+                    fontSize: cs.fontSize,
+                    lineHeight: cs.lineHeight,
+                    hasParenText: !!p.querySelector('.paren-text')
+                };
+            })
+        });
+        const right = blk.querySelector('.right-col');
+        const left = blk.querySelector('.left-col');
+        return {
+            right: right ? captureCol(right) : null,
+            left: left ? captureCol(left) : null,
+            outerHeight: Math.round(blk.getBoundingClientRect().height * 1000) / 1000
+        };
+    };
+    container.querySelectorAll('.block-2col').forEach(blk => {
+        crossParenBefore.set(blk, captureCrossParenBlock(blk));
+    });
+
     applyCrossParagraphParens(container);
+
+    container.querySelectorAll('.block-2col').forEach(blk => {
+        const before = crossParenBefore.get(blk);
+        if (!before) return;
+        const after = captureCrossParenBlock(blk);
+        const changed = [];
+        for (const side of ['right', 'left']) {
+            const b = before[side], a = after[side];
+            if (!b || !a) continue;
+            const n = Math.max(b.paragraphs.length, a.paragraphs.length);
+            for (let i = 0; i < n; i++) {
+                const bp = b.paragraphs[i] || null, ap = a.paragraphs[i] || null;
+                if (!bp || !ap || bp.height !== ap.height || bp.y !== ap.y ||
+                    bp.lineCount !== ap.lineCount || bp.fontSize !== ap.fontSize ||
+                    bp.lineHeight !== ap.lineHeight || bp.hasParenText !== ap.hasParenText) {
+                    changed.push({ side, index: i, before: bp, after: ap });
+                }
+            }
+        }
+        blk.setAttribute('data-layout-cross-paren-diagnostic', JSON.stringify({
+            version: 1,
+            phase: 'immediately-after-cross-paragraph-paren-styling',
+            before: {
+                rightHeight: before.right?.scrollHeight ?? null,
+                leftHeight: before.left?.scrollHeight ?? null,
+                outerHeight: before.outerHeight
+            },
+            after: {
+                rightHeight: after.right?.scrollHeight ?? null,
+                leftHeight: after.left?.scrollHeight ?? null,
+                outerHeight: after.outerHeight
+            },
+            delta: {
+                rightHeight: (after.right?.scrollHeight ?? 0) - (before.right?.scrollHeight ?? 0),
+                leftHeight: (after.left?.scrollHeight ?? 0) - (before.left?.scrollHeight ?? 0),
+                outerHeight: after.outerHeight - before.outerHeight
+            },
+            changedParagraphCount: changed.length,
+            changedParagraphs: changed.slice(0, 40),
+            truncatedChangedParagraphs: changed.length > 40
+        }));
+    });
 
     // [תיקון קריטי] אחרי applyCrossParagraphParens, עבור על כל הבלוקים בכל העמודים
     // וסגור פערים שנוצרו. applyCrossParagraphParens עוטף פסקאות שלמות ב-span עם גופן
