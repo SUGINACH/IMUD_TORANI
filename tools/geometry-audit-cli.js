@@ -153,6 +153,37 @@ async function captureLayoutSignature(page) {
             rect: rect(el),
             paragraphs: Array.from(el.children).filter(x => x.tagName === 'P').map(paragraph)
         });
+        // Include geometric elements that can change page appearance or available space,
+        // even when they are not children of page-body-flow. This is a geometry signature,
+        // not a visual pixel diff; it deliberately records computed box metrics.
+        const geometrySelector = [
+            '.page-content-wrapper', '.top-header-grid', '.header-col-r', '.header-col-c', '.header-col-l',
+            '.hdr-pagenum', '.hdr-txt', '.page-number-footer', '.page-body-flow',
+            '[class*="ornament"]', '[class*="divider"]', '[class*="rule"]',
+            '.col-gutter-divider', '.footnote-area', '.footnote-header-wrap',
+            '.footnote-header-title', '.note-line', '.note-line-num', '.side-note-anchor'
+        ].join(',');
+        const geometryNode = el => {
+            const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+            const text = el.children.length === 0 ? (el.textContent || '').trim().slice(0, 120) : '';
+            return {
+                tag: el.tagName,
+                cls: String(el.className || ''),
+                id: el.id || '',
+                text,
+                rect: rect(el),
+                box: {
+                    display: cs.display, position: cs.position,
+                    marginTop: cs.marginTop, marginRight: cs.marginRight,
+                    marginBottom: cs.marginBottom, marginLeft: cs.marginLeft,
+                    paddingTop: cs.paddingTop, paddingRight: cs.paddingRight,
+                    paddingBottom: cs.paddingBottom, paddingLeft: cs.paddingLeft,
+                    borderTopWidth: cs.borderTopWidth, borderRightWidth: cs.borderRightWidth,
+                    borderBottomWidth: cs.borderBottomWidth, borderLeftWidth: cs.borderLeftWidth,
+                    fontSize: cs.fontSize, lineHeight: cs.lineHeight
+                }
+            };
+        };
         return Array.from(document.querySelectorAll('#book-container .a4-page')).map((pg, idx) => {
             const flow = pg.querySelector('.page-body-flow');
             const blocks = flow ? Array.from(flow.children).map(el => ({
@@ -173,6 +204,7 @@ async function captureLayoutSignature(page) {
                 rect: rect(pg),
                 flowRect: flow ? rect(flow) : null,
                 blocks,
+                geometryNodes: Array.from(pg.querySelectorAll(geometrySelector)).map(geometryNode),
                 footnotes: fn ? {
                     rect: rect(fn),
                     notes: Array.from(fn.querySelectorAll('.note-line')).map(n => ({
