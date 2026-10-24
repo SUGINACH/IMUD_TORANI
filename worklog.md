@@ -2896,3 +2896,21 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Inspect the latest full audit artifact and confirm the final-phase fields are emitted on blocks with audit findings.
 - Then add a structured per-block decision record joining selected split, selection constraints, later mutations, rollback reason, and final geometry. Keep candidate-selection evidence immutable.
 - All changes remain on `V23`; do not merge with `V21`.
+
+## V23 — structured per-block layout decision ledger
+**Date:** 2026-10-24
+
+### Change
+- `typesetter.js`: record the selected candidate index, split item/line, candidate count, and a deterministic lexicographic score that mirrors the `better()` comparator. Preserve these as candidate-selection evidence.
+- At the canonical final snapshot, write `data-layout-decision-record` as schema-versioned JSON joining selection metrics, final geometry, fit status, and local/global/page rollback information.
+- `tools/geometry-audit-cli.js`: export `layoutDecisionRecords` for every two-column block, not only blocks that exceed an audit threshold. Existing issue-focused `layoutDiagnostics` remains filtered to relevant overflow/imbalance cases, while the ledger is the full inventory.
+
+### Validation status
+- Geometry Audit CLI smoke passed on commit `5b7331ec089b922b98f3249d1b61992a14979d84`.
+- The full long-document run for that commit is still in progress. Before treating the ledger as validated, inspect the artifact and verify that records are present for all two-column blocks, selected-candidate fields are populated when balancing ran, skipped blocks have explicit status/reason, and repeat-render output remains deterministic.
+- The earlier full run at `3d4d641e497d348f56303fd20d249303972f01e9` passed with 627 pages, 55 issues (0 high / 20 medium / 35 low), and exact footnote measurement on 60/60 pages. That result validates the canonical final snapshot but not this newer decision-ledger addition.
+
+### Next step
+- Inspect the latest ledger report; compare candidate-estimated geometry against final geometry for cases with large differences (e.g. the selected candidate predicted right=293px / left=307px, while final right=314px / left=307px). Treat such deltas as a measurement-parity question, not as a cosmetic imbalance to conceal.
+- Only after the evidence is available, trace the measurement/render parity across `renderSingleItemFast`, `appendItemFinal`, `applyDelimiterStyles`, and `createDropWord`. Do not change candidate ranking or safety constraints before the discrepancy is explained.
+- All changes remain on `V23`; do not merge with `V21`.
