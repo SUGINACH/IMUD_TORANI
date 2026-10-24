@@ -145,13 +145,51 @@ async function captureLayoutSignature(page) {
             const r = el.getBoundingClientRect();
             return [round(r.x), round(r.y), round(r.width), round(r.height)];
         };
-        const paragraph = p => ({
-            cls: String(p.className || ''),
-            tokenId: p.getAttribute('data-token-id') || '',
-            continuation: p.getAttribute('data-is-cont') || '',
-            rawText: p.getAttribute('data-raw-text') || p.textContent || '',
-            rect: rect(p)
-        });
+        const paragraph = p => {
+            const r = p.getBoundingClientRect();
+            const cs = getComputedStyle(p);
+            const range = document.createRange();
+            range.selectNodeContents(p);
+            // Inline spans can produce several client rects on the same visual line.
+            // Merge fragments by their half-pixel top coordinate into actual line bands.
+            const lineMap = new Map();
+            for (const q of Array.from(range.getClientRects())) {
+                if (q.width < 0.1 || q.height < 0.1) continue;
+                const key = Math.round(q.top * 2) / 2;
+                const line = lineMap.get(key) || {
+                    x: q.left, right: q.right, top: q.top, bottom: q.bottom
+                };
+                line.x = Math.min(line.x, q.left);
+                line.right = Math.max(line.right, q.right);
+                line.top = Math.min(line.top, q.top);
+                line.bottom = Math.max(line.bottom, q.bottom);
+                lineMap.set(key, line);
+            }
+            const lineRects = Array.from(lineMap.values())
+                .sort((a, b) => a.top - b.top || a.x - b.x)
+                .map(q => [
+                    round(q.x), round(q.top),
+                    round(q.right - q.x), round(q.bottom - q.top)
+                ]);
+            return {
+                cls: String(p.className || ''),
+                tokenId: p.getAttribute('data-token-id') || '',
+                continuation: p.getAttribute('data-is-cont') || '',
+                rawText: p.getAttribute('data-raw-text') || p.textContent || '',
+                rect: [round(r.x), round(r.y), round(r.width), round(r.height)],
+                lineRects,
+                typography: {
+                    fontFamily: cs.fontFamily, fontSize: cs.fontSize,
+                    fontWeight: cs.fontWeight, fontStyle: cs.fontStyle,
+                    lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing,
+                    wordSpacing: cs.wordSpacing, textAlign: cs.textAlign,
+                    textAlignLast: cs.textAlignLast, direction: cs.direction,
+                    whiteSpace: cs.whiteSpace, textIndent: cs.textIndent,
+                    marginTop: cs.marginTop, marginBottom: cs.marginBottom,
+                    paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom
+                }
+            };
+        };
         const column = el => ({
             cls: String(el.className || ''),
             rect: rect(el),
