@@ -356,3 +356,15 @@ The diagnostic now:
 - separately counts blocks whose final diagnostic capture threw an error.
 
 The report summary distinguishes changes during parenthesis wrapping from later geometry changes. A non-zero post-global delta does **not** by itself mean the layout is wrong: global justification is expected to change some paragraph heights. The diagnostic is intended to correlate those changes with final fit, column balance, and rollback data. Runtime evidence is still required before drawing causal conclusions.
+
+### 8.8 Verified long-document baseline before schema-v2 final-stage instrumentation
+
+GitHub Actions run [40141867916](https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40141867916), for commit `ac234a9e8e75a289ec8567c00e7050bbd3f82d65`, completed successfully at the workflow level. The job log confirms:
+- input fixture size: `3,387,848` bytes;
+- 627 pages rendered;
+- 55 geometry-audit findings: 0 high, 20 medium, 35 low;
+- issue kinds: 30 containment, 17 imbalance, 4 containment-rounding, 4 sparse-line;
+- repeat-render determinism: **PASS**, with no differing page;
+- report artifact uploaded successfully.
+
+This is a verified baseline for the code at `ac234a9`, which predates the schema-v2 post-global checkpoint. It does not establish that the newer schema-v2 instrumentation has completed its long run, and it does not mean all geometry findings are resolved. The workflow's success here means the configured `--fail-on high` gate passed; 55 lower-severity findings remain for diagnosis.
