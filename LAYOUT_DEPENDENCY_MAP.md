@@ -368,3 +368,11 @@ GitHub Actions run [40141867916](https://github.com/SUGINACH/IMUD_TORANI/actions
 - report artifact uploaded successfully.
 
 This is a verified baseline for the code at `ac234a9`, which predates the schema-v2 post-global checkpoint. It does not establish that the newer schema-v2 instrumentation has completed its long run, and it does not mean all geometry findings are resolved. The workflow's success here means the configured `--fail-on high` gate passed; 55 lower-severity findings remain for diagnosis.
+
+### 8.9 Separate geometry deltas from style-only deltas
+
+Commit `a262be3c408f9deeab7b32bfbc1cd50ff52e4fad` extends the parenthesis-stage paragraph snapshot to include merged visual-line rectangles, not only line count. A paragraph is now classified as geometrically changed if its vertical position, height, line count, or line rectangles changed; style-only changes (font size, line height, or presence of `.paren-text`) are counted separately. The same distinction is applied between the post-parenthesis state and the final post-global/post-side-note state.
+
+Commit `db1a7d6b43512bb2d991f47e71f533349523ad27` updates the CLI summary to report geometry-changing blocks separately from style-only blocks at both stages. This prevents a newly added `.paren-text` wrapper from being reported as a geometry change merely because the style marker changed.
+
+These are diagnostic refinements only. They do not alter layout selection, justification, rollback, or CSS. The latest long-run must validate that the added line-rectangle snapshots remain within acceptable runtime and memory costs.
