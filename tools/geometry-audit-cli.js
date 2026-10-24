@@ -74,7 +74,9 @@ function markdown(r) {
       '- Repeat-render determinism: ' + (r.run.determinismCheck ? (r.run.determinismCheck.identical ? 'PASS' : 'FAIL') : 'not run'),
       '- Geometry extraction: ' + (r.geometry.stats.extractMs ?? 'n/a') + ' ms',
       '- Pages: ' + r.pageCount,
-      '- Decision ledger: ' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a') + ' blocks; valid schema-v1 records: ' + (r.geometry.layoutDecisionRecordAudit?.validRecordCount ?? 'n/a'),
+      '- Decision ledger: ' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a') + ' records; valid schema-v1 records: ' + (r.geometry.layoutDecisionRecordAudit?.validRecordCount ?? 'n/a'),
+      '- DOM two-column blocks: ' + (r.geometry.layoutDecisionRecordAudit?.domBlockCount ?? 'n/a'),
+      '- Ledger/DOM count parity: ' + (r.geometry.layoutDecisionRecordAudit?.recordCountMatchesDom === true ? 'PASS' : r.geometry.layoutDecisionRecordAudit?.recordCountMatchesDom === false ? 'FAIL' : 'unknown'),
       '- Decision records missing/malformed: ' + (r.geometry.layoutDecisionRecordAudit?.missingOrMalformedCount ?? 'n/a'),
       '- Blocks with selected candidate: ' + (r.geometry.layoutDecisionRecordAudit?.selectedCandidateCount ?? 'n/a'),
       '- Issues: ' + (s.total ?? r.audit.issues.length),
@@ -513,14 +515,20 @@ async function main() {
                         };
                     });
                 }),
+                layoutDecisionBlockCount: document.querySelectorAll('#book-container .page-body-flow > .block-2col').length,
                 bodyScrollHeight:document.body.scrollHeight,
                 bookContainerScrollHeight:document.getElementById('book-container')?.scrollHeight ?? null
             };
         }, { includeFullModel: args.fullModel });
 
         const ledger = Array.isArray(data.layoutDecisionRecords) ? data.layoutDecisionRecords : [];
+        const domBlockCount = Number.isInteger(data.layoutDecisionBlockCount) ? data.layoutDecisionBlockCount : null;
         const layoutDecisionRecordAudit = {
             recordCount: ledger.length,
+            domBlockCount,
+            recordCountMatchesDom: domBlockCount === null ? null : ledger.length === domBlockCount,
+            missingLedgerRecordCount: domBlockCount === null ? null : Math.max(0, domBlockCount - ledger.length),
+            excessLedgerRecordCount: domBlockCount === null ? null : Math.max(0, ledger.length - domBlockCount),
             validRecordCount: ledger.filter(x => x.decision && x.decision.schemaVersion === 1 &&
                 x.decision.selection && x.decision.final && x.decision.mutations).length,
             missingOrMalformedCount: ledger.filter(x => !x.decision || x.decision.schemaVersion !== 1 ||
