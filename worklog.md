@@ -2889,8 +2889,8 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Validation status
 - Geometry Audit CLI smoke passed on commit `3d4d641e497d348f56303fd20d249303972f01e9`.
-- The full long-document audit for this commit is still running; do not claim full validation until its artifact is inspected for page count, repeat-render hash, footnote alignment, and final-phase diagnostics.
-- Earlier full audits on `de49e37f1165a40ab4311088e46e671a3878b7b2` passed with 627 pages, repeat-render determinism, and exact footnote measurement on 60/60 pages. Those results do not yet validate the latest final-snapshot change.
+- The full long-document audit on commit `a53526970d0f83f94bd295b139112e1fdd1b5b41` passed: 627 pages, repeat-render determinism PASS with the same hash as the prior baseline, 55 issues (0 high / 20 medium / 35 low), and exact footnote measurement on 60/60 pages (maximum difference 0px). This validates the canonical post-layout snapshot implementation itself.
+- Full long-document audits for the subsequent commits `02900c0b3b6e651da75b65ca4bbc44ffcd67e889` (CLI exports `data-layout-final-phase`) and `3d4d641e497d348f56303fd20d249303972f01e9` (final fit also checks outer block height) are still running. Inspect their artifacts before claiming those exact revisions fully validated.
 
 ### Next step
 - Inspect the latest full audit artifact and confirm the final-phase fields are emitted on blocks with audit findings.
