@@ -4757,7 +4757,7 @@ function typesetDocumentCore() {
         const outerHeight = blk.getBoundingClientRect().height;
         const availableRaw = blk.getAttribute('data-layout-balance-available');
         const available = availableRaw !== null ? Number(availableRaw) : NaN;
-        const fits = Number.isFinite(available) ? innerHeight <= available + 0.5 : null;
+        const fits = Number.isFinite(available) ? Math.max(innerHeight, outerHeight) <= available + 0.5 : null;
         const globalRollback = blk.getAttribute('data-layout-global-justify-rolled-back') === 'true';
         const localRollback = blk.getAttribute('data-layout-balance-final-justify-rolled-back') === 'true';
         const pageRollback = blk.getAttribute('data-layout-page-final-justify-rolled-back') === 'true';
