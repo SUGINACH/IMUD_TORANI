@@ -79,8 +79,10 @@ function markdown(r) {
       '- Ledger/DOM count parity: ' + (r.geometry.layoutDecisionRecordAudit?.recordCountMatchesDom === true ? 'PASS' : r.geometry.layoutDecisionRecordAudit?.recordCountMatchesDom === false ? 'FAIL' : 'unknown'),
       '- Decision records missing/malformed: ' + (r.geometry.layoutDecisionRecordAudit?.missingOrMalformedCount ?? 'n/a'),
       '- Blocks with selected candidate: ' + (r.geometry.layoutDecisionRecordAudit?.selectedCandidateCount ?? 'n/a'),
-      '- Blocks changed by parenthesis wrapping: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenChangedBlockCount ?? 'n/a'),
-      '- Blocks changed by later global balancing: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalChangedBlockCount ?? 'n/a'),
+      '- Blocks with paragraph geometry changes during parenthesis wrapping: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenGeometryChangedBlockCount ?? 'n/a'),
+      '- Blocks with style-only changes during parenthesis wrapping: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenStyleChangedBlockCount ?? 'n/a'),
+      '- Blocks with paragraph geometry changes in later passes: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalGeometryChangedBlockCount ?? 'n/a'),
+      '- Blocks with style-only changes in later passes: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalStyleChangedBlockCount ?? 'n/a'),
       '- Blocks with a post-global height delta > 0.5px: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalHeightDeltaBlockCount ?? 'n/a'),
       '- Blocks with missing/incomplete cross-parenthesis diagnostics: ' + (r.geometry.layoutDecisionRecordAudit?.missingCrossParenDiagnosticCount ?? 'n/a'),
       '- Blocks with cross-parenthesis diagnostic errors: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenDiagnosticErrorCount ?? 'n/a'),
@@ -553,12 +555,17 @@ async function main() {
             missingCrossParenDiagnosticCount: ledger.filter(x => !x.crossParenDiagnostic ||
                 x.crossParenDiagnostic.version !== 2 || !x.crossParenDiagnostic.postGlobal).length,
             crossParenDiagnosticErrorCount: ledger.filter(x => !!x.crossParenDiagnosticError).length,
-            crossParenChangedBlockCount: ledger.filter(x => (x.crossParenDiagnostic?.changedParagraphCount || 0) > 0 ||
-                (x.crossParenDiagnostic?.delta?.rightHeight || 0) !== 0 ||
-                (x.crossParenDiagnostic?.delta?.leftHeight || 0) !== 0 ||
-                (x.crossParenDiagnostic?.delta?.outerHeight || 0) !== 0).length,
-            crossParenPostGlobalChangedBlockCount: ledger.filter(x =>
-                (x.crossParenDiagnostic?.postGlobal?.changedParagraphCount || 0) > 0).length,
+            crossParenGeometryChangedBlockCount: ledger.filter(x =>
+                (x.crossParenDiagnostic?.geometryChangedParagraphCount || 0) > 0 ||
+                Math.abs(x.crossParenDiagnostic?.delta?.rightHeight || 0) > 0.5 ||
+                Math.abs(x.crossParenDiagnostic?.delta?.leftHeight || 0) > 0.5 ||
+                Math.abs(x.crossParenDiagnostic?.delta?.outerHeight || 0) > 0.5).length,
+            crossParenStyleChangedBlockCount: ledger.filter(x =>
+                (x.crossParenDiagnostic?.styleChangedParagraphCount || 0) > 0).length,
+            crossParenPostGlobalGeometryChangedBlockCount: ledger.filter(x =>
+                (x.crossParenDiagnostic?.postGlobal?.geometryChangedParagraphCount || 0) > 0).length,
+            crossParenPostGlobalStyleChangedBlockCount: ledger.filter(x =>
+                (x.crossParenDiagnostic?.postGlobal?.styleChangedParagraphCount || 0) > 0).length,
             crossParenPostGlobalHeightDeltaBlockCount: ledger.filter(x =>
                 Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.rightHeight || 0) > 0.5 ||
                 Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.leftHeight || 0) > 0.5 ||
