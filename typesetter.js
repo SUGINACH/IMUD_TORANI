@@ -4742,6 +4742,42 @@ function typesetDocumentCore() {
         // side-note page-boundary overflow that can be corrected without a same-side collision.
         repositionOverflowingSideNotes(container);
     }
+
+    // Canonical final-geometry snapshot: this is deliberately the LAST layout pass.
+    // Earlier data-layout-final-* values describe the local balance stage; overwrite
+    // them here so the audit always reads the geometry that survived all late passes.
+    container.querySelectorAll('.block-2col').forEach(blk => {
+        const right = blk.querySelector('.right-col');
+        const left = blk.querySelector('.left-col');
+        if (!right || !left) return;
+
+        const rightHeight = right.scrollHeight;
+        const leftHeight = left.scrollHeight;
+        const innerHeight = Math.max(rightHeight, leftHeight);
+        const outerHeight = blk.getBoundingClientRect().height;
+        const availableRaw = blk.getAttribute('data-layout-balance-available');
+        const available = availableRaw !== null ? Number(availableRaw) : NaN;
+        const fits = Number.isFinite(available) ? innerHeight <= available + 0.5 : null;
+        const globalRollback = blk.getAttribute('data-layout-global-justify-rolled-back') === 'true';
+        const localRollback = blk.getAttribute('data-layout-balance-final-justify-rolled-back') === 'true';
+        const pageRollback = blk.getAttribute('data-layout-page-final-justify-rolled-back') === 'true';
+        const rollbackReason = globalRollback
+            ? (blk.getAttribute('data-layout-global-justify-rollback-reason') || 'global-justify-rollback')
+            : pageRollback
+                ? 'page-final-justify-rollback'
+                : localRollback
+                    ? 'local-final-justify-overflow'
+                    : 'none';
+
+        blk.setAttribute('data-layout-final-phase', 'post-global-justify');
+        blk.setAttribute('data-layout-final-right-height', String(rightHeight));
+        blk.setAttribute('data-layout-final-left-height', String(leftHeight));
+        blk.setAttribute('data-layout-final-diff', String(rightHeight - leftHeight));
+        blk.setAttribute('data-layout-final-inner-height', String(innerHeight));
+        blk.setAttribute('data-layout-final-outer-height', String(outerHeight));
+        blk.setAttribute('data-layout-final-fits', fits === null ? 'unknown' : String(fits));
+        blk.setAttribute('data-layout-final-justify-rollback-reason', rollbackReason);
+    });
 }
 
 /* [חדש] טיפול בסוגריים שחוצות פסקאות.
