@@ -121,6 +121,8 @@
     }
 
     // הזרקת טקסט מהדף הראשי
+    let __typesetQueue = Promise.resolve();   // [V22] הודעות עימוד מטופלות בתור, כמו שהיה כשהטיפול היה סינכרוני
+
     function applyText(text) {
         const el = document.getElementById('raw-input');
         if (el) {
@@ -139,22 +141,30 @@
         if (!msg || !msg.type) return;
 
         if (msg.type === 'typeset') {
-            try {
-                applySettings(msg.settings);
-                applyText(msg.text);
-                // עדכן CSS vars
-                if (typeof updateGrid === 'function') updateGrid();
-                if (typeof updateStyles === 'function') updateStyles();
-                // עמד
-                if (typeof typesetDocument === 'function') {
-                    typesetDocument();
+            /* [V22/שלב 1] עימוד עד שקבוצת הגופנים הטעונים יציבה (גופן שנטען באמצע ההרצה משנה את הפריסה),
+               והחזרת דוח קלטים ב-render-done. בלי EngineInputs — הנתיב הישן. */
+            __typesetQueue = __typesetQueue.then(async () => {
+                try {
+                    applySettings(msg.settings);
+                    applyText(msg.text);
+                    if (typeof updateGrid === 'function') updateGrid();
+                    if (typeof updateStyles === 'function') updateStyles();
+                    let report = {};
+                    if (typeof typesetDocument === 'function') {
+                        if (window.EngineInputs) report = await EngineInputs.runUntilFontsStable(() => typesetDocument());
+                        else typesetDocument();
+                    }
+                    if (window.EngineInputs) {
+                        report.textHash = EngineInputs.fnv(msg.text || '');
+                        report.cssVarsHash = EngineInputs.fnv(document.documentElement.getAttribute('style') || '');
+                        Object.assign(report, EngineInputs.lastRun || {});
+                    }
+                    const pageCount = document.querySelectorAll('.a4-page').length;
+                    e.source.postMessage({ type: 'render-done', pageCount: pageCount, report: report }, e.origin);
+                } catch (err) {
+                    e.source.postMessage({ type: 'render-error', error: err.message }, e.origin);
                 }
-                // שלח חזרה תוצאה
-                const pageCount = document.querySelectorAll('.a4-page').length;
-                e.source.postMessage({ type: 'render-done', pageCount: pageCount }, e.origin);
-            } catch (err) {
-                e.source.postMessage({ type: 'render-error', error: err.message }, e.origin);
-            }
+            });
         } else if (msg.type === 'getHTML') {
             const html = document.getElementById('book-container')?.innerHTML || '';
             e.source.postMessage({ type: 'html-result', html: html }, e.origin);
