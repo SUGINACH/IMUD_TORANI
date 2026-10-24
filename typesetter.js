@@ -1684,14 +1684,61 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     // that cosmetic adjustment if it violates the hard fit constraint.
     const beforeFinalJustify = Array.from(block.querySelectorAll('*')).map(el =>
         [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
-    const finalDiff = rCol.scrollHeight - lCol.scrollHeight;
-    if (finalDiff > 0.5) justifyColumnVertically(lCol, rCol.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
-    else if (finalDiff < -0.5) justifyColumnVertically(rCol, lCol.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+    const beforeFinalRightHeight = rCol.scrollHeight;
+    const beforeFinalLeftHeight = lCol.scrollHeight;
+    const beforeFinalOuterHeight = block.getBoundingClientRect().height;
+    const finalDiff = beforeFinalRightHeight - beforeFinalLeftHeight;
+    let targetCol = null, targetHeight = null, targetSide = 'none';
+    if (finalDiff > 0.5) {
+        targetCol = lCol;
+        targetHeight = beforeFinalRightHeight;
+        targetSide = 'left';
+        justifyColumnVertically(lCol, targetHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+    } else if (finalDiff < -0.5) {
+        targetCol = rCol;
+        targetHeight = beforeFinalLeftHeight;
+        targetSide = 'right';
+        justifyColumnVertically(rCol, targetHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+    }
 
-    const postJustifyInner = Math.max(rCol.scrollHeight, lCol.scrollHeight);
-    const postJustifyOuter = block.getBoundingClientRect().height;
-    const justifyOverflows = postJustifyInner > availableHeight + 0.5 || postJustifyOuter > availableHeight + 0.5;
-    if (best.fits && justifyOverflows) {
+    // Correct a local final-justify overshoot before accepting the cosmetic adjustment.
+    // The global pass already does this; without the same guard here, a target gap of 14px
+    // can turn into a 7px opposite-side gap when padding/line-height adjustment overshoots.
+    const overshootBeforeShrink = targetCol ? targetCol.scrollHeight - targetHeight : null;
+    if (targetCol && overshootBeforeShrink > 0.5) {
+        shrinkColumnVertically(targetCol, targetHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+    }
+    const overshootAfterShrink = targetCol ? targetCol.scrollHeight - targetHeight : null;
+    const attemptedRightHeight = rCol.scrollHeight;
+    const attemptedLeftHeight = lCol.scrollHeight;
+    const attemptedOuterHeight = block.getBoundingClientRect().height;
+    const postJustifyInner = Math.max(attemptedRightHeight, attemptedLeftHeight);
+    const justifyOverflows = postJustifyInner > availableHeight + 0.5 || attemptedOuterHeight > availableHeight + 0.5;
+    const attemptedDiff = attemptedRightHeight - attemptedLeftHeight;
+    const balanceWorsened = Math.abs(attemptedDiff) > Math.abs(finalDiff) + 0.5;
+    const rollbackReason = best.fits && justifyOverflows
+        ? 'final-justify-exceeded-available-height'
+        : balanceWorsened
+            ? 'final-justify-worsened-balance'
+            : 'none';
+
+    block.setAttribute('data-layout-final-justify-target-side', targetSide);
+    block.setAttribute('data-layout-final-justify-target-height', targetHeight === null ? '' : String(targetHeight));
+    block.setAttribute('data-layout-final-justify-before-right', String(beforeFinalRightHeight));
+    block.setAttribute('data-layout-final-justify-before-left', String(beforeFinalLeftHeight));
+    block.setAttribute('data-layout-final-justify-before-outer', String(beforeFinalOuterHeight));
+    block.setAttribute('data-layout-final-justify-attempt-right', String(attemptedRightHeight));
+    block.setAttribute('data-layout-final-justify-attempt-left', String(attemptedLeftHeight));
+    block.setAttribute('data-layout-final-justify-attempt-outer', String(attemptedOuterHeight));
+    block.setAttribute('data-layout-final-justify-balance-before-diff', String(finalDiff));
+    block.setAttribute('data-layout-final-justify-balance-attempt-diff', String(attemptedDiff));
+    block.setAttribute('data-layout-final-justify-overshoot-before-shrink',
+        overshootBeforeShrink === null ? 'none' : String(overshootBeforeShrink));
+    block.setAttribute('data-layout-final-justify-overshoot-after-shrink',
+        overshootAfterShrink === null ? 'none' : String(overshootAfterShrink));
+    block.setAttribute('data-layout-final-justify-rollback-reason', rollbackReason);
+
+    if (rollbackReason !== 'none') {
         for (const [el, attrs] of beforeFinalJustify) {
             for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
             for (const [name, value] of attrs) el.setAttribute(name, value);
@@ -1704,8 +1751,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 
     // Separate the chosen-candidate metrics above from the geometry that actually
     // survives final justification/rollback. Audit tools should use these final fields
-    // when answering "what is on the page?", and the balance fields when answering
-    // "why was this split selected?".
+    // when answering "what is on the page?", and the balance fields when answering "why was this split selected?".
     const finalRightHeight = rCol.scrollHeight;
     const finalLeftHeight = lCol.scrollHeight;
     const finalOuterHeight = block.getBoundingClientRect().height;
@@ -1716,11 +1762,6 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     block.setAttribute('data-layout-final-inner-height', String(Math.max(finalRightHeight, finalLeftHeight)));
     block.setAttribute('data-layout-final-outer-height', String(finalOuterHeight));
     block.setAttribute('data-layout-final-fits', String(finalFits));
-    block.setAttribute('data-layout-final-justify-rollback-reason',
-        block.getAttribute('data-layout-balance-final-justify-rolled-back') === 'true'
-            ? 'final-justify-exceeded-available-height'
-            : 'none');
-
     finalizeNotePositions(finalNotes, Math.max(finalRightHeight, finalLeftHeight));
     return { rH: finalRightHeight, lH: finalLeftHeight, fits: finalFits };
 }
@@ -4938,13 +4979,14 @@ function typesetDocumentCore() {
         const fits = Number.isFinite(available) ? Math.max(innerHeight, outerHeight) <= available + 0.5 : null;
         const globalRollback = blk.getAttribute('data-layout-global-justify-rolled-back') === 'true';
         const localRollback = blk.getAttribute('data-layout-balance-final-justify-rolled-back') === 'true';
+        const localRollbackReason = blk.getAttribute('data-layout-final-justify-rollback-reason') || 'none';
         const pageRollback = blk.getAttribute('data-layout-page-final-justify-rolled-back') === 'true';
         const rollbackReason = globalRollback
             ? (blk.getAttribute('data-layout-global-justify-rollback-reason') || 'global-justify-rollback')
             : pageRollback
                 ? 'page-final-justify-rollback'
                 : localRollback
-                    ? 'local-final-justify-overflow'
+                    ? (localRollbackReason === 'none' ? 'local-final-justify-rollback' : localRollbackReason)
                     : 'none';
 
         blk.setAttribute('data-layout-final-phase', 'post-global-justify');
@@ -4996,6 +5038,7 @@ function typesetDocumentCore() {
             },
             mutations: {
                 localJustifyRolledBack: localRollback,
+                localRollbackReason,
                 globalJustifyRolledBack: globalRollback,
                 globalRollbackReason: blk.getAttribute('data-layout-global-justify-rollback-reason') || null,
                 pageFinalJustifyRolledBack: pageRollback,
