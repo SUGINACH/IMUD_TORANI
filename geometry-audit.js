@@ -612,6 +612,16 @@ function auditColumnBalance(node, issues) {
                     diff: Math.round(diff),
                     rightRect: { x: Math.round(right.rect.x), y: Math.round(right.rect.y), w: Math.round(right.rect.w), h: Math.round(right.rect.h) },
                     leftRect: { x: Math.round(left.rect.x), y: Math.round(left.rect.y), w: Math.round(left.rect.w), h: Math.round(left.rect.h) },
+                    // Preserve the balancing-pass evidence on the imbalance finding itself.
+                    // Previously this diagnostic was only visible if the same block also
+                    // triggered a containment finding, hiding evidence for most failed balances.
+                    layoutMetrics: node.layoutMetrics ? {
+                        globalJustifyDiagnostic: node.layoutMetrics.globalJustifyDiagnostic || null,
+                        pageFinalJustifyDiagnostic: node.layoutMetrics.pageFinalJustifyDiagnostic || null,
+                        balanceStatus: node.layoutMetrics.balanceStatus || null,
+                        balanceSkipReason: node.layoutMetrics.balanceSkipReason || null,
+                        balanceDiff: node.layoutMetrics.balanceDiff || null
+                    } : null,
                     message: `אי-איזון טורים: ימין=${Math.round(right.rect.h)}px שמאל=${Math.round(left.rect.h)}px פער=${Math.round(diff)}px`
                 });
             }
