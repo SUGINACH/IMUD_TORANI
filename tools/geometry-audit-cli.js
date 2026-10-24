@@ -82,7 +82,8 @@ function markdown(r) {
       '- Blocks changed by parenthesis wrapping: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenChangedBlockCount ?? 'n/a'),
       '- Blocks changed by later global balancing: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalChangedBlockCount ?? 'n/a'),
       '- Blocks with a post-global height delta > 0.5px: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalHeightDeltaBlockCount ?? 'n/a'),
-      '- Blocks with missing cross-parenthesis diagnostics: ' + (r.geometry.layoutDecisionRecordAudit?.missingCrossParenDiagnosticCount ?? 'n/a'),
+      '- Blocks with missing/incomplete cross-parenthesis diagnostics: ' + (r.geometry.layoutDecisionRecordAudit?.missingCrossParenDiagnosticCount ?? 'n/a'),
+      '- Blocks with cross-parenthesis diagnostic errors: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenDiagnosticErrorCount ?? 'n/a'),
       '- Issues: ' + (s.total ?? r.audit.issues.length),
       '- High: ' + (s.high || 0) + ' | Medium: ' + (s.medium || 0) + ' | Low: ' + (s.low || 0),
       '', '## Issue counts by kind', '', '| Kind | Count |', '|---|---:|'];
@@ -512,6 +513,7 @@ async function main() {
                             const raw = el.getAttribute('data-layout-cross-paren-diagnostic');
                             if (raw) crossParenDiagnostic = JSON.parse(raw);
                         } catch (_) { /* malformed diagnostics remain explicitly absent in the report */ }
+                        const crossParenDiagnosticError = el.getAttribute('data-layout-cross-paren-diagnostic-error');
                         return {
                             pageIdx,
                             pageLabel: pg.querySelector('.page-number-footer')?.textContent?.trim() || String(pageIdx + 1),
@@ -521,7 +523,8 @@ async function main() {
                             rightHeight: right ? right.scrollHeight : null,
                             leftHeight: left ? left.scrollHeight : null,
                             decision,
-                            crossParenDiagnostic
+                            crossParenDiagnostic,
+                            crossParenDiagnosticError
                         };
                     });
                 }),
@@ -545,8 +548,11 @@ async function main() {
                 !x.decision.selection || !x.decision.final || !x.decision.mutations).length,
             selectedCandidateCount: ledger.filter(x => Number.isInteger(x.decision?.selection?.selectedCandidateIndex)).length,
             noSelectedCandidateCount: ledger.filter(x => !Number.isInteger(x.decision?.selection?.selectedCandidateIndex)).length,
-            crossParenDiagnosticCount: ledger.filter(x => x.crossParenDiagnostic && [1, 2].includes(x.crossParenDiagnostic.version)).length,
-            missingCrossParenDiagnosticCount: ledger.filter(x => !x.crossParenDiagnostic || ![1, 2].includes(x.crossParenDiagnostic.version)).length,
+            crossParenDiagnosticCount: ledger.filter(x => x.crossParenDiagnostic && x.crossParenDiagnostic.version === 2 &&
+                x.crossParenDiagnostic.postGlobal).length,
+            missingCrossParenDiagnosticCount: ledger.filter(x => !x.crossParenDiagnostic ||
+                x.crossParenDiagnostic.version !== 2 || !x.crossParenDiagnostic.postGlobal).length,
+            crossParenDiagnosticErrorCount: ledger.filter(x => !!x.crossParenDiagnosticError).length,
             crossParenChangedBlockCount: ledger.filter(x => (x.crossParenDiagnostic?.changedParagraphCount || 0) > 0 ||
                 (x.crossParenDiagnostic?.delta?.rightHeight || 0) !== 0 ||
                 (x.crossParenDiagnostic?.delta?.leftHeight || 0) !== 0 ||
