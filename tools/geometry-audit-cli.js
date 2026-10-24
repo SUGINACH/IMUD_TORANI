@@ -618,6 +618,18 @@ async function main() {
         process.stdout.write('Issue kinds: ' + Object.entries(byKind)
           .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
           .map(([kind, count]) => kind + '=' + count).join(', ') + '\n');
+        const la = report.geometry.layoutDecisionRecordAudit || {};
+        process.stdout.write('Decision ledger: ' + (la.recordCount ?? 'n/a') + ' records / ' +
+          (la.domBlockCount ?? 'n/a') + ' DOM blocks; parity ' +
+          (la.recordCountMatchesDom === true ? 'PASS' : la.recordCountMatchesDom === false ? 'FAIL' : 'unknown') +
+          '; valid ' + (la.validRecordCount ?? 'n/a') + '; malformed ' + (la.missingOrMalformedCount ?? 'n/a') + '\n');
+        process.stdout.write('Parenthesis diagnostics: complete ' + (la.crossParenDiagnosticCount ?? 'n/a') + '/' +
+          (la.recordCount ?? 'n/a') + '; geometry-changed blocks ' + (la.crossParenGeometryChangedBlockCount ?? 'n/a') +
+          '; style-only blocks ' + (la.crossParenStyleChangedBlockCount ?? 'n/a') +
+          '; post-global geometry-changed blocks ' + (la.crossParenPostGlobalGeometryChangedBlockCount ?? 'n/a') +
+          '; post-global height-delta blocks ' + (la.crossParenPostGlobalHeightDeltaBlockCount ?? 'n/a') +
+          '; final-snapshot mismatches ' + (la.crossParenFinalSnapshotMismatchCount ?? 'n/a') +
+          '; capture errors ' + (la.crossParenDiagnosticErrorCount ?? 'n/a') + '\n');
         const highIssues = report.audit.issues.filter(i => i.severity === 'high');
         if (highIssues.length) {
             process.stdout.write('High-severity issue samples (up to 20):\n');
