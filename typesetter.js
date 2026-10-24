@@ -1736,7 +1736,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         overshootBeforeShrink === null ? 'none' : String(overshootBeforeShrink));
     block.setAttribute('data-layout-final-justify-overshoot-after-shrink',
         overshootAfterShrink === null ? 'none' : String(overshootAfterShrink));
-    block.setAttribute('data-layout-final-justify-rollback-reason', rollbackReason);
+    block.setAttribute('data-layout-balance-final-justify-rollback-reason', rollbackReason);
 
     if (rollbackReason !== 'none') {
         for (const [el, attrs] of beforeFinalJustify) {
@@ -4979,7 +4979,7 @@ function typesetDocumentCore() {
         const fits = Number.isFinite(available) ? Math.max(innerHeight, outerHeight) <= available + 0.5 : null;
         const globalRollback = blk.getAttribute('data-layout-global-justify-rolled-back') === 'true';
         const localRollback = blk.getAttribute('data-layout-balance-final-justify-rolled-back') === 'true';
-        const localRollbackReason = blk.getAttribute('data-layout-final-justify-rollback-reason') || 'none';
+        const localRollbackReason = blk.getAttribute('data-layout-balance-final-justify-rollback-reason') || 'none';
         const pageRollback = blk.getAttribute('data-layout-page-final-justify-rolled-back') === 'true';
         const rollbackReason = globalRollback
             ? (blk.getAttribute('data-layout-global-justify-rollback-reason') || 'global-justify-rollback')
@@ -5030,6 +5030,21 @@ function typesetDocumentCore() {
                     valid: blk.getAttribute('data-layout-balance-valid'),
                     overflow: numericAttr('data-layout-balance-over')
                 }
+            },
+            finalJustify: {
+                targetSide: blk.getAttribute('data-layout-final-justify-target-side') || 'none',
+                targetHeight: numericAttr('data-layout-final-justify-target-height'),
+                beforeRightHeight: numericAttr('data-layout-final-justify-before-right'),
+                beforeLeftHeight: numericAttr('data-layout-final-justify-before-left'),
+                beforeOuterHeight: numericAttr('data-layout-final-justify-before-outer'),
+                attemptRightHeight: numericAttr('data-layout-final-justify-attempt-right'),
+                attemptLeftHeight: numericAttr('data-layout-final-justify-attempt-left'),
+                attemptOuterHeight: numericAttr('data-layout-final-justify-attempt-outer'),
+                balanceBeforeDiff: numericAttr('data-layout-final-justify-balance-before-diff'),
+                balanceAttemptDiff: numericAttr('data-layout-final-justify-balance-attempt-diff'),
+                overshootBeforeShrink: numericAttr('data-layout-final-justify-overshoot-before-shrink'),
+                overshootAfterShrink: numericAttr('data-layout-final-justify-overshoot-after-shrink'),
+                rollbackReason: blk.getAttribute('data-layout-balance-final-justify-rollback-reason') || 'none'
             },
             final: {
                 rightHeight, leftHeight, diff: rightHeight - leftHeight,
