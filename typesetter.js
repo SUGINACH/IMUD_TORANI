@@ -4469,6 +4469,22 @@ function typesetDocumentCore() {
                             } else if (finalDiff < -2 && Math.abs(finalDiff) <= 60) {
                                 justifyColumnVertically(rCol, lCol.scrollHeight, styleObj);
                             }
+
+                            // Light justification has a per-line growth cap. If it reaches
+                            // that cap and leaves a material residual imbalance, switch to
+                            // the deterministic split search instead of silently accepting
+                            // an unbalanced continuation block (for example, one paragraph
+                            // split into a 5-line right fragment and a max-stretched 3-line
+                            // left fragment). Keep small residuals on short blocks untouched.
+                            const residualDiff = rCol.scrollHeight - lCol.scrollHeight;
+                            if (block2Col.getAttribute('data-layout-balance-called') !== 'true' &&
+                                Math.abs(residualDiff) > 8 && Math.abs(residualDiff) <= 60) {
+                                const residualOuter = block2Col.getBoundingClientRect().height;
+                                const residualInner = Math.max(rCol.scrollHeight, lCol.scrollHeight);
+                                const residualOverhead = Math.max(0, residualOuter - residualInner);
+                                balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot,
+                                    Math.max(0, actualAvailH - residualOverhead));
+                            }
                         }
                     }
                 }
