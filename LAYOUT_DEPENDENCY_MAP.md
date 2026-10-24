@@ -411,3 +411,15 @@ GitHub Actions run [40142356794](https://github.com/SUGINACH/IMUD_TORANI/actions
 - audit instrumentation integrity: PASS.
 
 This verifies the hard gate and its console counters on the smoke fixture. The later `a7759009...` in-memory snapshot optimization still needs its own smoke and long-document runs.
+
+### 8.15 Verified smoke test after in-memory snapshot optimization
+
+GitHub Actions run [40142401962](https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40142401962), checked out at commit `a77590094012d1a0d97688de219f2fb4e0d0b170`, completed the smoke test successfully after the full paragraph snapshots were moved from DOM attributes into an in-memory map. The log confirms:
+- 3 pages; 0 geometry findings;
+- ledger/DOM parity PASS; 1 valid record, 0 malformed;
+- parenthesis diagnostics complete 1/1;
+- no geometry/style changes, post-global deltas, final-snapshot mismatches, or capture errors on this fixture;
+- repeat-render determinism PASS;
+- instrumentation integrity PASS.
+
+This verifies the memory-storage refactor on the smoke fixture. The corresponding long-document run is still pending/running and is the necessary performance and full-document check.
