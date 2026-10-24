@@ -4603,6 +4603,7 @@ function typesetDocumentCore() {
     // Capture the exact geometry immediately before and after cross-paragraph
     // parenthesis styling. This is diagnostics only: it must not alter layout decisions.
     const crossParenBefore = new Map();
+    const crossParenAfter = new Map();
     const captureCrossParenBlock = blk => {
         const captureCol = col => ({
             scrollHeight: col.scrollHeight,
@@ -4665,6 +4666,7 @@ function typesetDocumentCore() {
         const before = crossParenBefore.get(blk);
         if (!before) return;
         const after = captureCrossParenBlock(blk);
+        crossParenAfter.set(blk, after);
         const changed = [];
         let geometryChangedParagraphCount = 0;
         let styleChangedParagraphCount = 0;
@@ -4707,11 +4709,7 @@ function typesetDocumentCore() {
             geometryChangedParagraphCount,
             styleChangedParagraphCount,
             changedParagraphs: changed.slice(0, 40),
-            truncatedChangedParagraphs: changed.length > 40,
-            postParenParagraphs: {
-                right: after.right?.paragraphs || [],
-                left: after.left?.paragraphs || []
-            }
+            truncatedChangedParagraphs: changed.length > 40
         }));
     });
 
@@ -4896,7 +4894,7 @@ function typesetDocumentCore() {
                 let geometryChangedParagraphCount = 0;
                 let styleChangedParagraphCount = 0;
                 for (const side of ['right', 'left']) {
-                    const beforeRows = parenDiagnostic.postParenParagraphs?.[side] || [];
+                    const beforeRows = crossParenAfter.get(blk)?.[side]?.paragraphs || [];
                     const afterRows = postGlobal[side]?.paragraphs || [];
                     const count = Math.max(beforeRows.length, afterRows.length);
                     for (let i = 0; i < count; i++) {
@@ -4930,7 +4928,6 @@ function typesetDocumentCore() {
                     changedParagraphs: paragraphChanges.slice(0, 40),
                     truncatedChangedParagraphs: paragraphChanges.length > 40
                 };
-                delete parenDiagnostic.postParenParagraphs;
                 blk.setAttribute('data-layout-cross-paren-diagnostic', JSON.stringify(parenDiagnostic));
             }
         } catch (_) {
