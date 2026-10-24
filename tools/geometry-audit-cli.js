@@ -375,6 +375,9 @@ async function main() {
                                 'data-layout-balance-fits','data-layout-balance-valid','data-layout-balance-over',
                                 'data-layout-balance-right','data-layout-balance-left','data-layout-balance-diff',
                                 'data-layout-balance-right-part-lines','data-layout-balance-left-part-lines',
+                                'data-layout-balance-selection-policy','data-layout-balance-selected-candidate',
+                                'data-layout-balance-split-item-index','data-layout-balance-split-line-count',
+                                'data-layout-balance-selection-score','data-layout-decision-record',
                                 'data-layout-final-phase','data-layout-final-right-height','data-layout-final-left-height',
                                 'data-layout-final-diff','data-layout-final-inner-height',
                                 'data-layout-final-outer-height','data-layout-final-fits',
@@ -407,6 +410,33 @@ async function main() {
                                 };
                             })
                         }];
+                    });
+                }),
+                // Full, compact decision ledger: one entry per two-column block, including
+                // blocks without audit findings. This is the primary path for explaining a
+                // layout decision without reverse-engineering the rendered DOM.
+                layoutDecisionRecords: Array.from(document.querySelectorAll('#book-container .a4-page')).flatMap((pg, pageIdx) => {
+                    const flow = pg.querySelector('.page-body-flow');
+                    if (!flow) return [];
+                    return Array.from(flow.children).filter(el => el.classList.contains('block-2col')).map(el => {
+                        const rect = el.getBoundingClientRect();
+                        const right = el.querySelector('.right-col');
+                        const left = el.querySelector('.left-col');
+                        let decision = null;
+                        try {
+                            const raw = el.getAttribute('data-layout-decision-record');
+                            if (raw) decision = JSON.parse(raw);
+                        } catch (_) { /* malformed records remain explicitly absent in the report */ }
+                        return {
+                            pageIdx,
+                            pageLabel: pg.querySelector('.page-number-footer')?.textContent?.trim() || String(pageIdx + 1),
+                            blockId: el.id || null,
+                            blockTop: rect.top,
+                            blockHeight: rect.height,
+                            rightHeight: right ? right.scrollHeight : null,
+                            leftHeight: left ? left.scrollHeight : null,
+                            decision
+                        };
                     });
                 }),
                 bodyScrollHeight:document.body.scrollHeight,
