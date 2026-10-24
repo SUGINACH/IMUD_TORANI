@@ -375,7 +375,7 @@ async function main() {
                                 'data-layout-balance-fits','data-layout-balance-valid','data-layout-balance-over',
                                 'data-layout-balance-right','data-layout-balance-left','data-layout-balance-diff',
                                 'data-layout-balance-right-part-lines','data-layout-balance-left-part-lines',
-                                'data-layout-final-right-height','data-layout-final-left-height',
+                                'data-layout-final-phase','data-layout-final-right-height','data-layout-final-left-height',
                                 'data-layout-final-diff','data-layout-final-inner-height',
                                 'data-layout-final-outer-height','data-layout-final-fits',
                                 'data-layout-final-justify-rollback-reason',
