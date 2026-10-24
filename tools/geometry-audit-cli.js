@@ -73,7 +73,11 @@ function markdown(r) {
       '- Generated: ' + r.run.generatedAt, '- Render duration: ' + r.run.renderMs + ' ms',
       '- Repeat-render determinism: ' + (r.run.determinismCheck ? (r.run.determinismCheck.identical ? 'PASS' : 'FAIL') : 'not run'),
       '- Geometry extraction: ' + (r.geometry.stats.extractMs ?? 'n/a') + ' ms',
-      '- Pages: ' + r.pageCount, '- Issues: ' + (s.total ?? r.audit.issues.length),
+      '- Pages: ' + r.pageCount,
+      '- Decision ledger: ' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a') + ' blocks; valid schema-v1 records: ' + (r.geometry.layoutDecisionRecordAudit?.validRecordCount ?? 'n/a'),
+      '- Decision records missing/malformed: ' + (r.geometry.layoutDecisionRecordAudit?.missingOrMalformedCount ?? 'n/a'),
+      '- Blocks with selected candidate: ' + (r.geometry.layoutDecisionRecordAudit?.selectedCandidateCount ?? 'n/a'),
+      '- Issues: ' + (s.total ?? r.audit.issues.length),
       '- High: ' + (s.high || 0) + ' | Medium: ' + (s.medium || 0) + ' | Low: ' + (s.low || 0),
       '', '## Issue counts by kind', '', '| Kind | Count |', '|---|---:|'];
     const kinds = Object.entries(s.byKind || {}).sort((a,b) => b[1]-a[1]);
@@ -476,6 +480,16 @@ async function main() {
             };
         }, { includeFullModel: args.fullModel });
 
+        const ledger = Array.isArray(data.layoutDecisionRecords) ? data.layoutDecisionRecords : [];
+        const layoutDecisionRecordAudit = {
+            recordCount: ledger.length,
+            validRecordCount: ledger.filter(x => x.decision && x.decision.schemaVersion === 1 &&
+                x.decision.selection && x.decision.final && x.decision.mutations).length,
+            missingOrMalformedCount: ledger.filter(x => !x.decision || x.decision.schemaVersion !== 1 ||
+                !x.decision.selection || !x.decision.final || !x.decision.mutations).length,
+            selectedCandidateCount: ledger.filter(x => Number.isInteger(x.decision?.selection?.selectedCandidateIndex)).length,
+            noSelectedCandidateCount: ledger.filter(x => !Number.isInteger(x.decision?.selection?.selectedCandidateIndex)).length
+        };
         const reportPath = abs(args.report), summaryPath = abs(args.summary);
         const report = {
             schemaVersion:1,
@@ -484,7 +498,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
