@@ -79,7 +79,9 @@ function markdown(r) {
       '- Ledger/DOM count parity: ' + (r.geometry.layoutDecisionRecordAudit?.recordCountMatchesDom === true ? 'PASS' : r.geometry.layoutDecisionRecordAudit?.recordCountMatchesDom === false ? 'FAIL' : 'unknown'),
       '- Decision records missing/malformed: ' + (r.geometry.layoutDecisionRecordAudit?.missingOrMalformedCount ?? 'n/a'),
       '- Blocks with selected candidate: ' + (r.geometry.layoutDecisionRecordAudit?.selectedCandidateCount ?? 'n/a'),
-      '- Blocks with cross-paragraph-parenthesis geometry changes: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenChangedBlockCount ?? 'n/a'),
+      '- Blocks changed by parenthesis wrapping: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenChangedBlockCount ?? 'n/a'),
+      '- Blocks changed by later global balancing: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalChangedBlockCount ?? 'n/a'),
+      '- Blocks with a post-global height delta > 0.5px: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalHeightDeltaBlockCount ?? 'n/a'),
       '- Blocks with missing cross-parenthesis diagnostics: ' + (r.geometry.layoutDecisionRecordAudit?.missingCrossParenDiagnosticCount ?? 'n/a'),
       '- Issues: ' + (s.total ?? r.audit.issues.length),
       '- High: ' + (s.high || 0) + ' | Medium: ' + (s.medium || 0) + ' | Low: ' + (s.low || 0),
@@ -543,12 +545,18 @@ async function main() {
                 !x.decision.selection || !x.decision.final || !x.decision.mutations).length,
             selectedCandidateCount: ledger.filter(x => Number.isInteger(x.decision?.selection?.selectedCandidateIndex)).length,
             noSelectedCandidateCount: ledger.filter(x => !Number.isInteger(x.decision?.selection?.selectedCandidateIndex)).length,
-            crossParenDiagnosticCount: ledger.filter(x => x.crossParenDiagnostic && x.crossParenDiagnostic.version === 1).length,
-            missingCrossParenDiagnosticCount: ledger.filter(x => !x.crossParenDiagnostic || x.crossParenDiagnostic.version !== 1).length,
+            crossParenDiagnosticCount: ledger.filter(x => x.crossParenDiagnostic && [1, 2].includes(x.crossParenDiagnostic.version)).length,
+            missingCrossParenDiagnosticCount: ledger.filter(x => !x.crossParenDiagnostic || ![1, 2].includes(x.crossParenDiagnostic.version)).length,
             crossParenChangedBlockCount: ledger.filter(x => (x.crossParenDiagnostic?.changedParagraphCount || 0) > 0 ||
                 (x.crossParenDiagnostic?.delta?.rightHeight || 0) !== 0 ||
                 (x.crossParenDiagnostic?.delta?.leftHeight || 0) !== 0 ||
-                (x.crossParenDiagnostic?.delta?.outerHeight || 0) !== 0).length
+                (x.crossParenDiagnostic?.delta?.outerHeight || 0) !== 0).length,
+            crossParenPostGlobalChangedBlockCount: ledger.filter(x =>
+                (x.crossParenDiagnostic?.postGlobal?.changedParagraphCount || 0) > 0).length,
+            crossParenPostGlobalHeightDeltaBlockCount: ledger.filter(x =>
+                Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.rightHeight || 0) > 0.5 ||
+                Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.leftHeight || 0) > 0.5 ||
+                Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.outerHeight || 0) > 0.5).length
         };
         const reportPath = abs(args.report), summaryPath = abs(args.summary);
         const report = {
