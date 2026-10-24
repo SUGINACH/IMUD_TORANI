@@ -1237,10 +1237,12 @@ function shrinkColumnVertically(col, targetHeight, styleObj, maxShrink = 60) {
             const setH = win ? parseFloat(win.style.height) : NaN;
             const winH = win ? ((isFinite(setH) && setH > 0) ? setH : win.offsetHeight) : 0;
             i.p.style.lineHeight = newLh + 'px';
-            // החלון מוקטן באותו יחס, עם רצפת מינימום (לא מתחת לגובה הטבעי ב-base)
+            // first-word-window מייצג את אזור האות/המילה המוגדלת, לא את כל גובה הפסקה.
+            // רצפה של base * numLines הייתה מגדילה חלון טבעי של ~30px לגובה של פסקה שלמה
+            // (מאות פיקסלים) בזמן כיווץ, וגורמת לאיזון הגלובלי להיכשל. שומרים רק על יחס
+            // שינוי גובה השורה; את גובה החלון הטבעי קובעת המדידה המקורית של הרכיב.
             if (win && winH > 0) {
-                const minWinH = i.base * i.lines - 1; // רצפה: base * numLines (בערך)
-                const newWinH = Math.max(minWinH, ((winH + 1) * newLh / i.lh) - 1);
+                const newWinH = Math.max(0, ((winH + 1) * newLh / i.lh) - 1);
                 win.style.height = newWinH + 'px';
             }
             changed = true;
