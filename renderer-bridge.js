@@ -153,13 +153,13 @@
                 }
                 // שלח חזרה תוצאה
                 const pageCount = document.querySelectorAll('.a4-page').length;
-                e.source.postMessage({ type: 'render-done', pageCount: pageCount }, e.origin);
+                e.source.postMessage({ type: 'render-done', pageCount: pageCount }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             } catch (err) {
-                e.source.postMessage({ type: 'render-error', error: err.message }, e.origin);
+                e.source.postMessage({ type: 'render-error', error: err.message }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             }
         } else if (msg.type === 'getHTML') {
             const html = document.getElementById('book-container')?.innerHTML || '';
-            e.source.postMessage({ type: 'html-result', html: html }, e.origin);
+            e.source.postMessage({ type: 'html-result', html: html }, (e.origin && e.origin !== 'null') ? e.origin : '*');
         } else if (msg.type === 'print') {
             window.print();
         } else if (msg.type === 'fn-audit') {
@@ -167,30 +167,30 @@
             try {
                 const audit = (typeof auditFnMeasurement === 'function') ? auditFnMeasurement() : [];
                 const log = window.__fnMeasureLog || [];
-                e.source.postMessage({ type: 'fn-audit-result', audit: audit, logSize: log.length, logSample: log.slice(-200) }, e.origin);
+                e.source.postMessage({ type: 'fn-audit-result', audit: audit, logSize: log.length, logSample: log.slice(-200) }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             } catch (err) {
-                e.source.postMessage({ type: 'fn-audit-error', error: err.message }, e.origin);
+                e.source.postMessage({ type: 'fn-audit-error', error: err.message }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             }
         } else if (msg.type === 'fn-audit-clear-log') {
             window.__fnMeasureLog = [];
-            e.source.postMessage({ type: 'fn-audit-log-cleared' }, e.origin);
+            e.source.postMessage({ type: 'fn-audit-log-cleared' }, (e.origin && e.origin !== 'null') ? e.origin : '*');
         } else if (msg.type === 'geom-extract') {
             // [חדש — גיאומטריה] חלץ מודל גיאומטרי מה-iframe
             try {
                 if (!window.__geomAudit) {
-                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, (e.origin && e.origin !== 'null') ? e.origin : '*');
                     return;
                 }
                 const model = window.__geomAudit.extract();
-                e.source.postMessage({ type: 'geom-extract-result', model: model }, e.origin);
+                e.source.postMessage({ type: 'geom-extract-result', model: model }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             } catch (err) {
-                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             }
         } else if (msg.type === 'geom-audit') {
             // [חדש — גיאומטריה] הרץ בודק מתמטי + (אופציונלי) צייר overlay
             try {
                 if (!window.__geomAudit) {
-                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, (e.origin && e.origin !== 'null') ? e.origin : '*');
                     return;
                 }
                 const model = window.__geomAudit.extract();
@@ -203,15 +203,15 @@
                     summary: audit.summary,
                     issues: audit.issues,
                     stats: model.stats
-                }, e.origin);
+                }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             } catch (err) {
-                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             }
         } else if (msg.type === 'geom-paint') {
             // [חדש — גיאומטריה] צייר overlay על הדף
             try {
                 if (!window.__geomAudit) {
-                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, (e.origin && e.origin !== 'null') ? e.origin : '*');
                     return;
                 }
                 const model = window.__geomAudit.extract();
@@ -221,23 +221,23 @@
                     type: 'geom-paint-done',
                     summary: audit.summary,
                     stats: model.stats
-                }, e.origin);
+                }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             } catch (err) {
-                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             }
         } else if (msg.type === 'geom-clear') {
             // [חדש — גיאומטריה] נקה overlay
             try {
                 if (window.__geomAudit) window.__geomAudit.clear();
-                e.source.postMessage({ type: 'geom-clear-done' }, e.origin);
+                e.source.postMessage({ type: 'geom-clear-done' }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             } catch (err) {
-                e.source.postMessage({ type: 'geom-error', error: err.message }, e.origin);
+                e.source.postMessage({ type: 'geom-error', error: err.message }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             }
         } else if (msg.type === 'geom-export') {
             // [חדש — גיאומטריה] ייצוא פירוט מלא כ-JSON (כולל מילים/רווחים)
             try {
                 if (!window.__geomAudit) {
-                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, e.origin);
+                    e.source.postMessage({ type: 'geom-error', error: 'geometry-audit.js לא נטען' }, (e.origin && e.origin !== 'null') ? e.origin : '*');
                     return;
                 }
                 const model = window.__geomAudit.extract();
@@ -251,9 +251,9 @@
                     type: 'geom-export-result',
                     model: cleanModel,
                     audit: audit
-                }, e.origin);
+                }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             } catch (err) {
-                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, e.origin);
+                e.source.postMessage({ type: 'geom-error', error: err.message, stack: err.stack }, (e.origin && e.origin !== 'null') ? e.origin : '*');
             }
         } else if (msg.type === 'geom-scroll-to-page') {
             // [חדש — גיאומטריה] גלול לעמוד מסוים ב-iframe
