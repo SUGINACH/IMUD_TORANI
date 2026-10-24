@@ -4612,16 +4612,35 @@ function typesetDocumentCore() {
                 const cs = getComputedStyle(p);
                 const range = document.createRange();
                 range.selectNodeContents(p);
-                const lineTops = new Set(Array.from(range.getClientRects())
-                    .filter(q => q.width > 0.1 && q.height > 0.1)
-                    .map(q => Math.round(q.top * 2) / 2));
+                const lineMap = new Map();
+                for (const q of Array.from(range.getClientRects())) {
+                    if (q.width <= 0.1 || q.height <= 0.1) continue;
+                    const key = Math.round(q.top * 2) / 2;
+                    const line = lineMap.get(key) || {
+                        x: q.left, right: q.right, top: q.top, bottom: q.bottom
+                    };
+                    line.x = Math.min(line.x, q.left);
+                    line.right = Math.max(line.right, q.right);
+                    line.top = Math.min(line.top, q.top);
+                    line.bottom = Math.max(line.bottom, q.bottom);
+                    lineMap.set(key, line);
+                }
+                const lineRects = Array.from(lineMap.values())
+                    .sort((a, b) => a.top - b.top || a.x - b.x)
+                    .map(q => [
+                        Math.round(q.x * 1000) / 1000,
+                        Math.round(q.top * 1000) / 1000,
+                        Math.round((q.right - q.x) * 1000) / 1000,
+                        Math.round((q.bottom - q.top) * 1000) / 1000
+                    ]);
                 return {
                     index,
                     tokenId: p.getAttribute('data-token-id') || '',
                     rawTextLength: (p.getAttribute('data-raw-text') || p.textContent || '').length,
                     height: Math.round(r.height * 1000) / 1000,
                     y: Math.round(r.y * 1000) / 1000,
-                    lineCount: lineTops.size,
+                    lineCount: lineRects.length,
+                    lineRects,
                     fontSize: cs.fontSize,
                     lineHeight: cs.lineHeight,
                     hasParenText: !!p.querySelector('.paren-text')
@@ -4647,16 +4666,22 @@ function typesetDocumentCore() {
         if (!before) return;
         const after = captureCrossParenBlock(blk);
         const changed = [];
+        let geometryChangedParagraphCount = 0;
+        let styleChangedParagraphCount = 0;
         for (const side of ['right', 'left']) {
             const b = before[side], a = after[side];
             if (!b || !a) continue;
             const n = Math.max(b.paragraphs.length, a.paragraphs.length);
             for (let i = 0; i < n; i++) {
                 const bp = b.paragraphs[i] || null, ap = a.paragraphs[i] || null;
-                if (!bp || !ap || bp.height !== ap.height || bp.y !== ap.y ||
-                    bp.lineCount !== ap.lineCount || bp.fontSize !== ap.fontSize ||
-                    bp.lineHeight !== ap.lineHeight || bp.hasParenText !== ap.hasParenText) {
-                    changed.push({ side, index: i, before: bp, after: ap });
+                const geometryChanged = !bp || !ap || bp.height !== ap.height || bp.y !== ap.y ||
+                    bp.lineCount !== ap.lineCount || JSON.stringify(bp.lineRects) !== JSON.stringify(ap.lineRects);
+                const styleChanged = !bp || !ap || bp.fontSize !== ap.fontSize ||
+                    bp.lineHeight !== ap.lineHeight || bp.hasParenText !== ap.hasParenText;
+                if (geometryChanged) geometryChangedParagraphCount++;
+                if (styleChanged) styleChangedParagraphCount++;
+                if (geometryChanged || styleChanged) {
+                    changed.push({ side, index: i, geometryChanged, styleChanged, before: bp, after: ap });
                 }
             }
         }
@@ -4679,6 +4704,8 @@ function typesetDocumentCore() {
                 outerHeight: after.outerHeight - before.outerHeight
             },
             changedParagraphCount: changed.length,
+            geometryChangedParagraphCount,
+            styleChangedParagraphCount,
             changedParagraphs: changed.slice(0, 40),
             truncatedChangedParagraphs: changed.length > 40,
             postParenParagraphs: {
@@ -4866,16 +4893,22 @@ function typesetDocumentCore() {
                 const postGlobal = captureCrossParenBlock(blk);
                 const postParen = parenDiagnostic.after || {};
                 const paragraphChanges = [];
+                let geometryChangedParagraphCount = 0;
+                let styleChangedParagraphCount = 0;
                 for (const side of ['right', 'left']) {
                     const beforeRows = parenDiagnostic.postParenParagraphs?.[side] || [];
                     const afterRows = postGlobal[side]?.paragraphs || [];
                     const count = Math.max(beforeRows.length, afterRows.length);
                     for (let i = 0; i < count; i++) {
                         const b = beforeRows[i] || null, a = afterRows[i] || null;
-                        if (!b || !a || b.height !== a.height || b.y !== a.y ||
-                            b.lineCount !== a.lineCount || b.fontSize !== a.fontSize ||
-                            b.lineHeight !== a.lineHeight || b.hasParenText !== a.hasParenText) {
-                            paragraphChanges.push({ side, index: i, afterParen: b, postGlobal: a });
+                        const geometryChanged = !b || !a || b.height !== a.height || b.y !== a.y ||
+                            b.lineCount !== a.lineCount || JSON.stringify(b.lineRects) !== JSON.stringify(a.lineRects);
+                        const styleChanged = !b || !a || b.fontSize !== a.fontSize ||
+                            b.lineHeight !== a.lineHeight || b.hasParenText !== a.hasParenText;
+                        if (geometryChanged) geometryChangedParagraphCount++;
+                        if (styleChanged) styleChangedParagraphCount++;
+                        if (geometryChanged || styleChanged) {
+                            paragraphChanges.push({ side, index: i, geometryChanged, styleChanged, afterParen: b, postGlobal: a });
                         }
                     }
                 }
@@ -4892,6 +4925,8 @@ function typesetDocumentCore() {
                         outerHeight: postGlobal.outerHeight - (parenDiagnostic.after?.outerHeight ?? postGlobal.outerHeight)
                     },
                     changedParagraphCount: paragraphChanges.length,
+                    geometryChangedParagraphCount,
+                    styleChangedParagraphCount,
                     changedParagraphs: paragraphChanges.slice(0, 40),
                     truncatedChangedParagraphs: paragraphChanges.length > 40
                 };
