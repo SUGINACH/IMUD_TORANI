@@ -290,3 +290,34 @@ node tools/geometry-audit-cli.js --input ./very_long_test_text.txt --fail-on hig
 5. כל שינוי נשאר ב-`V23`. אין למזג את `V23` ל-`V21`.
 
 **מצב נוכחי:** המדידה המוקדמת של הערות השוליים תוקנה בריצת CI מאומתת. עדיין אין טענה שהמנוע הגיע לשלמות: יש 12 חריגות חמורות שטרם תוקנו, והבדיקה המתוקנת לאלמנות/יתומים ממתינה לריצה מלאה.\n
+
+## 8. Audit coverage update — 2026-10-25
+
+### 8.1 What the deterministic signature now captures
+
+In `tools/geometry-audit-cli.js`, `captureLayoutSignature()` records each paragraph's:
+- bounding rectangle;
+- visual line bands, formed by merging inline `Range.getClientRects()` fragments that share a half-pixel top coordinate;
+- computed typography that can change line breaking or appearance: font family/size/weight/style, line-height, letter/word spacing, text alignment and last-line alignment, direction, white-space, text indent, vertical margins and padding;
+- existing class, token ID, continuation flag and raw text.
+
+This extends the previous signature; it does **not** change pagination or balancing. The signature is still not a pixel-image comparison and does not prove that every painted property of every descendant is covered. In particular, CSS effects not represented by paragraph metrics or the existing `geometryNodes` selector may still require additional audit coverage.
+
+### 8.2 Validation status (do not conflate stages)
+
+- **Committed:** commit `14df96adf9bc24fa78c7f2ea7342e8f7957a9f8f` on `V23`.
+- **Static parse check:** the fetched CLI source parsed successfully after removing its Node shebang for the in-process JavaScript parser.
+- **Not yet confirmed:** GitHub Actions result, real `node --check` step result, long-document run, repeated-render hash equality, or audit artifact contents. The commit's combined status endpoint returned no statuses; that is not a passing CI result.
+- **No layout algorithm changes** were made in this audit update.
+
+### 8.3 Next verification gate
+
+Before tuning balance thresholds or changing candidate selection, obtain the long audit report and compare:
+1. candidate geometry recorded at selection time;
+2. post-global-justify final geometry;
+3. any local/global/page rollback diagnostics;
+4. per-column paragraph and line rectangles;
+5. repeat-render hashes.
+
+The previously observed candidate/final height discrepancy (for example, candidate heights 293/307 px versus final 314/307 px) remains an unresolved diagnostic until reproduced in a current report. Do not label its cause proven based only on the presence of cross-paragraph parenthesis styling.
+
