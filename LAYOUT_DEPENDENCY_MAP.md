@@ -439,3 +439,11 @@ Commit `647cdd719e271b740ff730396b91d715a40031c8` adds a local overshoot correct
 Commit `88a41b1846c45f9dc06abf3ae963b47972d1655a` exports those local final-justify details into each decision record. Commit `590306126c9e08c1586322e903b191fb4b9fff90` adds audit counters for attempts, corrected/remaining overshoots, rollbacks, and balance-improved attempts.
 
 The three-page smoke fixture passes with the updated algorithm and reports one final-justify attempt, no overshoot, no rollback, and improved balance. The long-document run for this algorithm change is still running; no claim is made yet that the 627-page imbalance count has decreased.
+
+### 8.17 Residual imbalance after light-justify cap
+
+The latest long report still has one medium imbalance: page label `תקיג`, with a single paragraph split across the two columns (`114px` right / `94px` left). The left fragment was already at its line-height cap (`28.944px` against a base of `21.44px`), so the ordinary light-justify path could not close the remaining `20px` gap. The block had no decision-ledger candidate record because this path did not invoke `balanceColumns()`.
+
+Commit `5832d6d368c6ee443b9c8b05c296c1b5a398a824` adds a deterministic fallback: after light justification, if a block still has an absolute column-height difference greater than `8px` and no balance search has already been run, invoke `balanceColumns()` using the measured available height minus the block's outer-box overhead. Residuals of `8px` or less are left alone to avoid stretching short final blocks merely to fill space.
+
+This targets the unrecorded continuation block without changing the candidate scoring or balance thresholds for blocks that were already searched. Static JavaScript parsing passed; the smoke and long-document runs for this fallback are pending.
