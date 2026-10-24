@@ -1686,8 +1686,27 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         block.setAttribute('data-layout-balance-final-justify-rolled-back', 'false');
     }
 
-    finalizeNotePositions(finalNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
-    return { rH: rCol.scrollHeight, lH: lCol.scrollHeight, fits: Math.max(rCol.scrollHeight, lCol.scrollHeight) <= availableHeight };
+    // Separate the chosen-candidate metrics above from the geometry that actually
+    // survives final justification/rollback. Audit tools should use these final fields
+    // when answering "what is on the page?", and the balance fields when answering
+    // "why was this split selected?".
+    const finalRightHeight = rCol.scrollHeight;
+    const finalLeftHeight = lCol.scrollHeight;
+    const finalOuterHeight = block.getBoundingClientRect().height;
+    const finalFits = Math.max(finalRightHeight, finalLeftHeight, finalOuterHeight) <= availableHeight + 0.5;
+    block.setAttribute('data-layout-final-right-height', String(finalRightHeight));
+    block.setAttribute('data-layout-final-left-height', String(finalLeftHeight));
+    block.setAttribute('data-layout-final-diff', String(finalRightHeight - finalLeftHeight));
+    block.setAttribute('data-layout-final-inner-height', String(Math.max(finalRightHeight, finalLeftHeight)));
+    block.setAttribute('data-layout-final-outer-height', String(finalOuterHeight));
+    block.setAttribute('data-layout-final-fits', String(finalFits));
+    block.setAttribute('data-layout-final-justify-rollback-reason',
+        block.getAttribute('data-layout-balance-final-justify-rolled-back') === 'true'
+            ? 'final-justify-exceeded-available-height'
+            : 'none');
+
+    finalizeNotePositions(finalNotes, Math.max(finalRightHeight, finalLeftHeight));
+    return { rH: finalRightHeight, lH: finalLeftHeight, fits: finalFits };
 }
 
 /* ==========================================================================
