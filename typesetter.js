@@ -1565,6 +1565,22 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         if (!best || better(e, best)) best = e;
     }
     const bestSplit = cands[best.k];
+    const selectionScore = [
+        best.fits ? 0 : 1,
+        best.valid ? 0 : 1,
+        best.fits ? 0 : best.over,
+        best.abs,
+        best.diff >= 0 ? 0 : 1,
+        best.k
+    ];
+
+    // Keep the selected candidate itself inspectable, not just its measured heights.
+    // The tuple mirrors better()'s exact lexicographic priority order.
+    block.setAttribute('data-layout-balance-selection-policy', 'lexicographic-v1');
+    block.setAttribute('data-layout-balance-selected-candidate', String(best.k));
+    block.setAttribute('data-layout-balance-split-item-index', String(bestSplit.i));
+    block.setAttribute('data-layout-balance-split-line-count', String(bestSplit.l));
+    block.setAttribute('data-layout-balance-selection-score', JSON.stringify(selectionScore));
 
     // Keep deterministic, inspectable metrics for the geometry audit.
     block.setAttribute('data-layout-balance-status', 'evaluated');
@@ -4777,6 +4793,54 @@ function typesetDocumentCore() {
         blk.setAttribute('data-layout-final-outer-height', String(outerHeight));
         blk.setAttribute('data-layout-final-fits', fits === null ? 'unknown' : String(fits));
         blk.setAttribute('data-layout-final-justify-rollback-reason', rollbackReason);
+
+        const numericAttr = name => {
+            const value = blk.getAttribute(name);
+            if (value === null || value.trim() === '') return null;
+            const number = Number(value);
+            return Number.isFinite(number) ? number : null;
+        };
+        const decisionRecord = {
+            schemaVersion: 1,
+            phase: 'post-global-justify',
+            selection: {
+                status: blk.getAttribute('data-layout-balance-status') || 'not-recorded',
+                skipReason: blk.getAttribute('data-layout-balance-skip-reason') || null,
+                policy: blk.getAttribute('data-layout-balance-selection-policy') || null,
+                candidateCount: numericAttr('data-layout-balance-candidates'),
+                selectedCandidateIndex: numericAttr('data-layout-balance-selected-candidate'),
+                splitItemIndex: numericAttr('data-layout-balance-split-item-index'),
+                splitLineCount: numericAttr('data-layout-balance-split-line-count'),
+                score: (() => {
+                    try {
+                        const raw = blk.getAttribute('data-layout-balance-selection-score');
+                        return raw ? JSON.parse(raw) : null;
+                    } catch (_) { return null; }
+                })(),
+                availableHeight: Number.isFinite(available) ? available : null,
+                candidateGeometry: {
+                    rightHeight: numericAttr('data-layout-balance-right'),
+                    leftHeight: numericAttr('data-layout-balance-left'),
+                    diff: numericAttr('data-layout-balance-diff'),
+                    fits: blk.getAttribute('data-layout-balance-fits'),
+                    valid: blk.getAttribute('data-layout-balance-valid'),
+                    overflow: numericAttr('data-layout-balance-over')
+                }
+            },
+            final: {
+                rightHeight, leftHeight, diff: rightHeight - leftHeight,
+                innerHeight, outerHeight, fits: fits === null ? 'unknown' : fits,
+                availableHeight: Number.isFinite(available) ? available : null
+            },
+            mutations: {
+                localJustifyRolledBack: localRollback,
+                globalJustifyRolledBack: globalRollback,
+                globalRollbackReason: blk.getAttribute('data-layout-global-justify-rollback-reason') || null,
+                pageFinalJustifyRolledBack: pageRollback,
+                finalRollbackReason: rollbackReason
+            }
+        };
+        blk.setAttribute('data-layout-decision-record', JSON.stringify(decisionRecord));
     });
 }
 
