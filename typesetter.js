@@ -4680,7 +4680,11 @@ function typesetDocumentCore() {
             },
             changedParagraphCount: changed.length,
             changedParagraphs: changed.slice(0, 40),
-            truncatedChangedParagraphs: changed.length > 40
+            truncatedChangedParagraphs: changed.length > 40,
+            postParenParagraphs: {
+                right: after.right?.paragraphs || [],
+                left: after.left?.paragraphs || []
+            }
         }));
     });
 
@@ -4853,6 +4857,50 @@ function typesetDocumentCore() {
         const leftHeight = left.scrollHeight;
         const innerHeight = Math.max(rightHeight, leftHeight);
         const outerHeight = blk.getBoundingClientRect().height;
+        // Extend the parenthesis checkpoint through the later global balancing and
+        // side-note correction passes; this is observational and does not mutate layout.
+        try {
+            const rawParen = blk.getAttribute('data-layout-cross-paren-diagnostic');
+            if (rawParen) {
+                const parenDiagnostic = JSON.parse(rawParen);
+                const postGlobal = captureCrossParenBlock(blk);
+                const postParen = parenDiagnostic.after || {};
+                const paragraphChanges = [];
+                for (const side of ['right', 'left']) {
+                    const beforeRows = parenDiagnostic.postParenParagraphs?.[side] || [];
+                    const afterRows = postGlobal[side]?.paragraphs || [];
+                    const count = Math.max(beforeRows.length, afterRows.length);
+                    for (let i = 0; i < count; i++) {
+                        const b = beforeRows[i] || null, a = afterRows[i] || null;
+                        if (!b || !a || b.height !== a.height || b.y !== a.y ||
+                            b.lineCount !== a.lineCount || b.fontSize !== a.fontSize ||
+                            b.lineHeight !== a.lineHeight || b.hasParenText !== a.hasParenText) {
+                            paragraphChanges.push({ side, index: i, afterParen: b, postGlobal: a });
+                        }
+                    }
+                }
+                parenDiagnostic.version = 2;
+                parenDiagnostic.postGlobal = {
+                    rightHeight: postGlobal.right?.scrollHeight ?? null,
+                    leftHeight: postGlobal.left?.scrollHeight ?? null,
+                    rightRectHeight: postGlobal.right?.rectHeight ?? null,
+                    leftRectHeight: postGlobal.left?.rectHeight ?? null,
+                    outerHeight: postGlobal.outerHeight,
+                    deltaFromPostParen: {
+                        rightHeight: (postGlobal.right?.scrollHeight ?? 0) - (postParen.rightHeight ?? 0),
+                        leftHeight: (postGlobal.left?.scrollHeight ?? 0) - (postParen.leftHeight ?? 0),
+                        outerHeight: postGlobal.outerHeight - (parenDiagnostic.after?.outerHeight ?? postGlobal.outerHeight)
+                    },
+                    changedParagraphCount: paragraphChanges.length,
+                    changedParagraphs: paragraphChanges.slice(0, 40),
+                    truncatedChangedParagraphs: paragraphChanges.length > 40
+                };
+                delete parenDiagnostic.postParenParagraphs;
+                blk.setAttribute('data-layout-cross-paren-diagnostic', JSON.stringify(parenDiagnostic));
+            }
+        } catch (_) {
+            blk.setAttribute('data-layout-cross-paren-diagnostic-error', 'post-global-capture-failed');
+        }
         const availableRaw = blk.getAttribute('data-layout-balance-available');
         const available = availableRaw !== null ? Number(availableRaw) : NaN;
         const fits = Number.isFinite(available) ? Math.max(innerHeight, outerHeight) <= available + 0.5 : null;
