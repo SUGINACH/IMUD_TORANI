@@ -342,3 +342,17 @@ This creates a direct measurement point for distinguishing changes caused at the
 ### 8.6 Long input availability
 
 The GitHub file-content wrapper returned an empty string for `very_long_test_text.txt`, but fetching the blob by its SHA returned 1,918,760 characters/bytes of non-empty Hebrew test text (the actual byte count is to be confirmed in CI with `wc -c`). The wrapper's empty path response was therefore a retrieval limitation, not evidence that the test fixture is empty. The workflow's `test -s` guard remains appropriate.
+
+### 8.7 Parenthesis checkpoint extended to final geometry
+
+Commits `faed0a8ba563e0309cacbbb62f2fd537beb86e79` and `979cc7865215dc934aff99ebafaf3139d58274cb` extend the parenthesis diagnostic through the final geometry snapshot, after global justification and side-note overflow correction.
+
+The diagnostic now:
+- preserves a compact per-paragraph snapshot from immediately after parenthesis wrapping;
+- records final right/left column heights, column box heights and outer block height;
+- calculates the height deltas between the post-parenthesis state and final state;
+- counts paragraph geometry changes between those stages and retains up to 40 examples;
+- uses diagnostic schema version 2, which the CLI now requires for a complete checkpoint;
+- separately counts blocks whose final diagnostic capture threw an error.
+
+The report summary distinguishes changes during parenthesis wrapping from later geometry changes. A non-zero post-global delta does **not** by itself mean the layout is wrong: global justification is expected to change some paragraph heights. The diagnostic is intended to correlate those changes with final fit, column balance, and rollback data. Runtime evidence is still required before drawing causal conclusions.
