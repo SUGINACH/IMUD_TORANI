@@ -376,3 +376,9 @@ Commit `a262be3c408f9deeab7b32bfbc1cd50ff52e4fad` extends the parenthesis-stage 
 Commit `db1a7d6b43512bb2d991f47e71f533349523ad27` updates the CLI summary to report geometry-changing blocks separately from style-only blocks at both stages. This prevents a newly added `.paren-text` wrapper from being reported as a geometry change merely because the style marker changed.
 
 These are diagnostic refinements only. They do not alter layout selection, justification, rollback, or CSS. The latest long-run must validate that the added line-rectangle snapshots remain within acceptable runtime and memory costs.
+
+### 8.10 Prevent redundant concurrent audit runs
+
+Commits `973212cff9f1caf6b34ba2a7172e346935f3bf92` and `504329cab98936826f596dd2c115ce6813553241` add workflow-level concurrency groups to the long-document audit and CLI smoke audit. New runs on the same ref cancel superseded runs instead of competing for Chromium downloads and CPU/memory while testing obsolete commits.
+
+This is CI orchestration only. It does not change the layout engine or the audit acceptance thresholds. The newest commit still requires a completed long-document run and inspection of its report.
