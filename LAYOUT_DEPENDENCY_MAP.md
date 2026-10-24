@@ -330,3 +330,15 @@ Commit `77ddc5b60877850c4a7bd2092f9c0a7e1b0d00e5` adds an independently counted 
 - `excessLedgerRecordCount`.
 
 The Markdown summary exposes the DOM block count and whether it matches the number of serialized decision records. This is a completeness cross-check, not proof that every individual record is semantically correct; schema validation remains a separate metric. Runtime confirmation still depends on the long audit run.
+
+### 8.5 Cross-paragraph-parenthesis geometry checkpoint
+
+Commit `ac234a9e8e75a289ec8567c00e7050bbd3f82d65` adds a diagnostic snapshot immediately before and after `applyCrossParagraphParens(container)`. For each two-column block it records both columns' `scrollHeight`, column bounding height, outer block height, and paragraph-level height/Y/line-count/font-size/line-height/paren-span state. The per-block attribute `data-layout-cross-paren-diagnostic` includes before/after totals, deltas, and up to 40 changed-paragraph entries.
+
+Commit `f6275c357cd74932200f232fdc81d54d48dbfbaa` exports this diagnostic into `geometry.layoutDecisionRecords` in the audit JSON and adds summary counts for blocks with geometry changes and blocks missing the diagnostic.
+
+This creates a direct measurement point for distinguishing changes caused at the parenthesis-wrapping stage from later balancing stages. It is instrumentation only: no candidate selection, balancing threshold, text styling rule, or rollback decision was changed. The measurements still need to be confirmed on a real Chromium run.
+
+### 8.6 Long input availability
+
+The GitHub file-content wrapper returned an empty string for `very_long_test_text.txt`, but fetching the blob by its SHA returned 1,918,760 characters/bytes of non-empty Hebrew test text (the actual byte count is to be confirmed in CI with `wc -c`). The wrapper's empty path response was therefore a retrieval limitation, not evidence that the test fixture is empty. The workflow's `test -s` guard remains appropriate.
