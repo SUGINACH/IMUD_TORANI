@@ -397,3 +397,17 @@ This is independent of the configured geometry severity threshold (`--fail-on`).
 ### 8.12 Surface diagnostic counters in CI logs
 
 Commit `b54961e182267ebfaf77e714893873c49295a961` prints the ledger/DOM parity, valid/malformed record counts, complete parenthesis diagnostic count, geometry-changing versus style-only block counts, post-global changes, final-snapshot mismatch count, and diagnostic-capture errors directly in the workflow log. This avoids having to infer instrumentation status from the audit severity totals or download the JSON artifact merely to see these counts.
+
+### 8.14 Verified smoke test for instrumentation integrity gate
+
+GitHub Actions run [40142356794](https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40142356794) completed the three-page smoke fixture successfully on the CLI/integrity-gate code before the later in-memory snapshot optimization:
+- 3 pages; 0 geometry findings;
+- decision ledger: 1 record / 1 DOM block; parity PASS; 1 valid record, 0 malformed;
+- parenthesis diagnostics: complete 1/1;
+- geometry-changing blocks: 0; style-only blocks: 0;
+- post-global geometry changes: 0; post-global height deltas: 0;
+- final-snapshot mismatches: 0; capture errors: 0;
+- repeat-render determinism: PASS;
+- audit instrumentation integrity: PASS.
+
+This verifies the hard gate and its console counters on the smoke fixture. The later `a7759009...` in-memory snapshot optimization still needs its own smoke and long-document runs.
