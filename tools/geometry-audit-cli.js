@@ -573,10 +573,12 @@ async function main() {
                 Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.outerHeight || 0) > 0.5).length,
             crossParenFinalSnapshotMismatchCount: ledger.filter(x => {
                 const p = x.crossParenDiagnostic?.postGlobal;
-                if (!p) return true;
-                return Math.abs((p.rightHeight ?? NaN) - (x.rightHeight ?? NaN)) > 0.5 ||
-                    Math.abs((p.leftHeight ?? NaN) - (x.leftHeight ?? NaN)) > 0.5 ||
-                    Math.abs((p.outerHeight ?? NaN) - (x.decision?.final?.outerHeight ?? NaN)) > 0.5;
+                if (!p || !Number.isFinite(p.rightHeight) || !Number.isFinite(p.leftHeight) ||
+                    !Number.isFinite(p.outerHeight) || !Number.isFinite(x.rightHeight) ||
+                    !Number.isFinite(x.leftHeight) || !Number.isFinite(x.decision?.final?.outerHeight)) return true;
+                return Math.abs(p.rightHeight - x.rightHeight) > 0.5 ||
+                    Math.abs(p.leftHeight - x.leftHeight) > 0.5 ||
+                    Math.abs(p.outerHeight - x.decision.final.outerHeight) > 0.5;
             }).length
         };
         const reportPath = abs(args.report), summaryPath = abs(args.summary);
