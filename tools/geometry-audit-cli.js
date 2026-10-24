@@ -84,6 +84,7 @@ function markdown(r) {
       '- Blocks with paragraph geometry changes in later passes: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalGeometryChangedBlockCount ?? 'n/a'),
       '- Blocks with style-only changes in later passes: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalStyleChangedBlockCount ?? 'n/a'),
       '- Blocks with a post-global height delta > 0.5px: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenPostGlobalHeightDeltaBlockCount ?? 'n/a'),
+      '- Parenthesis final-snapshot mismatches: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenFinalSnapshotMismatchCount ?? 'n/a'),
       '- Blocks with missing/incomplete cross-parenthesis diagnostics: ' + (r.geometry.layoutDecisionRecordAudit?.missingCrossParenDiagnosticCount ?? 'n/a'),
       '- Blocks with cross-parenthesis diagnostic errors: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenDiagnosticErrorCount ?? 'n/a'),
       '- Issues: ' + (s.total ?? r.audit.issues.length),
@@ -569,7 +570,14 @@ async function main() {
             crossParenPostGlobalHeightDeltaBlockCount: ledger.filter(x =>
                 Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.rightHeight || 0) > 0.5 ||
                 Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.leftHeight || 0) > 0.5 ||
-                Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.outerHeight || 0) > 0.5).length
+                Math.abs(x.crossParenDiagnostic?.postGlobal?.deltaFromPostParen?.outerHeight || 0) > 0.5).length,
+            crossParenFinalSnapshotMismatchCount: ledger.filter(x => {
+                const p = x.crossParenDiagnostic?.postGlobal;
+                if (!p) return true;
+                return Math.abs((p.rightHeight ?? NaN) - (x.rightHeight ?? NaN)) > 0.5 ||
+                    Math.abs((p.leftHeight ?? NaN) - (x.leftHeight ?? NaN)) > 0.5 ||
+                    Math.abs((p.outerHeight ?? NaN) - (x.decision?.final?.outerHeight ?? NaN)) > 0.5;
+            }).length
         };
         const reportPath = abs(args.report), summaryPath = abs(args.summary);
         const report = {
