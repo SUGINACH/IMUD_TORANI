@@ -886,26 +886,18 @@ function rollbackTrailingHeadings(col) {
 /* [חדש] בודק אם צריך להכניס עיטור הפרדה לפני כותרת חדשה.
    מחזיר את ה-HTML של העיטור, או '' אם לא צריך.
    - level: רמת הכותרת החדשה
-   - lastHeadingSeen: אובייקט שמכיל את הכותרת הקודמת מכל רמה
-   - lastHigherHeadingLevel: רמת הכותרת הגבוהה האחרונה שנראתה (אם גבוה מ-level, אין עיטור)
+   - lastHeadingSeen: אובייקט שמכיל את ה-id של הכותרת הקודמת מכל רמה
    - מחזיר עיטור רק אם:
-     1. יש כותרת קודמת מאותה רמה
-     2. לא הייתה כותרת גבוהה יותר מאז (כי אז הקטע הקודם כבר נגמר על-ידי הכותרת הגבוהה)
-     3. רמה 3-6 בלבד (לא 1/2/7) */
-function maybeGetHeadingDivider(level, lastHeadingSeen, lastHigherHeadingLevel) {
+     1. יש כותרת קודמת מאותה רמה (לא נוקתה על-ידי כותרת גבוהה יותר)
+     2. רמה 3-6 בלבד (לא 1/2/7)
+   - הניקוי של lastHeadingSeen מבטיח שאם הייתה כותרת גבוהה יותר בינתיים,
+     lastHeadingSeen[level] יהיה null (כי כותרת גבוהה יותר מנקה את הכותרות הנמוכות יותר) */
+function maybeGetHeadingDivider(level, lastHeadingSeen) {
     if (!lastHeadingSeen || !lastHeadingSeen[level]) return '';
-    // רק רמות 3-6 (1=שער, 2=סיום פרק, 7=צד)
     if (level < 3 || level > 6) return '';
     const dividerType = document.getElementById('heading-divider-h' + level)?.value || 'none';
     if (dividerType === 'none') return '';
-    // דלג אם הייתה כותרת גבוהה יותר מאז הכותרת הקודמת מרמה זו
-    // (כי הכותרת הגבוהה כבר סגרה את הקטע)
-    if (lastHigherHeadingLevel && lastHigherHeadingLevel < level) return '';
     if (typeof getHeadingDividerHTML !== 'function') return '';
-    // [תיקון] רוחב העיטור — 40% מרוחב הטקסט לפי רמה:
-    // - h3: טור אחד בעמוד (רוחב מלא)
-    // - h4/h5/h6: טור אחד בעימוד שני טורים (חצי רוחב)
-    // כל הרמות מקבלות 40% מרוחב הטור שלהן
     return getHeadingDividerHTML(dividerType, 40);
 }
 
@@ -3408,8 +3400,6 @@ function typesetDocumentCore() {
     let currentH4Title = '';
     // [חדש] מעקב אחרי הכותרת הקודמת מכל רמה — לעיטורי הפרדה
     const lastHeadingSeen = {1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null};
-    // [חדש] רמת הכותרת הגבוהה האחרונה שנראתה — לדילוג עיטור הפרדה
-    let lastHigherHeadingLevel = null;
 
     const bookTitle = document.getElementById('inp-book-title')?.value || "ספר";
     const showMainShaar = document.getElementById('show-main-shaar')?.checked ?? true;
@@ -3782,17 +3772,12 @@ function typesetDocumentCore() {
 
                     if (currentTok.type.startsWith('h')) {
                         // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה (ואין כותרת גבוהה יותר בינתיים)
-                        const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen, lastHigherHeadingLevel);
+                        const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
                         if (dividerHTML) {
                             const divEl = document.createElement('div');
                             divEl.innerHTML = dividerHTML;
                             const divChild = divEl.firstElementChild;
                             if (divChild) targetCol.appendChild(divChild);
-                        }
-
-                        // [חדש] עדכן lastHigherHeadingLevel — אם הכותרת הנוכחית גבוהה יותר מהקודמת
-                        if (lastHigherHeadingLevel === null || currentTok.level < lastHigherHeadingLevel) {
-                            lastHigherHeadingLevel = currentTok.level;
                         }
 
                         if (currentTok.level === 3) currentH3Title = currentTok.text;
@@ -4026,17 +4011,12 @@ function typesetDocumentCore() {
 
                         if (currentTok.type.startsWith('h')) {
                             // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה (ואין כותרת גבוהה יותר בינתיים)
-                            const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen, lastHigherHeadingLevel);
+                            const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
                             if (dividerHTML) {
                                 const divEl = document.createElement('div');
                                 divEl.innerHTML = dividerHTML;
                                 const divChild = divEl.firstElementChild;
                                 if (divChild) targetCol.appendChild(divChild);
-                            }
-
-                            // [חדש] עדכן lastHigherHeadingLevel — אם הכותרת הנוכחית גבוהה יותר מהקודמת
-                            if (lastHigherHeadingLevel === null || currentTok.level < lastHigherHeadingLevel) {
-                                lastHigherHeadingLevel = currentTok.level;
                             }
 
                             if (currentTok.level === 3) currentH3Title = currentTok.text;
