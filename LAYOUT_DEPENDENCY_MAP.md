@@ -393,3 +393,7 @@ Commit `9cf55c8dfa84dca6b414ec312ea1f8614464abff` adds a separate integrity gate
 - the parenthesis diagnostic's final column/block heights disagree with the separately exported final geometry by more than 0.5px.
 
 This is independent of the configured geometry severity threshold (`--fail-on`). A run may have zero high-severity layout findings and still fail if its own measurement/reporting pipeline is incomplete or internally inconsistent. Browser errors and nondeterminism retain their separate exit codes.
+
+### 8.12 Surface diagnostic counters in CI logs
+
+Commit `b54961e182267ebfaf77e714893873c49295a961` prints the ledger/DOM parity, valid/malformed record counts, complete parenthesis diagnostic count, geometry-changing versus style-only block counts, post-global changes, final-snapshot mismatch count, and diagnostic-capture errors directly in the workflow log. This avoids having to infer instrumentation status from the audit severity totals or download the JSON artifact merely to see these counts.
