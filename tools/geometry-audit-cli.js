@@ -66,9 +66,22 @@ function staticServer(rootDir) {
     });
 }
 function rank(s) { return ({ high:3, medium:2, low:1 })[s] || 0; }
+function instrumentationIntegrityFailures(report) {
+    const a = report.geometry?.layoutDecisionRecordAudit || {};
+    const failures = [];
+    if (a.recordCountMatchesDom !== true) failures.push('decision-ledger/DOM block-count mismatch');
+    if ((a.missingOrMalformedCount ?? 0) !== 0) failures.push('missing or malformed decision records');
+    if ((a.missingCrossParenDiagnosticCount ?? 0) !== 0) failures.push('missing/incomplete parenthesis diagnostics');
+    if ((a.crossParenDiagnosticErrorCount ?? 0) !== 0) failures.push('parenthesis diagnostic capture errors');
+    if ((a.crossParenFinalSnapshotMismatchCount ?? 0) !== 0) failures.push('final parenthesis snapshot differs from exported geometry');
+    return failures;
+}
 function markdown(r) {
     const s = r.audit.summary || {};
+    const integrityFailures = instrumentationIntegrityFailures(r);
     const lines = ['# Geometry audit report', '', '- Input: ' + r.run.input,
+      '- Audit instrumentation integrity: ' + (integrityFailures.length ? 'FAIL' : 'PASS'),
+      '- Instrumentation integrity failures: ' + (integrityFailures.length ? integrityFailures.join('; ') : 'none'),
       '- Settings: ' + (r.run.settingsSource || 'unknown'),
       '- Generated: ' + r.run.generatedAt, '- Render duration: ' + r.run.renderMs + ' ms',
       '- Repeat-render determinism: ' + (r.run.determinismCheck ? (r.run.determinismCheck.identical ? 'PASS' : 'FAIL') : 'not run'),
@@ -623,9 +636,13 @@ async function main() {
         const threshold = rank(args.failOn);
         const fail = threshold > 0 && report.audit.issues.some(i => rank(i.severity) >= threshold);
         const nondeterministic = report.run.determinismCheck && !report.run.determinismCheck.identical;
+        const integrityFailures = instrumentationIntegrityFailures(report);
+        process.stdout.write('Audit instrumentation integrity: ' +
+            (integrityFailures.length ? 'FAIL (' + integrityFailures.join('; ') + ')' : 'PASS') + '\n');
         if (pageErrors.length) { process.stderr.write('Browser JavaScript errors: ' + pageErrors.length + '\n'); process.exitCode = 2; }
         else if (nondeterministic) { process.stderr.write('Determinism check failed at page ' + report.run.determinismCheck.firstDifferingPage + '\n'); process.exitCode = 3; }
         else if (fail) process.exitCode = 1;
+        else if (integrityFailures.length) process.exitCode = 4;
     } finally {
         if (browser) await browser.close().catch(() => {});
         await new Promise(resolve => server.close(resolve));
