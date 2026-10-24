@@ -1051,6 +1051,10 @@ body.tabs-not-ready #sidebar::before {
 
 .header-col-r, .header-col-c, .header-col-l {
     --hdr-row-h: 26px;
+    /* Running headers are single-line slots. An explicit unitless line-height
+       prevents SVG/ornament slots from inheriting a tall text line box that
+       extends above the fixed 26px header row. */
+    line-height: 1;
 }
 .header-col-r img, .header-col-r svg,
 .header-col-c img, .header-col-c svg,
