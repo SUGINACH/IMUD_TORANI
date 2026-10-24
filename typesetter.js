@@ -3562,6 +3562,14 @@ function typesetDocumentCore() {
             currentH2Title = h2Text;
             headingPageMap[h2Id] = toGematria(pageIndex);
             resetNoteCounterIfNeeded('footnote', 'siman');
+            // [חדש] נקה את lastHeadingSeen עבור רמות נמוכות יותר
+            // (כותרת חדשה מרמה גבוהה סוגרת את הקטע הקודם)
+            if (sec.hToken) {
+                lastHeadingSeen[sec.hToken.level] = sec.hToken.id;
+                for (let l = sec.hToken.level + 1; l <= 7; l++) {
+                    lastHeadingSeen[l] = null;
+                }
+            }
         }
 
         let secTokens = sec.tokens.slice();
@@ -3911,6 +3919,16 @@ function typesetDocumentCore() {
                 if (peekMode === 'span_1col' && !pendingWordTokens) {
                     const currentAvailH = remPageHeight - reservedNow();
                     if (currentAvailH < 60) break;
+
+                    // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה
+                    const dividerHTML = maybeGetHeadingDivider(peekTok.level, lastHeadingSeen);
+                    if (dividerHTML) {
+                        const divEl = document.createElement('div');
+                        divEl.innerHTML = dividerHTML;
+                        const divChild = divEl.firstElementChild;
+                        if (divChild) pageLayout.bodyFlow.appendChild(divChild);
+                    }
+
                     if (peekTok.level === 3) currentH3Title = peekTok.text;
                     if (peekTok.level === 4) currentH4Title = peekTok.text;
                     const spanBlock = document.createElement('div');
@@ -3955,10 +3973,20 @@ function typesetDocumentCore() {
                     const spanFree = remPageHeight - reservedNow();
                     if (spanHeight > spanFree || (pageBodyHasContent && spanFree - spanHeight <= 45)) {
                         pageLayout.bodyFlow.removeChild(spanBlock);
+                        // [חדש] הסר גם את עיטור ההפרדה אם הוכנס
+                        const lastDiv = pageLayout.bodyFlow.lastElementChild;
+                        if (lastDiv && lastDiv.classList.contains('heading-divider-wrap')) {
+                            pageLayout.bodyFlow.removeChild(lastDiv);
+                        }
                         break;
                     }
 
                     headingPageMap[peekTok.id] = toGematria(pageIndex - 1);
+                    // [חדש] עדכן את הכותרת הקודמת מרמה זו, ונקה כותרות נמוכות יותר
+                    lastHeadingSeen[peekTok.level] = peekTok.id;
+                    for (let l = peekTok.level + 1; l <= 7; l++) {
+                        lastHeadingSeen[l] = null;
+                    }
                     remPageHeight -= spanHeight;
                     tokenIndex++;
                     continue;
