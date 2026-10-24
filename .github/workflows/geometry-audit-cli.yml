@@ -1,5 +1,9 @@
 name: Geometry audit CLI
 
+concurrency:
+  group: geometry-audit-cli-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [V23]
