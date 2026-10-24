@@ -321,3 +321,12 @@ Before tuning balance thresholds or changing candidate selection, obtain the lon
 
 The previously observed candidate/final height discrepancy (for example, candidate heights 293/307 px versus final 314/307 px) remains an unresolved diagnostic until reproduced in a current report. Do not label its cause proven based only on the presence of cross-paragraph parenthesis styling.
 
+### 8.4 Decision-ledger completeness cross-check
+
+Commit `77ddc5b60877850c4a7bd2092f9c0a7e1b0d00e5` adds an independently counted DOM total for direct `.page-body-flow > .block-2col` children and reports:
+- `domBlockCount`;
+- `recordCountMatchesDom`;
+- `missingLedgerRecordCount`;
+- `excessLedgerRecordCount`.
+
+The Markdown summary exposes the DOM block count and whether it matches the number of serialized decision records. This is a completeness cross-check, not proof that every individual record is semantically correct; schema validation remains a separate metric. Runtime confirmation still depends on the long audit run.
