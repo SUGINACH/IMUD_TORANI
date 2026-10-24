@@ -2872,3 +2872,27 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 
 ### Branch safety
 - Changes remain on `V23` only. Do not merge with `V21`.
+
+## V23 — canonical final geometry snapshot after all layout passes
+**Date:** 2026-10-24
+
+### Problem
+- The `data-layout-final-*` metrics were written inside `balanceColumns()`, before later global justification and cross-paragraph parenthesis styling could finish changing the geometry. A field named “final” could therefore describe an intermediate state.
+- Candidate-selection metrics and actual final geometry answer different questions and must remain separate.
+
+### Change
+- `typesetter.js`: at the end of `typesetDocumentCore()`, after late balancing and side-note boundary correction, overwrite the `data-layout-final-*` fields from the surviving DOM geometry.
+- Add `data-layout-final-phase="post-global-justify"` so consumers can identify the measurement phase.
+- Final fit now checks both the tallest inner column and the outer block against the available height. If the available-height value was not recorded, the result is `unknown`, not a guessed boolean.
+- Rollback reason records the observed global, page-final, or local-final rollback reason without replacing candidate-selection metrics.
+- `tools/geometry-audit-cli.js`: export the final phase marker alongside the existing final geometry attributes.
+
+### Validation status
+- Geometry Audit CLI smoke passed on commit `3d4d641e497d348f56303fd20d249303972f01e9`.
+- The full long-document audit for this commit is still running; do not claim full validation until its artifact is inspected for page count, repeat-render hash, footnote alignment, and final-phase diagnostics.
+- Earlier full audits on `de49e37f1165a40ab4311088e46e671a3878b7b2` passed with 627 pages, repeat-render determinism, and exact footnote measurement on 60/60 pages. Those results do not yet validate the latest final-snapshot change.
+
+### Next step
+- Inspect the latest full audit artifact and confirm the final-phase fields are emitted on blocks with audit findings.
+- Then add a structured per-block decision record joining selected split, selection constraints, later mutations, rollback reason, and final geometry. Keep candidate-selection evidence immutable.
+- All changes remain on `V23`; do not merge with `V21`.
