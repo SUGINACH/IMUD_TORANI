@@ -4038,13 +4038,26 @@ function typesetDocumentCore() {
                         }
 
                         if (currentTok.type.startsWith('h')) {
-                            // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה (ואין כותרת גבוהה יותר בינתיים)
+                            // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה
+                            // [תיקון קריטי] מודד גובה עיטור לפני הכנסה — מונע לולאה אינסופית
                             const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
+                            let insertedDivider = null;
                             if (dividerHTML) {
-                                const divEl = document.createElement('div');
-                                divEl.innerHTML = dividerHTML;
-                                const divChild = divEl.firstElementChild;
-                                if (divChild) targetCol.appendChild(divChild);
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = dividerHTML;
+                                const tempChild = tempDiv.firstElementChild;
+                                if (tempChild) {
+                                    tempChild.style.visibility = 'hidden';
+                                    targetCol.appendChild(tempChild);
+                                    const divH = tempChild.offsetHeight + 20; // +20 ל-margin
+                                    targetCol.removeChild(tempChild);
+                                    // הכנס רק אם יש מקום לעיטור + כותרת
+                                    if (targetCol.scrollHeight + divH <= remPageHeight - reservedNow()) {
+                                        tempChild.style.visibility = '';
+                                        targetCol.appendChild(tempChild);
+                                        insertedDivider = tempChild;
+                                    }
+                                }
                             }
 
                             if (currentTok.level === 3) currentH3Title = currentTok.text;
@@ -4065,10 +4078,8 @@ function typesetDocumentCore() {
 
                             if (targetCol.scrollHeight > (remPageHeight - reservedNow()) && targetCol.children.length > 1) {
                                 targetCol.removeChild(hElem);
-                                // [חדש] הסר גם את עיטור ההפרדה אם הוכנס
-                                const lastDiv = targetCol.lastElementChild;
-                                if (lastDiv && lastDiv.classList.contains('heading-divider-wrap')) {
-                                    targetCol.removeChild(lastDiv);
+                                if (insertedDivider && insertedDivider.parentNode) {
+                                    targetCol.removeChild(insertedDivider);
                                 }
                                 tokenIndex -= rollbackTrailingHeadings(targetCol);
                                 break;
