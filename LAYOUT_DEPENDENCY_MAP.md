@@ -382,3 +382,14 @@ These are diagnostic refinements only. They do not alter layout selection, justi
 Commits `973212cff9f1caf6b34ba2a7172e346935f3bf92` and `504329cab98936826f596dd2c115ce6813553241` add workflow-level concurrency groups to the long-document audit and CLI smoke audit. New runs on the same ref cancel superseded runs instead of competing for Chromium downloads and CPU/memory while testing obsolete commits.
 
 This is CI orchestration only. It does not change the layout engine or the audit acceptance thresholds. The newest commit still requires a completed long-document run and inspection of its report.
+
+### 8.11 Make audit instrumentation integrity a hard gate
+
+Commit `9cf55c8dfa84dca6b414ec312ea1f8614464abff` adds a separate integrity gate in the CLI. The report and console now explicitly say whether instrumentation integrity passed. The process exits with code 4 if any of the following occur:
+- decision ledger count does not match the independently counted direct two-column DOM blocks;
+- one or more decision records are missing or malformed;
+- one or more schema-v2 parenthesis diagnostics or their final snapshots are missing;
+- parenthesis diagnostic capture throws;
+- the parenthesis diagnostic's final column/block heights disagree with the separately exported final geometry by more than 0.5px.
+
+This is independent of the configured geometry severity threshold (`--fail-on`). A run may have zero high-severity layout findings and still fail if its own measurement/reporting pipeline is incomplete or internally inconsistent. Browser errors and nondeterminism retain their separate exit codes.
