@@ -1,5 +1,9 @@
 name: Geometry audit long document
 
+concurrency:
+  group: geometry-audit-long-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [V23]
