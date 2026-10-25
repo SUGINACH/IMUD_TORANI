@@ -546,3 +546,40 @@ The following gates are sequential. Do not proceed to algorithm tuning while a p
 7. **Regression and release gate — OPEN.** Run the short smoke fixture, the 1.9MB+ long fixture, repeated render, and targeted regression fixtures for cross-column/page parentheses, heading transitions, footnotes, short final chapters, notes, sparse tails and containment. Compare page count, deterministic signature, issue inventory, and visual output against the preceding accepted baseline. No stage is complete solely because the workflow exits 0.
 
 A stage is accepted only when its specific hypothesis is confirmed by the report and the complete test suite shows no new regressions. Keep unresolved findings in the report; never relabel them as fixed based on severity alone.
+
+
+## 8.23 Gate update — strict containment and stage trace verified (2026-10-25)
+
+This section supersedes the status labels in §8.22 where they still say containment is in progress. The sequential audit on source commit `14d4d667a11ad0e4b2131af856089a34aa6f0e80` completed successfully in long-document run `40187349255`; the current follow-up commit `0269d5ac7fe7c43a0dfee3fb4e87fb48d67c4bf2` adds further containment-stage fields to the audit model and is undergoing its own long-document rerun (`40188170820`). The smoke workflow for `0269d5ac` passed (`40188170815`).
+
+### Proven on the completed staged-geometry audit
+
+- 854/854 decision records and 854/854 DOM blocks; all records valid; parity PASS.
+- Canonical final-stage snapshot: 854/854; missing snapshots 0; capture errors 0.
+- Repeat-render determinism PASS; parenthesis final-snapshot mismatches 0; runtime/console errors 0.
+- Candidate-selection audit PASS: 389 evaluated records, 389 candidate tables, 389 before/after capacity snapshots; no candidate-table or score failures.
+- For the 854 canonical final snapshots, maximum measured block bottom overflow was 0.375px; blocks exceeding 0.5px: 0.
+- After orphan reclaim, maximum measured block bottom overflow was 0.375px; blocks exceeding 0.5px: 0.
+- Final containment findings: 0. The CLI diagnostic gate reports `passed=true`, with no failures.
+- Footnote measurement: 60/60 exact matches, maximum absolute difference 0px.
+- Final audit inventory: 19 LOW findings: 10 imbalance, 5 sparse-line, 4 containment-rounding. No HIGH or MEDIUM findings.
+- Stage capture coverage: postfit 779; before/after page stretch 533 each; after orphan reclaim 535; after page-final justify 44; canonical final 854.
+
+### Important regression question remains open
+
+The earlier baseline was 627 pages / 850 blocks; this staged, strict-fit run is 629 pages / 854 blocks. The strict-fit gate demonstrates no measured final or post-orphan-reclaim overflow above 0.5px, but it does **not by itself prove text conservation or establish that the +2 pages are an acceptable pagination change**. Do not call the entire engine regression-clean yet. Next gate is content conservation and layout-delta attribution:
+1. Verify the exact input hash/byte count is identical between the accepted baseline and current audit.
+2. Verify every source text token/paragraph is represented exactly once or has an explicitly documented split/continuation relation; check first/last token, per-token coverage, dropped/duplicated text, and note markers.
+3. Compare the 4 additional decision records to the exact pages/blocks introduced by the strict-fit/orphan-reclaim change; explain the two-page increase with a deterministic trace.
+4. Repeat the audit at the same commit after the new containment-stage fields land. Do not compare screenshots or signatures from different commits as if they were identical baselines.
+
+### Next issue-resolution order
+
+1. **Content conservation + page-count delta (BLOCKING).** Must pass before accepting the containment fix.
+2. **Residual column balance (OPEN).** 10 findings: seven recurring short blocks at 71/65–66px (current stretch cap leaves 5–6px), plus three other residuals. Preserve raw candidate tables and measured capacity; do not raise caps blindly.
+3. **Sparse paragraph tails (OPEN).** Five findings, on report pages 58, 260, 316, 327, 550. Capture source paragraph, legal breakpoints, final-line width, and alternative split scores before changing line-breaking.
+4. **Note-marker geometry (OPEN).** Four ~1.31px upward excursions. Measure painted glyph and line-box bounds; only then define a justified fractional tolerance.
+5. **Complete geometry inventory + visual regression (OPEN).** Check ornaments, running headers, dividers, note separators, footnotes, headings, page numbers, and decoration elements against reserved page geometry. Include visual spot checks for the header ellipsis/clipping policy.
+6. **Release gate (OPEN).** Smoke + long-document audit + determinism + ledger/DOM parity + candidate score audit + canonical-stage coverage + zero final containment overflow + content conservation + targeted fixtures for parentheses across columns/pages, headings, short final chapters, notes, sparse tails and page-end fill. Keep V23 separate from V21.
+
+The audit currently proves a strong, measurable containment invariant, not yet complete engine correctness. Keep that distinction explicit in code, reports and worklog.
