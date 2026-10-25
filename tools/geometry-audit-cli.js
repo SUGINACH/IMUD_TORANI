@@ -220,6 +220,15 @@ function markdown(r) {
       '- Pages: ' + r.pageCount,
       '- Decision ledger: ' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a') + ' records; valid schema-v1 records: ' + (r.geometry.layoutDecisionRecordAudit?.validRecordCount ?? 'n/a'),
       '- DOM two-column blocks: ' + (r.geometry.layoutDecisionRecordAudit?.domBlockCount ?? 'n/a'),
+      '- Decision diagnostic gate: ' + (r.geometry.layoutDecisionDiagnosticAudit?.passed === true ? 'PASS' : 'FAIL'),
+      '- Decision diagnostic records: ' + (r.geometry.layoutDecisionDiagnosticAudit?.recordCount ?? 'n/a'),
+      '- Evaluated candidates/tables/capacity snapshots: ' +
+        (r.geometry.layoutDecisionDiagnosticAudit?.evaluatedCount ?? 'n/a') + '/' +
+        (r.geometry.layoutDecisionDiagnosticAudit?.candidateTableCount ?? 'n/a') + '/' +
+        (r.geometry.layoutDecisionDiagnosticAudit?.capacitySnapshotCount ?? 'n/a'),
+      '- Decision diagnostic failures: ' +
+        ((r.geometry.layoutDecisionDiagnosticAudit?.failures || []).length
+          ? r.geometry.layoutDecisionDiagnosticAudit.failures.join('; ') : 'none'),
       '- Ledger/DOM count parity: ' + (r.geometry.layoutDecisionRecordAudit?.recordCountMatchesDom === true ? 'PASS' : r.geometry.layoutDecisionRecordAudit?.recordCountMatchesDom === false ? 'FAIL' : 'unknown'),
       '- Decision records missing/malformed: ' + (r.geometry.layoutDecisionRecordAudit?.missingOrMalformedCount ?? 'n/a'),
       '- Blocks with selected candidate: ' + (r.geometry.layoutDecisionRecordAudit?.selectedCandidateCount ?? 'n/a'),
