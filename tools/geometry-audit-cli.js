@@ -568,14 +568,15 @@ async function main() {
                         headingMismatches.push({ id: token.id, type: token.type, expected: expected.slice(0, 160), actuals: actuals.slice(0, 3).map(x => x.slice(0, 160)) });
                     }
                 }
-                const noteMetadata = (tokens, attr) => {
+                const noteMetadata = (tokens, tokenKey, attr) => {
                     const missing = [], mismatches = [];
                     for (const token of tokens) {
+                        const expected = normalize(token[tokenKey]);
                         const elems = Array.from(document.querySelectorAll('#book-container p[data-token-id]'))
                             .filter(el => el.getAttribute('data-token-id') === String(token.id) && el.hasAttribute(attr));
-                        if (!elems.length) { missing.push({ id: token.id, attr, expected: normalize(token[attr]).slice(0, 120) }); continue; }
-                        if (!elems.some(el => normalize(el.getAttribute(attr)) === normalize(token[attr]))) {
-                            mismatches.push({ id: token.id, attr, expected: normalize(token[attr]).slice(0, 120), actual: elems.map(el => normalize(el.getAttribute(attr)).slice(0, 120)) });
+                        if (!elems.length) { missing.push({ id: token.id, attr, expected: expected.slice(0, 120) }); continue; }
+                        if (!elems.some(el => normalize(el.getAttribute(attr)) === expected)) {
+                            mismatches.push({ id: token.id, attr, expected: expected.slice(0, 120), actual: elems.map(el => normalize(el.getAttribute(attr)).slice(0, 120)) });
                         }
                     }
                     return { sourceCount: tokens.length, missingCount: missing.length, mismatchCount: mismatches.length, missing: missing.slice(0, 30), mismatches: mismatches.slice(0, 30) };
@@ -592,8 +593,8 @@ async function main() {
                     mismatches: mismatches.slice(0, 50),
                     renderedIdsWithoutSource: extraRenderedIds.slice(0, 50),
                     headingAudit: { sourceCount: sourceHeadings.length, missingCount: headingMissing.length, mismatchCount: headingMismatches.length, missing: headingMissing.slice(0, 50), mismatches: headingMismatches.slice(0, 50) },
-                    sideNoteAudit: noteMetadata(sourceSideNotes, 'data-side-note'),
-                    endNoteAudit: noteMetadata(sourceEndNotes, 'data-end-note')
+                    sideNoteAudit: noteMetadata(sourceSideNotes, 'sideNote', 'data-side-note'),
+                    endNoteAudit: noteMetadata(sourceEndNotes, 'endNote', 'data-end-note')
                 };
             })();
             return {
