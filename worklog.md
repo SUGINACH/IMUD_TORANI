@@ -3044,3 +3044,13 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - The expanded geometry coverage correctly observed 82 section-divider elements, 76 note-rule elements, 624 top-header grids and 624 visible top-header dividers. H2/H3/note-header ornament coverage remains zero because those ornament settings are disabled in the long-run settings; the report says `NOT EXERCISED` for that ornament subset. This is expected and distinct from the active fixture's ten-category coverage.
 - The active smoke workflow at current branch commit `eb5cff50caf79c428bd69938c6c9ef1d14cd46aa` passed: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40234885057. Its downloaded report confirms six ornament categories plus section divider, note rule, top header and visible header divider are each present with nonzero geometry; no containment/rounding/overlap findings; two low balance findings remain.
 - The active geometry smoke and the long-document audit cover different settings/content conditions; do not merge their coverage claims into a single assertion that all ornament families have been validated.
+
+
+## 2026-10-25 — Independent H2 title ornaments implemented and smoke-tested
+
+- Code commit: `81de5ea5aa4e8773b2484d7282806dc11913eb3f` (`V23` only).
+- The H2 title ornament UI had controls for `none`, `top_bottom`, and `side`, plus existing CSS/post-fit hooks, but the typesetter had no renderer path for these independent title ornaments. Implemented the missing rendering path for both modes; the left side ornament mirrors the right when left is `none`, matching the existing UI label.
+- Added distinct CSS wrappers and geometry-audit element types for the independent H2 title ornaments. The CLI now measures `h2TitleTop`, `h2TitleBottom`, `h2TitleSideRight`, and `h2TitleSideLeft`, and the strict smoke gate requires the two categories for the active mode.
+- Smoke workflow SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40235447401. Artifact `12615020877` was downloaded and inspected.
+- Side-mode fixture: right/left title ornaments each measured 1; top/bottom mode fixture: top/bottom title ornaments each measured 1. Both fixtures also retained the ten previously required geometry categories; audit instrumentation integrity PASS, no runtime/console errors, and no containment/containment-rounding/overlap findings. Each reports 2 low `capacity-limited-residual` balance findings.
+- The long-document audit for the same code commit is running separately; its artifact must be checked before declaring long-document regression PASS for this commit.
