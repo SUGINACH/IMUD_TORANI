@@ -4076,6 +4076,59 @@ function typesetDocumentCore() {
                     if (document.getElementById('h2-orn-fit-text')?.checked && (topOrnHTML || btmOrnHTML)) {
                         fitH2OrnamentsToText(pageLayout.bodyFlow, h2OrnScope, simanElem, title);
                     }
+
+                    // Independent H2-title ornaments are separate from the existing siman/title ornaments.
+                    const titleOrnMode = document.getElementById('h2-title-orn-mode')?.value || 'none';
+                    if (titleOrnMode === 'top_bottom') {
+                        const topStyle = document.getElementById('h2-title-ornament-top-style')?.value || 'none';
+                        const bottomStyle = document.getElementById('h2-title-ornament-bottom-style')?.value || 'none';
+                        const topHTML = topStyle !== 'none' ? getHeadingOrnamentHTML(topStyle, true, true) : '';
+                        const bottomHTML = bottomStyle !== 'none' ? getHeadingOrnamentHTML(bottomStyle, false, true) : '';
+                        let topWrap = null;
+                        let bottomWrap = null;
+                        if (topHTML) {
+                            topWrap = document.createElement('div');
+                            topWrap.className = 'h2-title-ornament-top';
+                            topWrap.innerHTML = topHTML;
+                            title.parentNode.insertBefore(topWrap, title);
+                        }
+                        if (bottomHTML) {
+                            bottomWrap = document.createElement('div');
+                            bottomWrap.className = 'h2-title-ornament-bottom';
+                            bottomWrap.innerHTML = bottomHTML;
+                            title.parentNode.insertBefore(bottomWrap, title.nextSibling);
+                        }
+                        if (document.getElementById('h2-orn-fit-text')?.checked) {
+                            const titleWidth = title.getBoundingClientRect().width;
+                            if (titleWidth > 0) {
+                                [topWrap, bottomWrap].filter(Boolean).forEach(wrap => {
+                                    const fitInner = wrap.querySelector('.fit-heading-text');
+                                    if (fitInner) {
+                                        fitInner.style.setProperty('width', titleWidth + 'px', 'important');
+                                        fitInner.style.setProperty('max-width', '90%', 'important');
+                                    }
+                                });
+                            }
+                        }
+                    } else if (titleOrnMode === 'side') {
+                        const rightStyle = document.getElementById('h2-title-ornament-r')?.value || 'none';
+                        const selectedLeftStyle = document.getElementById('h2-title-ornament-l')?.value || 'none';
+                        const leftStyle = selectedLeftStyle !== 'none' ? selectedLeftStyle : rightStyle;
+                        const parent = title.parentNode;
+                        const sideWrap = document.createElement('div');
+                        sideWrap.className = 'block-h2-title-side';
+                        parent.insertBefore(sideWrap, title);
+                        const appendSideOrnament = (styleKey, isLeft, className) => {
+                            if (!styleKey || styleKey === 'none') return;
+                            const ornament = document.createElement('span');
+                            ornament.className = className;
+                            ornament.innerHTML = renderSideOrnamentHTML(styleKey, isLeft, 'h2title');
+                            sideWrap.appendChild(ornament);
+                        };
+                        appendSideOrnament(rightStyle, false, 'h2-title-ornament-right');
+                        sideWrap.appendChild(title);
+                        appendSideOrnament(leftStyle, true, 'h2-title-ornament-left');
+                    }
                 }
 
             }

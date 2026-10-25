@@ -34,6 +34,8 @@ jobs:
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/smoke-report.json --summary ./artifacts/smoke-summary.md --fail-on none --repeat-check
       - name: Run active-ornament geometry smoke test
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/ornament-geometry-smoke.txt --settings ./tests/fixtures/ornament-geometry-settings.json --report ./artifacts/ornament-smoke-report.json --summary ./artifacts/ornament-smoke-summary.md --fail-on none --require-geometry-features
+      - name: Run active H2 title top/bottom geometry smoke test
+        run: node tools/geometry-audit-cli.js --input ./tests/fixtures/ornament-geometry-smoke.txt --settings ./tests/fixtures/ornament-geometry-title-tb-settings.json --report ./artifacts/ornament-title-tb-report.json --summary ./artifacts/ornament-title-tb-summary.md --fail-on none --require-geometry-features
       - name: Upload smoke reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,4 +46,6 @@ jobs:
             artifacts/smoke-summary.md
             artifacts/ornament-smoke-report.json
             artifacts/ornament-smoke-summary.md
+            artifacts/ornament-title-tb-report.json
+            artifacts/ornament-title-tb-summary.md
           if-no-files-found: ignore

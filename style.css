@@ -1215,6 +1215,27 @@ body.tabs-not-ready #sidebar::before {
     margin-top: -0.08em;
 }
 
+/* Independent H2-title top/bottom ornaments, separate from siman ornaments. */
+.h2-title-ornament-top,
+.h2-title-ornament-bottom {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    line-height: 1;
+    margin: 6px auto;
+    flex-shrink: 0;
+}
+.h2-title-ornament-top svg,
+.h2-title-ornament-bottom svg,
+.h2-title-ornament-top img,
+.h2-title-ornament-bottom img {
+    max-height: 35px;
+    max-width: 65%;
+    object-fit: contain;
+    display: inline-block;
+}
+
 .title-level-4 {
     font-family: var(--fn-h4); font-size: var(--sz-h4); font-weight: 900;
     text-align: center; margin: 9px 0 4px 0; line-height: 1.22;

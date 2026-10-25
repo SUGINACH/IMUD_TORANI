@@ -71,6 +71,11 @@ function classifyElement(el) {
     if (cls.includes('col-gutter-divider')) return { type: 'gutter', tag };
     if (cls.includes('h2-spacer')) return { type: 'h2-spacer', tag };
     if (cls.includes('h2-siman-badge')) return { type: 'h2-siman', tag };
+    if (cls.includes('block-h2-title-side')) return { type: 'h2-title-side-block', tag };
+    if (cls.includes('h2-title-ornament-right')) return { type: 'h2-title-orn-r', tag };
+    if (cls.includes('h2-title-ornament-left')) return { type: 'h2-title-orn-l', tag };
+    if (cls.includes('h2-title-ornament-top')) return { type: 'h2-title-orn-top', tag };
+    if (cls.includes('h2-title-ornament-bottom')) return { type: 'h2-title-orn-btm', tag };
     if (cls.includes('title-level-2-standalone')) return { type: 'h2-title', tag };
     if (cls.includes('h2-ornament-top')) return { type: 'h2-orn-top', tag };
     if (cls.includes('h2-ornament-bottom')) return { type: 'h2-orn-btm', tag };
@@ -102,6 +107,8 @@ const TYPE_COLORS = {
     'block-2col': '#059669', 'block-h3-span': '#10b981', 'block-single-col': '#34d399',
     'column': '#34d399', 'margin-col': '#6ee7b7', 'gutter': '#a7f3d0',
     'h2-spacer': '#d97706', 'h2-siman': '#f59e0b', 'h2-title': '#fbbf24',
+    'h2-title-side-block': '#f59e0b', 'h2-title-orn-r': '#fb923c', 'h2-title-orn-l': '#fdba74',
+    'h2-title-orn-top': '#fcd34d', 'h2-title-orn-btm': '#fde68a',
     'h2-orn-top': '#fcd34d', 'h2-orn-btm': '#fde68a',
     'h3': '#7c3aed', 'h4': '#8b5cf6', 'h5': '#a78bfa', 'h6': '#c4b5fd', 'h7': '#ddd6fe',
     'h3-title': '#7c3aed', 'h3-orn-r': '#a78bfa', 'h3-orn-l': '#a78bfa',

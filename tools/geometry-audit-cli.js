@@ -799,7 +799,11 @@ async function main() {
                         sectionDivider: visibleCount('#book-container .sec-divider-wrap'),
                         noteRule: visibleCount('#book-container .footnote-area > [class^="note-rule-"], #book-container .footnote-area > [class*=" note-rule-"]'),
                         topHeader: visibleCount('#book-container .top-header-grid'),
-                        topHeaderDivider: headers
+                        topHeaderDivider: headers,
+                        h2TitleTop: visibleCount('#book-container .h2-title-ornament-top'),
+                        h2TitleBottom: visibleCount('#book-container .h2-title-ornament-bottom'),
+                        h2TitleSideRight: visibleCount('#book-container .h2-title-ornament-right'),
+                        h2TitleSideLeft: visibleCount('#book-container .h2-title-ornament-left')
                     };
                 })(),
                 summary:audit.summary, issues:audit.issues, stats:model.stats, model:clean,
@@ -999,9 +1003,15 @@ async function main() {
                 const featureCoverage = data.decorativeGeometryDomCoverage || {};
                 const requiredFeatures = ['sectionDivider', 'noteRule', 'topHeader', 'topHeaderDivider'];
                 const missingFeatures = requiredFeatures.filter(key => !(featureCoverage[key] > 0));
-                if (missingFeatures.length) {
-                    throw new Error('Required active divider/header geometry coverage missing or zero: ' +
-                        missingFeatures.join(', ') + '; measured=' + JSON.stringify(featureCoverage));
+                const titleMode = String(settings['h2-title-orn-mode'] || 'none');
+                const titleModeFeatures = titleMode === 'side'
+                    ? ['h2TitleSideRight', 'h2TitleSideLeft']
+                    : titleMode === 'top_bottom' ? ['h2TitleTop', 'h2TitleBottom'] : [];
+                const missingTitleFeatures = titleModeFeatures.filter(key => !(featureCoverage[key] > 0));
+                if (missingFeatures.length || missingTitleFeatures.length) {
+                    throw new Error('Required active geometry coverage missing or zero: ' +
+                        [...missingFeatures, ...missingTitleFeatures].join(', ') + '; mode=' + titleMode +
+                        '; measured=' + JSON.stringify(featureCoverage));
                 }
             }
 
