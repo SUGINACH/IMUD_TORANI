@@ -631,6 +631,31 @@ function auditColumnBalance(node, issues) {
         if (right && left) {
             const diff = Math.abs(right.rect.h - left.rect.h);
             if (diff > TOL.balance) {
+                const metrics = node.layoutMetrics || {};
+                const decision = metrics.decisionRecord || {};
+                const selection = decision.selection || {};
+                const finalJustify = decision.finalJustify || {};
+                const capacityAfter = finalJustify.capacityAfter || {};
+                const shorterSide = right.rect.h <= left.rect.h ? 'right' : 'left';
+                const shorterCapacity = capacityAfter[shorterSide];
+                let balanceOutcome = 'unclassified-residual';
+                let acceptedResidualLimitPx = null;
+                if (selection.routing === 'light-justify' &&
+                    Number.isFinite(selection.lightJustify?.residualDiff) &&
+                    Math.abs(selection.lightJustify.residualDiff) <= 8) {
+                    // Preserve the finding, but make the existing policy exception explicit.
+                    balanceOutcome = 'policy-accepted-light-justify-residual';
+                    acceptedResidualLimitPx = 8;
+                } else if (selection.routing === 'balanceColumns' &&
+                    Number.isFinite(finalJustify.overshootAfterShrink) &&
+                    finalJustify.overshootAfterShrink < -0.5 &&
+                    shorterCapacity &&
+                    Number.isFinite(shorterCapacity.totalCapacity) &&
+                    shorterCapacity.totalCapacity <= 0.5) {
+                    // A real residual remains because the shorter side has exhausted its
+                    // recorded stretch capacity. Do not suppress it or raise the cap here.
+                    balanceOutcome = 'capacity-limited-residual';
+                }
                 issues.push({
                     kind: 'imbalance',
                     severity: diff > 30 ? 'high' : (diff > 10 ? 'medium' : 'low'),
@@ -639,19 +664,23 @@ function auditColumnBalance(node, issues) {
                     rightH: Math.round(right.rect.h),
                     leftH: Math.round(left.rect.h),
                     diff: Math.round(diff),
+                    balanceOutcome,
+                    acceptedResidualLimitPx,
                     rightRect: { x: Math.round(right.rect.x), y: Math.round(right.rect.y), w: Math.round(right.rect.w), h: Math.round(right.rect.h) },
                     leftRect: { x: Math.round(left.rect.x), y: Math.round(left.rect.y), w: Math.round(left.rect.w), h: Math.round(left.rect.h) },
-                    // Preserve the balancing-pass evidence on the imbalance finding itself.
-                    // Previously this diagnostic was only visible if the same block also
-                    // triggered a containment finding, hiding evidence for most failed balances.
-                    layoutMetrics: node.layoutMetrics ? {
-                        globalJustifyDiagnostic: node.layoutMetrics.globalJustifyDiagnostic || null,
-                        pageFinalJustifyDiagnostic: node.layoutMetrics.pageFinalJustifyDiagnostic || null,
-                        balanceStatus: node.layoutMetrics.balanceStatus || null,
-                        balanceSkipReason: node.layoutMetrics.balanceSkipReason || null,
-                        balanceDiff: node.layoutMetrics.balanceDiff || null
+                    // Preserve both the stage evidence and the decision/capacity proof on
+                    // the finding itself. These are classifications, not suppressions:
+                    // every residual remains an audit issue with its raw measured heights.
+                    layoutMetrics: metrics ? {
+                        globalJustifyDiagnostic: metrics.globalJustifyDiagnostic || null,
+                        pageFinalJustifyDiagnostic: metrics.pageFinalJustifyDiagnostic || null,
+                        balanceStatus: metrics.balanceStatus || null,
+                        balanceSkipReason: metrics.balanceSkipReason || null,
+                        balanceDiff: metrics.balanceDiff || null,
+                        decisionRecord: decision,
+                        stageGeometryDiagnostic: metrics.stageGeometryDiagnostic || null
                     } : null,
-                    message: `אי-איזון טורים: ימין=${Math.round(right.rect.h)}px שמאל=${Math.round(left.rect.h)}px פער=${Math.round(diff)}px`
+                    message: `אי-איזון טורים: ימין=${Math.round(right.rect.h)}px שמאל=${Math.round(left.rect.h)}px פער=${Math.round(diff)}px [${balanceOutcome}]`
                 });
             }
         }
@@ -987,9 +1016,16 @@ function auditGeometry(model) {
         high: issues.filter(i => i.severity === 'high').length,
         medium: issues.filter(i => i.severity === 'medium').length,
         low: issues.filter(i => i.severity === 'low').length,
-        byKind: {}
+        byKind: {},
+        byBalanceOutcome: {}
     };
-    issues.forEach(i => { summary.byKind[i.kind] = (summary.byKind[i.kind] || 0) + 1; });
+    issues.forEach(i => {
+        summary.byKind[i.kind] = (summary.byKind[i.kind] || 0) + 1;
+        if (i.kind === 'imbalance') {
+            const outcome = i.balanceOutcome || 'unclassified-residual';
+            summary.byBalanceOutcome[outcome] = (summary.byBalanceOutcome[outcome] || 0) + 1;
+        }
+    });
     return { issues, summary };
 }
 
