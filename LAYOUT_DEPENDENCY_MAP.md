@@ -753,7 +753,7 @@ The eight capacity-limited residuals correspond to the eight short blocks at pag
 
 ### Other audit observations
 
-The 4 remaining `containment-rounding` findings are note-marker top-bound excursions of about 1.3125–1.375px, consistent with the user's superscript hypothesis but not yet verified by painted glyph bounds and computed `vertical-align`. The 5 sparse-line findings were removed by the previously documented line-fragment-union correction; do not treat that change as a consequence of the parenthesis-scope instrumentation.
+The 4 remaining `containment-rounding` findings are note-marker top-bound excursions of about 1.3125–1.375px. The 2026-10-26 live-DOM diagnostic now records computed `vertical-align: super`, `line-height: 0px`, font size, and the nearest text-fragment union. Two markers fall inside the measured fragment union; two protrude above it by 1.312px. These are inline-fragment bounds, not painted-glyph bounds or a direct CSS line-box measurement, so all four findings remain visible at LOW severity pending a controlled typographic interpretation. The 5 sparse-line findings were removed by the previously documented line-fragment-union correction; do not treat that change as a consequence of the parenthesis-scope instrumentation.
 
 ### Decision
 
@@ -769,4 +769,4 @@ The active ornament fixtures now select the external SVG `ext________2_svg` in t
 
 The long regression remains stable at 643 pages with deterministic repeat rendering, 3,105/3,105 source paragraphs, 529/529 headings, 2,042/2,042 side notes, 859/859 valid decision records with DOM parity, zero runtime/console errors, and 14 LOW findings (10 imbalance, 4 note-marker containment-rounding), zero MEDIUM/HIGH. Ornament settings are disabled in the long fixture, so it is a regression check rather than ornament coverage.
 
-Remaining geometry follow-up: the four superscript note-marker findings still show a 1.3125px top protrusion, while the serialized `inlineGeometry` field is null despite the extraction code attempting to populate it. Do not infer the marker's computed `vertical-align` from the current report; repair this diagnostic inconsistency before deciding whether the protrusion is expected typographic geometry or a real containment issue.
+Resolved diagnostic follow-up: the issue records now contain matched live-DOM data and nearest text-fragment union measurements. Long-document CI passed with the new `--require-note-marker-line-diagnostics` gate. Run: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40240403746 (artifact `12617022055`). The measured style is `vertical-align: super`, `line-height: 0px`, font size `10.6667px`; the marker findings remain low and visible because fragment unions are not equivalent to painted-glyph bounds or true CSS line boxes.
