@@ -162,6 +162,14 @@ function decisionDiagnosticFailures(report) {
         if (Number.isFinite(reclaimOverflow) && reclaimOverflow > 0.5) orphanReclaimOverflowCount++;
     }
     const containmentIssueCount = (report.audit?.issues || []).filter(issue => issue.kind === 'containment').length;
+    const textAudit = report.geometry?.textConservationAudit;
+    if (!textAudit || textAudit.available !== true) {
+        failures.push('source-to-rendered paragraph conservation audit is unavailable');
+    } else {
+        if ((textAudit.missingSourceParagraphCount ?? 0) !== 0) failures.push(textAudit.missingSourceParagraphCount + ' source paragraph token(s) are missing from rendered DOM');
+        if ((textAudit.textMismatchCount ?? 0) !== 0) failures.push(textAudit.textMismatchCount + ' source paragraph token(s) differ from rendered raw-text segments');
+        if ((textAudit.renderedIdsWithoutSourceCount ?? 0) !== 0) failures.push(textAudit.renderedIdsWithoutSourceCount + ' rendered paragraph token ID(s) have no source token');
+    }
     if (canonicalFinalOverflowCount > 0) {
         failures.push(canonicalFinalOverflowCount + ' canonical final block(s) overflow body-flow by more than 0.5px');
     }
@@ -221,6 +229,9 @@ function markdown(r) {
       '- Stage diagnostic capture errors: ' + (r.geometry.layoutDecisionRecordAudit?.stageGeometryDiagnosticErrorCount ?? 'n/a'),
       '- Stage snapshot coverage: ' + JSON.stringify(r.geometry.layoutDecisionRecordAudit?.stageGeometryStageCounts ?? {}),
       '- Source-to-rendered paragraph conservation: ' + (r.geometry.textConservationAudit ? (r.geometry.textConservationAudit.available ? (r.geometry.textConservationAudit.sourceParagraphTokenCount + ' source paragraphs; missing ' + r.geometry.textConservationAudit.missingSourceParagraphCount + '; text mismatches ' + r.geometry.textConservationAudit.textMismatchCount + '; extra rendered IDs ' + r.geometry.textConservationAudit.renderedIdsWithoutSourceCount) : 'unavailable: ' + r.geometry.textConservationAudit.reason) : 'not available'),
+      '- Source heading coverage: ' + (r.geometry.textConservationAudit?.headingAudit ? (r.geometry.textConservationAudit.headingAudit.sourceCount + ' source headings; missing ' + r.geometry.textConservationAudit.headingAudit.missingCount + '; text mismatches ' + r.geometry.textConservationAudit.headingAudit.mismatchCount) : 'not available'),
+      '- Side-note metadata coverage: ' + (r.geometry.textConservationAudit?.sideNoteAudit ? (r.geometry.textConservationAudit.sideNoteAudit.sourceCount + ' source side notes; missing ' + r.geometry.textConservationAudit.sideNoteAudit.missingCount + '; mismatches ' + r.geometry.textConservationAudit.sideNoteAudit.mismatchCount) : 'not available'),
+      '- End-note metadata coverage: ' + (r.geometry.textConservationAudit?.endNoteAudit ? (r.geometry.textConservationAudit.endNoteAudit.sourceCount + ' source end notes; missing ' + r.geometry.textConservationAudit.endNoteAudit.missingCount + '; mismatches ' + r.geometry.textConservationAudit.endNoteAudit.mismatchCount) : 'not available'),
       '- Issues: ' + (s.total ?? r.audit.issues.length),
       '- High: ' + (s.high || 0) + ' | Medium: ' + (s.medium || 0) + ' | Low: ' + (s.low || 0),
       '', '## Issue counts by kind', '', '| Kind | Count |', '|---|---:|'];
@@ -521,6 +532,9 @@ async function main() {
                     return (box.textContent || '').replace(/\u00a0/g, ' ').replace(/[\s\u200f\u200e]+/g, ' ').trim();
                 };
                 const sourceParagraphs = source.filter(token => token && token.type === 'p');
+                const sourceHeadings = source.filter(token => token && /^h\\d+$/.test(token.type));
+                const sourceSideNotes = sourceParagraphs.filter(token => token.sideNote);
+                const sourceEndNotes = sourceParagraphs.filter(token => token.endNote);
                 const segments = new Map();
                 for (const p of Array.from(document.querySelectorAll('#book-container p[data-token-id]'))) {
                     const id = p.getAttribute('data-token-id');
@@ -543,6 +557,29 @@ async function main() {
                     });
                 }
                 for (const id of segments.keys()) if (!sourceIds.has(String(id))) extraRenderedIds.push(id);
+                const headingMissing = [], headingMismatches = [];
+                for (const token of sourceHeadings) {
+                    const id = String(token.id), expected = normalize(token.text);
+                    const elems = Array.from(document.querySelectorAll('#book-container [data-token-id]'))
+                        .filter(el => el.getAttribute('data-token-id') === id);
+                    if (!elems.length) { headingMissing.push({ id: token.id, type: token.type, text: expected.slice(0, 120) }); continue; }
+                    const actuals = elems.map(el => normalize(el.textContent));
+                    if (expected && !actuals.some(actual => actual.includes(expected))) {
+                        headingMismatches.push({ id: token.id, type: token.type, expected: expected.slice(0, 160), actuals: actuals.slice(0, 3).map(x => x.slice(0, 160)) });
+                    }
+                }
+                const noteMetadata = (tokens, attr) => {
+                    const missing = [], mismatches = [];
+                    for (const token of tokens) {
+                        const elems = Array.from(document.querySelectorAll('#book-container p[data-token-id]'))
+                            .filter(el => el.getAttribute('data-token-id') === String(token.id) && el.hasAttribute(attr));
+                        if (!elems.length) { missing.push({ id: token.id, attr, expected: normalize(token[attr]).slice(0, 120) }); continue; }
+                        if (!elems.some(el => normalize(el.getAttribute(attr)) === normalize(token[attr]))) {
+                            mismatches.push({ id: token.id, attr, expected: normalize(token[attr]).slice(0, 120), actual: elems.map(el => normalize(el.getAttribute(attr)).slice(0, 120)) });
+                        }
+                    }
+                    return { sourceCount: tokens.length, missingCount: missing.length, mismatchCount: mismatches.length, missing: missing.slice(0, 30), mismatches: mismatches.slice(0, 30) };
+                };
                 return {
                     available: true,
                     sourceTokenCount: source.length,
@@ -553,7 +590,10 @@ async function main() {
                     renderedIdsWithoutSourceCount: extraRenderedIds.length,
                     missing: missing.slice(0, 50),
                     mismatches: mismatches.slice(0, 50),
-                    renderedIdsWithoutSource: extraRenderedIds.slice(0, 50)
+                    renderedIdsWithoutSource: extraRenderedIds.slice(0, 50),
+                    headingAudit: { sourceCount: sourceHeadings.length, missingCount: headingMissing.length, mismatchCount: headingMismatches.length, missing: headingMissing.slice(0, 50), mismatches: headingMismatches.slice(0, 50) },
+                    sideNoteAudit: noteMetadata(sourceSideNotes, 'data-side-note'),
+                    endNoteAudit: noteMetadata(sourceEndNotes, 'data-end-note')
                 };
             })();
             return {
