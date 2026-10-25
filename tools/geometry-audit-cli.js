@@ -13,7 +13,7 @@ const crypto = require('node:crypto');
 function parseArgs(argv) {
     const o = { input: null, settings: null, report: './artifacts/geometry-audit.json',
         summary: './artifacts/geometry-audit-summary.md', fullModel: false, failOn: 'high',
-        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, requireOrnaments: false, help: false };
+        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, requireOrnaments: false, requireGeometryFeatures: false, help: false };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         const take = () => { if (i + 1 >= argv.length) throw new Error('Missing value for ' + arg); return argv[++i]; };
@@ -25,6 +25,7 @@ function parseArgs(argv) {
             case '--full-model': o.fullModel = true; break;
             case '--repeat-check': o.repeatCheck = true; break;
             case '--require-ornaments': o.requireOrnaments = true; break;
+            case '--require-geometry-features': o.requireGeometryFeatures = true; break;
             case '--fail-on': o.failOn = take(); break;
             case '--timeout-ms': o.timeoutMs = Number(take()); break;
             case '--viewport-width': o.viewportWidth = Number(take()); break;
@@ -39,7 +40,7 @@ function parseArgs(argv) {
 function help() {
     process.stdout.write('Geometry audit CLI\nRequired: --input <text-file>\n' +
       'Options: --settings <json-file>, --report <json-file>, --summary <md-file>, --full-model, --repeat-check,\n' +
-      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>, --require-ornaments\n');
+      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>, --require-ornaments, --require-geometry-features\n');
 }
 function abs(p) { return path.resolve(process.cwd(), p); }
 function ensureParent(p) { fs.mkdirSync(path.dirname(p), { recursive: true }); }
@@ -321,15 +322,27 @@ function markdown(r) {
     const isSettingActive = value => value !== null && value !== undefined && value !== false &&
       String(value).trim() !== '' && !['none', 'false', '0', 'null'].includes(String(value).trim().toLowerCase());
     const activeOrnamentSettings = ornamentSettings.filter(([, value]) => isSettingActive(value));
+    const decorativeSettings = Object.entries(effectiveSettings).filter(([key]) =>
+      /(?:section-divider|note-rule|hdr-divider|col-divider)/i.test(key));
+    const activeDecorativeSettings = decorativeSettings.filter(([, value]) => isSettingActive(value));
     lines.push('', '## Geometry feature coverage', '',
       '- Ornament-related settings active: ' + activeOrnamentSettings.length + '/' + ornamentSettings.length,
-      '- Rendered ornament DOM elements with nonzero geometry: ' + JSON.stringify(r.geometry.ornamentDomCoverage || {}));
+      '- Rendered ornament DOM elements with nonzero geometry: ' + JSON.stringify(r.geometry.ornamentDomCoverage || {}),
+      '- Section-divider/note-rule/header-divider settings active: ' + activeDecorativeSettings.length + '/' + decorativeSettings.length,
+      '- Rendered divider/header geometry: ' + JSON.stringify(r.geometry.decorativeGeometryDomCoverage || {}));
     if (activeOrnamentSettings.length) {
       lines.push('- Active ornament settings: ' + activeOrnamentSettings.map(([key, value]) => key + '=' + String(value)).join(', '));
     } else if (ornamentSettings.length) {
       lines.push('- Ornament geometry coverage: NOT EXERCISED — all ornament-related settings are disabled/none; this run does not validate ornament containment, clipping, or collisions.');
     } else {
       lines.push('- Ornament geometry coverage: UNKNOWN — no ornament-related settings were found in the run metadata.');
+    }
+    if (activeDecorativeSettings.length) {
+      lines.push('- Active divider/header settings: ' + activeDecorativeSettings.map(([key, value]) => key + '=' + String(value)).join(', '));
+    } else if (decorativeSettings.length) {
+      lines.push('- Divider/header geometry coverage: NOT EXERCISED — all section-divider, note-rule, header-divider and column-divider settings are disabled/none.');
+    } else {
+      lines.push('- Divider/header geometry coverage: UNKNOWN — no relevant divider/header settings were found in run metadata.');
     }
 
     const counterfactualRows = (Array.isArray(r.geometry.layoutDecisionRecords) ? r.geometry.layoutDecisionRecords : [])
@@ -768,6 +781,26 @@ async function main() {
                         }).length
                     ]));
                 })(),
+                decorativeGeometryDomCoverage: (() => {
+                    const visibleCount = selector => Array.from(document.querySelectorAll(selector)).filter(el => {
+                        const rect = el.getBoundingClientRect();
+                        const style = getComputedStyle(el);
+                        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+                    }).length;
+                    const headers = Array.from(document.querySelectorAll('#book-container .top-header-grid')).filter(el => {
+                        const rect = el.getBoundingClientRect();
+                        const style = getComputedStyle(el);
+                        const width = parseFloat(style.borderBottomWidth) || 0;
+                        return rect.width > 0 && width > 0 && style.borderBottomStyle !== 'none' &&
+                            style.borderBottomColor !== 'transparent' && !/rgba\\([^)]*,\\s*0\\s*\\)$/.test(style.borderBottomColor);
+                    }).length;
+                    return {
+                        sectionDivider: visibleCount('#book-container .sec-divider-wrap'),
+                        noteRule: visibleCount('#book-container .footnote-area > [class^="note-rule-"], #book-container .footnote-area > [class*=" note-rule-"]'),
+                        topHeader: visibleCount('#book-container .top-header-grid'),
+                        topHeaderDivider: headers
+                    };
+                })(),
                 summary:audit.summary, issues:audit.issues, stats:model.stats, model:clean,
                 footnoteMeasurementAudit:fnAudit, textConservationAudit,
                 fontsStatus:document.fonts ? document.fonts.status : 'unknown',
@@ -952,16 +985,28 @@ async function main() {
             };
         }, { includeFullModel: args.fullModel });
 
-        if (args.requireOrnaments) {
-            const coverage = data.ornamentDomCoverage || {};
-            const required = ['h2Top', 'h2Bottom', 'h3Right', 'h3Left', 'noteHeaderRight', 'noteHeaderLeft'];
-            const missing = required.filter(key => !(coverage[key] > 0));
-            if (missing.length) throw new Error('Required active-ornament DOM coverage missing or zero: ' + missing.join(', ') + '; measured=' + JSON.stringify(coverage));
+        if (args.requireOrnaments || args.requireGeometryFeatures) {
+            const ornamentCoverage = data.ornamentDomCoverage || {};
+            const requiredOrnaments = ['h2Top', 'h2Bottom', 'h3Right', 'h3Left', 'noteHeaderRight', 'noteHeaderLeft'];
+            const missingOrnaments = requiredOrnaments.filter(key => !(ornamentCoverage[key] > 0));
+            if (missingOrnaments.length) {
+                throw new Error('Required active-ornament DOM coverage missing or zero: ' +
+                    missingOrnaments.join(', ') + '; measured=' + JSON.stringify(ornamentCoverage));
+            }
 
-            // A non-zero rectangle proves rendering, not correct placement. For the focused
-            // ornament fixture, also fail on geometric findings that can indicate clipping,
-            // escape from the parent, or collisions. Keep imbalance findings separate: they
-            // concern column balancing, not ornament geometry.
+            if (args.requireGeometryFeatures) {
+                const featureCoverage = data.decorativeGeometryDomCoverage || {};
+                const requiredFeatures = ['sectionDivider', 'noteRule', 'topHeader', 'topHeaderDivider'];
+                const missingFeatures = requiredFeatures.filter(key => !(featureCoverage[key] > 0));
+                if (missingFeatures.length) {
+                    throw new Error('Required active divider/header geometry coverage missing or zero: ' +
+                        missingFeatures.join(', ') + '; measured=' + JSON.stringify(featureCoverage));
+                }
+            }
+
+            // Non-zero rectangles prove rendering, not correct placement. Fail this focused
+            // geometry fixture on containment/rounding/overlap findings, but keep column
+            // balance findings separate from ornament/divider geometry.
             const geometryKinds = new Set(['containment', 'containment-rounding', 'overlap']);
             const geometryFindings = (Array.isArray(data.issues) ? data.issues : [])
                 .filter(issue => geometryKinds.has(issue.kind));
@@ -970,7 +1015,7 @@ async function main() {
                     (issue.kind || 'unknown') + (issue.location ? ' @ ' + issue.location : '') +
                     (issue.message ? ': ' + String(issue.message).replace(/[\\r\\n]+/g, ' ').slice(0, 180) : '')
                 );
-                throw new Error('Active-ornament geometry gate failed: ' + geometryFindings.length +
+                throw new Error('Active geometry gate failed: ' + geometryFindings.length +
                     ' containment/rounding/overlap finding(s): ' + sample.join(' | '));
             }
         }
@@ -1066,7 +1111,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,decorativeGeometryDomCoverage:data.decorativeGeometryDomCoverage,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
