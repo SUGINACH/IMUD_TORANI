@@ -338,6 +338,7 @@ function markdown(r) {
         wrapper: (r.geometry.decorativeGeometryDomCoverage || {}).headerOrnament || 0,
         svgOrImage: (r.geometry.decorativeGeometryDomCoverage || {}).headerOrnamentGraphic || 0
       }),
+      '- Running-header SVG/image clipping audit: ' + JSON.stringify(r.geometry.headerOrnamentGeometryAudit || {}),
       '- Running-header ornament settings: ' + (headerOrnamentSettings.length ? headerOrnamentSettings.join(', ') : 'none'),
       '- Running-header selected types: ' + JSON.stringify(r.geometry.headerTypeSelection || {}),
       '- Coverage counts are observed DOM evidence, not configuration inference; zero can mean the input did not trigger that component.');
@@ -895,6 +896,81 @@ async function main() {
                         h2TitleSideLeft: visibleCount('#book-container .h2-title-ornament-left')
                     };
                 })(),
+                // Record actual header SVG/image boxes and any ancestor CSS clipping.
+                // getBoundingClientRect() alone proves only that a node exists; it does not
+                // prove that overflow:hidden/clip on an ancestor leaves the graphic visible.
+                headerOrnamentGeometryAudit: (() => {
+                    const book = document.getElementById('book-container');
+                    const rectJSON = rect => ({
+                        left: Math.round(rect.left * 1000) / 1000,
+                        top: Math.round(rect.top * 1000) / 1000,
+                        right: Math.round(rect.right * 1000) / 1000,
+                        bottom: Math.round(rect.bottom * 1000) / 1000,
+                        width: Math.round(rect.width * 1000) / 1000,
+                        height: Math.round(rect.height * 1000) / 1000
+                    });
+                    const rows = [];
+                    for (const wrapper of Array.from(document.querySelectorAll('#book-container .header-ornament-wrap'))) {
+                        const sideEl = wrapper.closest('.header-col-r, .header-col-c, .header-col-l');
+                        const side = sideEl?.classList.contains('header-col-r') ? 'right' :
+                            sideEl?.classList.contains('header-col-c') ? 'center' :
+                            sideEl?.classList.contains('header-col-l') ? 'left' : 'unknown';
+                        const graphic = wrapper.querySelector('svg, img');
+                        const wrapperRect = wrapper.getBoundingClientRect();
+                        const graphicRect = graphic ? graphic.getBoundingClientRect() : null;
+                        const clippingAncestors = [];
+                        let ancestor = graphic?.parentElement || null;
+                        while (ancestor && ancestor !== book) {
+                            const style = getComputedStyle(ancestor);
+                            const r = ancestor.getBoundingClientRect();
+                            const clipsX = ['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowX);
+                            const clipsY = ['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowY);
+                            const contentLeft = r.left + ancestor.clientLeft;
+                            const contentTop = r.top + ancestor.clientTop;
+                            const contentRight = contentLeft + ancestor.clientWidth;
+                            const contentBottom = contentTop + ancestor.clientHeight;
+                            const clipped = graphicRect && (
+                                (clipsX && (graphicRect.left < contentLeft - 0.5 || graphicRect.right > contentRight + 0.5)) ||
+                                (clipsY && (graphicRect.top < contentTop - 0.5 || graphicRect.bottom > contentBottom + 0.5))
+                            );
+                            if (clipped) clippingAncestors.push({
+                                tag: ancestor.tagName.toLowerCase(),
+                                className: typeof ancestor.className === 'string' ? ancestor.className : '',
+                                overflowX: style.overflowX, overflowY: style.overflowY,
+                                clipRect: { left: contentLeft, top: contentTop, right: contentRight, bottom: contentBottom },
+                                graphicRect: rectJSON(graphicRect)
+                            });
+                            ancestor = ancestor.parentElement;
+                        }
+                        let viewBox = null, viewBoxStatus = 'not-svg';
+                        if (graphic?.tagName?.toLowerCase() === 'svg') {
+                            const raw = graphic.getAttribute('viewBox');
+                            if (raw === null || raw.trim() === '') viewBoxStatus = 'missing';
+                            else {
+                                const nums = raw.trim().split(/[\\s,]+/).map(Number);
+                                viewBox = nums;
+                                viewBoxStatus = nums.length === 4 && nums.every(Number.isFinite) && nums[2] > 0 && nums[3] > 0
+                                    ? 'valid' : 'invalid';
+                            }
+                        }
+                        rows.push({
+                            side, wrapperRect: rectJSON(wrapperRect),
+                            graphicTag: graphic ? graphic.tagName.toLowerCase() : null,
+                            graphicRect: graphicRect ? rectJSON(graphicRect) : null,
+                            svgViewBox: viewBox, svgViewBoxStatus: viewBoxStatus,
+                            graphicOverflow: graphic ? getComputedStyle(graphic).overflow : null,
+                            clippingAncestors
+                        });
+                    }
+                    return {
+                        count: rows.length,
+                        svgOrImageCount: rows.filter(row => row.graphicTag === 'svg' || row.graphicTag === 'img').length,
+                        missingGraphicCount: rows.filter(row => !row.graphicTag).length,
+                        invalidViewBoxCount: rows.filter(row => row.svgViewBoxStatus === 'invalid').length,
+                        clippingFindingCount: rows.reduce((sum, row) => sum + row.clippingAncestors.length, 0),
+                        elements: rows
+                    };
+                })(),
                 summary:audit.summary, issues:audit.issues, stats:model.stats, model:clean,
                 footnoteMeasurementAudit:fnAudit, textConservationAudit,
                 fontsStatus:document.fonts ? document.fonts.status : 'unknown',
@@ -1112,14 +1188,23 @@ async function main() {
                         'headerOrnamentGraphicRight', 'headerOrnamentGraphicCenter', 'headerOrnamentGraphicLeft'
                       ].filter(key => !(featureCoverage[key] > 0))
                     : [];
-                if (missingFeatures.length || missingTitleFeatures.length || missingHeaderSelections.length || missingHeaderFeatures.length) {
+                const headerGeometryAudit = data.headerOrnamentGeometryAudit || {};
+                const headerGeometryFailures = actualExternalHeaderTypes.length
+                    ? [
+                        ...(headerGeometryAudit.missingGraphicCount > 0 ? ['header-ornament-missing-graphic'] : []),
+                        ...(headerGeometryAudit.invalidViewBoxCount > 0 ? ['header-ornament-invalid-viewBox'] : []),
+                        ...(headerGeometryAudit.clippingFindingCount > 0 ? ['header-ornament-clipped-by-ancestor'] : [])
+                      ]
+                    : [];
+                if (missingFeatures.length || missingTitleFeatures.length || missingHeaderSelections.length || missingHeaderFeatures.length || headerGeometryFailures.length) {
                     throw new Error('Required active geometry coverage missing or zero: ' +
                         [...missingFeatures, ...missingTitleFeatures,
                          ...(missingHeaderSelections.length ? ['header-type-selection-mismatch'] : []),
-                         ...missingHeaderFeatures].join(', ') +
+                         ...missingHeaderFeatures, ...headerGeometryFailures].join(', ') +
                         '; mode=' + titleMode + '; requestedHeaderTypes=' + requestedHeaderTypes.map(key => key + '=' + settings[key]).join(',') +
                         '; selectedHeaderTypes=' + JSON.stringify(selectedHeaderTypes) +
-                        '; measured=' + JSON.stringify(featureCoverage));
+                        '; measured=' + JSON.stringify(featureCoverage) +
+                        '; headerGeometryAudit=' + JSON.stringify(headerGeometryAudit));
                 }
             }
 
@@ -1236,7 +1321,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, externalHeaderAssetsLoaded:registeredExternalHeaderAssets, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,headerTypeSelection:data.headerTypeSelection,decorativeGeometryDomCoverage:data.decorativeGeometryDomCoverage,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,headerTypeSelection:data.headerTypeSelection,decorativeGeometryDomCoverage:data.decorativeGeometryDomCoverage,headerOrnamentGeometryAudit:data.headerOrnamentGeometryAudit,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
