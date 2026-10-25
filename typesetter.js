@@ -4832,6 +4832,13 @@ function typesetDocumentCore() {
 
     // [חדש] קווי ההפרדה בין הטורים מותאמים לקצוות הטקסט בפועל (אחרי שכל הבלוקים סופיים)
     fitColumnDividers(container);
+    // Controlled counterfactual: test local parenthesis font metrics without persisting any mutation.
+    try {
+        const parenFontCounterfactualSummary = captureParenFontCounterfactualDiagnostics(container);
+        container.setAttribute('data-layout-paren-font-counterfactual-summary', JSON.stringify(parenFontCounterfactualSummary));
+    } catch (error) {
+        container.setAttribute('data-layout-paren-font-counterfactual-error', String(error?.message || error));
+    }
 
     // [תיקון] מספרי העמודים בתוכן העניינים נגזרים מהמיקום הסופי בפועל ב-DOM (ולא מהרישום תוך כדי מילוי),
     // כי כותרת שהוחזרה לעמוד הבא יחד עם הפסקה שאחריה השאירה ברישום את העמוד הישן.
@@ -5490,6 +5497,97 @@ function captureParenthesisScopeDiagnostics(container) {
         unmatchedOpenCountAtDocumentEnd: unmatchedOpenContexts.length,
         unmatchedCloseCount: unmatchedCloseContexts.length
     };
+}
+
+/* Counterfactual diagnostic for local paren-font influence.
+   Only tests already-finalized blocks with >4px column residual, at least one local
+   parenthetical span, and no cross-column/page parenthesis scope. Temporarily overrides
+   only font metrics on .paren-text spans, measures, then restores exact inline styles.
+   This function must never leave any layout mutation behind. */
+function captureParenFontCounterfactualDiagnostics(container) {
+    const blocks = Array.from(container.querySelectorAll('.block-2col'));
+    let eligibleCount = 0, testedCount = 0, restoreMismatchCount = 0, errorCount = 0;
+    blocks.forEach(block => {
+        const right = block.querySelector('.right-col');
+        const left = block.querySelector('.left-col');
+        const spans = Array.from(block.querySelectorAll('.paren-text'));
+        const scope = (() => {
+            try { return JSON.parse(block.getAttribute('data-layout-paren-scope-diagnostic') || 'null'); }
+            catch (_) { return null; }
+        })();
+        const baseline = {
+            rightHeight: right?.scrollHeight ?? null,
+            leftHeight: left?.scrollHeight ?? null,
+            rightRectHeight: right ? Math.round(right.getBoundingClientRect().height * 1000) / 1000 : null,
+            leftRectHeight: left ? Math.round(left.getBoundingClientRect().height * 1000) / 1000 : null,
+            outerHeight: Math.round(block.getBoundingClientRect().height * 1000) / 1000
+        };
+        const diff = Number.isFinite(baseline.rightHeight) && Number.isFinite(baseline.leftHeight)
+            ? Math.abs(baseline.rightHeight - baseline.leftHeight) : null;
+        const localParenChars = ['right','left'].some(side =>
+            (scope?.[side]?.openCount || 0) + (scope?.[side]?.closeCount || 0) > 0);
+        const hasCrossBoundaryScope = (scope?.crossColumnScopeCountIntersectingBlock || 0) > 0 ||
+            (scope?.crossPageScopeCountIntersectingBlock || 0) > 0;
+        const eligible = diff != null && diff > 4 && spans.length > 0 && localParenChars && !hasCrossBoundaryScope;
+        const diag = { version: 1, tested: false, reason: null, spanCount: spans.length, baseline, sameFont: null, restored: null, restoreMatches: null, error: null };
+        if (!right || !left) diag.reason = 'missing-column';
+        else if (diff == null || diff <= 4) diag.reason = 'residual-not-over-4px';
+        else if (!localParenChars || spans.length === 0) diag.reason = 'no-local-parenthetical-style';
+        else if (hasCrossBoundaryScope) diag.reason = 'cross-boundary-scope-excluded';
+        else if (!eligible) diag.reason = 'not-eligible';
+        if (!eligible) {
+            block.setAttribute('data-layout-paren-font-counterfactual', JSON.stringify(diag));
+            return;
+        }
+        eligibleCount++;
+        const snapshots = spans.map(span => ({ span, style: span.getAttribute('style') }));
+        try {
+            // Match each span's surrounding paragraph metrics, while preserving its color/weight/etc.
+            spans.forEach(span => {
+                const p = span.closest('p');
+                if (!p) return;
+                const cs = getComputedStyle(p);
+                span.style.setProperty('font-family', cs.fontFamily, 'important');
+                span.style.setProperty('font-size', cs.fontSize, 'important');
+                span.style.setProperty('line-height', cs.lineHeight, 'important');
+            });
+            const sameFont = {
+                rightHeight: right.scrollHeight,
+                leftHeight: left.scrollHeight,
+                rightRectHeight: Math.round(right.getBoundingClientRect().height * 1000) / 1000,
+                leftRectHeight: Math.round(left.getBoundingClientRect().height * 1000) / 1000,
+                outerHeight: Math.round(block.getBoundingClientRect().height * 1000) / 1000
+            };
+            diag.tested = true;
+            diag.sameFont = sameFont;
+            diag.sameFontDiff = Math.abs(sameFont.rightHeight - sameFont.leftHeight);
+            diag.diffChange = diag.sameFontDiff - diff;
+        } catch (error) {
+            diag.error = String(error?.message || error);
+            errorCount++;
+        } finally {
+            snapshots.forEach(({ span, style }) => {
+                if (style == null) span.removeAttribute('style');
+                else span.setAttribute('style', style);
+            });
+        }
+        // Force synchronous layout after restoring exact style attributes.
+        const restored = {
+            rightHeight: right.scrollHeight,
+            leftHeight: left.scrollHeight,
+            rightRectHeight: Math.round(right.getBoundingClientRect().height * 1000) / 1000,
+            leftRectHeight: Math.round(left.getBoundingClientRect().height * 1000) / 1000,
+            outerHeight: Math.round(block.getBoundingClientRect().height * 1000) / 1000
+        };
+        diag.restored = restored;
+        diag.restoreMatches = Object.keys(baseline).every(key =>
+            baseline[key] == null || restored[key] == null || Math.abs(baseline[key] - restored[key]) <= 0.5);
+        if (!diag.restoreMatches) restoreMismatchCount++;
+        if (diag.error) errorCount++;
+        testedCount++;
+        block.setAttribute('data-layout-paren-font-counterfactual', JSON.stringify(diag));
+    });
+    return { version: 1, blockCount: blocks.length, eligibleCount, testedCount, restoreMismatchCount, errorCount };
 }
 
 function applyCrossParagraphParens(container) {
