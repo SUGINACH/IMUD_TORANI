@@ -329,7 +329,7 @@ function markdown(r) {
       '- Ornament-related settings active: ' + activeOrnamentSettings.length + '/' + ornamentSettings.length,
       '- Rendered ornament DOM elements with nonzero geometry: ' + JSON.stringify(r.geometry.ornamentDomCoverage || {}),
       '- Section-divider/note-rule/header-divider settings active: ' + activeDecorativeSettings.length + '/' + decorativeSettings.length,
-      '- Rendered divider/header geometry: ' + JSON.stringify(r.geometry.decorativeGeometryDomCoverage || {}),
+      '- Rendered divider/header/H2-title/column-divider geometry: ' + JSON.stringify(r.geometry.decorativeGeometryDomCoverage || {}),
       '- Coverage counts are observed DOM evidence, not configuration inference; zero can mean the input did not trigger that component.');
     if (activeOrnamentSettings.length) {
       lines.push('- Active ornament settings: ' + activeOrnamentSettings.map(([key, value]) => key + '=' + String(value)).join(', '));
@@ -800,6 +800,7 @@ async function main() {
                         noteRule: visibleCount('#book-container .footnote-area > [class^="note-rule-"], #book-container .footnote-area > [class*=" note-rule-"]'),
                         topHeader: visibleCount('#book-container .top-header-grid'),
                         topHeaderDivider: headers,
+                        colGutterDivider: visibleCount('#book-container .col-gutter-divider:not(.col-rule-none)'),
                         h2TitleTop: visibleCount('#book-container .h2-title-ornament-top'),
                         h2TitleBottom: visibleCount('#book-container .h2-title-ornament-bottom'),
                         h2TitleSideRight: visibleCount('#book-container .h2-title-ornament-right'),
@@ -1001,7 +1002,7 @@ async function main() {
 
             if (args.requireGeometryFeatures) {
                 const featureCoverage = data.decorativeGeometryDomCoverage || {};
-                const requiredFeatures = ['sectionDivider', 'noteRule', 'topHeader', 'topHeaderDivider'];
+                const requiredFeatures = ['sectionDivider', 'noteRule', 'topHeader', 'topHeaderDivider', 'colGutterDivider'];
                 const missingFeatures = requiredFeatures.filter(key => !(featureCoverage[key] > 0));
                 const titleMode = String(settings['h2-title-orn-mode'] || 'none');
                 const titleModeFeatures = titleMode === 'side'

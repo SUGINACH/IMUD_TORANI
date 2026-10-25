@@ -229,7 +229,7 @@
   "prop-mb": "20",
   "prop-mt-h2": "20",
   "h2-top-distance": "22%",
-  "col-divider-style": "none",
+  "col-divider-style": "plain",
   "page-num-position": "bottom_center",
   "page-num-format": "gematria",
   "page-num-frame": "none",
