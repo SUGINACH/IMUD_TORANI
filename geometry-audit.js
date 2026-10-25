@@ -1301,7 +1301,7 @@ function auditSparsePage(page, issues) {
     const columnCapacityMultiplier = hasTwoColumnBlock ? 2 : 1;
     const capacityPx = Math.max(0, flowRect.bottom - contentStartY) * columnCapacityMultiplier;
     if (!(capacityPx > 0)) return;
-    const referenceColumn = bodyFlow.querySelector('.main-column, .single-wide-col');
+    const referenceColumn = bodyFlow.querySelector('.main-column') || bodyFlow.querySelector('.single-wide-col');
     const referenceColumnWidth = referenceColumn?.getBoundingClientRect().width || 0;
 
     const textSelector = [
