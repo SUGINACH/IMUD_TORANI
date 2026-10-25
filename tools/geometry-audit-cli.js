@@ -329,7 +329,8 @@ function markdown(r) {
       '- Ornament-related settings active: ' + activeOrnamentSettings.length + '/' + ornamentSettings.length,
       '- Rendered ornament DOM elements with nonzero geometry: ' + JSON.stringify(r.geometry.ornamentDomCoverage || {}),
       '- Section-divider/note-rule/header-divider settings active: ' + activeDecorativeSettings.length + '/' + decorativeSettings.length,
-      '- Rendered divider/header geometry: ' + JSON.stringify(r.geometry.decorativeGeometryDomCoverage || {}));
+      '- Rendered divider/header geometry: ' + JSON.stringify(r.geometry.decorativeGeometryDomCoverage || {}),
+      '- Coverage counts are observed DOM evidence, not configuration inference; zero can mean the input did not trigger that component.');
     if (activeOrnamentSettings.length) {
       lines.push('- Active ornament settings: ' + activeOrnamentSettings.map(([key, value]) => key + '=' + String(value)).join(', '));
     } else if (ornamentSettings.length) {
@@ -792,7 +793,7 @@ async function main() {
                         const style = getComputedStyle(el);
                         const width = parseFloat(style.borderBottomWidth) || 0;
                         return rect.width > 0 && width > 0 && style.borderBottomStyle !== 'none' &&
-                            style.borderBottomColor !== 'transparent' && !/rgba\\([^)]*,\\s*0\\s*\\)$/.test(style.borderBottomColor);
+                            style.borderBottomColor !== 'transparent' && !/rgba\([^)]*,\s*0\s*\)$/i.test(style.borderBottomColor);
                     }).length;
                     return {
                         sectionDivider: visibleCount('#book-container .sec-divider-wrap'),
