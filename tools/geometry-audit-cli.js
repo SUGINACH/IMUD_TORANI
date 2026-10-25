@@ -785,6 +785,7 @@ async function main() {
                         const left = el.querySelector('.left-col');
                         let decision = null;
                         let crossParenDiagnostic = null;
+                        let parenScopeDiagnostic = null;
                         let stageGeometryDiagnostic = null;
                         try {
                             const raw = el.getAttribute('data-layout-decision-record');
@@ -794,6 +795,10 @@ async function main() {
                             const raw = el.getAttribute('data-layout-cross-paren-diagnostic');
                             if (raw) crossParenDiagnostic = JSON.parse(raw);
                         } catch (_) { /* malformed diagnostics remain explicitly absent in the report */ }
+                        try {
+                            const raw = el.getAttribute('data-layout-paren-scope-diagnostic');
+                            if (raw) parenScopeDiagnostic = JSON.parse(raw);
+                        } catch (_) { /* malformed parenthesis-scope diagnostics remain explicitly absent */ }
                         try {
                             const raw = el.getAttribute('data-layout-stage-geometry-diagnostic');
                             if (raw) stageGeometryDiagnostic = JSON.parse(raw);
@@ -811,12 +816,15 @@ async function main() {
                             decision,
                             crossParenDiagnostic,
                             crossParenDiagnosticError,
+                            parenScopeDiagnostic,
                             stageGeometryDiagnostic,
                             stageGeometryDiagnosticError
                         };
                     });
                 }),
                 layoutDecisionBlockCount: document.querySelectorAll('#book-container .page-body-flow > .block-2col').length,
+                parenthesisScopeSummary: (() => { try { return JSON.parse(document.querySelector('#book-container')?.getAttribute('data-layout-paren-scope-summary') || 'null'); } catch (_) { return null; } })(),
+                parenthesisScopeDiagnosticError: document.querySelector('#book-container')?.getAttribute('data-layout-paren-scope-diagnostic-error') || null,
                 bodyScrollHeight:document.body.scrollHeight,
                 bookContainerScrollHeight:document.getElementById('book-container')?.scrollHeight ?? null
             };
@@ -841,6 +849,12 @@ async function main() {
             missingCrossParenDiagnosticCount: ledger.filter(x => !x.crossParenDiagnostic ||
                 x.crossParenDiagnostic.version !== 2 || !x.crossParenDiagnostic.postGlobal).length,
             crossParenDiagnosticErrorCount: ledger.filter(x => !!x.crossParenDiagnosticError).length,
+            parenthesisScopeDiagnosticCount: ledger.filter(x => x.parenScopeDiagnostic?.version === 1).length,
+            missingParenthesisScopeDiagnosticCount: ledger.filter(x => x.parenScopeDiagnostic?.version !== 1).length,
+            parenthesisScopeDiagnosticErrorCount: data.parenthesisScopeDiagnosticError ? 1 : 0,
+            crossColumnScopeIntersectingBlockCount: ledger.filter(x => (x.parenScopeDiagnostic?.crossColumnScopeCountIntersectingBlock || 0) > 0).length,
+            crossPageScopeIntersectingBlockCount: ledger.filter(x => (x.parenScopeDiagnostic?.crossPageScopeCountIntersectingBlock || 0) > 0).length,
+            crossBoundaryScopeEndpointBlockCount: ledger.filter(x => (x.parenScopeDiagnostic?.crossBoundaryScopeEndpointCount || 0) > 0).length,
             stageGeometryDiagnosticCount: ledger.filter(x => x.stageGeometryDiagnostic?.schemaVersion === 1 &&
                 x.stageGeometryDiagnostic?.stages?.['canonical-final']).length,
             missingStageGeometryDiagnosticCount: ledger.filter(x => !x.stageGeometryDiagnostic ||
@@ -903,7 +917,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
