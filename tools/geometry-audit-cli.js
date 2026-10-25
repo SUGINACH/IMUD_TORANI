@@ -80,7 +80,41 @@ function instrumentationIntegrityFailures(report) {
     if ((a.missingParenFontCounterfactualDiagnosticCount ?? 0) !== 0) failures.push('missing local paren-font counterfactual diagnostics');
     if ((a.parenFontCounterfactualRestoreMismatchCount ?? 0) !== 0) failures.push('counterfactual changed geometry after restoring original styles');
     if ((a.parenFontCounterfactualErrorCount ?? 0) !== 0) failures.push('local paren-font counterfactual diagnostic error');
-    if (report.geometry?.parenFontCounterfactualSummary == null) failures.push('missing document-level paren-font counterfactual summary');
+    const counterfactualSummary = report.geometry?.parenFontCounterfactualSummary;
+    if (counterfactualSummary == null) {
+        failures.push('missing document-level paren-font counterfactual summary');
+    } else {
+        const records = Array.isArray(report.geometry?.layoutDecisionRecords)
+            ? report.geometry.layoutDecisionRecords : [];
+        // Independently derive which blocks must be tested. This prevents a broken call
+        // order from reporting 0 eligible/0 tested while eligible local-parenthesis
+        // imbalance cases exist in the final layout.
+        const expectedEligibleCount = records.filter(record => {
+            const diff = record.decision?.final?.diff;
+            const scope = record.parenScopeDiagnostic;
+            const counterfactual = record.parenFontCounterfactual;
+            const localParenChars = ['right', 'left'].some(side =>
+                ((scope?.[side]?.openCount || 0) + (scope?.[side]?.closeCount || 0)) > 0);
+            const crossesBoundary = (scope?.crossColumnScopeCountIntersectingBlock || 0) > 0 ||
+                (scope?.crossPageScopeCountIntersectingBlock || 0) > 0;
+            return Number.isFinite(diff) && Math.abs(diff) > 4 &&
+                (counterfactual?.spanCount || 0) > 0 && localParenChars && !crossesBoundary;
+        }).length;
+        if (counterfactualSummary.eligibleCount !== expectedEligibleCount) {
+            failures.push('local paren-font counterfactual eligibility mismatch: expected ' +
+                expectedEligibleCount + ', reported ' + counterfactualSummary.eligibleCount);
+        }
+        if (counterfactualSummary.testedCount !== expectedEligibleCount) {
+            failures.push('local paren-font counterfactual coverage mismatch: expected ' +
+                expectedEligibleCount + ' tested cases, reported ' + counterfactualSummary.testedCount);
+        }
+        if ((counterfactualSummary.restoreMismatchCount ?? 0) !== 0) {
+            failures.push('counterfactual summary reports geometry restoration mismatches');
+        }
+        if ((counterfactualSummary.errorCount ?? 0) !== 0) {
+            failures.push('counterfactual summary reports execution errors');
+        }
+    }
     return failures.concat(decisionDiagnosticFailures(report));
 }
 function decisionDiagnosticFailures(report) {
