@@ -312,6 +312,24 @@ function markdown(r) {
     const kinds = Object.entries(s.byKind || {}).sort((a,b) => b[1]-a[1]);
     if (!kinds.length) lines.push('| None | 0 |');
     for (const [k,v] of kinds) lines.push('| ' + String(k).replaceAll('|', '¦') + ' | ' + v + ' |');
+
+    // Report configuration coverage explicitly: a clean run with every ornament
+    // disabled must not be mistaken for validation of ornament geometry.
+    const effectiveSettings = r.run.settings && typeof r.run.settings === 'object' ? r.run.settings : {};
+    const ornamentSettings = Object.entries(effectiveSettings).filter(([key]) => /ornament|(?:^|-)orn(?:-|$)/i.test(key));
+    const isSettingActive = value => value !== null && value !== undefined && value !== false &&
+      String(value).trim() !== '' && !['none', 'false', '0', 'null'].includes(String(value).trim().toLowerCase());
+    const activeOrnamentSettings = ornamentSettings.filter(([, value]) => isSettingActive(value));
+    lines.push('', '## Geometry feature coverage', '',
+      '- Ornament-related settings active: ' + activeOrnamentSettings.length + '/' + ornamentSettings.length);
+    if (activeOrnamentSettings.length) {
+      lines.push('- Active ornament settings: ' + activeOrnamentSettings.map(([key, value]) => key + '=' + String(value)).join(', '));
+    } else if (ornamentSettings.length) {
+      lines.push('- Ornament geometry coverage: NOT EXERCISED — all ornament-related settings are disabled/none; this run does not validate ornament containment, clipping, or collisions.');
+    } else {
+      lines.push('- Ornament geometry coverage: UNKNOWN — no ornament-related settings were found in the run metadata.');
+    }
+
     const counterfactualRows = (Array.isArray(r.geometry.layoutDecisionRecords) ? r.geometry.layoutDecisionRecords : [])
       .filter(record => record.parenFontCounterfactual?.tested === true)
       .sort((a, b) => (a.pageIdx ?? 0) - (b.pageIdx ?? 0));
