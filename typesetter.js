@@ -1298,6 +1298,8 @@ function shrinkColumnVertically(col, targetHeight, styleObj, maxShrink = 60) {
    freeSpace = הרווח הפנוי בפועל (מדוד) בין תחתית הבלוק לתחתית השטח הפנוי בעמוד.
    בבלוק דו-טורי שני הטורים נמתחים לאותו יעד, והיעד מוגבל ליכולת המתיחה של הטור החלש יותר -
    כדי שתחתיות שני הטורים תמיד יישארו על אותו קו (עדיף פער קטן בתחתית העמוד מטורים לא מיושרים). */
+const layoutGeometryStageSnapshots = new WeakMap();
+
 function recordLayoutGeometryStage(block, stage, bodyFlow, extra = {}) {
     if (!block || !block.setAttribute) return;
     try {
@@ -1330,6 +1332,7 @@ function recordLayoutGeometryStage(block, stage, bodyFlow, extra = {}) {
             },
             ...extra
         };
+        layoutGeometryStageSnapshots.set(block, diagnostic);
         block.setAttribute('data-layout-stage-geometry-diagnostic', JSON.stringify(diagnostic));
     } catch (_) {
         block.setAttribute('data-layout-stage-geometry-diagnostic-error', stage);
@@ -5101,6 +5104,12 @@ function typesetDocumentCore() {
         const right = blk.querySelector('.right-col');
         const left = blk.querySelector('.left-col');
         if (!right || !left) return;
+
+        // Attribute rollback is used by several speculative layout passes. Re-emit the
+        // in-memory stage trace at the canonical final snapshot so those rollbacks cannot
+        // erase the evidence needed to explain final containment findings.
+        const stageDiagnostic = layoutGeometryStageSnapshots.get(blk);
+        if (stageDiagnostic) blk.setAttribute('data-layout-stage-geometry-diagnostic', JSON.stringify(stageDiagnostic));
 
         const rightHeight = right.scrollHeight;
         const leftHeight = left.scrollHeight;
