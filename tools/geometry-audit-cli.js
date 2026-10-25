@@ -632,9 +632,10 @@ async function main() {
     // The headless renderer bypasses that UI initialization, so explicitly register only the
     // selected assets. This makes the audit exercise the same SVG/HTML instead of silently
     // rendering an empty header when a setting references an external ornament.
-    const requestedHeaderOrnamentIds = ['hdr-r-type', 'hdr-c-type', 'hdr-l-type']
-      .map(key => String(settings[key] || ''))
-      .filter(id => id.startsWith('ext_'));
+    const requestedHeaderOrnamentIds = [...new Set([
+      'hdr-r-type', 'hdr-c-type', 'hdr-l-type',
+      'hdr-verso-r-type', 'hdr-verso-c-type', 'hdr-verso-l-type'
+    ].map(key => String(settings[key] || '')).filter(id => id.startsWith('ext_')))];
     let externalHeaderAssets = [];
     const headerOrnamentsPath = abs('./header_ornaments.json');
     if (requestedHeaderOrnamentIds.length) {
@@ -881,6 +882,12 @@ async function main() {
                         colGutterDivider: visibleCount('#book-container .col-gutter-divider:not(.col-rule-none)'),
                         headerOrnament: visibleCount('#book-container .header-ornament-wrap'),
                         headerOrnamentGraphic: visibleCount('#book-container .header-ornament-wrap svg, #book-container .header-ornament-wrap img'),
+                        headerOrnamentRight: visibleCount('#book-container .header-col-r .header-ornament-wrap'),
+                        headerOrnamentCenter: visibleCount('#book-container .header-col-c .header-ornament-wrap'),
+                        headerOrnamentLeft: visibleCount('#book-container .header-col-l .header-ornament-wrap'),
+                        headerOrnamentGraphicRight: visibleCount('#book-container .header-col-r .header-ornament-wrap svg, #book-container .header-col-r .header-ornament-wrap img'),
+                        headerOrnamentGraphicCenter: visibleCount('#book-container .header-col-c .header-ornament-wrap svg, #book-container .header-col-c .header-ornament-wrap img'),
+                        headerOrnamentGraphicLeft: visibleCount('#book-container .header-col-l .header-ornament-wrap svg, #book-container .header-col-l .header-ornament-wrap img'),
                         h2TitleTop: visibleCount('#book-container .h2-title-ornament-top'),
                         h2TitleBottom: visibleCount('#book-container .h2-title-ornament-bottom'),
                         h2TitleSideRight: visibleCount('#book-container .h2-title-ornament-right'),
@@ -1098,7 +1105,11 @@ async function main() {
                 const actualExternalHeaderTypes = Object.entries(selectedHeaderTypes).filter(([, value]) =>
                     String(value || '').startsWith('ext_'));
                 const missingHeaderFeatures = actualExternalHeaderTypes.length
-                    ? ['headerOrnament', 'headerOrnamentGraphic'].filter(key => !(featureCoverage[key] > 0))
+                    ? [
+                        'headerOrnament', 'headerOrnamentGraphic',
+                        'headerOrnamentRight', 'headerOrnamentCenter', 'headerOrnamentLeft',
+                        'headerOrnamentGraphicRight', 'headerOrnamentGraphicCenter', 'headerOrnamentGraphicLeft'
+                      ].filter(key => !(featureCoverage[key] > 0))
                     : [];
                 if (missingFeatures.length || missingTitleFeatures.length || missingHeaderSelections.length || missingHeaderFeatures.length) {
                     throw new Error('Required active geometry coverage missing or zero: ' +
