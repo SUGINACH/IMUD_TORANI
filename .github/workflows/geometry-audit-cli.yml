@@ -33,7 +33,7 @@ jobs:
       - name: Run geometry audit smoke test
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/smoke-report.json --summary ./artifacts/smoke-summary.md --fail-on none --repeat-check
       - name: Run active-ornament geometry smoke test
-        run: node tools/geometry-audit-cli.js --input ./tests/fixtures/ornament-geometry-smoke.txt --settings ./tests/fixtures/ornament-geometry-settings.json --report ./artifacts/ornament-smoke-report.json --summary ./artifacts/ornament-smoke-summary.md --fail-on none --require-ornaments
+        run: node tools/geometry-audit-cli.js --input ./tests/fixtures/ornament-geometry-smoke.txt --settings ./tests/fixtures/ornament-geometry-settings.json --report ./artifacts/ornament-smoke-report.json --summary ./artifacts/ornament-smoke-summary.md --fail-on none --require-geometry-features
       - name: Upload smoke reports
         if: always()
         uses: actions/upload-artifact@v4
