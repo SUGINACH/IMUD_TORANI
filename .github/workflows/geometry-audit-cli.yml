@@ -50,7 +50,19 @@ jobs:
             console.error('Expected the cross-paragraph [] source scope to trigger square-bracket-scope; audit summary:', report.audit?.summary);
             process.exit(1);
           }
-          console.log(JSON.stringify({ sparsePageFindings: sparse.length, squareBracketScopeFindings: brackets.length }));
+          const malformedScope = brackets.find(issue =>
+            issue.startTokenId && issue.endTokenId &&
+            issue.crossedParagraph !== (issue.startTokenId !== issue.endTokenId)
+          );
+          if (malformedScope) {
+            console.error('crossedParagraph must reflect source token identity, not merely distinct DOM fragments:', malformedScope);
+            process.exit(1);
+          }
+          if (brackets.some(issue => !Number.isInteger(issue.startFragmentIndex) || !Number.isInteger(issue.endFragmentIndex))) {
+            console.error('Square-bracket scope diagnostics must include DOM fragment indexes:', brackets);
+            process.exit(1);
+          }
+          console.log(JSON.stringify({ sparsePageFindings: sparse.length, squareBracketScopeFindings: brackets.length, sourceParagraphIdentityCheck: 'PASS' }));
           NODE
       - name: Run active-ornament geometry smoke test
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/ornament-geometry-smoke.txt --settings ./tests/fixtures/ornament-geometry-settings.json --report ./artifacts/ornament-smoke-report.json --summary ./artifacts/ornament-smoke-summary.md --fail-on none --require-geometry-features
