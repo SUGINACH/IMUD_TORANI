@@ -563,7 +563,7 @@ async function main() {
                     });
                 }
                 for (const id of segments.keys()) if (!sourceIds.has(String(id))) extraRenderedIds.push(id);
-                const normalizeHeading = value => normalize(value).replace(/[^\\p{L}\\p{N}\\s]/gu, ' ').replace(/\\s+/g, ' ').trim();
+                const normalizeHeading = value => normalize(value).replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
                 const headingMissing = [], headingMismatches = [];
                 for (const token of sourceHeadings) {
                     const id = String(token.id), expected = normalizeHeading(token.text);
