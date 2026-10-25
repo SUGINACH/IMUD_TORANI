@@ -220,6 +220,7 @@ function markdown(r) {
       '- Blocks missing canonical final stage: ' + (r.geometry.layoutDecisionRecordAudit?.missingStageGeometryDiagnosticCount ?? 'n/a'),
       '- Stage diagnostic capture errors: ' + (r.geometry.layoutDecisionRecordAudit?.stageGeometryDiagnosticErrorCount ?? 'n/a'),
       '- Stage snapshot coverage: ' + JSON.stringify(r.geometry.layoutDecisionRecordAudit?.stageGeometryStageCounts ?? {}),
+      '- Source-to-rendered paragraph conservation: ' + (r.geometry.textConservationAudit ? (r.geometry.textConservationAudit.available ? (r.geometry.textConservationAudit.sourceParagraphTokenCount + ' source paragraphs; missing ' + r.geometry.textConservationAudit.missingSourceParagraphCount + '; text mismatches ' + r.geometry.textConservationAudit.textMismatchCount + '; extra rendered IDs ' + r.geometry.textConservationAudit.renderedIdsWithoutSourceCount) : 'unavailable: ' + r.geometry.textConservationAudit.reason) : 'not available'),
       '- Issues: ' + (s.total ?? r.audit.issues.length),
       '- High: ' + (s.high || 0) + ' | Medium: ' + (s.medium || 0) + ' | Low: ' + (s.low || 0),
       '', '## Issue counts by kind', '', '| Kind | Count |', '|---|---:|'];
@@ -509,10 +510,57 @@ async function main() {
                 ? { pages:model.pages.map(p => window.__geomAudit.cleanForExport(p)), stats:model.stats }
                 : null;
             const fnAudit = typeof window.auditFnMeasurement === 'function' ? window.auditFnMeasurement() : null;
+            // Diagnostic-only source-to-rendered paragraph conservation audit. Paragraph tokens may
+            // legitimately be split across pages/columns; concatenate their recorded raw segments in DOM order.
+            const textConservationAudit = (() => {
+                const source = typeof globalTokens !== 'undefined' && Array.isArray(globalTokens) ? globalTokens : null;
+                if (!source) return { available: false, reason: 'globalTokens lexical binding unavailable' };
+                const normalize = value => {
+                    const box = document.createElement('div');
+                    box.innerHTML = String(value ?? '');
+                    return (box.textContent || '').replace(/\u00a0/g, ' ').replace(/[\s\u200f\u200e]+/g, ' ').trim();
+                };
+                const sourceParagraphs = source.filter(token => token && token.type === 'p');
+                const segments = new Map();
+                for (const p of Array.from(document.querySelectorAll('#book-container p[data-token-id]'))) {
+                    const id = p.getAttribute('data-token-id');
+                    if (id == null) continue;
+                    if (!segments.has(id)) segments.set(id, []);
+                    segments.get(id).push(p.getAttribute('data-raw-text') ?? p.textContent ?? '');
+                }
+                const missing = [], mismatches = [], extraRenderedIds = [];
+                const sourceIds = new Set(sourceParagraphs.map(token => String(token.id)));
+                for (const token of sourceParagraphs) {
+                    const id = String(token.id);
+                    const parts = segments.get(id) || [];
+                    if (!parts.length) { missing.push({ id: token.id, lineIdx: token.lineIdx, text: normalize(token.text).slice(0, 120) }); continue; }
+                    const expected = normalize(token.text);
+                    const actual = normalize(parts.join(' '));
+                    if (expected !== actual) mismatches.push({
+                        id: token.id, lineIdx: token.lineIdx, segmentCount: parts.length,
+                        expectedLength: expected.length, actualLength: actual.length,
+                        expected: expected.slice(0, 180), actual: actual.slice(0, 180)
+                    });
+                }
+                for (const id of segments.keys()) if (!sourceIds.has(String(id))) extraRenderedIds.push(id);
+                return {
+                    available: true,
+                    sourceTokenCount: source.length,
+                    sourceParagraphTokenCount: sourceParagraphs.length,
+                    renderedParagraphTokenIdCount: segments.size,
+                    missingSourceParagraphCount: missing.length,
+                    textMismatchCount: mismatches.length,
+                    renderedIdsWithoutSourceCount: extraRenderedIds.length,
+                    missing: missing.slice(0, 50),
+                    mismatches: mismatches.slice(0, 50),
+                    renderedIdsWithoutSource: extraRenderedIds.slice(0, 50)
+                };
+            })();
             return {
                 pageCount: document.querySelectorAll('#book-container .a4-page').length,
                 summary:audit.summary, issues:audit.issues, stats:model.stats, model:clean,
-                footnoteMeasurementAudit:fnAudit, fontsStatus:document.fonts ? document.fonts.status : 'unknown',
+                footnoteMeasurementAudit:fnAudit, textConservationAudit,
+                fontsStatus:document.fonts ? document.fonts.status : 'unknown',
                 fontPreflight:window.__fontPreflight || null,
                 // Preserve fit-correction evidence from extractGeometry() in the report; otherwise
                 // the Markdown summary incorrectly defaults to 'no adjustments were needed'.
@@ -759,7 +807,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
