@@ -1359,6 +1359,14 @@ function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) 
 }
 
 function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, lhCap = null, useWordSpacing = true) {
+    // [חדש] בדוק הגדרות איכות עימוד אוטומטי
+    const aqEnabled = document.getElementById('aq-enabled')?.checked ?? true;
+    const aqWordSpacing = document.getElementById('aq-word-spacing')?.checked ?? true;
+    const aqParaSpacing = document.getElementById('aq-para-spacing')?.checked ?? true;
+    const aqLineHeight = document.getElementById('aq-line-height')?.checked ?? true;
+    const aqParaMax = parseInt(document.getElementById('aq-para-spacing-max')?.value) || 9;
+    const aqLhMax = parseInt(document.getElementById('aq-line-height-max')?.value) || 3;
+
     let diff = targetHeight - col.scrollHeight;
     if (!(diff > 0.5 && diff <= maxStretch)) return col.scrollHeight;
 
@@ -1366,24 +1374,35 @@ function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, l
 
     // 0. [חדש — שלב 1] רווח מילים דינמי — הכלי השקוף ביותר
     //    רק כש-useWordSpacing=true (לא ב-stretchLastBlockToBottom שיכול לגרום לגלישה)
-    if (useWordSpacing && diff > 0.5) {
+    //    וכש-aq-enabled ו-aq-word-spacing מסומנים
+    if (useWordSpacing && aqEnabled && aqWordSpacing && diff > 0.5) {
         stretchByWordSpacing(col, diff);
         diff = targetHeight - col.scrollHeight;
         if (!(diff > 0.5)) return col.scrollHeight;
     }
 
     // 1. רווחים בין פסקאות (עד התקרה הכוללת לכל רווח)
-    const gapKids = kids.filter((k, i) => k.tagName === 'P' && i < kids.length - 1);
-    if (gapKids.length) {
-        const per = diff / gapKids.length;
-        gapKids.forEach(k => {
-            const cur = parseFloat(k.style.paddingBottom) || 0;
-            const add = Math.max(0, Math.min(per, JUSTIFY_MAX_GAP - cur));
-            if (add > 0) k.style.paddingBottom = (cur + add) + 'px';
-        });
+    //    [חדש] מכובד על-ידי aq-para-spacing ו-aq-para-spacing-max
+    const effectiveMaxGap = (aqEnabled && aqParaSpacing) ? Math.min(aqParaMax, JUSTIFY_MAX_GAP) : JUSTIFY_MAX_GAP;
+    if (aqEnabled && aqParaSpacing) {
+        const gapKids = kids.filter((k, i) => k.tagName === 'P' && i < kids.length - 1);
+        if (gapKids.length) {
+            const per = diff / gapKids.length;
+            gapKids.forEach(k => {
+                const cur = parseFloat(k.style.paddingBottom) || 0;
+                const add = Math.max(0, Math.min(per, effectiveMaxGap - cur));
+                if (add > 0) k.style.paddingBottom = (cur + add) + 'px';
+            });
+        }
     }
 
     // 2. שארית: מותחים את גובה השורה של כל הפסקאות באופן אחיד (עם תקרה).
+    // [חדש] מכובד על-ידי aq-line-height ו-aq-line-height-max
+    if (!aqEnabled || !aqLineHeight) {
+        // אם רווח שורות דינמי כבוי — אל תמתח
+        return col.scrollHeight;
+    }
+    const effectiveLhCap = (lhCap === null) ? Math.max(aqLhMax, 0.1) : Math.min(lhCap, aqLhMax);
     // [תיקון] גובה פסקה אינו תמיד ליניארי בגובה השורה: בפסקה עם ד"ה/מילה ראשונה בגופן שונה, הדפדפן מעגל את
     // חצאי-הריווח של כל גופן בנפרד, ולכן מתיחה אחת מפספסת לפעמים בכמה פיקסלים והטורים נגמרו בפער של ~3px.
     // לכן מודדים מחדש וחוזרים על המתיחה (עד 3 מעברים בסך הכול). המעבר הראשון זהה למקור, ומעברים נוספים
@@ -1400,7 +1419,7 @@ function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, l
         const e = rest / totalLines;
         let changed = false;
         infos.forEach(i => {
-            const cap = (lhCap === null) ? Math.max(JUSTIFY_MAX_LH_EXTRA, i.base * JUSTIFY_BALANCE_LH_RATIO) : lhCap;
+            const cap = (lhCap === null) ? Math.max(effectiveLhCap, i.base * JUSTIFY_BALANCE_LH_RATIO) : effectiveLhCap;
             const newLh = Math.min(i.lh + e, i.base + cap);
             if (newLh <= i.lh + 0.01) return;
             const win = i.p.querySelector('.first-word-window');
@@ -1819,51 +1838,65 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 /* [חדש — שלב 1: רווח מילים דינמי] חלוקת עומס בין טורים.
    אם יש פער קטן בין הטורים, כווץ את הארוך (word-spacing < 1.0) והרחב את הקצר (word-spacing > 1.0).
    כל טור סופג 50% מהעומס — הפער נעלם בצורה הרמונית בלי לשנות line-height.
-   - rCol, lCol: שני הטורים
-   - diff: rCol - lCol (חיובי = ימין ארוך יותר)
-   - טווחים: כיווץ 0.95-0.98, הרחבה 1.02-1.05
-   - חשוב: פועל רק על פערים קטנים (2-20px) ובודק שיפור אחרי כל שינוי */
+   מקבל הגדרות מפאנל "איכות עימוד אוטומטי":
+   - aq-enabled: האם איכות עימוד אוטומטי פעילה בכלל
+   - aq-word-spacing: האם רווח מילים דינמי פעיל
+   - aq-shared-load: האם חלוקת עומס בין טורים פעילה
+   - aq-word-spacing-min/max: טווח הפקטור (0.95-1.05 כברירת מחדל)
+   - aq-word-spacing-threshold: פער מינימלי לטיפול (2px)
+   - aq-word-spacing-max-diff: פער מקסימלי לטיפול (20px) */
 function balanceByWordSpacing(rCol, lCol, diff) {
-    if (Math.abs(diff) <= 2 || Math.abs(diff) > 20) return;
+    // בדוק הגדרות
+    const aqEnabled = document.getElementById('aq-enabled')?.checked ?? true;
+    if (!aqEnabled) return;
+    const aqWordSpacing = document.getElementById('aq-word-spacing')?.checked ?? true;
+    if (!aqWordSpacing) return;
+    const aqSharedLoad = document.getElementById('aq-shared-load')?.checked ?? true;
+    if (!aqSharedLoad) return;
+
+    const minFactor = parseFloat(document.getElementById('aq-word-spacing-min')?.value) || 0.95;
+    const maxFactor = parseFloat(document.getElementById('aq-word-spacing-max')?.value) || 1.05;
+    const threshold = parseInt(document.getElementById('aq-word-spacing-threshold')?.value) || 2;
+    const maxDiff = parseInt(document.getElementById('aq-word-spacing-max-diff')?.value) || 20;
+
+    if (Math.abs(diff) <= threshold || Math.abs(diff) > maxDiff) return;
 
     const longCol = diff > 0 ? rCol : lCol;
     const shortCol = diff > 0 ? lCol : rCol;
-    const neededPx = Math.abs(diff) / 2; // כל טור סופג 50%
 
     // שמור את הגבהים לפני השינוי
     const longBefore = longCol.scrollHeight;
     const shortBefore = shortCol.scrollHeight;
 
-    // 1. כווץ את הארוך בעדינות — רק פקטור אחד (0.98)
-    applyWordSpacing(longCol, 0.98);
-    const longAfter = longCol.scrollHeight;
+    // 1. כווץ את הארוך בעדינות — פקטור ראשון
+    const compressFactor1 = 1.0 - (1.0 - minFactor) * 0.5; // אמצע בין 1.0 ל-minFactor
+    applyWordSpacing(longCol, compressFactor1);
+    const longAfter1 = longCol.scrollHeight;
 
-    // 2. הרחב את הקצר בעדינות — רק פקטור אחד (1.02)
-    applyWordSpacing(shortCol, 1.02);
-    const shortAfter = shortCol.scrollHeight;
+    // 2. הרחב את הקצר בעדינות — פקטור ראשון
+    const stretchFactor1 = 1.0 + (maxFactor - 1.0) * 0.5; // אמצע בין 1.0 ל-maxFactor
+    applyWordSpacing(shortCol, stretchFactor1);
+    const shortAfter1 = shortCol.scrollHeight;
 
     // 3. בדוק תוצאה — אם הפער גדל, החזר את השינוי
-    const newDiff = Math.abs(longAfter - shortAfter);
+    const newDiff1 = Math.abs(longAfter1 - shortAfter1);
     const oldDiff = Math.abs(longBefore - shortBefore);
-    if (newDiff >= oldDiff) {
+    if (newDiff1 >= oldDiff) {
         // החזר לרגיל — השינוי לא עזר
         applyWordSpacing(longCol, 1.0);
         applyWordSpacing(shortCol, 1.0);
         return;
     }
 
-    // 4. אם עזר אבל עדיין יש פער, נסה עוד צעד
-    if (newDiff > 2 && newDiff < oldDiff) {
-        const remaining = newDiff / 2;
-        if (remaining > 1) {
-            applyWordSpacing(longCol, 0.95);
-            applyWordSpacing(shortCol, 1.05);
-            // בדוק שוב — אם הרע, החזר
-            const finalDiff = Math.abs(longCol.scrollHeight - shortCol.scrollHeight);
-            if (finalDiff >= newDiff) {
-                applyWordSpacing(longCol, 0.98);
-                applyWordSpacing(shortCol, 1.02);
-            }
+    // 4. אם עזר אבל עדיין יש פער, נסה עוד צעד עם הפקטורים הקיצוניים
+    if (newDiff1 > threshold && newDiff1 < oldDiff) {
+        applyWordSpacing(longCol, minFactor);
+        applyWordSpacing(shortCol, maxFactor);
+        // בדוק שוב — אם הרע, החזר לפקטורים הביניים
+        const finalDiff = Math.abs(longCol.scrollHeight - shortCol.scrollHeight);
+        if (finalDiff >= newDiff1) {
+            applyWordSpacing(longCol, compressFactor1);
+            applyWordSpacing(shortCol, stretchFactor1);
         }
     }
 }

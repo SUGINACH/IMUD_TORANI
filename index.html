@@ -639,6 +639,72 @@
             </div>
           </div>
 
+          <!-- פאנל 4.5: איכות עימוד אוטומטי -->
+          <div class="panel-static">
+            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-autoquality-body')">
+              <span>⚖️ איכות עימוד אוטומטי (איזון דינמי)</span>
+              <span class="panel-toggle-indicator">▼ פתח</span>
+            </div>
+            <div id="panel-autoquality-body" style="display:none;">
+
+              <div class="panel-sub-header">כללי</div>
+              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">הגדרות איזון טורים דינמי. המנוע משתמש בכלים שונים כדי לאזן טורים ללא שינוי line-height קיצוני.</div>
+              <label class="btn-toggle full-width" title="הפעל איזון דינמי מלא">
+                <input type="checkbox" id="aq-enabled" checked="checked" onchange="typesetDocument()">
+                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל איכות עימוד אוטומטי</span>
+              </label>
+
+              <div class="panel-sub-header" style="margin-top:8px;">כלי 1: רווח מילים דינמי</div>
+              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">כיווץ/הרחבת רווח בין מילים בטווח בטוח. הכלי השקוף ביותר לעין.</div>
+              <label class="btn-toggle full-width">
+                <input type="checkbox" id="aq-word-spacing" checked="checked" onchange="typesetDocument()">
+                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל רווח מילים דינמי</span>
+              </label>
+              <div class="inline-cfg-row" style="margin-top:4px;">
+                <label>עוצמה מינימלית:</label>
+                <input type="number" id="aq-word-spacing-min" value="0.95" step="0.01" min="0.80" max="1.00" class="size-input" onchange="typesetDocument()">
+                <label>עוצמה מקסימלית:</label>
+                <input type="number" id="aq-word-spacing-max" value="1.05" step="0.01" min="1.00" max="1.20" class="size-input" onchange="typesetDocument()">
+              </div>
+              <div class="inline-cfg-row">
+                <label>פער מינימלי לטיפול (px):</label>
+                <input type="number" id="aq-word-spacing-threshold" value="2" step="1" min="1" max="20" class="size-input" onchange="typesetDocument()">
+                <label>פער מקסימלי לטיפול (px):</label>
+                <input type="number" id="aq-word-spacing-max-diff" value="20" step="1" min="5" max="100" class="size-input" onchange="typesetDocument()">
+              </div>
+
+              <div class="panel-sub-header" style="margin-top:8px;">כלי 2: רווח פסקאות דינמי</div>
+              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">הרחבה/כיווץ של רווח בין פסקאות (padding-bottom). כבר פעיל חלקית דרך justifyColumnVertically.</div>
+              <label class="btn-toggle full-width">
+                <input type="checkbox" id="aq-para-spacing" checked="checked" onchange="typesetDocument()">
+                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל רווח פסקאות דינמי</span>
+              </label>
+              <div class="inline-cfg-row" style="margin-top:4px;">
+                <label>מקסימום רווח נוסף (px):</label>
+                <input type="number" id="aq-para-spacing-max" value="9" step="1" min="0" max="30" class="size-input" onchange="typesetDocument()">
+              </div>
+
+              <div class="panel-sub-header" style="margin-top:8px;">כלי 3: רווח שורות דינמי</div>
+              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">מתיחת/כיווץ גובה שורה. הכלי האחרון בסדר העדיפות — השפעה קריטית.</div>
+              <label class="btn-toggle full-width">
+                <input type="checkbox" id="aq-line-height" checked="checked" onchange="typesetDocument()">
+                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל רווח שורות דינמי</span>
+              </label>
+              <div class="inline-cfg-row" style="margin-top:4px;">
+                <label>מקסימום תוספת (px):</label>
+                <input type="number" id="aq-line-height-max" value="3" step="1" min="0" max="10" class="size-input" onchange="typesetDocument()">
+              </div>
+
+              <div class="panel-sub-header" style="margin-top:8px;">חלוקת עומס בין טורים</div>
+              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">כאשר יש פער בין הטורים, כיווץ הארוך והרחבת הקצר במקביל — כל טור סופג 50% מהעומס.</div>
+              <label class="btn-toggle full-width">
+                <input type="checkbox" id="aq-shared-load" checked="checked" onchange="typesetDocument()">
+                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל חלוקת עומס בין טורים</span>
+              </label>
+
+            </div>
+          </div>
+
           <!-- פאנל 5: טיפוגרפיה כללית וכותרות (0-7) -->
           <div class="panel-static">
             <div class="panel-header clickable-header" onclick="togglePanelBody('panel-typography-body')">

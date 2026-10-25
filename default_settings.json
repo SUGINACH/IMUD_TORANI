@@ -251,5 +251,16 @@
   "heading-divider-h5": "none",
   "heading-divider-h6": "none",
   "shaar-main-divider": "none",
-  "shaar-sub-divider": "none"
+  "shaar-sub-divider": "none",
+  "aq-enabled": true,
+  "aq-word-spacing": true,
+  "aq-word-spacing-min": "0.95",
+  "aq-word-spacing-max": "1.05",
+  "aq-word-spacing-threshold": "2",
+  "aq-word-spacing-max-diff": "20",
+  "aq-para-spacing": true,
+  "aq-para-spacing-max": "9",
+  "aq-line-height": true,
+  "aq-line-height-max": "3",
+  "aq-shared-load": true
 }
