@@ -562,10 +562,10 @@ function resolveHeaderAlign(align, slot) {
    tocFallback: טקסט חלופי כשהכותרת ריקה (בעמודי תוכן העניינים - שם התוכן). */
 function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR, customC, customL, pageContext = {}, tocFallback = '') {
     const isEven = (pNum % 2 === 0);
-    // טוגל "פצל שם ספר": קובע בעצמו את תוכן הכותרת הימנית (חצי ראשון של שם הספר) והשמאלית (חצי שני),
-    // בלי לבחור ידנית בכל כותרת, ומבטל את ההחלפה בין עמודים (כותרות מתחלפות) - שתי האפשרויות סותרות.
+    const isDistinctEvenOdd = !!document.getElementById('hdr-distinct-even-odd')?.checked;
+    const isVerso = isEven && isDistinctEvenOdd;
     const isSplitTitle = !!document.getElementById('hdr-title-split')?.checked;
-    const isAlternating = !isSplitTitle && document.getElementById('hdr-alternating')?.checked;
+    const isAlternating = !isSplitTitle && !isDistinctEvenOdd && document.getElementById('hdr-alternating')?.checked;
 
     let hdrRType = document.getElementById('hdr-r-type')?.value || 'h1';
     let hdrCType = document.getElementById('hdr-c-type')?.value || 'spear';
@@ -577,11 +577,35 @@ function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR
     let hdrLAlign = document.getElementById('hdr-l-align')?.value || 'left';
 
     let hdrRFont = document.getElementById('f-hdr-r')?.value || "'Livorna','David Libre',serif";
-    let hdrRSize = (document.getElementById('s-hdr-r')?.value || 13) + 'pt';
+    let hdrCFont = document.getElementById('f-hdr-c')?.value || 'serif';
     let hdrLFont = document.getElementById('f-hdr-l')?.value || "'Livorna','David Libre',serif";
+    let hdrRSize = (document.getElementById('s-hdr-r')?.value || 13) + 'pt';
+    let hdrCSize = (document.getElementById('s-hdr-c')?.value || 11) + 'pt';
     let hdrLSize = (document.getElementById('s-hdr-l')?.value || 13) + 'pt';
 
-    let cR = customR, cL = customL;
+    let cR = customR, cC = customC, cL = customL;
+    if (isVerso) {
+        const resolveVersoType = (side, oddType) => {
+            const selected = document.getElementById('hdr-verso-' + side + '-type')?.value || 'same_as_odd';
+            return { selected, resolved: selected === 'same_as_odd' ? oddType : selected };
+        };
+        const versoR = resolveVersoType('r', hdrRType);
+        const versoC = resolveVersoType('c', hdrCType);
+        const versoL = resolveVersoType('l', hdrLType);
+        hdrRType = versoR.resolved; hdrCType = versoC.resolved; hdrLType = versoL.resolved;
+        hdrRAlign = document.getElementById('hdr-verso-r-align')?.value || hdrRAlign;
+        hdrCAlign = document.getElementById('hdr-verso-c-align')?.value || hdrCAlign;
+        hdrLAlign = document.getElementById('hdr-verso-l-align')?.value || hdrLAlign;
+        hdrRFont = document.getElementById('f-hdr-verso-r')?.value || hdrRFont;
+        hdrCFont = document.getElementById('f-hdr-verso-c')?.value || hdrCFont;
+        hdrLFont = document.getElementById('f-hdr-verso-l')?.value || hdrLFont;
+        hdrRSize = (document.getElementById('s-hdr-verso-r')?.value || parseFloat(hdrRSize) || 13) + 'pt';
+        hdrCSize = (document.getElementById('s-hdr-verso-c')?.value || parseFloat(hdrCSize) || 11) + 'pt';
+        hdrLSize = (document.getElementById('s-hdr-verso-l')?.value || parseFloat(hdrLSize) || 13) + 'pt';
+        if (versoR.selected === 'custom') cR = document.getElementById('hdr-verso-r-custom')?.value || '';
+        if (versoC.selected === 'custom') cC = document.getElementById('hdr-verso-c-custom')?.value || '';
+        if (versoL.selected === 'custom') cL = document.getElementById('hdr-verso-l-custom')?.value || '';
+    }
 
     // היפוך תוכן (לא יישור) בעמודים זוגיים בעת הפעלת כותרות מתחלפות.
     // היישור נשאר צמוד לעמודה הפיזית ונפתר למטה דרך resolveHeaderAlign,
@@ -606,15 +630,17 @@ function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR
 
     // Ordinary header text is ellipsized; ornaments (built-in or external SVG/HTML) get
     // a stable wrapper so their geometry can be measured and they are never treated as text.
+    const escapeHeaderAttr = value => String(value ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     const wrapHdrText = (html, type) => {
         if (!html) return '';
         const isOrnament = type === 'custom_img' ||
             (typeof HEADER_ORNAMENTS !== 'undefined' && Object.prototype.hasOwnProperty.call(HEADER_ORNAMENTS, type)) ||
             (typeof EXTERNAL_ALL_ORNAMENTS !== 'undefined' && Object.prototype.hasOwnProperty.call(EXTERNAL_ALL_ORNAMENTS, type));
         if (isOrnament) {
+            const idAttr = ` data-ornament-id="${escapeHeaderAttr(type)}"`;
             return /^<span class="header-ornament-wrap"/.test(html)
-                ? html
-                : `<span class="header-ornament-wrap">${html}</span>`;
+                ? html.replace(/^<span class="header-ornament-wrap"/, `<span class="header-ornament-wrap"${idAttr}`)
+                : `<span class="header-ornament-wrap"${idAttr}>${html}</span>`;
         }
         return `<span class="hdr-txt">${html}</span>`;
     };
@@ -628,9 +654,10 @@ function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR
     const pnInfo = formatPageNumberDisplay(pNum);
     const hdrPn = (pnInfo.pageNumPos === 'header_outer' && !!pnInfo.displayPageNum);
 
-    return `<div class="top-header-grid${hdrPn ? ' has-hdr-pn' : ''}">
+    const typeAttr = type => escapeHeaderAttr(type);
+    return `<div class="top-header-grid${hdrPn ? ' has-hdr-pn' : ''}" data-header-parity="${isEven ? 'even' : 'odd'}" data-header-distinct-mode="${isVerso ? 'verso' : 'recto'}" data-header-type-r="${typeAttr(hdrRType)}" data-header-type-c="${typeAttr(hdrCType)}" data-header-type-l="${typeAttr(hdrLType)}">
         <div class="header-col-r" style="text-align:${hdrRAlign}; justify-content:${hdrRAlign}; font-family:${hdrRFont}; font-size:${hdrRSize};">${hdrRHTML}</div>
-        <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign};">${hdrCHTML}</div>
+        <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign}; font-family:${hdrCFont}; font-size:${hdrCSize};">${hdrCHTML}</div>
         <div class="header-col-l" style="text-align:${hdrLAlign}; justify-content:${hdrLAlign}; font-family:${hdrLFont}; font-size:${hdrLSize};">${hdrLHTML}</div>${hdrPn ? `
         <span class="hdr-pagenum">${pnInfo.framedPageNum}</span>` : ''}
       </div>`;

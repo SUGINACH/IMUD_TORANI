@@ -340,7 +340,9 @@ function markdown(r) {
       }),
       '- Running-header SVG/image clipping audit: ' + JSON.stringify(r.geometry.headerOrnamentGeometryAudit || {}),
       '- Running-header ornament settings: ' + (headerOrnamentSettings.length ? headerOrnamentSettings.join(', ') : 'none'),
-      '- Running-header selected types: ' + JSON.stringify(r.geometry.headerTypeSelection || {}),
+      '- Running-header selected recto types: ' + JSON.stringify(r.geometry.headerTypeSelection || {}),
+      '- Running-header selected verso types: ' + JSON.stringify(r.geometry.versoHeaderTypeSelection || {}),
+      '- Per-page header selection evidence: ' + JSON.stringify((r.geometry.headerPageSelectionAudit || []).slice(0, 12)),
       '- Coverage counts are observed DOM evidence, not configuration inference; zero can mean the input did not trigger that component.');
     if (activeOrnamentSettings.length) {
       lines.push('- Active ornament settings: ' + activeOrnamentSettings.map(([key, value]) => key + '=' + String(value)).join(', '));
@@ -863,6 +865,28 @@ async function main() {
                     center: document.getElementById('hdr-c-type')?.value || null,
                     left: document.getElementById('hdr-l-type')?.value || null
                 },
+                versoHeaderTypeSelection: {
+                    right: document.getElementById('hdr-verso-r-type')?.value || null,
+                    center: document.getElementById('hdr-verso-c-type')?.value || null,
+                    left: document.getElementById('hdr-verso-l-type')?.value || null
+                },
+                headerPageSelectionAudit: Array.from(document.querySelectorAll('#book-container .top-header-grid')).map(grid => ({
+                    pageIndex: grid.closest('.a4-page')?.getAttribute('data-page-index') || null,
+                    parity: grid.getAttribute('data-header-parity') || null,
+                    distinctMode: grid.getAttribute('data-header-distinct-mode') || null,
+                    selectedTypes: {
+                        right: grid.getAttribute('data-header-type-r') || null,
+                        center: grid.getAttribute('data-header-type-c') || null,
+                        left: grid.getAttribute('data-header-type-l') || null
+                    },
+                    ornaments: Array.from(grid.querySelectorAll('.header-ornament-wrap')).map(wrapper => {
+                        const col = wrapper.closest('.header-col-r, .header-col-c, .header-col-l');
+                        return { side: col?.classList.contains('header-col-r') ? 'right' :
+                            col?.classList.contains('header-col-c') ? 'center' :
+                            col?.classList.contains('header-col-l') ? 'left' : 'unknown',
+                            id: wrapper.getAttribute('data-ornament-id') || null };
+                    })
+                })),
                 decorativeGeometryDomCoverage: (() => {
                     const visibleCount = selector => Array.from(document.querySelectorAll(selector)).filter(el => {
                         const rect = el.getBoundingClientRect();
@@ -912,6 +936,8 @@ async function main() {
                     const rows = [];
                     for (const wrapper of Array.from(document.querySelectorAll('#book-container .header-ornament-wrap'))) {
                         const sideEl = wrapper.closest('.header-col-r, .header-col-c, .header-col-l');
+                        const grid = wrapper.closest('.top-header-grid');
+                        const page = grid?.closest('.a4-page');
                         const side = sideEl?.classList.contains('header-col-r') ? 'right' :
                             sideEl?.classList.contains('header-col-c') ? 'center' :
                             sideEl?.classList.contains('header-col-l') ? 'left' : 'unknown';
@@ -954,7 +980,10 @@ async function main() {
                             }
                         }
                         rows.push({
-                            side, wrapperRect: rectJSON(wrapperRect),
+                            side, pageIndex: page?.getAttribute('data-page-index') || null,
+                            parity: grid?.getAttribute('data-header-parity') || null,
+                            ornamentId: wrapper.getAttribute('data-ornament-id') || null,
+                            wrapperRect: rectJSON(wrapperRect),
                             graphicTag: graphic ? graphic.tagName.toLowerCase() : null,
                             graphicRect: graphicRect ? rectJSON(graphicRect) : null,
                             svgViewBox: viewBox, svgViewBoxStatus: viewBoxStatus,
@@ -1173,14 +1202,23 @@ async function main() {
                     ? ['h2TitleSideRight', 'h2TitleSideLeft']
                     : titleMode === 'top_bottom' ? ['h2TitleTop', 'h2TitleBottom'] : [];
                 const missingTitleFeatures = titleModeFeatures.filter(key => !(featureCoverage[key] > 0));
-                const requestedHeaderTypes = ['hdr-r-type', 'hdr-c-type', 'hdr-l-type'].filter(key =>
-                    String(settings[key] || '').startsWith('ext_'));
+                const distinctHeaderEnabled = settings['hdr-distinct-even-odd'] === true;
+                const requestedHeaderKeys = ['hdr-r-type', 'hdr-c-type', 'hdr-l-type',
+                    ...(distinctHeaderEnabled ? ['hdr-verso-r-type', 'hdr-verso-c-type', 'hdr-verso-l-type'] : [])];
+                const requestedHeaderTypes = requestedHeaderKeys.filter(key => String(settings[key] || '').startsWith('ext_'));
                 const selectedHeaderTypes = data.headerTypeSelection || {};
-                const missingHeaderSelections = requestedHeaderTypes.filter(key => selectedHeaderTypes[
-                    key === 'hdr-r-type' ? 'right' : key === 'hdr-c-type' ? 'center' : 'left'
-                ] !== settings[key]);
-                const actualExternalHeaderTypes = Object.entries(selectedHeaderTypes).filter(([, value]) =>
-                    String(value || '').startsWith('ext_'));
+                const selectedVersoHeaderTypes = data.versoHeaderTypeSelection || {};
+                const sideForHeaderKey = key => key.endsWith('-r-type') ? 'right' : key.endsWith('-c-type') ? 'center' : 'left';
+                const missingHeaderSelections = requestedHeaderKeys.filter(key => {
+                    const selected = key.startsWith('hdr-verso-')
+                        ? selectedVersoHeaderTypes[sideForHeaderKey(key)]
+                        : selectedHeaderTypes[sideForHeaderKey(key)];
+                    return selected !== settings[key];
+                });
+                const actualExternalHeaderTypes = [
+                    ...Object.entries(selectedHeaderTypes),
+                    ...(distinctHeaderEnabled ? Object.entries(selectedVersoHeaderTypes) : [])
+                ].filter(([, value]) => String(value || '').startsWith('ext_'));
                 const missingHeaderFeatures = actualExternalHeaderTypes.length
                     ? [
                         'headerOrnament', 'headerOrnamentGraphic',
@@ -1189,13 +1227,36 @@ async function main() {
                       ].filter(key => !(featureCoverage[key] > 0))
                     : [];
                 const headerGeometryAudit = data.headerOrnamentGeometryAudit || {};
-                const headerGeometryFailures = actualExternalHeaderTypes.length
-                    ? [
-                        ...(headerGeometryAudit.missingGraphicCount > 0 ? ['header-ornament-missing-graphic'] : []),
-                        ...(headerGeometryAudit.invalidViewBoxCount > 0 ? ['header-ornament-invalid-viewBox'] : []),
-                        ...(headerGeometryAudit.clippingFindingCount > 0 ? ['header-ornament-clipped-by-ancestor'] : [])
-                      ]
-                    : [];
+                const headerPageSelectionAudit = data.headerPageSelectionAudit || [];
+                const parityAuditEnabled = distinctHeaderEnabled &&
+                    settings['hdr-alternating'] !== true && settings['hdr-title-split'] !== true;
+                const expectedOddTypes = { right: String(settings['hdr-r-type'] || ''), center: String(settings['hdr-c-type'] || ''), left: String(settings['hdr-l-type'] || '') };
+                const expectedEvenTypes = {
+                    right: String(settings['hdr-verso-r-type'] || 'same_as_odd') === 'same_as_odd' ? expectedOddTypes.right : String(settings['hdr-verso-r-type']),
+                    center: String(settings['hdr-verso-c-type'] || 'same_as_odd') === 'same_as_odd' ? expectedOddTypes.center : String(settings['hdr-verso-c-type']),
+                    left: String(settings['hdr-verso-l-type'] || 'same_as_odd') === 'same_as_odd' ? expectedOddTypes.left : String(settings['hdr-verso-l-type'])
+                };
+                const headerParityFailures = [];
+                if (parityAuditEnabled) {
+                    for (const parity of ['odd', 'even']) {
+                        const rows = headerPageSelectionAudit.filter(row => row.parity === parity);
+                        if (!rows.length) headerParityFailures.push('missing-' + parity + '-header-grid');
+                        const expected = parity === 'even' ? expectedEvenTypes : expectedOddTypes;
+                        for (const row of rows) for (const side of ['right', 'center', 'left']) {
+                            if (row.selectedTypes?.[side] !== expected[side]) headerParityFailures.push(parity + '-' + side + '-type-mismatch@page-' + row.pageIndex);
+                            if (String(expected[side]).startsWith('ext_') &&
+                                !(row.ornaments || []).some(ornament => ornament.side === side && ornament.id === expected[side])) {
+                                headerParityFailures.push(parity + '-' + side + '-ornament-missing@page-' + row.pageIndex);
+                            }
+                        }
+                    }
+                }
+                const headerGeometryFailures = [
+                    ...(actualExternalHeaderTypes.length && headerGeometryAudit.missingGraphicCount > 0 ? ['header-ornament-missing-graphic'] : []),
+                    ...(actualExternalHeaderTypes.length && headerGeometryAudit.invalidViewBoxCount > 0 ? ['header-ornament-invalid-viewBox'] : []),
+                    ...(actualExternalHeaderTypes.length && headerGeometryAudit.clippingFindingCount > 0 ? ['header-ornament-clipped-by-ancestor'] : []),
+                    ...headerParityFailures
+                ];
                 if (missingFeatures.length || missingTitleFeatures.length || missingHeaderSelections.length || missingHeaderFeatures.length || headerGeometryFailures.length) {
                     throw new Error('Required active geometry coverage missing or zero: ' +
                         [...missingFeatures, ...missingTitleFeatures,
@@ -1203,6 +1264,8 @@ async function main() {
                          ...missingHeaderFeatures, ...headerGeometryFailures].join(', ') +
                         '; mode=' + titleMode + '; requestedHeaderTypes=' + requestedHeaderTypes.map(key => key + '=' + settings[key]).join(',') +
                         '; selectedHeaderTypes=' + JSON.stringify(selectedHeaderTypes) +
+                        '; selectedVersoHeaderTypes=' + JSON.stringify(selectedVersoHeaderTypes) +
+                        '; headerPageSelectionAudit=' + JSON.stringify(headerPageSelectionAudit.slice(0, 8)) +
                         '; measured=' + JSON.stringify(featureCoverage) +
                         '; headerGeometryAudit=' + JSON.stringify(headerGeometryAudit));
                 }
@@ -1321,7 +1384,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, externalHeaderAssetsLoaded:registeredExternalHeaderAssets, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,headerTypeSelection:data.headerTypeSelection,decorativeGeometryDomCoverage:data.decorativeGeometryDomCoverage,headerOrnamentGeometryAudit:data.headerOrnamentGeometryAudit,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,headerTypeSelection:data.headerTypeSelection,versoHeaderTypeSelection:data.versoHeaderTypeSelection,headerPageSelectionAudit:data.headerPageSelectionAudit,decorativeGeometryDomCoverage:data.decorativeGeometryDomCoverage,headerOrnamentGeometryAudit:data.headerOrnamentGeometryAudit,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
