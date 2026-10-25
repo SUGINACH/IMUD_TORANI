@@ -164,11 +164,17 @@ function decisionDiagnosticFailures(report) {
     const containmentIssueCount = (report.audit?.issues || []).filter(issue => issue.kind === 'containment').length;
     const textAudit = report.geometry?.textConservationAudit;
     if (!textAudit || textAudit.available !== true) {
-        failures.push('source-to-rendered paragraph conservation audit is unavailable');
+        failures.push('source-to-rendered content conservation audit is unavailable');
     } else {
         if ((textAudit.missingSourceParagraphCount ?? 0) !== 0) failures.push(textAudit.missingSourceParagraphCount + ' source paragraph token(s) are missing from rendered DOM');
         if ((textAudit.textMismatchCount ?? 0) !== 0) failures.push(textAudit.textMismatchCount + ' source paragraph token(s) differ from rendered raw-text segments');
         if ((textAudit.renderedIdsWithoutSourceCount ?? 0) !== 0) failures.push(textAudit.renderedIdsWithoutSourceCount + ' rendered paragraph token ID(s) have no source token');
+        const headings = textAudit.headingAudit;
+        if (!headings || headings.missingCount !== 0 || headings.mismatchCount !== 0) failures.push('source heading coverage failed: ' + (headings?.missingCount ?? 'unknown') + ' missing, ' + (headings?.mismatchCount ?? 'unknown') + ' text mismatches');
+        const sideNotes = textAudit.sideNoteAudit;
+        if (!sideNotes || sideNotes.missingCount !== 0 || sideNotes.mismatchCount !== 0) failures.push('source side-note metadata coverage failed');
+        const endNotes = textAudit.endNoteAudit;
+        if (endNotes && endNotes.sourceCount > 0 && (endNotes.missingCount !== 0 || endNotes.mismatchCount !== 0)) failures.push('source end-note metadata coverage failed');
     }
     if (canonicalFinalOverflowCount > 0) {
         failures.push(canonicalFinalOverflowCount + ' canonical final block(s) overflow body-flow by more than 0.5px');
@@ -557,13 +563,18 @@ async function main() {
                     });
                 }
                 for (const id of segments.keys()) if (!sourceIds.has(String(id))) extraRenderedIds.push(id);
+                const normalizeHeading = value => normalize(value).replace(/[^\\p{L}\\p{N}\\s]/gu, ' ').replace(/\\s+/g, ' ').trim();
                 const headingMissing = [], headingMismatches = [];
                 for (const token of sourceHeadings) {
-                    const id = String(token.id), expected = normalize(token.text);
+                    const id = String(token.id), expected = normalizeHeading(token.text);
                     const elems = Array.from(document.querySelectorAll('#book-container [data-token-id]'))
                         .filter(el => el.getAttribute('data-token-id') === id);
                     if (!elems.length) { headingMissing.push({ id: token.id, type: token.type, text: expected.slice(0, 120) }); continue; }
-                    const actuals = elems.map(el => normalize(el.textContent));
+                    const actuals = elems.map(el => {
+                        const clone = el.cloneNode(true);
+                        clone.querySelectorAll('.shaar-drag-bar, .shaar-resize-handle').forEach(control => control.remove());
+                        return normalizeHeading(clone.textContent);
+                    });
                     if (expected && !actuals.some(actual => actual.includes(expected))) {
                         headingMismatches.push({ id: token.id, type: token.type, expected: expected.slice(0, 160), actuals: actuals.slice(0, 3).map(x => x.slice(0, 160)) });
                     }
