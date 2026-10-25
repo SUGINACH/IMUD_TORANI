@@ -74,6 +74,9 @@ function instrumentationIntegrityFailures(report) {
     if ((a.missingCrossParenDiagnosticCount ?? 0) !== 0) failures.push('missing/incomplete parenthesis diagnostics');
     if ((a.crossParenDiagnosticErrorCount ?? 0) !== 0) failures.push('parenthesis diagnostic capture errors');
     if ((a.crossParenFinalSnapshotMismatchCount ?? 0) !== 0) failures.push('final parenthesis snapshot differs from exported geometry');
+    if ((a.missingParenthesisScopeDiagnosticCount ?? 0) !== 0) failures.push('missing parenthesis-scope diagnostics');
+    if ((a.parenthesisScopeDiagnosticErrorCount ?? 0) !== 0) failures.push('parenthesis-scope diagnostic capture error');
+    if (report.geometry?.parenthesisScopeSummary == null) failures.push('missing document-level parenthesis-scope summary');
     return failures.concat(decisionDiagnosticFailures(report));
 }
 function decisionDiagnosticFailures(report) {
@@ -220,6 +223,10 @@ function markdown(r) {
       '- Pages: ' + r.pageCount,
       '- Decision ledger: ' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a') + ' records; valid schema-v1 records: ' + (r.geometry.layoutDecisionRecordAudit?.validRecordCount ?? 'n/a'),
       '- DOM two-column blocks: ' + (r.geometry.layoutDecisionRecordAudit?.domBlockCount ?? 'n/a'),
+      '- Parenthesis scope map: ' + (r.geometry.parenthesisScopeSummary ? JSON.stringify(r.geometry.parenthesisScopeSummary) : 'missing'),
+      '- Blocks with cross-column parenthesis scopes: ' + (r.geometry.layoutDecisionRecordAudit?.crossColumnScopeIntersectingBlockCount ?? 'n/a'),
+      '- Blocks with cross-page parenthesis scopes: ' + (r.geometry.layoutDecisionRecordAudit?.crossPageScopeIntersectingBlockCount ?? 'n/a'),
+      '- Parenthesis-scope diagnostic coverage: ' + (r.geometry.layoutDecisionRecordAudit?.parenthesisScopeDiagnosticCount ?? 'n/a') + '/' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a'),
       '- Decision diagnostic gate: ' + (r.geometry.layoutDecisionDiagnosticAudit?.passed === true ? 'PASS' : 'FAIL'),
       '- Decision diagnostic records: ' + (r.geometry.layoutDecisionDiagnosticAudit?.recordCount ?? 'n/a'),
       '- Evaluated candidates/tables/capacity snapshots: ' +
