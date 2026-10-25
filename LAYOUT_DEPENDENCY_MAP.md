@@ -701,3 +701,50 @@ The completed long audit for `45d28d106c4d3ae9984ddcb9c004ced695bc5431` confirms
 - Page count remains 629 and decision records remain 854; deterministic hash and content-conservation gates pass.
 
 The next unresolved work is now narrowed to two independent categories: (1) define and enforce an acceptable mathematical balance/stretch policy for the 10 residuals without violating typographic caps; (2) measure the four note-marker bounds with their computed `vertical-align`, `line-height`, font size and actual line box so that intended superscript/subscript paint bounds can be distinguished from real geometry errors. Do not change line-breaking rules in response to the removed sparse-line alerts.
+
+
+## 8.23 Parenthesis-scope correlation against every remaining imbalance (2026-10-25)
+
+Verified on code commit `3e2566abb3e45564251c1d84a8aaf7d7583fb893`, long audit run `40194939206`, artifact `12599268878`.
+
+The diagnostic-only parenthesis scope mapper was added after cross-paragraph styling and before the later global balancing pass. It scans the same `p[data-raw-text]` sequence as `applyCrossParagraphParens`, ignores parentheses inside square-bracket note text, pairs actual parenthesis characters, and records each paragraph's page, block, and column. It does not alter layout styles or geometry. The cross-column and cross-page categories are disjoint: a pair crossing pages is counted as cross-page, not also cross-column.
+
+### Integrity / coverage
+
+- 629 pages; 854 decision records and 854 direct two-column blocks; parity PASS.
+- 854/854 parenthesis-scope diagnostics; 0 missing diagnostics and 0 capture errors.
+- 4,236 rendered paragraph fragments; 2,490 matched parenthesis pairs.
+- 87 pairs cross from right to left column on the same page; 46 pairs cross a page boundary.
+- 80 blocks intersect at least one same-page cross-column scope; 91 intersect at least one cross-page scope.
+- 3 unmatched closing parentheses in the full input sequence; 0 unmatched opening parentheses at document end. This is an input/scan finding to investigate separately, not evidence that any imbalance finding is caused by parentheses.
+- Repeat-render determinism PASS; 629 pages in both renders; hash `96bfe7ce5145aa1ae9f032b323d1cedd6abdf6350ffa84e400a3bcfa6838a2dd`.
+- No runtime or console errors; source/rendered paragraph conservation PASS.
+
+### Every remaining imbalance case
+
+No remaining imbalance issue intersects a cross-column or cross-page parenthesis scope, and no issue block is an endpoint of such a scope. The issue pages below are 1-based printed page numbers (the report's `pageIdx + 1`).
+
+| Page | Right/left height | Difference | Parenthesis evidence inside the issue block | Cross-column / cross-page scope |
+|---:|---:|---:|---|---|
+| 220 | 71 / 65px | 6px | No parentheses or `paren-text` paragraphs in either column | 0 / 0 |
+| 233 | 479 / 484px | 5px | Local balanced parentheses in both columns (right 4 pairs of characters; left 2 pairs); no open scope crosses a column/page boundary | 0 / 0 |
+| 239 | 71 / 65px | 6px | None in either column | 0 / 0 |
+| 275 | 71 / 65px | 6px | None in either column | 0 / 0 |
+| 329 | 71 / 65px | 6px | None in either column | 0 / 0 |
+| 506 | 71 / 65px | 6px | None in either column | 0 / 0 |
+| 536 | 71 / 66px | 5px | One local balanced pair in the left column; no crossing scope | 0 / 0 |
+| 537 | 71 / 65px | 6px | One local balanced pair in the right column; no crossing scope | 0 / 0 |
+| 592 | 157 / 152px | 5px | One local balanced pair in the right column; no crossing scope | 0 / 0 |
+| 606 | 71 / 65px | 6px | None in either column | 0 / 0 |
+
+For all 10 cases, the existing before/after cross-paragraph-style diagnostic also reports zero right/left/outer height delta, zero changed paragraphs, and zero geometry/style changes at that stage. Therefore the present evidence rejects the hypothesis that these 10 residuals are caused by **parenthetical spans crossing columns or pages**. Four blocks contain ordinary local parenthetical text; the scope audit alone cannot prove that local smaller-font styling has zero influence on those blocks' heights, but it does show that they are not cross-boundary cases.
+
+The eight capacity-limited residuals remain the seven short blocks plus the applicable longer block in the report's balance classification; the two light-justify residuals remain policy-accepted 5px differences. Keep these causes separate from parenthesis scope.
+
+### Other audit observations
+
+The 4 remaining `containment-rounding` findings are note-marker top-bound excursions of about 1.3125–1.375px, consistent with the user's superscript hypothesis but not yet verified by painted glyph bounds and computed `vertical-align`. The 5 sparse-line findings were removed by the previously documented line-fragment-union correction; do not treat that change as a consequence of the parenthesis-scope instrumentation.
+
+### Decision
+
+Do not change parenthesis styling or its cross-column/page handling to address the current 10 imbalance findings. The next balance work should focus on the deterministic candidate/capacity policy and the two light-justify residuals. Preserve the scope mapper as a regression diagnostic for future changes.
