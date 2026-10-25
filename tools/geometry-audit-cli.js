@@ -954,7 +954,7 @@ async function main() {
 
         if (args.requireOrnaments) {
             const coverage = data.ornamentDomCoverage || {};
-            const required = ['h2Top', 'h2Bottom', 'h3Right', 'h3Left'];
+            const required = ['h2Top', 'h2Bottom', 'h3Right', 'h3Left', 'noteHeaderRight', 'noteHeaderLeft'];
             const missing = required.filter(key => !(coverage[key] > 0));
             if (missing.length) throw new Error('Required active-ornament DOM coverage missing or zero: ' + missing.join(', ') + '; measured=' + JSON.stringify(coverage));
         }
