@@ -1535,16 +1535,6 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     margin-right: auto !important;
 }
 
-.h2-ornament-top,
-.h2-ornament-bottom {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    margin: 6px auto !important;
-    line-height: 1 !important;
-    width: 100% !important;
-}
-
 .h2-ornament-top svg,
 .h2-ornament-bottom svg,
 .heading-ornament-wrap svg,

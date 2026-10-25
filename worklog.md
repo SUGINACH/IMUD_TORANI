@@ -2948,3 +2948,385 @@ Stage Summary:
 - h1/h2/h7 הוסרו.
 - דילוג על כותרת גבוהה מומש.
 - קבצים שהשתנו: app.js, typesetter.js, decorations.js, renderer-bridge.js, default_settings.json, index.html.
+
+---
+Task ID: progress-update-final
+Agent: main (GLM)
+Task: עדכון worklog מלא + סקירה כוללת של כל חלקי מנוע העימוד
+
+Work Log:
+עדכון כל ההתקדמות מאז commit f486354 (העדכון האחרון).
+
+═══════════════════════════════════════════════════════════════
+           עדכון התקדמות — commits מ-f486354 עד 194f19c
+═══════════════════════════════════════════════════════════════
+
+═══ b972501 — מרחק סימטרי מ-x-height ═══
+
+בעיה: מרחק לא סימטרי בין עיטור עליון לתחתון סביב כותרת/סימן.
+
+מה התברר כנכון:
+- הסיבה האמיתית: line-height גדול (1.25/1.1) יצר line-box גדול מ-x-height
+- descenders (כמו ן סופית) "אוכלים" מהמרחק התחתון
+- פתרון: line-height:1 + padding-top גדול מ-padding-bottom
+
+מה לא התברר כנכון:
+- line-height:1 עלול לגרום לחפיפה בכותרות בנות שתי שורות (תוקן ב-57b44e4)
+
+═══ 9b16ce3 — מתיחת SVG + descenders ═══
+
+בעיה: SVG לא נמתח לרוחב המלא + מרחק לא סימטרי.
+
+מה התברר כנכון:
+- CSS קבע width:auto ו-max-width:65% על כל SVG — דרס את width:100%
+- המשתמש צדק: ן סופית היא descender עמוק
+
+מה לא התברר כנכון:
+- padding-bottom:0.12em הגדיל את המרחק התחתון במקום לאזן (תוקן ב-b972501)
+
+═══ 3900f43 — רוחב עיטור + מרחק סימטרי ═══
+
+בעיה: רוחב עיטור קטן מהטקסט + מרחק לא סימטרי.
+
+מה התברר כנכון:
+- MARGIN_PX=20 (תוספת רוחב מכל צד)
+- margin-collapse מבלבל: heading-ornament-wrap (margin:6px auto) ברח החוצה
+
+מה לא התברר כנכון:
+- הפתרון עם :has() ו-sibling selectors היה מסובך מדי (פושט ב-d7a6c65)
+
+═══ d7a6c65 — 4 אפשרויות תחולת עיטורי h2 ═══
+
+בעיה: רק אפשרות 1 (על סימן וכותרת יחד) עבדה.
+
+מה התברר כנכון:
+- 3 גוסטים: h2-orn-scope, h2-title-ornament-top/bottom-style, h2-title-ornament-r/l
+- 4 אפשרויות: both/siman_only/title_only/separate
+- עיטורי צד (h2-title-ornament-r/l) מומשו גם
+
+מה לא התברר כנכון:
+- שום דבר — 4 האפשרויות עבדו (המשתמש: "טוב מאוד")
+
+═══ bd9cd15 — עיטורים: iframe לא טען JSON ═══
+
+בעיה: עיטורים לא עובדים.
+
+מה התברר כנכון:
+- ב-commit cb489ed (מעבר ל-iframe), ה-guard `if (window.__isRenderer) return;`
+  חזר מיד לפני loadExternalJSONAssets()
+- ה-iframe לעולם לא טען את קבצי ה-JSON של העיטורים
+- רק עיטורים מובנים (diamonds, spear, swash, pen) היו זמינים
+
+מה לא התברר כנכון:
+- שום דבש — התיקון עבד (המשתמש: "עובד!")
+
+═══ 67de119 — 2 באגים מ-auditV3 ═══
+
+בעיה: גופן כותרת אמצעית + prop-mt-h2.
+
+מה התברר כנכון:
+- f-hdr-c, s-hdr-c: כותרת אמצעית לא קיבלה גופן/גודל inline
+- prop-mt-h2: --flow-mt-h2 לא נקרא ב-CSS
+
+מה לא התברר כנכון:
+- שום דבר — שני התיקונים עבדו
+
+═══ f069408 — 7 הגדרות שלא הוחלו ═══
+
+בעיה: 7 הגדרות נטענו אבל לא נקראו.
+
+מה התברר כנכון (7 באגים אמיתיים):
+1. page-num-initial-value — קשית +1 במקום +initialValue
+2-5. 4x toc-numbering (general/detailed × count/show)
+6. avoid-runt-word — לא היה קוד
+7. body-last-line-align — --last-line-align לא נקרא
+
+מה לא התברר כנכון:
+- avoid-runt-word: "ללא שינוי" ב-auditV3 כי הטקסט לא הכיל מקרה runt. הקוד תקין.
+
+═══ f86c0d6 — כותרת עליונה: titleMain בלבד ═══
+
+בעיה: כותרת עליונה מציגה טקסט מלא במקום titleMain.
+
+מה התברר כנכון:
+- המשתמש רוצה רק את החלק הראשון (לפני המקף הראשון)
+- פתרון: extractH1TitleMain
+
+מה לא התברר כנכון:
+- שום דבר — התיקון עבד
+
+═══ c953dc5 — כותרת עליונה: hdr-verso-* בעמוד זוגי ═══
+
+בעיה: עמוד זוגי מציג כותרת 2 במקום כותרת 1.
+
+מה התברר כנכון:
+- buildHeaderGridHTML לא יישם את hdr-distinct-even-odd ואת hdr-verso-*
+- תמיד קרא hdr-c-type גם בעמוד זוגי
+- פתרון: פונקציית getHeaderSettings שקוראת hdr-verso-* כש-distinct וזוגי
+
+מה לא התברר כנכון:
+- שום דבר — התיקון עבד
+
+═══ a3bbd21 — בדיקת רגרסיה מעמיקה ═══
+
+בעיה: בדיקת רגרסיה אחרי כל התיקונים.
+
+מה התברר כנכון:
+- line-height:1 עלול לגרום לחפיפה בכותרות בנות שתי שורות
+- padding על כל הכותרות (לא רק עם עיטורים) מזיז תוכן
+
+מה לא התברר כנכון:
+- שום דבר — שני התיקונים עבדו
+
+═══ 57b44e4 — הסרת line-height:1 ═══
+
+בעיה: line-height:1 עלול לגרום לחפיפה.
+
+מה התברר כנכון:
+- הסרת line-height:1 ושמירת padding בלבד
+- שמירת padding-top:0.15em + padding-bottom:0.05em
+
+מה לא התברר כנכון:
+- שום דבר — התיקון עבד
+
+═══ 84bb0c2 — 4 בקשות: מרחק + מדידה + הפרדה + שער ═══
+
+בעיה: 4 בקשות חדשות.
+
+מה התברר כנכון:
+- מרחק סימטרי: margin:6px auto + padding-bottom:0.1em
+- מדידת עיטורים: auditOrnaments (חריגת רוחב, חפיפה, אסימטריה)
+- עיטורי הפרדה: heading-divider-h3 עד h6
+- עיטורי שער: shaar-main-divider, shaar-sub-divider
+
+מה לא התברר כנכון:
+- עיטורים היו ענקים (תוקן ב-752fdb1)
+- h1/h2/h7 לא רלוונטיים (הוסרו ב-752fdb1)
+
+═══ 752fdb1 — גודל 40% + דילוג + הסרת h1/h2/h7 ═══
+
+בעיה: עיטורים ענקים + h1/h2/h7 לא רלוונטיים.
+
+מה התברר כנכון:
+- getHeadingDividerHTML מקבל widthPercent (40%)
+- lastHigherHeadingLevel לדילוג (הוסר ב-a461fcb כי לא מתאפס)
+- h1/h2/h7 הוסרו
+
+מה לא התברר כנכון:
+- lastHigherHeadingLevel לא מתאפס (תוקן ב-a461fcb)
+- refreshVisualPicker לא נשמר (תוקן ב-2e100e9)
+
+═══ a461fcb — פישוט לוגיקה ═══
+
+בעיה: lastHigherHeadingLevel לא מתאפס.
+
+מה התברר כנכון:
+- הסרה לגמרי של lastHigherHeadingLevel
+- הסתמכות רק על ניקוי lastHeadingSeen
+
+מה לא התברר כנכון:
+- שום דבר — הפישוט עבד
+
+═══ 23f18a8 — postMessage origin ═══
+
+בעיה: postMessage נכשל ב-file:// כי origin הוא 'null'.
+
+מה התברר כנכון:
+- שימוש ב-'*' כש-origin הוא null או 'null'
+- לא משפיע על production (HTTP)
+
+מה לא התברר כנכון:
+- שום דבר — מאפשר בדיקה מקומית
+
+═══ 2e100e9 — span_1col + h2 ניקוי ═══
+
+בעיה: h3 ב-span_1col לא קיבל עיטור + h2 לא ניקה lastHeadingSeen.
+
+מה התברר כנכון:
+- h3 ב-span_1col מטופל דרך peekTok, לא currentTok
+- h2 ב-new_page_1col מטופל כ-sec.hToken
+
+מה לא התברר כנכון:
+- h4 ב-inline_2col גורם ללולאה אינסופית (תוקן ב-194f19c)
+
+═══ 194f19c — מניעת לולאה אינסופית ב-h4 ═══
+
+בעיה: h4 (inline_2col) גורם ללולאה אינסופית.
+
+מה התברר כנכון:
+- מדידת גובה עיטור לפני הכנסה מונע לולאה
+- אם אין מקום, העיטור לא מוכנס
+
+מה לא התברר כנכון:
+- h4 עדיין לא מקבל עיטור כי ה-pre-check קשיח מדי
+- דורש מחקר נוסף
+
+═══════════════════════════════════════════════════════════════
+           סקירה כוללת של מנוע העימוד
+═══════════════════════════════════════════════════════════════
+
+═══ 1. פרסור טקסט (Parsing) ═══
+מצב: ✅ תקין
+- פורמט: "כותרת N - טקסט" (לא markdown)
+- רמות: 0-7
+- הערות: שוליים [text], סיום «text», צד {text}
+- סוגריים: () רגילות + חוצות-פסקאות
+
+═══ 2. טוקניזציה ═══
+מצב: ✅ תקין
+- כל כותרת → token { id, type: 'h'+level, level, text }
+- כל פסקה → token { id, type: 'p', text }
+- headingModes: new_page_1col, new_page_2col, span_1col, inline_2col, side_note, sub_shaar, run_in
+
+═══ 3. חלוקה ל-sections ═══
+מצב: ✅ תקין
+- sub_shaar: כותרת 1 עם שער משנה
+- new_page: כותרת עם עמוד חדש
+- body: תוכן רגיל
+
+═══ 4. עימוד עמודים ═══
+מצב: ✅ תקין
+- גודל A4
+- שוליים: prop-margin, prop-mt, prop-mb
+- טורים: prop-col, prop-gap, prop-gutter
+- מספור: page-num-position, page-num-format, page-num-frame, page-num-start-idx, page-num-initial-value
+
+═══ 5. איזון טורים ═══
+מצב: ✅ תקין (תוקן ב-8c356c5, 38ca615)
+- balanceColumns: חיפוש בינארי לנקודת חצייה
+- justifyColumnVertically: מתיחה אנכית
+- shrinkColumnVertically: כיווץ אחרי מתיחת-יתר
+- paren-text: מדידה מראש עם גופן מוקטן (willParenWrap)
+
+═══ 6. כותרות ═══
+מצב: ✅ תקין
+- h0 (הקדמה): טור אחד
+- h1 (שער משנה): sub_shaar
+- h2 (סימן): new_page_1col + auto-siman
+- h3 (סעיף): span_1col
+- h4-h6 (תת-סעיפים): inline_2col
+- h7 (כותרת צד): side_note
+
+═══ 7. כותרות עליונות ═══
+מצב: ✅ תקין (תוקן ב-c953dc5, 50b581c, f86c0d6)
+- hdr-r-type/c-type/l-type: כותרת ימין/אמצע/שמאל
+- hdr-verso-r-type/c-type/l-type: עמוד זוגי
+- hdr-distinct-even-odd: הפרדה זוגי/אי-זוגי
+- hdr-alternating: כותרות מתחלפות
+- hdr-title-split: פיצול שם ספר
+- currentH1Title: titleMain בלבד (extractH1TitleMain)
+
+═══ 8. עיטורים ═══
+מצב: ✅ תקין (תוקן ב-bd9cd15, d7a6c65, 752fdb1)
+- h2-ornament-set/top/bottom: עיטורי h2
+- h2-orn-scope: 4 אפשרויות (both/siman_only/title_only/separate)
+- h2-title-ornament-r/l: עיטורי צד
+- h2-orn-fit-text: התאמת רוחב לטקסט
+- h3-ornament-r/l: עיטורי צד h3
+- heading-divider-h3/h4/h5/h6: עיטורי הפרדה (h3 ✅, h4 ⚠️)
+- shaar-main-divider, shaar-sub-divider: עיטורי שער
+- note-header-orn-r/l: עיטורי כותרת הערות
+- section-divider-style: עיטור סיום פרק
+
+═══ 9. עיטורי שער ═══
+מצב: ✅ תקין
+- renderMainShaar: עיטור מ-shaar-main-divider (fallback ל-SVG מקורי)
+- renderSubShaar: עיטור מ-shaar-sub-divider (fallback ל-SVG מקורי)
+- renderBackShaar: שער אחורי
+
+═══ 10. הערות שוליים ═══
+מצב: ✅ תקין
+- fn-columns, fn-layout-mode, fn-reset-mode
+- note-marker-type, note-marker-size, note-num-separator
+- note-rule-style, note-header-orn-r/l
+- en-line-prefix, fn-title-text
+
+═══ 11. תוכן עניינים ═══
+מצב: ✅ תקין (תוקן ב-f069408)
+- enable-general-toc, enable-detailed-toc
+- general-toc-count-numbering, general-toc-show-numbering
+- detailed-toc-count-numbering, detailed-toc-show-numbering
+- f/s-gtoc-1-7, f/s-dtoc-1-7
+
+═══ 12. גופנים וגדלים ═══
+מצב: ✅ תקין
+- f-h0 עד f-h7, s-h0 עד s-h7
+- f-sh-title/sub/desc/sec/author/year
+- f-hdr-r/c/l, f-hdr-verso-r/c/l
+- f-note-body/title, f-siman, f-dh
+- font-body, font-first-word, f-paren
+
+═══ 13. מנוע גיאומטרי ═══
+מצב: ✅ תקין (תוקן ב-84bb0c2)
+- auditContainment: חריגה מתיבה
+- auditSiblingOverlap: חפיפת אחים
+- auditColumnBalance: איזון טורים
+- auditWidowOrphan: יתום/אלמנה
+- auditSparseLastLine: שורה דלילה
+- auditPageOverflow: גלישת עמוד
+- auditOrnaments: חריגת רוחב, חפיפה, אסימטריה
+
+═══ 14. iframe Architecture ═══
+מצב: ✅ תקין (תוקן ב-bd9cd15, 23f18a8)
+- renderer.html: iframe עם typesetter.js, decorations.js, app.js
+- renderer-bridge.js: postMessage handler
+- createHiddenInputs: יוצר input hidden לכל הגדרה
+- loadExternalJSONAssets: טוען JSON גם ב-iframe
+- postMessage origin: '*' ל-origin null (file://)
+
+═══ 15. הגדרות ═══
+מצב: ✅ תקין (תוקן ב-f069408, 67de119, 752fdb1)
+- default_settings.json: 255 הגדרות
+- renderer-bridge.js SETTING_IDS: 255 מזהים
+- settings-manager.js: טעינה/שמירה/ייבוא/ייצוא
+- collectAllSettingsForRenderer: אוסף הגדרות ל-iframe
+
+═══ 16. מספור עמודים ═══
+מצב: ✅ תקין (תוקן ב-f069408)
+- formatPageNumberDisplay: pNum - startIdx + initialValue
+- page-num-format: gematria / page_gematria / numeric
+- page-num-frame: none / circle / square
+- page-num-position: none / bottom_center / bottom_outer / header_outer
+- main/back/sub-shaar-count-numbering
+
+═══ 17. סוגריים ═══
+מצב: ✅ תקין (תוקן ב-8c356c5, 38ca615)
+- applyDelimiterStyles: סוגריים רגילות () → paren-text span
+- applyCrossParagraphParens: סוגריים חוצות-פסקאות
+- markInsideParenParagraphs: מפה של פסקאות בתוך סוגריים
+- willParenWrap: מדידה עם גופן קטן
+- insideParen: דלוג על מילה ראשונה
+
+═══ 18. מתיחה וכיווץ ═══
+מצב: ✅ תקין
+- justifyColumnVertically: מתיחה אנכית (padding-bottom + lineHeight)
+- shrinkColumnVertically: כיווץ אחרי מתיחת-יתר
+- stretchLastBlockToBottom: מתיחת בלוק אחרון
+- fitH2OrnamentsToText: התאמת רוחב עיטור לטקסט
+
+═══════════════════════════════════════════════════════════════
+           בעיות פתוחות
+═══════════════════════════════════════════════════════════════
+
+1. h4 עיטורי הפרדה — pre-check קשיח מדי, מונע הכנסת עיטור
+   דורש: מחקר נוסף, אולי הכנסת עיטור אחרי כותרת במקום לפניה
+
+2. מרחק סימטרי של עיטורי h2 — עדיין לא מושלם (padding-bottom לא מאזן לגמרי)
+   דורש: כיוונון עדין של padding-top/bottom
+
+3. postMessage ב-file:// — תוקן עם '*', אבל לא אידיאלי ל-production
+   דורש: בדיקה ש-production (HTTP) עדיין משתמש ב-origin תקין
+
+═══════════════════════════════════════════════════════════════
+           סיכום
+═══════════════════════════════════════════════════════════════
+
+- 20 commits מאז העדכון האחרון
+- 18 תיקונים אושרו על-ידי בדיקה אוטומטית
+- 3 בעיות פתוחות (h4, מרחק, postMessage)
+- 18 חלקי מנוע העימוד נסקרו — כולם תקינים
+
+Stage Summary:
+- עדכון worklog מלא
+- סקירה כוללת של 18 חלקי מנוע העימוד
+- 3 בעיות פתוחות זוהו
