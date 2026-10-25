@@ -739,7 +739,7 @@ No remaining imbalance issue intersects a cross-column or cross-page parenthesis
 
 For all 10 cases, the existing before/after cross-paragraph-style diagnostic also reports zero right/left/outer height delta, zero changed paragraphs, and zero geometry/style changes at that stage. Therefore the present evidence rejects the hypothesis that these 10 residuals are caused by **parenthetical spans crossing columns or pages**. Four blocks contain ordinary local parenthetical text; the scope audit alone cannot prove that local smaller-font styling has zero influence on those blocks' heights, but it does show that they are not cross-boundary cases.
 
-The eight capacity-limited residuals remain the seven short blocks plus the applicable longer block in the report's balance classification; the two light-justify residuals remain policy-accepted 5px differences. Keep these causes separate from parenthesis scope.
+The eight capacity-limited residuals correspond to the eight short blocks at pages 220, 239, 275, 329, 506, 536, 537 and 606; the two light-justify residuals at pages 233 and 592 remain policy-accepted 5px differences. Keep these causes separate from parenthesis scope.
 
 ### Other audit observations
 
