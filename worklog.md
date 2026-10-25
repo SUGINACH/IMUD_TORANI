@@ -3108,3 +3108,10 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - For the selected 71/50px candidate, the 2-line short column has a remaining stretch capacity of 15.008px (2 × 7.504px under the 35%-of-base-line-height cap). The raw 21px gap therefore cannot be eliminated under the current typography cap; after stretch the residual is 5–6px. The mirrored candidate would leave the same residual on the opposite side. This confirms that changing only the tie-break or choosing the other currently enumerated candidate does not improve these eight cases.
 - The two other findings remain distinct 5px `policy-accepted-light-justify-residual` cases. Page 233's late justify attempt grew the taller content by 6px and was rolled back by the `tallestGrowth` postcondition; page 592's light-justify route reduced a 43px pre-adjustment gap to 5px and skipped the balance search under the explicit 8px policy.
 - Decision: preserve all 10 findings. Do not raise the stretch cap or change legal split policy without a controlled typography experiment. The current evidence supports capacity/policy limits, not an incorrect candidate ordering.
+
+
+## 2026-10-26 — Strengthen active decorative geometry gate
+
+- Expanded the focused active-geometry gate from containment/rounding/overlap only to include the audit's explicit overflow classes: `side-note-overflow`, `fn-overflow`, `pn-overflow`, `fn-page-overflow`, `fn-pn-overflow`, `fn-containment`, `fn-line-overflow`, and `page-overflow`.
+- Rationale: positive DOM rectangles only prove rendering; a separator, ornament, header graphic, note region, or page number can still render while crossing its allowed boundary. The active fixture now fails on the audit's recognized overflow classes too, while keeping column imbalance, widow/orphan, and sparse-line policy findings separate.
+- Local static validation: `node --check tools/geometry-audit-cli.js` equivalent syntax parse passed in the editing runtime. Awaiting CI smoke and long-document regression on this commit; no pass claim until both are observed.

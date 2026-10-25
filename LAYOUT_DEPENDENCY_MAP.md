@@ -775,3 +775,8 @@ Resolved diagnostic follow-up: the issue records now contain matched live-DOM da
 ### 2026-10-26 — Residual-balance candidate evidence
 
 The 8 short-block residuals were checked against every candidate in their deterministic decision ledgers. Each has the same three candidates: 50/71px, 71/50px, and 114/0px. The first two tie at 21px before stretch; either orientation leaves a 5–6px residual because the short two-line column's stretch capacity is 15.008px, below the 21px gap. The 2 light-justify residuals are separate 5px cases under the explicit 8px policy; on page 233, an attempted 6px growth was rolled back because it increased the tallest content. No candidate or policy change is justified by current evidence alone. Keep these LOW findings visible and investigate the light-justify quantization separately before changing thresholds.
+
+
+### Active geometry gate scope (2026-10-26)
+
+The focused active-decoration fixtures now fail not only on containment, rounding, and overlap, but also on explicit overflow issue classes emitted by the audit: side-note, footnote, page-number, page-level, and footnote-line overflow. This is a stricter regression gate, not proof that every visual clipping mode is detected: SVG painted-glyph bounds, transparent SVG padding, and clipping caused by ancestor `overflow:hidden` still require dedicated checks.

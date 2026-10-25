@@ -1123,10 +1123,16 @@ async function main() {
                 }
             }
 
-            // Non-zero rectangles prove rendering, not correct placement. Fail this focused
-            // geometry fixture on containment/rounding/overlap findings, but keep column
-            // balance findings separate from ornament/divider geometry.
-            const geometryKinds = new Set(['containment', 'containment-rounding', 'overlap']);
+            // Non-zero rectangles prove rendering, not correct placement. The active fixture
+            // therefore fails on geometric containment/overlap AND explicit overflow classes
+            // emitted by geometry-audit.js. Keep column-balance and typography-policy findings
+            // separate: they are evaluated by their own deterministic gates.
+            const geometryKinds = new Set([
+                'containment', 'containment-rounding', 'overlap',
+                'side-note-overflow', 'fn-overflow', 'pn-overflow',
+                'fn-page-overflow', 'fn-pn-overflow', 'fn-containment',
+                'fn-line-overflow', 'page-overflow'
+            ]);
             const geometryFindings = (Array.isArray(data.issues) ? data.issues : [])
                 .filter(issue => geometryKinds.has(issue.kind));
             if (geometryFindings.length) {
@@ -1135,7 +1141,7 @@ async function main() {
                     (issue.message ? ': ' + String(issue.message).replace(/[\\r\\n]+/g, ' ').slice(0, 180) : '')
                 );
                 throw new Error('Active geometry gate failed: ' + geometryFindings.length +
-                    ' containment/rounding/overlap finding(s): ' + sample.join(' | '));
+                    ' containment/overlap/overflow finding(s): ' + sample.join(' | '));
             }
         }
         const ledger = Array.isArray(data.layoutDecisionRecords) ? data.layoutDecisionRecords : [];
