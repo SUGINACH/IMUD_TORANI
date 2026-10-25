@@ -3330,3 +3330,169 @@ Stage Summary:
 - עדכון worklog מלא
 - סקירה כוללת של 18 חלקי מנוע העימוד
 - 3 בעיות פתוחות זוהו
+
+---
+Task ID: comprehensive-review-v2
+Agent: main (GLM)
+Task: סקירה כוללת של כל חלקי מנוע העימוד — פונקציות, כללים, סדר החלה
+
+Work Log:
+עברתי על כל הקבצים וכל הפונקציות. הנה הרשימה המלאה.
+
+═══════════════════════════════════════════════════════════════
+           סדר הפעלה כללי של מנוע העימוד
+═══════════════════════════════════════════════════════════════
+
+1. typesetDocument(delay)
+   ├── אם iframe: sendTypesetToRenderer() → postMessage ל-iframe
+   └── אם ישיר: typesetDocumentNow()
+       ├── מקפיא סקאלה (transform: none)
+       ├── typesetDocumentCore()
+       │   ├── updateGrid() — משתני CSS לרוחב טורים
+       │   ├── updateStyles() — משתני CSS לגופנים/גדלים
+       │   │   └── updateCoverStyles() — משתני CSS לשערים
+       │   ├── איפוס מונים (footnote, endnote, uid)
+       │   ├── stripEditorialNotes(rawText)
+       │   ├── parseMetadataFromText(rawText)
+       │   ├── ניקוי רווחים לפני סוגר פותח של הערה
+       │   ├── קריאת הגדרות (h2OrnTopStyle, headingModes, oddPageRequired, etc.)
+       │   ├── פרסור שורות → tokens (כותרות, פסקאות, הערות)
+       │   ├── בניית headingModes (0-7 + custom)
+       │   ├── חלוקה ל-sections (sub_shaar, new_page, body)
+       │   ├── markInsideParenParagraphs(sections) — pre-pass לסוגריים
+       │   ├── קריאת הגדרות TOC (gtocShows, dtocShows)
+       │   ├── לולאה ראשית על sections:
+       │   │   ├── sub_shaar: renderSubShaar + currentH1Title
+       │   │   ├── new_page: createPageLayout + h2Text
+       │   │   └── body:
+       │   │       ├── isH0: בלוק טור אחד (block-single-col)
+       │   │       │   └── לולאה: כותרות + פסקאות + עיטורי הפרדה
+       │   │       └── אחר: בלוק דו-טורי (block-2col)
+       │   │           ├── span_1col break (h3)
+       │   │           ├── בלוק דו-טורי:
+       │   │           │   ├── לולאה: כותרות + פסקאות + עיטורי הפרדה
+       │   │           │   ├── balanceColumns() — איזון טורים
+       │   │           │   ├── stretchPageToBottom() — מתיחת תחתית
+       │   │           │   └── tryReclaimOrphanTail() — משיכת יתומים
+       │   │           └── span_1col: בלוק רוחבי (block-h3-span)
+       │   ├── flushFootnotesInto(prevPageEl)
+       │   ├── flushEndnotesForPart(container, pageIndex)
+       │   ├── עיטור סיום פרק (getSectionDividerHTML)
+       │   └── סוף לולאה
+       │   ├── fitColumnDividers(container) — קווי הפרדה אנכיים
+       │   ├── rebuildHeadingPageMapFromDOM — מספרי עמוד TOC
+       │   ├── updateEditorWithPageBreaks
+       │   ├── updatePreviewScale
+       │   ├── applyHeadingOrnamentTextFit
+       │   ├── applyCrossParagraphParens — סוגריים חוצות-פסקאות
+       │   └── post-balance: justifyColumnVertically + shrinkColumnVertically + repositionBlockNotes
+       └── שחזור סקאלה + updatePreviewScale
+
+═══════════════════════════════════════════════════════════════
+           רשימת ממצאים — כללים לא ברורים או מיותרים
+═══════════════════════════════════════════════════════════════
+
+═══ 1. סדר הפעלה לא ברור ═══
+
+בעיה: stretchPageToBottom נקרא פעמיים (שורות 3908, 4260) במיקומים שונים.
+- שורה 3908: בתוך לולאת ה-span_1col (אחרי מילוי הבלוק)
+- שורה 4260: אחרי tryReclaimOrphanTail
+לא ברור אם שתי הקריאות נחוצות, או שאחת מיותרת.
+המלצה: בדוק אם הקריאה ב-3908 נחוצה כשיש span_1col וגם 2col באותו עמוד.
+
+═══ 2. כלל לא ברור — applyDibburHamatchil ═══
+
+בעיה: הפונקציה מחפשת "פתיח עד נקודה או מקף" ב-80 התווים הראשונים.
+הכלל "vis >= 2 && vis <= 81" לא ברור — למה 2 ולא 1? למה 81 ולא 80?
+המלצה: תעד את הסיבה (אולי 2 = דלג על תו ראשון, 81 = כולל המפריד עצמו).
+
+═══ 3. כלל מיותר — maybeGetHeadingDivider pre-check ═══
+
+בעיה: בבלוק הדו-טורי (4040), יש pre-check שמודד גובה עיטור לפני הכנסה.
+ה-pre-check מונע לולאה אינסופית, אבל גם מונע הכנסת עיטור כשיש מקום.
+המלצה: שקול להכניס את העיטור אחרי הכותרת (לא לפניה) — אז אין צורך ב-pre-check.
+
+═══ 4. סדר לא ברור — updateGrid לפני updateStyles ═══
+
+בעיה: updateGrid נקרא לפני updateStyles ב-typesetDocumentCore.
+אבל updateStyles קורא ל-updateCoverStyles פנימית.
+לא ברור אם הסדר קריטי — אולי updateStyles צריך להיות ראשון כי הוא משפיע על גודל הטקסט.
+המלצה: תעד את הסיבה לסדר הזה.
+
+═══ 5. כלל לא ברור — resolveParagraphSplit mustPlace ═══
+
+בעיה: `if (mustPlace && fitLines >= 1) return Math.max(1, Math.min(fitLines, totalLines - 1));`
+הכלל מאפשר פיצול עם שורה אחת בלבד כש-mustPlace=true.
+לא ברור למה מאפשרים את זה — האם זה לא סותר את avoidOrphans/avoidWidows?
+המלצה: תעד את הסיבה (כנראה מונע לולאה אינסופית בעמוד ראשון).
+
+═══ 6. כלל מיותר — heading-divider-wrap margin:10px auto ═══
+
+בעיה: getHeadingDividerHTML מגדיר `margin: 10px auto` inline.
+אבל CSS לא מגדיר margin ל-heading-divider-wrap.
+המלצה: העבר את ה-margin ל-CSS (class) במקום inline.
+
+═══ 7. סדר לא ברור — applyCrossParagraphParens אחרי כל העימוד ═══
+
+בעיה: applyCrossParagraphParens רץ אחרי כל העימוד, ואז צריך לאזן טורים מחדש.
+זה יוצר מצב ש-balanceColumns עובד על נתונים לא סופיים.
+המלצה: שקול להריץ את applyCrossParagraphParens לפני balanceColumns.
+אבל זה דורש שינוי מבני גדול כי balanceColumns מקבל את הפסקאות כבר מחולקות.
+
+═══ 8. כלל לא ברור — compressColumnBy allowBelowBase ═══
+
+בעיה: `allowBelowBase` מאפשר כיווץ מתחת ל-base line-height.
+הערך עובר כ-1.5 ב-tryReclaimOrphanTail.
+לא ברור למה 1.5 דווקא — האם זה מספיק? האם זה לא גורם לחפיפה?
+המלצה: תעד את הסיבה ל-1.5.
+
+═══ 9. כלל מיותר — ORPHAN_RECLAIM_BUFFER = 12 ═══
+
+בעיה: באפר קבוע של 12px למשיכת יתומים.
+לא ברור אם 12px מספיק לכל מקרה, או אם צריך להיות דינמי.
+המלצה: שקול להפוך לדינמי (למשל: 5% מגובה העמוד).
+
+═══ 10. סדר לא ברור — post-balance justify + shrink ═══
+
+בעיה: אחרי applyCrossParagraphParens, יש לולאה שמריצה justifyColumnVertically ואז shrinkColumnVertically.
+הסדר: justify → בדוק יירוס → shrink.
+לא ברור אם הסדר הזה אופטימלי — אולי צריך להיות shrink קודם?
+המלצה: תעד את הסיבה לסדר.
+
+═══ 11. כלל לא ברור — fitH2OrnamentsToText MARGIN_PX = 20 ═══
+
+בעיה: תוספת רוחב קבועה של 20px מכל צד.
+לא ברור אם 20px מתאים לכל גודל גופן.
+המלצה: שקול להפוך ליחסי (למשל: 0.5em).
+
+═══ 12. כלל מיותר — refreshVisualPicker ב-iframe ═══
+
+בעיה: loadExternalJSONAssets קורא ל-initVisualPickers גם ב-iframe.
+ב-iframe אין UI, אז זה מיותר (אבל לא מזיק כי יש בדיקת tagName).
+המלצה: דלג על initVisualPickers ב-iframe (if window.__isRenderer return).
+
+═══ 13. סדר לא ברור — loadDefaultSettings ב-iframe ═══
+
+בעיה: ב-iframe, loadDefaultSettings טוען גם מ-localStorage.
+אחרי זה, הדף הראשי שולח הגדרות דרך postMessage שדורסות אותן.
+זה יוצר חלון זמן שבו ה-iframe עלול לעמד עם הגדרות localStorage.
+המלצה: דלג על localStorage ב-iframe (רק טען את default_settings.json).
+
+═══ 14. כלל לא ברור — COL_DIVIDER_INSET_PX = 4 ═══
+
+בעיה: הזחה קבועה של 4px לקו הפרדה אנכי.
+לא ברור אם 4px מתאים לכל מקרה.
+המלצה: תעד את הסיבה.
+
+═══ 15. כלל לא ברור — PAGE_STRETCH_MAX = 48 ═══
+
+בעיה: תקרת מתיחה קבועה של 48px.
+לא ברור אם 48px מתאים לכל גודל עמוד.
+המלצה: שקול להפוך ליחסי (למשל: 5% מגובה העמוד).
+
+Stage Summary:
+- 15 ממצאים זוהו
+- 5 סדר הפעלה לא ברור
+- 4 כללים לא ברורים
+- 3 כללים מיותרים
+- 3 כללים עם ערכים קבועים שאולי צריכים להיות דינמיים
