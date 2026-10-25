@@ -3009,3 +3009,16 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Full long-document audit for this commit is still running at the time of this entry; its result must be checked before claiming full-document validation.
 - Motivation from the previous full audit: the actual run used `default_settings.json` with ornament-specific settings set to `none`. Therefore, that run cannot establish correct geometry for enabled ornaments even though its other audit checks passed.
 - Branch separation unchanged: work remains on `V23`; no merge into `V21`.
+
+
+## 2026-10-25 — Active ornament smoke test and long-document regression verified
+
+- Branch: `V23` only. No merge or cherry-pick into `V21`.
+- Active-ornament smoke workflow: SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40220014293
+- Long-document workflow on commit `aec2c6d08937d071d759d253213a0488211c52e3`: SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40220014389. The artifact was downloaded and inspected, not inferred from status alone.
+- Long-document baseline remains stable: 629 pages; 854 two-column blocks and decision records; 3,081/3,081 source paragraphs conserved; 524/524 headings conserved; 2,043/2,043 side notes conserved; 60/60 footnote-area queue measurements exact (maximum difference 0px); deterministic repeat-render and audit-instrumentation integrity PASS; 0 runtime/console errors.
+- Long-document baseline still reports 14 low findings: 10 column-balance residuals and 4 note-marker `containment-rounding` findings; no high/medium findings. Ornament DOM coverage is zero in that run because all ornament-related settings are disabled in `default_settings.json`; the report explicitly marks that geometry as `NOT EXERCISED`. This is not a regression in the smoke fixture and is not evidence about active ornaments.
+- The separate active-ornament fixture enables H2 top/bottom, H3 right/left, and note-header right/left ornaments. All six selector categories were present with nonzero rendered geometry (1 each). Content conservation passed for 4 paragraphs, 3 headings, 1 side note, and 1 end note; the footnote queue matched exactly (1/1, 0px difference). It reported 2 low column-imbalance findings and no `containment`, `containment-rounding`, or `overlap` findings.
+- Strengthened `--require-ornaments`: it now fails not only when any required ornament category is absent/zero-sized, but also when the focused active-ornament fixture reports a containment, containment-rounding, or overlap issue. Balance findings remain separate from ornament-geometry gating.
+- Scope boundary: a positive DOM rectangle proves that an ornament rendered, not that all possible clipping, paint overflow, text collision, or separator interactions are correct. Dedicated coverage is still needed for top headers, section/note separator rules, additional ornament families, and edge/collision cases.
+- Follow-up CI for the strengthened gate must be checked after this commit; do not claim the new gate itself is validated until that workflow passes.
