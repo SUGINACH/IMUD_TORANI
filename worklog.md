@@ -2938,3 +2938,9 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 ### Interim validation (2026-10-25)
 - CLI smoke workflow `40199965372` passed on source commit `4bbc7b3631b116e469655a829342b092d2703dff`: 6 pages, repeat-render determinism PASS, 2/2 decision records, and no audit/runtime issues. The smoke fixture has no parenthesis pairs, so its expected counterfactual eligible/tested counts are 0/0; it does not validate the local-parenthesis experiment.
 - Full long-document workflow `40199965410` was triggered on the same source commit and was still reported as `in_progress` at the time of this note. No long-run result is claimed yet.
+
+
+### Additional integrity-gate defect found during review (2026-10-25)
+- The previous `instrumentationIntegrityFailures()` required a document-level counterfactual summary and zero errors/restoration mismatches, but did not require the number of tested cases to equal the expected eligible cases.
+- The pre-fix long artifact on commit `8ef8bd2` reported `eligibleCount=0` and `testedCount=0`, while the imbalance inventory plus scope/span records imply four eligible local-parenthesis cases. The run nevertheless reported instrumentation integrity PASS. This is a second, independent transparency defect: the test was not only ordered too early; the gate also failed to detect that it had tested nothing.
+- Strengthen the CLI integrity gate to independently derive the expected eligible count from each record's final residual, local parenthesis counts, span count, and cross-boundary exclusion. Require the summary's eligible/tested counts to match this derived count. Smoke fixtures with no eligible cases must still pass with 0/0.
