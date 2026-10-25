@@ -649,3 +649,27 @@ Important: this passing run verifies diagnostic consistency and instrumentation,
 7. Release only when all required regression fixtures pass, all geometry findings are either fixed or explicitly accepted by a documented rule, and no unresolved instrumentation gap remains.
 
 Branch boundary remains strict: work on `V23` only; do not merge it into `V21`.
+
+
+## 8.25 Strict containment and stage-by-stage geometry verification (commit `484ec3ce31ae5a5b379f1579a2d433607571d93b`)
+
+The long-document report for this commit completed successfully (workflow run `40192709037`, artifact `12598762427`). The report directly establishes:
+- 629 pages; 854 decision records and 854 two-column blocks; ledger/DOM parity PASS.
+- Repeat-render determinism PASS, with stable SHA-256 `96bfe7ce5145aa1ae9f032b323d1cedd6abdf6350ffa84e400a3bcfa6838a2dd`.
+- Source-to-rendered paragraph conservation: 3,081/3,081; no missing paragraphs, text mismatches, or extra rendered paragraph IDs.
+- Heading conservation: 524/524; side-note conservation and rendered text: 2,043/2,043; no metadata or text mismatches.
+- Canonical final geometry snapshots: 854/854; stage capture errors: 0. Coverage: postfit 779, before-page-stretch 533, after-page-stretch 533, after-orphan-reclaim 535, after-page-final-justify 44, canonical-final 854.
+- Across all captured stage snapshots, no block exceeded the body-flow bottom by more than 0.5px. The geometry audit reports zero `containment` issues, down from 14 in the 627-page baseline.
+- Footnote measurement: 60/60 exact matches, max discrepancy 0px.
+- Remaining issue inventory: 19 LOW (10 imbalance, 5 sparse-line, 4 containment-rounding).
+
+### Pagination delta is a tracked consequence, not automatically a regression
+
+The page count changed from 627 to 629 and decision records from 850 to 854 relative to commit `0f716014...`. The newer implementation adds strict-fit checks and atomic rollback for orphan reclaim/final stretch. Text, headings and side notes are conserved, and containment findings disappear; nevertheless, the two-page delta must remain explicitly tracked. Before release, compare page-boundary signatures and inspect pages around each newly introduced page break. Do not claim “no regression” from text conservation alone.
+
+### Current residuals and next priority
+
+- Ten balance findings include eight measured capacity-limited residuals and two residuals accepted by the light-justify policy but still shown in the audit inventory.
+- Five sparse-line findings are at pages 59, 261, 317, 328 and 551 in this report (page numbering in the issue objects is zero-based; the summary prints one-based page labels). These are paragraph fragments of type `p-cut`; record line-by-line text, widths, legal breakpoints, and split attributes before modifying the line breaker.
+- Four note-marker rounding findings remain near 1.3px. Preserve the raw bounds; determine whether they are glyph-paint excursions or line-box/inline geometry mismatch before choosing any tolerance.
+- Do not relax strict containment, suppress low findings, or change the line-break/balance policy without a targeted regression fixture and full rerun.
