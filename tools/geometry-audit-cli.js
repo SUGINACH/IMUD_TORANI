@@ -172,9 +172,15 @@ function decisionDiagnosticFailures(report) {
         const headings = textAudit.headingAudit;
         if (!headings || headings.missingCount !== 0 || headings.mismatchCount !== 0) failures.push('source heading coverage failed: ' + (headings?.missingCount ?? 'unknown') + ' missing, ' + (headings?.mismatchCount ?? 'unknown') + ' text mismatches');
         const sideNotes = textAudit.sideNoteAudit;
-        if (!sideNotes || sideNotes.missingCount !== 0 || sideNotes.mismatchCount !== 0) failures.push('source side-note metadata coverage failed');
+        if (!sideNotes || sideNotes.missingCount !== 0 || sideNotes.mismatchCount !== 0 ||
+            (sideNotes.renderedTextMissingCount ?? 0) !== 0 || (sideNotes.renderedTextMismatchCount ?? 0) !== 0) {
+            failures.push('source side-note metadata/rendered-text coverage failed');
+        }
         const endNotes = textAudit.endNoteAudit;
-        if (endNotes && endNotes.sourceCount > 0 && (endNotes.missingCount !== 0 || endNotes.mismatchCount !== 0)) failures.push('source end-note metadata coverage failed');
+        if (endNotes && endNotes.sourceCount > 0 &&
+            (endNotes.missingCount !== 0 || endNotes.mismatchCount !== 0 || (endNotes.renderedTextMissingCount ?? 0) !== 0)) {
+            failures.push('source end-note metadata/rendered-text coverage failed');
+        }
     }
     if (canonicalFinalOverflowCount > 0) {
         failures.push(canonicalFinalOverflowCount + ' canonical final block(s) overflow body-flow by more than 0.5px');
@@ -236,8 +242,8 @@ function markdown(r) {
       '- Stage snapshot coverage: ' + JSON.stringify(r.geometry.layoutDecisionRecordAudit?.stageGeometryStageCounts ?? {}),
       '- Source-to-rendered paragraph conservation: ' + (r.geometry.textConservationAudit ? (r.geometry.textConservationAudit.available ? (r.geometry.textConservationAudit.sourceParagraphTokenCount + ' source paragraphs; missing ' + r.geometry.textConservationAudit.missingSourceParagraphCount + '; text mismatches ' + r.geometry.textConservationAudit.textMismatchCount + '; extra rendered IDs ' + r.geometry.textConservationAudit.renderedIdsWithoutSourceCount) : 'unavailable: ' + r.geometry.textConservationAudit.reason) : 'not available'),
       '- Source heading coverage: ' + (r.geometry.textConservationAudit?.headingAudit ? (r.geometry.textConservationAudit.headingAudit.sourceCount + ' source headings; missing ' + r.geometry.textConservationAudit.headingAudit.missingCount + '; text mismatches ' + r.geometry.textConservationAudit.headingAudit.mismatchCount) : 'not available'),
-      '- Side-note metadata coverage: ' + (r.geometry.textConservationAudit?.sideNoteAudit ? (r.geometry.textConservationAudit.sideNoteAudit.sourceCount + ' source side notes; missing ' + r.geometry.textConservationAudit.sideNoteAudit.missingCount + '; mismatches ' + r.geometry.textConservationAudit.sideNoteAudit.mismatchCount) : 'not available'),
-      '- End-note metadata coverage: ' + (r.geometry.textConservationAudit?.endNoteAudit ? (r.geometry.textConservationAudit.endNoteAudit.sourceCount + ' source end notes; missing ' + r.geometry.textConservationAudit.endNoteAudit.missingCount + '; mismatches ' + r.geometry.textConservationAudit.endNoteAudit.mismatchCount) : 'not available'),
+      '- Side-note coverage: ' + (r.geometry.textConservationAudit?.sideNoteAudit ? (r.geometry.textConservationAudit.sideNoteAudit.sourceCount + ' source side notes; metadata missing/mismatches ' + r.geometry.textConservationAudit.sideNoteAudit.missingCount + '/' + r.geometry.textConservationAudit.sideNoteAudit.mismatchCount + '; rendered text missing/mismatches ' + r.geometry.textConservationAudit.sideNoteAudit.renderedTextMissingCount + '/' + r.geometry.textConservationAudit.sideNoteAudit.renderedTextMismatchCount) : 'not available'),
+      '- End-note coverage: ' + (r.geometry.textConservationAudit?.endNoteAudit ? (r.geometry.textConservationAudit.endNoteAudit.sourceCount + ' source end notes; metadata missing/mismatches ' + r.geometry.textConservationAudit.endNoteAudit.missingCount + '/' + r.geometry.textConservationAudit.endNoteAudit.mismatchCount + '; rendered text missing ' + r.geometry.textConservationAudit.endNoteAudit.renderedTextMissingCount) : 'not available'),
       '- Issues: ' + (s.total ?? r.audit.issues.length),
       '- High: ' + (s.high || 0) + ' | Medium: ' + (s.medium || 0) + ' | Low: ' + (s.low || 0),
       '', '## Issue counts by kind', '', '| Kind | Count |', '|---|---:|'];
@@ -580,17 +586,37 @@ async function main() {
                     }
                 }
                 const noteMetadata = (tokens, tokenKey, attr) => {
-                    const missing = [], mismatches = [];
+                    const missing = [], mismatches = [], renderedTextMissing = [], renderedTextMismatches = [];
+                    const renderedBodies = tokenKey === 'sideNote'
+                        ? Array.from(document.querySelectorAll('#book-container .side-note-anchor'))
+                        : Array.from(document.querySelectorAll('#book-container .note-line span'));
                     for (const token of tokens) {
                         const expected = normalize(token[tokenKey]);
                         const elems = Array.from(document.querySelectorAll('#book-container p[data-token-id]'))
                             .filter(el => el.getAttribute('data-token-id') === String(token.id) && el.hasAttribute(attr));
-                        if (!elems.length) { missing.push({ id: token.id, attr, expected: expected.slice(0, 120) }); continue; }
-                        if (!elems.some(el => normalize(el.getAttribute(attr)) === expected)) {
+                        if (!elems.length) { missing.push({ id: token.id, attr, expected: expected.slice(0, 120) }); }
+                        else if (!elems.some(el => normalize(el.getAttribute(attr)) === expected)) {
                             mismatches.push({ id: token.id, attr, expected: expected.slice(0, 120), actual: elems.map(el => normalize(el.getAttribute(attr)).slice(0, 120)) });
                         }
+                        const bodyMatches = tokenKey === 'sideNote'
+                            ? renderedBodies.filter(el => el.getAttribute('data-for-token') === String(token.id) && normalize(el.textContent) === expected)
+                            : renderedBodies.filter(el => normalize(el.textContent).includes(expected));
+                        if (!bodyMatches.length) renderedTextMissing.push({ id: token.id, expected: expected.slice(0, 120) });
+                        else if (tokenKey === 'sideNote' && !bodyMatches.some(el => normalize(el.textContent) === expected)) {
+                            renderedTextMismatches.push({ id: token.id, expected: expected.slice(0, 120), actual: bodyMatches.map(el => normalize(el.textContent).slice(0, 120)) });
+                        }
                     }
-                    return { sourceCount: tokens.length, missingCount: missing.length, mismatchCount: mismatches.length, missing: missing.slice(0, 30), mismatches: mismatches.slice(0, 30) };
+                    return {
+                        sourceCount: tokens.length,
+                        missingCount: missing.length,
+                        mismatchCount: mismatches.length,
+                        renderedTextMissingCount: renderedTextMissing.length,
+                        renderedTextMismatchCount: renderedTextMismatches.length,
+                        missing: missing.slice(0, 30),
+                        mismatches: mismatches.slice(0, 30),
+                        renderedTextMissing: renderedTextMissing.slice(0, 30),
+                        renderedTextMismatches: renderedTextMismatches.slice(0, 30)
+                    };
                 };
                 return {
                     available: true,
