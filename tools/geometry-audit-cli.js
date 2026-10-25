@@ -957,6 +957,22 @@ async function main() {
             const required = ['h2Top', 'h2Bottom', 'h3Right', 'h3Left', 'noteHeaderRight', 'noteHeaderLeft'];
             const missing = required.filter(key => !(coverage[key] > 0));
             if (missing.length) throw new Error('Required active-ornament DOM coverage missing or zero: ' + missing.join(', ') + '; measured=' + JSON.stringify(coverage));
+
+            // A non-zero rectangle proves rendering, not correct placement. For the focused
+            // ornament fixture, also fail on geometric findings that can indicate clipping,
+            // escape from the parent, or collisions. Keep imbalance findings separate: they
+            // concern column balancing, not ornament geometry.
+            const geometryKinds = new Set(['containment', 'containment-rounding', 'overlap']);
+            const geometryFindings = (Array.isArray(data.issues) ? data.issues : [])
+                .filter(issue => geometryKinds.has(issue.kind));
+            if (geometryFindings.length) {
+                const sample = geometryFindings.slice(0, 8).map(issue =>
+                    (issue.kind || 'unknown') + (issue.location ? ' @ ' + issue.location : '') +
+                    (issue.message ? ': ' + String(issue.message).replace(/[\\r\\n]+/g, ' ').slice(0, 180) : '')
+                );
+                throw new Error('Active-ornament geometry gate failed: ' + geometryFindings.length +
+                    ' containment/rounding/overlap finding(s): ' + sample.join(' | '));
+            }
         }
         const ledger = Array.isArray(data.layoutDecisionRecords) ? data.layoutDecisionRecords : [];
         const domBlockCount = Number.isInteger(data.layoutDecisionBlockCount) ? data.layoutDecisionBlockCount : null;
