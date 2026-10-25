@@ -447,3 +447,21 @@ The latest long report still has one medium imbalance: page label `תקיג`, wi
 Commit `5832d6d368c6ee443b9c8b05c296c1b5a398a824` adds a deterministic fallback: after light justification, if a block still has an absolute column-height difference greater than `8px` and no balance search has already been run, invoke `balanceColumns()` using the measured available height minus the block's outer-box overhead. Residuals of `8px` or less are left alone to avoid stretching short final blocks merely to fill space.
 
 This targets the unrecorded continuation block without changing the candidate scoring or balance thresholds for blocks that were already searched. Static JavaScript parsing passed; the smoke and long-document runs for this fallback are pending.
+
+
+## 8.18 Running-header containment: measured follow-up (2026-10-25)
+
+The long-document audit for commit `743226a9ce25b04e1ddc308d7c02166f8dc60a19` completed successfully:
+- 627 pages; 850 decision records and 850 direct DOM blocks; ledger parity PASS.
+- Repeat-render determinism PASS; instrumentation integrity PASS.
+- 48 findings: 0 high, 16 medium, 32 low.
+- The prior `line-height: 1` adjustment did **not** resolve the repeated running-header containment issue. On pages 232–236, 535–538 and 586–592, the affected `.header-col-c` box remained 29px tall against a 26px parent, with measured top overflow of about 3.6–3.7px (previous baseline: about 4px). This disproves the hypothesis that line-height alone was sufficient.
+
+Commit `2c996ce74be463ee622058b8051e53cb1aa1478c` adds a bounded 22px box to all three header columns, matching the header's nominal content box (26px row minus 3px bottom padding and 1px divider), and applies single-line ellipsis to `.hdr-txt`. This is a **new hypothesis under test**, not a confirmed fix. The next long-document run must verify:
+1. the header containment findings disappear;
+2. no text or ornament clipping/regression is introduced;
+3. page count remains 627 and repeat-render determinism remains PASS;
+4. ledger/DOM parity and instrumentation integrity remain PASS;
+5. total issue counts and all non-header issue classes are compared with the 48-finding baseline.
+
+Do not adjust audit thresholds to hide the findings. If the header issue persists, inspect the exact ornament/content node and its rendered rectangle rather than adding further generic line-height changes.
