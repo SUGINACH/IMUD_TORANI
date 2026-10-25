@@ -583,3 +583,45 @@ The earlier baseline was 627 pages / 850 blocks; this staged, strict-fit run is 
 6. **Release gate (OPEN).** Smoke + long-document audit + determinism + ledger/DOM parity + candidate score audit + canonical-stage coverage + zero final containment overflow + content conservation + targeted fixtures for parentheses across columns/pages, headings, short final chapters, notes, sparse tails and page-end fill. Keep V23 separate from V21.
 
 The audit currently proves a strong, measurable containment invariant, not yet complete engine correctness. Keep that distinction explicit in code, reports and worklog.
+
+
+## 8.23 Reverified staged-geometry audit on commit `7bb3b9bacdc8d5b1f5d753404755ec572f939250` (2026-10-25)
+
+Long audit run `40191571122` completed successfully; smoke run `40191571253` also passed. Artifact `12597768490` was downloaded and its JSON inspected directly.
+
+### Hard gates
+
+- Input: `very_long_test_text.txt`, 3,387,848 bytes.
+- 629 pages; repeat-render determinism PASS. Both render hashes are `96bfe7ce5145aa1ae9f032b323d1cedd6abdf6350ffa84e400a3bcfa6838a2dd`.
+- 854 decision records / 854 direct two-column DOM blocks; parity PASS; no malformed records.
+- 389 evaluated decisions; 389/389 candidate tables complete; 389/389 capacity-before/after snapshots present; diagnostic gate PASS.
+- 854/854 canonical final geometry snapshots; missing 0; capture errors 0.
+- Stage coverage: postfit 779; before-page-stretch 533; after-page-stretch 533; after-orphan-reclaim 535; after-page-final-justify 44; canonical-final 854.
+- In every recorded stage, the maximum block bottom overflow is 0.375px; zero stages exceed the 0.5px hard gate. Canonical final overflow count >0.5px = 0; orphan-reclaim overflow count >0.5px = 0; containment issue count = 0.
+- Source conservation PASS: 3,081/3,081 paragraph token IDs rendered; missing 0; text mismatches 0; extra rendered IDs 0. All 524 headings preserved; all 2,043 side notes preserved with text/metadata matches. This fixture contains 0 end notes.
+- Runtime/console errors 0; the long audit and smoke workflow both succeeded.
+
+### Current issue inventory (not release-clean)
+
+The audit has 19 LOW findings: 5 sparse-line, 10 imbalance, 4 note-marker containment-rounding. No HIGH or MEDIUM findings and no block containment findings.
+
+The 10 imbalance findings split into:
+- Eight balanceColumns residuals on very short blocks: seven at 71/65px and one at 71/66px. Capacity snapshots show the two-line column is already at its permitted line-height stretch cap; remaining capacity is effectively 0, and the residual is 5–6px. Candidate scoring and winner selection are consistent. Do not increase the stretch cap without typography evidence. Next decision: either (a) formally allow a small capacity-limited residual with an explicit diagnostic class and regression assertions, or (b) introduce a better non-distorting balancing policy and prove it improves the rendered baseline.
+- Two light-justify residuals at 5px (pages 233 and 592). The existing light-justify policy explicitly accepts residuals up to 8px, while audit tolerance is 5px. This is a policy/audit classification mismatch. Preserve raw measurements and report these as policy-accepted separately from genuine balance defects; do not globally increase the audit tolerance.
+
+The five sparse-line findings remain at pages 59, 261, 317, 328 and 551. Their measured last-line widths are respectively 30, 11, 29, 66 and 18px; corresponding first-line widths are 61, 53, 269, 269 and 38px. They are true paragraph-fragment tails requiring source-token/line-break diagnostics and legal alternative-break evaluation.
+
+The four note-marker findings measure 1.3125px vertical excursions inside p-cut/p-end inline boxes (pages 508, 522, and two on 606). The current report establishes inline-box excursions, not that painted glyph ink actually overflows. Before any tolerance change, measure baseline/line-box and glyph paint metrics or verify against captured rendered pages.
+
+### Page-count change
+
+The accepted strict-containment / atomic orphan-reclaim work changed the long fixture from 627 to 629 pages relative to commit `ec76d68a`. This is deterministic and source conservation passes; nevertheless, page count is a layout output and the change must remain documented. It is not to be reverted merely to recover 627 pages if doing so reintroduces overflow or breaks widow/orphan/content-preservation constraints.
+
+### Next ordered actions
+
+1. Keep the hard gates above mandatory and add a distinct policy-exception section to the report so allowed residuals remain visible without being misrepresented as defects.
+2. Add sparse-tail diagnostics to each finding: stable source token ID, full raw paragraph fragment, all rendered line widths, neighboring lines, column width, legal split alternatives, and the selected split's score/constraints.
+3. Resolve sparse-line cases through a bounded, deterministic split/line-break policy; run targeted fixtures and the full long audit after each change.
+4. Classify the eight short-block residuals using measured remaining capacity; choose and document a typography-preserving policy, then add a fixture that asserts the capacity limit and exact outcome.
+5. Resolve note-marker geometry by measuring baseline/line box versus painted glyph bounds; keep this separate from block containment.
+6. Only after the issue inventory is reduced and regression fixtures pass, enable a strict release gate that fails on all actionable geometry issues. Keep `V23` separate from `V21`.
