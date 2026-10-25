@@ -269,7 +269,30 @@ function buildNode(el, parent, pageOffset) {
             balanceLeft: el.getAttribute('data-layout-balance-left'),
             balanceDiff: el.getAttribute('data-layout-balance-diff'),
             pageFinalJustifyDiagnostic: el.getAttribute('data-layout-page-final-justify-diagnostic'),
-            globalJustifyDiagnostic: el.getAttribute('data-layout-global-justify-diagnostic')
+            globalJustifyDiagnostic: el.getAttribute('data-layout-global-justify-diagnostic'),
+            finalPhase: el.getAttribute('data-layout-final-phase'),
+            finalRightHeight: el.getAttribute('data-layout-final-right-height'),
+            finalLeftHeight: el.getAttribute('data-layout-final-left-height'),
+            finalDiff: el.getAttribute('data-layout-final-diff'),
+            finalInnerHeight: el.getAttribute('data-layout-final-inner-height'),
+            finalOuterHeight: el.getAttribute('data-layout-final-outer-height'),
+            finalFits: el.getAttribute('data-layout-final-fits'),
+            finalJustifyRollbackReason: el.getAttribute('data-layout-final-justify-rollback-reason'),
+            postfitTriggered: el.getAttribute('data-layout-postfit-triggered'),
+            postfitOuterOverflow: el.getAttribute('data-layout-postfit-outer-overflow'),
+            postfitInnerOverflow: el.getAttribute('data-layout-postfit-inner-overflow'),
+            globalJustifyRolledBack: el.getAttribute('data-layout-global-justify-rolled-back'),
+            globalJustifyRollbackReason: el.getAttribute('data-layout-global-justify-rollback-reason'),
+            globalJustifyBeforeRight: el.getAttribute('data-layout-global-justify-before-right'),
+            globalJustifyBeforeLeft: el.getAttribute('data-layout-global-justify-before-left'),
+            globalJustifyAfterRight: el.getAttribute('data-layout-global-justify-after-right'),
+            globalJustifyAfterLeft: el.getAttribute('data-layout-global-justify-after-left'),
+            pageFinalJustifyRolledBack: el.getAttribute('data-layout-page-final-justify-rolled-back'),
+            decisionRecord: (() => {
+                const raw = el.getAttribute('data-layout-decision-record');
+                if (!raw) return null;
+                try { return JSON.parse(raw); } catch { return { parseError: true }; }
+            })()
         } : null,
         parentType: parent ? parent.type : null
     };
