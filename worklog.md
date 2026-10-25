@@ -3063,3 +3063,13 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Geometry audit CLI workflow: SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40235771112. Downloaded artifact `12615140838` and inspected both reports.
 - Each active fixture rendered 2 nonzero column-gutter dividers. The side-title fixture measured right/left H2 title ornaments (1 each); the top/bottom fixture measured its upper/lower ornaments (1 each). Both retained the other required geometry categories and had no containment/rounding/overlap findings; 2 low balance findings remain in each.
 - The long-document audit for this code commit is still running and must be inspected before marking the long regression complete.
+
+
+## 2026-10-25 — Column-gutter divider coverage and long regression
+
+- Code commit: `ef5b03384c66be2c374a3ad2eb5cd47caf8070a0`; active fixtures set `col-divider-style=plain` and the strict gate requires `colGutterDivider`.
+- CLI workflow SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40235771112. Artifact `12615140838` was inspected; both active fixtures measured 2 column-gutter dividers with nonzero geometry, while the generic fixture correctly measured zero because its column divider is disabled.
+- Long-document workflow SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40235771044. Artifact `12615211183` was downloaded and inspected.
+- Long-document regression remains stable at 643 pages and 859 two-column decision records; 3,105 source paragraphs conserved, repeat-render determinism and instrumentation integrity PASS, zero runtime/console errors, 14 low findings (10 imbalance, 4 containment-rounding), no high/medium findings.
+- Long-run coverage observed 82 section dividers, 76 note rules, 624 top-header grids and 624 visible top-header dividers. The column-gutter divider count is zero because `default_settings.json` disables that feature; the active fixtures exercise it separately.
+- Next geometry coverage target: an actual SVG ornament rendered inside a running-header column. The current fixture now sets `hdr-c-type=ext________2_svg` and adds a required `headerOrnament` DOM assertion; CI must pass before it is considered validated.
