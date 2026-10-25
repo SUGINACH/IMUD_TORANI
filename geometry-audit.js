@@ -1301,6 +1301,8 @@ function auditSparsePage(page, issues) {
     const columnCapacityMultiplier = hasTwoColumnBlock ? 2 : 1;
     const capacityPx = Math.max(0, flowRect.bottom - contentStartY) * columnCapacityMultiplier;
     if (!(capacityPx > 0)) return;
+    const referenceColumn = bodyFlow.querySelector('.main-column, .single-wide-col');
+    const referenceColumnWidth = referenceColumn?.getBoundingClientRect().width || 0;
 
     const textSelector = [
         '.main-column p', '.single-wide-col p',
@@ -1316,6 +1318,7 @@ function auditSparsePage(page, issues) {
     const textEls = Array.from(new Set(bodyFlow.querySelectorAll(textSelector)));
     let occupiedPx = 0;
     let paragraphCount = 0;
+    let contentElementCount = 0;
     let lineCount = 0;
     let firstTextTop = Infinity;
     let lastTextBottom = -Infinity;
@@ -1325,17 +1328,25 @@ function auditSparsePage(page, issues) {
         const r = el.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0 || r.bottom <= contentStartY) continue;
         const effectiveTop = Math.max(r.top, contentStartY);
-        occupiedPx += Math.max(0, r.bottom - effectiveTop);
-        if (el.matches('p')) {
-            paragraphCount++;
-            const raw = el.getAttribute('data-raw-text') || el.textContent || '';
-            if (raw.trim()) lineCount += Math.max(1, Math.round(r.height /
-                (parseFloat(getComputedStyle(el).lineHeight) || Math.max(1, r.height))));
-        }
+        const effectiveHeight = Math.max(0, r.bottom - effectiveTop);
+        // Convert each element's height to column-equivalent occupancy. A full-width
+        // heading consumes about two column-heights on a two-column page; counting it
+        // as one would systematically understate occupancy on pages with spanning H3s.
+        const widthWeight = referenceColumnWidth > 0
+            ? Math.min(2.5, Math.max(0.5, r.width / referenceColumnWidth))
+            : 1;
+        occupiedPx += effectiveHeight * widthWeight;
+        contentElementCount++;
+        if (el.matches('p')) paragraphCount++;
+        const raw = el.getAttribute('data-raw-text') || el.textContent || '';
+        if (raw.trim()) lineCount += Math.max(1, Math.round(r.height /
+            (parseFloat(getComputedStyle(el).lineHeight) || Math.max(1, r.height))));
         firstTextTop = Math.min(firstTextTop, effectiveTop);
         lastTextBottom = Math.max(lastTextBottom, r.bottom);
     }
-    if (paragraphCount === 0 || !Number.isFinite(lastTextBottom)) return;
+    // Heading-only pages still have content and must be eligible for sparse-page
+    // diagnostics; paragraphCount is retained as a report metric, not a gate.
+    if (contentElementCount === 0 || !Number.isFinite(lastTextBottom)) return;
 
     // גובהי פסקאות נמדדים בנפרד לכל טור; היחס אינו "אחוז דיו" אלא אומדן
     // שמרני של תפוסת שטח העימוד. הסף נמוך בכוונה כדי למנוע התרעות שווא.
@@ -1353,6 +1364,7 @@ function auditSparsePage(page, issues) {
         occupiedTextHeightPx: Math.round(occupiedPx * 100) / 100,
         estimatedCapacityPx: Math.round(capacityPx * 100) / 100,
         paragraphCount,
+        contentElementCount,
         estimatedLineCount: lineCount,
         startsChapter,
         firstTextTop: Number.isFinite(firstTextTop) ? Math.round(firstTextTop - flowRect.top) : null,
