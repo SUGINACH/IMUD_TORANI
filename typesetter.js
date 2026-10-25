@@ -5058,6 +5058,12 @@ function typesetDocumentCore() {
                 policy: blk.getAttribute('data-layout-balance-selection-policy') || null,
                 candidateCount: numericAttr('data-layout-balance-candidates'),
                 selectedCandidateIndex: numericAttr('data-layout-balance-selected-candidate'),
+                candidateTable: (() => {
+                    try {
+                        const raw = blk.getAttribute('data-layout-balance-candidate-table');
+                        return raw ? JSON.parse(raw) : null;
+                    } catch (_) { return null; }
+                })(),
                 splitItemIndex: numericAttr('data-layout-balance-split-item-index'),
                 splitLineCount: numericAttr('data-layout-balance-split-line-count'),
                 score: (() => {
