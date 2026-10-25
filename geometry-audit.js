@@ -297,7 +297,8 @@ function buildNode(el, parent, pageOffset) {
             const markerRect = el.getBoundingClientRect();
             const parentRect = el.parentElement?.getBoundingClientRect?.() || null;
             const parentLines = Array.isArray(parent?.lines) ? parent.lines : [];
-            const markerCenter = ((markerRect.top + markerRect.bottom) / 2) - getBookContainerOffset().y;
+            const off = getBookContainerOffset();
+            const markerCenter = ((markerRect.top + markerRect.bottom) / 2) - off.y;
             let nearestLine = null;
             let nearestLineDistance = Infinity;
             for (const line of parentLines) {
@@ -328,8 +329,8 @@ function buildNode(el, parent, pageOffset) {
                     bottomDelta: round(rect.bottom - (nearestLine.y + nearestLine.h)),
                     centerDistance: round(nearestLineDistance)
                 } : null,
-                parentDomTop: parentRect ? round(parentRect.top - getBookContainerOffset().y) : null,
-                parentDomBottom: parentRect ? round(parentRect.bottom - getBookContainerOffset().y) : null
+                parentDomTop: parentRect ? round(parentRect.top - off.y) : null,
+                parentDomBottom: parentRect ? round(parentRect.bottom - off.y) : null
             };
         })() : null,
         layoutMetrics: cls.type === 'block-2col' ? {
