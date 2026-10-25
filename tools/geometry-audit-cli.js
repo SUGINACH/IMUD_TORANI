@@ -250,6 +250,15 @@ function markdown(r) {
     const kinds = Object.entries(s.byKind || {}).sort((a,b) => b[1]-a[1]);
     if (!kinds.length) lines.push('| None | 0 |');
     for (const [k,v] of kinds) lines.push('| ' + String(k).replaceAll('|', '¦') + ' | ' + v + ' |');
+    const balanceOutcomes = Object.entries(s.byBalanceOutcome || {}).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
+    if (balanceOutcomes.length) {
+      lines.push('', '## Balance residual classification', '',
+        'Every residual remains in the issue inventory. This table classifies the measured cause/policy; it does not suppress or waive the finding.',
+        '', '| Classification | Count |', '|---|---:|');
+      for (const [outcome, count] of balanceOutcomes) {
+        lines.push('| ' + String(outcome).replaceAll('|', '¦') + ' | ' + count + ' |');
+      }
+    }
     const fnRows = Array.isArray(r.footnoteMeasurementAudit) ? r.footnoteMeasurementAudit : [];
     const fnMatched = fnRows.filter(x => x.matchFound && Number.isFinite(x.diff));
     const fnUnmatched = fnRows.filter(x => !x.matchFound);
