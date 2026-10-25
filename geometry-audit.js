@@ -770,16 +770,14 @@ function auditWidowOrphan(node, issues) {
 }
 
 function auditSparseLastLine(node, issues) {
-    // [תיקון] רק p-cut (פסקה שנחתכה באמצע) צריכה להיבדק — השורה האחרונה של p-cut
-    // אמורה להיות מלאה (כי היא נחתכה רק כי השורה הבאה לא נכנסה).
-    // p-end (סוף פסקה) תמיד תסתיים בשורה דלילה — זה טבעי ואינו בעיה.
+    // Only p-cut fragments are checked: a cut paragraph should not end with
+    // an unusually short line because its next line did not fit.
     if (node.type === 'p-cut' && node.lines.length > 1) {
         const lastLine = node.lines[node.lines.length - 1];
         const firstLine = node.lines[0];
         if (firstLine.w > 0 && lastLine.w < firstLine.w * TOL.sparseLastLine) {
-            // [תיקון חשוב] בדוק אם השורה האחרונה מכילה טקסט בסוגריים (paren-text).
-            // טקסט בסוגריים מוצג בגופן קטן יותר (בד"כ -2pt), ולכן השורה נראית "דלילה"
-            // למרות שהיא מלאה בתוכן. זוהי התראת שווא — אל תדווח.
+            // Parenthetical text is intentionally set smaller and can look sparse
+            // while still carrying a full line of content.
             const el = _nodeToEl.get(node);
             let hasParenOnLastLine = false;
             if (el) {
@@ -789,7 +787,6 @@ function auditSparseLastLine(node, issues) {
                     const sr = span.getBoundingClientRect();
                     const off = getBookContainerOffset();
                     const spanTop = Math.round(sr.top - off.y);
-                    // אם ה-span נמצא באותו Y כמו השורה האחרונה (±5px)
                     if (Math.abs(spanTop - lastLineTop) < 8) {
                         hasParenOnLastLine = true;
                         break;
@@ -797,6 +794,27 @@ function auditSparseLastLine(node, issues) {
                 }
             }
             if (!hasParenOnLastLine) {
+                const lineTokens = line => (Array.isArray(node.words) ? node.words : [])
+                    .filter(token => Math.abs(token.y - line.y) < Math.max(4, line.h * 0.35))
+                    .sort((a, b) => a.idx - b.idx)
+                    .map(token => ({
+                        text: token.text,
+                        type: token.type,
+                        x: Math.round(token.x * 100) / 100,
+                        width: Math.round(token.w * 100) / 100
+                    }));
+                const compactLine = line => {
+                    const tokens = lineTokens(line);
+                    return {
+                        y: Math.round(line.y * 100) / 100,
+                        width: Math.round(line.w * 100) / 100,
+                        height: Math.round(line.h * 100) / 100,
+                        text: tokens.map(token => token.text).join('').slice(0, 240),
+                        tokens: tokens.slice(0, 40)
+                    };
+                };
+                const splitAttr = name => el?.getAttribute(name) ?? null;
+                const cs = el ? getComputedStyle(el) : null;
                 issues.push({
                     kind: 'sparse-line',
                     severity: 'low',
@@ -805,6 +823,19 @@ function auditSparseLastLine(node, issues) {
                     lastW: Math.round(lastLine.w),
                     firstW: Math.round(firstLine.w),
                     pText: node.text,
+                    firstLine: compactLine(firstLine),
+                    lastLine: compactLine(lastLine),
+                    splitDiagnostics: {
+                        inputLines: splitAttr('data-layout-split-input-lines'),
+                        fitLines: splitAttr('data-layout-split-fit-lines'),
+                        placedLines: splitAttr('data-layout-split-placed-lines'),
+                        minFirst: splitAttr('data-layout-split-min-first'),
+                        minLast: splitAttr('data-layout-split-min-last'),
+                        insideParen: splitAttr('data-layout-split-inside-paren'),
+                        fontSize: cs?.fontSize ?? null,
+                        lineHeight: cs?.lineHeight ?? null,
+                        textAlignLast: cs?.textAlignLast ?? null
+                    },
                     childRect: { x: Math.round(lastLine.x), y: Math.round(lastLine.y), w: Math.round(lastLine.w), h: Math.round(lastLine.h) },
                     message: `שורה דלילה בסוף p-cut: רוחב אחרון=${Math.round(lastLine.w)}px ראשון=${Math.round(firstLine.w)}px`
                 });
