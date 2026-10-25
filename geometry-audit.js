@@ -270,6 +270,12 @@ function buildNode(el, parent, pageOffset) {
             balanceDiff: el.getAttribute('data-layout-balance-diff'),
             pageFinalJustifyDiagnostic: el.getAttribute('data-layout-page-final-justify-diagnostic'),
             globalJustifyDiagnostic: el.getAttribute('data-layout-global-justify-diagnostic'),
+            stageGeometryDiagnostic: (() => {
+                const raw = el.getAttribute('data-layout-stage-geometry-diagnostic');
+                if (!raw) return null;
+                try { return JSON.parse(raw); } catch { return { parseError: true }; }
+            })(),
+            stageGeometryDiagnosticError: el.getAttribute('data-layout-stage-geometry-diagnostic-error'),
             finalPhase: el.getAttribute('data-layout-final-phase'),
             finalRightHeight: el.getAttribute('data-layout-final-right-height'),
             finalLeftHeight: el.getAttribute('data-layout-final-left-height'),
