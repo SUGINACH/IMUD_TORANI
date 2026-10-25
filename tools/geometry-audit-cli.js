@@ -947,7 +947,7 @@ async function main() {
                             const raw = graphic.getAttribute('viewBox');
                             if (raw === null || raw.trim() === '') viewBoxStatus = 'missing';
                             else {
-                                const nums = raw.trim().split(/[\\s,]+/).map(Number);
+                                const nums = raw.trim().split(/[\s,]+/).map(Number);
                                 viewBox = nums;
                                 viewBoxStatus = nums.length === 4 && nums.every(Number.isFinite) && nums[2] > 0 && nums[3] > 0
                                     ? 'valid' : 'invalid';
