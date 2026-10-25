@@ -866,6 +866,48 @@ function columnStretchCapacity(col, lhCap = JUSTIFY_MAX_LH_EXTRA) {
     return cap;
 }
 
+/* Diagnostic-only capacity model matching justifyColumnVertically's actual default cap.
+   Keep this separate from columnStretchCapacity, whose historical default is 3px and
+   is also used by page-bottom stretching. */
+function getJustifyCapacityAudit(col, lhCap = null) {
+    const kids = Array.from(col.children);
+    let gapCapacity = 0;
+    let lineHeightCapacity = 0;
+    let totalLines = 0;
+    const paragraphs = [];
+    kids.forEach((p, index) => {
+        if (p.tagName !== 'P') return;
+        const { lh, lines } = paraLineInfo(p);
+        const base = parseFloat(p.getAttribute('data-base-lh')) || lh;
+        const currentExtra = Math.max(0, lh - base);
+        const maxExtra = lhCap === null
+            ? Math.max(JUSTIFY_MAX_LH_EXTRA, base * JUSTIFY_BALANCE_LH_RATIO)
+            : lhCap;
+        const remainingPerLine = Math.max(0, maxExtra - currentExtra);
+        const gapEligible = index < kids.length - 1;
+        const currentPaddingBottom = parseFloat(p.style.paddingBottom) || 0;
+        const remainingGap = gapEligible ? Math.max(0, JUSTIFY_MAX_GAP - currentPaddingBottom) : 0;
+        gapCapacity += remainingGap;
+        lineHeightCapacity += lines * remainingPerLine;
+        totalLines += lines;
+        paragraphs.push({
+            index, lines, lineHeight: lh, baseLineHeight: base,
+            currentExtraPerLine: currentExtra, remainingExtraPerLine: remainingPerLine,
+            gapEligible, currentPaddingBottom, remainingGap
+        });
+    });
+    return {
+        currentHeight: col.scrollHeight,
+        childCount: kids.length,
+        paragraphCount: paragraphs.length,
+        totalLines,
+        gapCapacity,
+        lineHeightCapacity,
+        totalCapacity: gapCapacity + lineHeightCapacity,
+        paragraphs
+    };
+}
+
 /* [חדש] קיבולת כיווץ של טור: כמה px אפשר לכווץ על-ידי הקטנת paddingBottom (עד 0) והקטנת
    lineHeight חזרה לבסיס (data-base-lh). משמש למשיכת שורות יתומות בחזרה לעמוד הקודם.
    זהו ההיפך של columnStretchCapacity — שם מודדים כמה אפשר למתוח, כאן כמה אפשר לכווץ.
@@ -1369,6 +1411,7 @@ function repositionBlockNotes(block, boundaryHeight) {
    ========================================================================== */
 function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = Infinity) {
     block.setAttribute('data-layout-balance-called', 'true');
+    block.setAttribute('data-layout-balance-routing', 'balanceColumns');
     block.setAttribute('data-layout-balance-available', String(availableHeight));
     block.setAttribute('data-layout-balance-input-height', String(block.getBoundingClientRect().height));
     block.setAttribute('data-layout-balance-status', 'started');
@@ -1716,6 +1759,8 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     const beforeFinalRightHeight = rCol.scrollHeight;
     const beforeFinalLeftHeight = lCol.scrollHeight;
     const beforeFinalOuterHeight = block.getBoundingClientRect().height;
+    const beforeFinalRightCapacity = getJustifyCapacityAudit(rCol);
+    const beforeFinalLeftCapacity = getJustifyCapacityAudit(lCol);
     const finalDiff = beforeFinalRightHeight - beforeFinalLeftHeight;
     let targetCol = null, targetHeight = null, targetSide = 'none';
     if (finalDiff > 0.5) {
@@ -1751,6 +1796,14 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             ? 'final-justify-worsened-balance'
             : 'none';
 
+    block.setAttribute('data-layout-final-justify-capacity-before', JSON.stringify({
+        right: beforeFinalRightCapacity,
+        left: beforeFinalLeftCapacity
+    }));
+    block.setAttribute('data-layout-final-justify-capacity-after', JSON.stringify({
+        right: getJustifyCapacityAudit(rCol),
+        left: getJustifyCapacityAudit(lCol)
+    }));
     block.setAttribute('data-layout-final-justify-target-side', targetSide);
     block.setAttribute('data-layout-final-justify-target-height', targetHeight === null ? '' : String(targetHeight));
     block.setAttribute('data-layout-final-justify-before-right', String(beforeFinalRightHeight));
@@ -4245,6 +4298,12 @@ function typesetDocumentCore() {
 
                 const block2Col = document.createElement('div');
                 block2Col.className = 'block-2col';
+                // Every block starts with an explicit routing state. A later call to
+                // balanceColumns replaces this with "balanceColumns"; bypasses must
+                // write a concrete reason rather than leave the decision unrecorded.
+                block2Col.setAttribute('data-layout-balance-status', 'not-requested');
+                block2Col.setAttribute('data-layout-balance-skip-reason', 'routing-pending');
+                block2Col.setAttribute('data-layout-balance-routing', 'pending');
                 block2Col.innerHTML = `
           <div class="margin-notes-column right-margin"></div>
           <div></div>
@@ -4453,6 +4512,8 @@ function typesetDocumentCore() {
                         balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot,
                             block2Col.getBoundingClientRect().height > actualAvailH ? balanceAvailH : actualAvailH);
                     } else {
+                        block2Col.setAttribute('data-layout-balance-routing', 'chapter-end-fill-policy');
+                        block2Col.setAttribute('data-layout-balance-skip-reason', 'balance-disabled-by-chapter-end-fill-policy');
                         // בלי איזון: הערות הצד שנוצרו במילוי הרגיל עדיין לא מוקמו (balanceColumns מקים את שלו בעצמו, וה-break שלמטה מדלג על ההקמה הרגילה)
                         finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
                     }
@@ -4490,6 +4551,9 @@ function typesetDocumentCore() {
                     } 
                     // 4. עמוד רגיל מאוזן שדורש רק יישור שורות עדין
                     else {
+                        block2Col.setAttribute('data-layout-balance-routing', 'light-justify');
+                        block2Col.setAttribute('data-layout-balance-light-before-right', String(rCol.scrollHeight));
+                        block2Col.setAttribute('data-layout-balance-light-before-left', String(lCol.scrollHeight));
                         let usedBlockH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
                         let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
                         if (usedBlockH <= remPageHeight) {
@@ -4506,13 +4570,22 @@ function typesetDocumentCore() {
                             // split into a 5-line right fragment and a max-stretched 3-line
                             // left fragment). Keep small residuals on short blocks untouched.
                             const residualDiff = rCol.scrollHeight - lCol.scrollHeight;
+                            block2Col.setAttribute('data-layout-balance-light-after-right', String(rCol.scrollHeight));
+                            block2Col.setAttribute('data-layout-balance-light-after-left', String(lCol.scrollHeight));
+                            block2Col.setAttribute('data-layout-balance-light-residual-diff', String(residualDiff));
                             if (block2Col.getAttribute('data-layout-balance-called') !== 'true' &&
                                 Math.abs(residualDiff) > 8 && Math.abs(residualDiff) <= 60) {
+                                block2Col.setAttribute('data-layout-balance-light-fallback-reason', 'residual-above-8px');
                                 const residualOuter = block2Col.getBoundingClientRect().height;
                                 const residualInner = Math.max(rCol.scrollHeight, lCol.scrollHeight);
                                 const residualOverhead = Math.max(0, residualOuter - residualInner);
                                 balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot,
                                     Math.max(0, actualAvailH - residualOverhead));
+                            } else if (block2Col.getAttribute('data-layout-balance-called') !== 'true') {
+                                block2Col.setAttribute('data-layout-balance-skip-reason',
+                                    Math.abs(residualDiff) <= 8
+                                        ? 'light-justify-residual-within-8px-policy'
+                                        : 'light-justify-no-balance-fallback');
                             }
                         }
                     }
@@ -5080,9 +5153,30 @@ function typesetDocumentCore() {
                     fits: blk.getAttribute('data-layout-balance-fits'),
                     valid: blk.getAttribute('data-layout-balance-valid'),
                     overflow: numericAttr('data-layout-balance-over')
+                },
+                routing: blk.getAttribute('data-layout-balance-routing') || 'not-recorded',
+                lightJustify: {
+                    beforeRightHeight: numericAttr('data-layout-balance-light-before-right'),
+                    beforeLeftHeight: numericAttr('data-layout-balance-light-before-left'),
+                    afterRightHeight: numericAttr('data-layout-balance-light-after-right'),
+                    afterLeftHeight: numericAttr('data-layout-balance-light-after-left'),
+                    residualDiff: numericAttr('data-layout-balance-light-residual-diff'),
+                    fallbackReason: blk.getAttribute('data-layout-balance-light-fallback-reason') || null
                 }
             },
             finalJustify: {
+                capacityBefore: (() => {
+                    try {
+                        const raw = blk.getAttribute('data-layout-final-justify-capacity-before');
+                        return raw ? JSON.parse(raw) : null;
+                    } catch (_) { return null; }
+                })(),
+                capacityAfter: (() => {
+                    try {
+                        const raw = blk.getAttribute('data-layout-final-justify-capacity-after');
+                        return raw ? JSON.parse(raw) : null;
+                    } catch (_) { return null; }
+                })(),
                 targetSide: blk.getAttribute('data-layout-final-justify-target-side') || 'none',
                 targetHeight: numericAttr('data-layout-final-justify-target-height'),
                 beforeRightHeight: numericAttr('data-layout-final-justify-before-right'),
