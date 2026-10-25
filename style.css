@@ -1051,10 +1051,26 @@ body.tabs-not-ready #sidebar::before {
 
 .header-col-r, .header-col-c, .header-col-l {
     --hdr-row-h: 26px;
-    /* Running headers are single-line slots. An explicit unitless line-height
-       prevents SVG/ornament slots from inheriting a tall text line box that
-       extends above the fixed 26px header row. */
+    /*
+     * Keep every running-header column inside the header's 22px content box
+     * (26px row minus 3px bottom padding and 1px divider). line-height alone
+     * was insufficient: the long-document audit still found 3.6–3.7px top
+     * overflow on repeated center-column ornaments/content.
+     */
+    height: 22px;
+    min-height: 0;
+    max-height: 22px;
+    box-sizing: border-box;
     line-height: 1;
+    overflow: hidden;
+}
+.header-col-r .hdr-txt, .header-col-c .hdr-txt, .header-col-l .hdr-txt {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .header-col-r img, .header-col-r svg,
 .header-col-c img, .header-col-c svg,
