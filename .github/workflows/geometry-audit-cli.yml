@@ -42,8 +42,8 @@ jobs:
           const issues = report.audit?.issues || [];
           const sparse = issues.filter(issue => issue.kind === 'sparse-page');
           const brackets = issues.filter(issue => issue.kind === 'square-bracket-scope');
-          if (sparse.length === 0) {
-            console.error('Expected the short final content page to trigger sparse-page; audit summary:', report.audit?.summary);
+          if (sparse.length !== 1) {
+            console.error('Expected exactly one sparse-page finding: the short final chapter page; the preceding chapter-end page must be exempt. Findings:', sparse, 'audit summary:', report.audit?.summary);
             process.exit(1);
           }
           if (brackets.length === 0) {
