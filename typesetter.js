@@ -1298,6 +1298,44 @@ function shrinkColumnVertically(col, targetHeight, styleObj, maxShrink = 60) {
    freeSpace = הרווח הפנוי בפועל (מדוד) בין תחתית הבלוק לתחתית השטח הפנוי בעמוד.
    בבלוק דו-טורי שני הטורים נמתחים לאותו יעד, והיעד מוגבל ליכולת המתיחה של הטור החלש יותר -
    כדי שתחתיות שני הטורים תמיד יישארו על אותו קו (עדיף פער קטן בתחתית העמוד מטורים לא מיושרים). */
+function recordLayoutGeometryStage(block, stage, bodyFlow, extra = {}) {
+    if (!block || !block.setAttribute) return;
+    try {
+        let diagnostic = {};
+        try {
+            diagnostic = JSON.parse(block.getAttribute('data-layout-stage-geometry-diagnostic') || '{}');
+        } catch (_) { diagnostic = {}; }
+        if (!diagnostic.stages || typeof diagnostic.stages !== 'object') diagnostic.stages = {};
+        const rect = block.getBoundingClientRect();
+        const flowRect = bodyFlow?.getBoundingClientRect?.() || null;
+        const right = block.querySelector('.right-col');
+        const left = block.querySelector('.left-col');
+        const round = value => Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
+        diagnostic.schemaVersion = 1;
+        diagnostic.stages[stage] = {
+            flow: flowRect ? {
+                top: round(flowRect.top), bottom: round(flowRect.bottom), height: round(flowRect.height),
+                clientHeight: bodyFlow.clientHeight, scrollHeight: bodyFlow.scrollHeight
+            } : null,
+            block: {
+                top: round(rect.top), bottom: round(rect.bottom), height: round(rect.height),
+                topOffset: flowRect ? round(rect.top - flowRect.top) : null,
+                bottomOverflow: flowRect ? round(rect.bottom - flowRect.bottom) : null
+            },
+            columns: {
+                rightHeight: right ? right.scrollHeight : null,
+                leftHeight: left ? left.scrollHeight : null,
+                innerHeight: Math.max(right?.scrollHeight || 0, left?.scrollHeight || 0),
+                outerMinusInner: round(rect.height - Math.max(right?.scrollHeight || 0, left?.scrollHeight || 0))
+            },
+            ...extra
+        };
+        block.setAttribute('data-layout-stage-geometry-diagnostic', JSON.stringify(diagnostic));
+    } catch (_) {
+        block.setAttribute('data-layout-stage-geometry-diagnostic-error', stage);
+    }
+}
+
 function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
     if (!(freeSpace > 0.5 && freeSpace <= maxStretch)) return false;
     const last = bodyFlow.lastElementChild;
@@ -4073,8 +4111,21 @@ function typesetDocumentCore() {
                 const lastEl = flow.lastElementChild;
                 if (!lastEl || !(lastEl.classList.contains('block-2col') || lastEl.classList.contains('block-single-col'))) return;
                 const flowBottom = flow.getBoundingClientRect().bottom;
-                const free = (flowBottom - reservedNow()) - lastEl.getBoundingClientRect().bottom - 1;
-                stretchLastBlockToBottom(flow, free, styleObj, PAGE_STRETCH_MAX);
+                const reservedHeight = reservedNow();
+                const free = (flowBottom - reservedHeight) - lastEl.getBoundingClientRect().bottom - 1;
+                recordLayoutGeometryStage(lastEl, 'before-page-stretch', flow, {
+                    freeSpace: Math.round(free * 1000) / 1000,
+                    reservedHeight: Math.round(reservedHeight * 1000) / 1000
+                });
+                const stretchApplied = stretchLastBlockToBottom(flow, free, styleObj, PAGE_STRETCH_MAX);
+                const finalEl = flow.lastElementChild;
+                if (finalEl?.classList?.contains('block-2col') || finalEl?.classList?.contains('block-single-col')) {
+                    recordLayoutGeometryStage(finalEl, 'after-page-stretch', flow, {
+                        freeSpace: Math.round(free * 1000) / 1000,
+                        reservedHeight: Math.round(reservedHeight * 1000) / 1000,
+                        stretchApplied
+                    });
+                }
             };
                         if (isH0) {
                 const singleBlock = document.createElement('div');
@@ -4610,6 +4661,12 @@ function typesetDocumentCore() {
                     block2Col.setAttribute('data-layout-postfit-outer-overflow', '0');
                     block2Col.setAttribute('data-layout-postfit-inner-overflow', '0');
                 }
+                recordLayoutGeometryStage(block2Col, 'postfit', pageLayout.bodyFlow, {
+                    actualAvailableHeight: Math.round(actualAvailH * 1000) / 1000,
+                    postfitTriggered: block2Col.getAttribute('data-layout-postfit-triggered') === 'true',
+                    postfitOuterOverflow: parseFloat(block2Col.getAttribute('data-layout-postfit-outer-overflow')) || 0,
+                    postfitInnerOverflow: parseFloat(block2Col.getAttribute('data-layout-postfit-inner-overflow')) || 0
+                });
 
                 remPageHeight = Math.max(0, pageLayout.bodyFlow.getBoundingClientRect().bottom - block2Col.getBoundingClientRect().bottom);
                 pageBodyHasContent = true;
@@ -4621,6 +4678,10 @@ function typesetDocumentCore() {
             // השורות היתומות תופסות את מקום המתיחה במקום לעבור לעמוד הבא.
             stretchPageToBottom();
             const reclaimed = tryReclaimOrphanTail(pageLayout, pendingWordTokens, reservedNow, totalFlowH);
+            const postReclaimLast = pageLayout.bodyFlow.lastElementChild;
+            if (postReclaimLast?.classList?.contains('block-2col') || postReclaimLast?.classList?.contains('block-single-col')) {
+                recordLayoutGeometryStage(postReclaimLast, 'after-orphan-reclaim', pageLayout.bodyFlow, { reclaimedOrphanTail: reclaimed });
+            }
             if (reclaimed) {
                 pendingWordTokens = null;
                 tokenIndex++;
@@ -4707,6 +4768,10 @@ function typesetDocumentCore() {
                         blk.setAttribute('data-layout-page-final-justify-rolled-back', 'false');
                     }
                     repositionBlockNotes(blk, Math.max(rC.scrollHeight, lC.scrollHeight));
+                    recordLayoutGeometryStage(blk, 'after-page-final-justify', flow, {
+                        pageFinalJustifyAttempted: Math.abs(fDiff) > 2 && Math.abs(fDiff) <= 100,
+                        pageFinalJustifyRolledBack: blk.getAttribute('data-layout-page-final-justify-rolled-back') === 'true'
+                    });
                 });
             }
             // Final reservation check: stretching, orphan-tail reclamation, and the final
