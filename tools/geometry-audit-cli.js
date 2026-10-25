@@ -74,8 +74,88 @@ function instrumentationIntegrityFailures(report) {
     if ((a.missingCrossParenDiagnosticCount ?? 0) !== 0) failures.push('missing/incomplete parenthesis diagnostics');
     if ((a.crossParenDiagnosticErrorCount ?? 0) !== 0) failures.push('parenthesis diagnostic capture errors');
     if ((a.crossParenFinalSnapshotMismatchCount ?? 0) !== 0) failures.push('final parenthesis snapshot differs from exported geometry');
+    return failures.concat(decisionDiagnosticFailures(report));
+}
+function decisionDiagnosticFailures(report) {
+    const records = report.geometry?.layoutDecisionRecords;
+    const audit = report.geometry?.layoutDecisionRecordAudit || {};
+    const failures = [];
+    if (!Array.isArray(records)) return ['decision ledger is missing or not an array'];
+    if (Number.isFinite(audit.recordCount) && records.length !== audit.recordCount) {
+        failures.push('serialized decision ledger length differs from audited record count');
+    }
+    const compareScore = (a, b) => {
+        if (!Array.isArray(a) || !Array.isArray(b)) return null;
+        const n = Math.max(a.length, b.length);
+        for (let i = 0; i < n; i++) {
+            const av = a[i] ?? 0, bv = b[i] ?? 0;
+            if (av < bv) return -1;
+            if (av > bv) return 1;
+        }
+        return 0;
+    };
+    let evaluatedCount = 0;
+    let candidateTableCount = 0;
+    let capacitySnapshotCount = 0;
+    for (let i = 0; i < records.length; i++) {
+        const record = records[i] || {};
+        const decision = record.decision || {};
+        const selection = decision.selection || {};
+        const where = 'record #' + (i + 1) + ' (pageIdx=' + record.pageIdx + ')';
+        if (!['evaluated', 'not-requested'].includes(selection.status)) {
+            failures.push(where + ': unknown/missing selection status');
+            continue;
+        }
+        if (!['balanceColumns', 'light-justify', 'chapter-end-fill-policy'].includes(selection.routing)) {
+            failures.push(where + ': unknown/missing balance routing');
+        }
+        if (selection.status !== 'evaluated') continue;
+        evaluatedCount++;
+        const table = selection.candidateTable;
+        if (!Array.isArray(table) || table.length !== selection.candidateCount) {
+            failures.push(where + ': candidate table length does not equal candidateCount');
+            continue;
+        }
+        candidateTableCount++;
+        const selected = table.find(candidate => candidate.k === selection.selectedCandidateIndex);
+        if (!selected) {
+            failures.push(where + ': selectedCandidateIndex is absent from candidate table');
+            continue;
+        }
+        if (JSON.stringify(selected.score) !== JSON.stringify(selection.score)) {
+            failures.push(where + ': selected candidate score differs from selection score');
+        }
+        const scores = table.map(candidate => candidate.score);
+        if (scores.some(score => !Array.isArray(score))) {
+            failures.push(where + ': candidate table contains a missing/non-array score');
+        } else {
+            let best = scores[0];
+            for (let j = 1; j < scores.length; j++) {
+                if (compareScore(scores[j], best) < 0) best = scores[j];
+            }
+            if (compareScore(selected.score, best) !== 0) {
+                failures.push(where + ': selected candidate is not the lexicographic minimum score');
+            }
+        }
+        const before = decision.finalJustify?.capacityBefore;
+        const after = decision.finalJustify?.capacityAfter;
+        if (!before || !after || !before.right || !before.left || !after.right || !after.left) {
+            failures.push(where + ': evaluated candidate is missing before/after stretch-capacity snapshots');
+        } else {
+            capacitySnapshotCount++;
+        }
+    }
+    report.geometry.layoutDecisionDiagnosticAudit = {
+        recordCount: records.length,
+        evaluatedCount,
+        candidateTableCount,
+        capacitySnapshotCount,
+        passed: failures.length === 0,
+        failures
+    };
     return failures;
 }
+
 function markdown(r) {
     const s = r.audit.summary || {};
     const integrityFailures = instrumentationIntegrityFailures(r);
