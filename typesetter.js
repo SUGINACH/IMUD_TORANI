@@ -4921,6 +4921,13 @@ function typesetDocumentCore() {
     });
 
     applyCrossParagraphParens(container);
+    // Diagnostics only: classify local and cross-column/page parenthesis scopes.
+    try {
+        const scopeSummary = captureParenthesisScopeDiagnostics(container);
+        container.setAttribute('data-layout-paren-scope-summary', JSON.stringify(scopeSummary));
+    } catch (error) {
+        container.setAttribute('data-layout-paren-scope-diagnostic-error', String(error?.message || error));
+    }
 
     container.querySelectorAll('.block-2col').forEach(blk => {
         const before = crossParenBefore.get(blk);
@@ -5327,6 +5334,164 @@ function typesetDocumentCore() {
 
    חשוב: הפונקציה הזו פועלת אחרי כל העימוד, כולל איזון טורים. היא לא משפיעה על מדידה
    כי הסוגריים החוצות-פסקאות נדירות יחסית, והשינוי בגודל הגופן קטן (בד"כ -2pt). */
+/* אבחון אבחנתי בלבד: מיפוי סוגריים לפי מיקום פיזי אחרי העימוד.
+   אינו משנה סגנון, גובה או החלטות עימוד. מאפשר לקשור ממצא אי-איזון לטקסט בסוגריים
+   מקומי, לחציית טורים, או לחציית עמודים. הספירה תואמת ל-applyCrossParagraphParens:
+   מתעלמים מסוגריים בתוך [...] ומחשבים עומק לפי סדר DOM. */
+function captureParenthesisScopeDiagnostics(container) {
+    const paragraphs = Array.from(container.querySelectorAll('p[data-raw-text]'));
+    const pages = Array.from(container.querySelectorAll('.a4-page'));
+    const pageIndex = new Map(pages.map((page, index) => [page, index]));
+    const blockIndex = new Map();
+    Array.from(container.querySelectorAll('.block-2col')).forEach((block, index) => blockIndex.set(block, index));
+    const contexts = [];
+    const stack = [];
+    const pairs = [];
+    const blockParagraphs = new Map();
+    const countChars = text => {
+        let open = 0, close = 0, inBracket = false;
+        for (const ch of text) {
+            if (ch === '[') { inBracket = true; continue; }
+            if (ch === ']') { inBracket = false; continue; }
+            if (inBracket) continue;
+            if (ch === '(') open++;
+            else if (ch === ')') close++;
+        }
+        return { open, close };
+    };
+    paragraphs.forEach((p, paragraphIndex) => {
+        const rawText = p.getAttribute('data-raw-text') || '';
+        const block = p.closest('.block-2col');
+        const page = p.closest('.a4-page');
+        const side = p.closest('.right-col') ? 'right' : p.closest('.left-col') ? 'left' : 'other';
+        const counts = countChars(rawText);
+        const context = {
+            paragraphIndex, tokenId: p.getAttribute('data-token-id') || null,
+            pageIdx: pageIndex.has(page) ? pageIndex.get(page) : null,
+            blockIndex: block && blockIndex.has(block) ? blockIndex.get(block) : null,
+            side, rawText, openCount: counts.open, closeCount: counts.close,
+            depthBefore: stack.length, depthAfter: null,
+            hasParenTextStyle: !!p.querySelector('.paren-text'), block
+        };
+        contexts.push(context);
+        if (block) {
+            if (!blockParagraphs.has(block)) blockParagraphs.set(block, []);
+            blockParagraphs.get(block).push(context);
+        }
+        let inBracket = false;
+        for (let charIndex = 0; charIndex < rawText.length; charIndex++) {
+            const ch = rawText[charIndex];
+            if (ch === '[') { inBracket = true; continue; }
+            if (ch === ']') { inBracket = false; continue; }
+            if (inBracket) continue;
+            if (ch === '(') {
+                stack.push({ paragraphIndex, charIndex, context });
+            } else if (ch === ')' && stack.length) {
+                const start = stack.pop();
+                const startCtx = start.context;
+                const crossesPage = startCtx.pageIdx != null && context.pageIdx != null && startCtx.pageIdx !== context.pageIdx;
+                const crossesColumn = crossesPage || (['right','left'].includes(startCtx.side) &&
+                    ['right','left'].includes(context.side) && startCtx.side !== context.side);
+                pairs.push({
+                    startParagraphIndex: start.paragraphIndex, endParagraphIndex: paragraphIndex,
+                    startPageIdx: startCtx.pageIdx, endPageIdx: context.pageIdx,
+                    startBlockIndex: startCtx.blockIndex, endBlockIndex: context.blockIndex,
+                    startSide: startCtx.side, endSide: context.side,
+                    startTokenId: startCtx.tokenId, endTokenId: context.tokenId,
+                    crossesPage, crossesColumn, crossesBlock: startCtx.blockIndex !== context.blockIndex,
+                    startPreview: startCtx.rawText.slice(Math.max(0, start.charIndex - 45), Math.min(startCtx.rawText.length, start.charIndex + 100)),
+                    endPreview: context.rawText.slice(Math.max(0, charIndex - 45), Math.min(context.rawText.length, charIndex + 100))
+                });
+            }
+        }
+        context.depthAfter = stack.length;
+    });
+    const crossPairs = pairs.filter(pair => pair.crossesColumn || pair.crossesPage);
+    const unmatchedOpenContexts = stack.map(open => ({
+        paragraphIndex: open.paragraphIndex, pageIdx: open.context.pageIdx,
+        blockIndex: open.context.blockIndex, side: open.context.side, tokenId: open.context.tokenId,
+        preview: open.context.rawText.slice(Math.max(0, open.charIndex - 45), Math.min(open.context.rawText.length, open.charIndex + 100))
+    }));
+    const unmatchedCloseContexts = [];
+    // Recount unmatched closes separately, preserving the same square-bracket exclusion.
+    let depthForUnmatched = 0;
+    paragraphs.forEach((p, paragraphIndex) => {
+        const rawText = p.getAttribute('data-raw-text') || '';
+        let inBracket = false;
+        for (let charIndex = 0; charIndex < rawText.length; charIndex++) {
+            const ch = rawText[charIndex];
+            if (ch === '[') { inBracket = true; continue; }
+            if (ch === ']') { inBracket = false; continue; }
+            if (inBracket) continue;
+            if (ch === '(') depthForUnmatched++;
+            else if (ch === ')') {
+                if (depthForUnmatched > 0) depthForUnmatched--;
+                else {
+                    const page = p.closest('.a4-page');
+                    const block = p.closest('.block-2col');
+                    unmatchedCloseContexts.push({
+                        paragraphIndex, pageIdx: pageIndex.has(page) ? pageIndex.get(page) : null,
+                        blockIndex: block && blockIndex.has(block) ? blockIndex.get(block) : null,
+                        side: p.closest('.right-col') ? 'right' : p.closest('.left-col') ? 'left' : 'other',
+                        tokenId: p.getAttribute('data-token-id') || null
+                    });
+                }
+            }
+        }
+    });
+    const allBlocks = Array.from(container.querySelectorAll('.block-2col'));
+    allBlocks.forEach(block => {
+        const local = blockParagraphs.get(block) || [];
+        const localFirst = local.length ? local[0].paragraphIndex : -1;
+        const localLast = local.length ? local[local.length - 1].paragraphIndex : -1;
+        const localPairs = crossPairs.filter(pair => localFirst >= 0 &&
+            pair.startParagraphIndex <= localLast && pair.endParagraphIndex >= localFirst);
+        const endpointPairs = crossPairs.filter(pair => pair.startBlockIndex === blockIndex.get(block) ||
+            pair.endBlockIndex === blockIndex.get(block));
+        const sideSummary = side => {
+            const ps = local.filter(p => p.side === side);
+            return {
+                paragraphCount: ps.length,
+                paragraphsWithParentheses: ps.filter(p => p.openCount || p.closeCount).length,
+                openCount: ps.reduce((n, p) => n + p.openCount, 0),
+                closeCount: ps.reduce((n, p) => n + p.closeCount, 0),
+                paragraphsInsideOpenScopeAtStart: ps.filter(p => p.depthBefore > 0).length,
+                paragraphsInsideOpenScopeAtEnd: ps.filter(p => p.depthAfter > 0).length,
+                paragraphsWithParenTextStyle: ps.filter(p => p.hasParenTextStyle).length,
+                samples: ps.filter(p => p.openCount || p.closeCount || p.depthBefore > 0 || p.depthAfter > 0 || p.hasParenTextStyle)
+                    .slice(0, 12).map(p => ({
+                        tokenId: p.tokenId, paragraphIndex: p.paragraphIndex,
+                        openCount: p.openCount, closeCount: p.closeCount,
+                        depthBefore: p.depthBefore, depthAfter: p.depthAfter,
+                        hasParenTextStyle: p.hasParenTextStyle,
+                        preview: p.rawText.slice(0, 180)
+                    }))
+            };
+        };
+        const diag = {
+            version: 1,
+            paragraphCount: local.length,
+            right: sideSummary('right'),
+            left: sideSummary('left'),
+            crossBoundaryScopeCountIntersectingBlock: localPairs.length,
+            crossColumnScopeCountIntersectingBlock: localPairs.filter(pair => pair.crossesColumn).length,
+            crossPageScopeCountIntersectingBlock: localPairs.filter(pair => pair.crossesPage).length,
+            crossBoundaryScopeEndpointCount: endpointPairs.length,
+            crossBoundaryScopes: endpointPairs.slice(0, 12),
+            unmatchedOpenCountAtDocumentEnd: unmatchedOpenContexts.filter(x => x.blockIndex === blockIndex.get(block)).length,
+            unmatchedCloseCountInBlock: unmatchedCloseContexts.filter(x => x.blockIndex === blockIndex.get(block)).length
+        };
+        block.setAttribute('data-layout-paren-scope-diagnostic', JSON.stringify(diag));
+    });
+    return {
+        paragraphCount: paragraphs.length, pairedParenthesisCount: pairs.length,
+        crossColumnPairCount: crossPairs.filter(pair => pair.crossesColumn).length,
+        crossPagePairCount: crossPairs.filter(pair => pair.crossesPage).length,
+        unmatchedOpenCountAtDocumentEnd: unmatchedOpenContexts.length,
+        unmatchedCloseCount: unmatchedCloseContexts.length
+    };
+}
+
 function applyCrossParagraphParens(container) {
     const allP = Array.from(container.querySelectorAll('p[data-raw-text]'));
     if (allP.length === 0) return;
