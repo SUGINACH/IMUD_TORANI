@@ -1374,10 +1374,17 @@ function auditSquareBracketScopes(issues) {
             const rawText = p.getAttribute('data-raw-text') || '';
             if (!rawText) return;
             const col = p.closest('.main-column, .single-wide-col');
+            const tokenId = p.getAttribute('data-token-id') || null;
+            const fragmentIndex = paragraphs.length;
             paragraphs.push({
                 el: p, rawText, pageIdx, pageLabel,
-                paragraphIndex: paragraphs.length,
+                // DOM fragments are not necessarily source paragraphs: one logical
+                // paragraph may be split into p-cut/p-end fragments across columns/pages.
+                fragmentIndex,
+                tokenId,
+                logicalParagraphId: tokenId !== null ? `token:${tokenId}` : `fragment:${fragmentIndex}`,
                 localParagraphIndex: localIdx,
+                isContinuation: p.getAttribute('data-is-cont') === 'true',
                 column: col?.classList.contains('left-col') ? 'left' :
                     col?.classList.contains('right-col') ? 'right' :
                     col?.classList.contains('single-wide-col') ? 'single' : 'unknown'
@@ -1385,16 +1392,29 @@ function auditSquareBracketScopes(issues) {
         });
     });
 
+    // Assign stable logical paragraph ordinals by source token ID. This makes
+    // reports distinguish a true paragraph transition from a continuation fragment.
+    const logicalOrdinals = new Map();
+    let nextLogicalOrdinal = 0;
+    for (const para of paragraphs) {
+        if (!logicalOrdinals.has(para.logicalParagraphId)) {
+            logicalOrdinals.set(para.logicalParagraphId, nextLogicalOrdinal++);
+        }
+        para.logicalParagraphIndex = logicalOrdinals.get(para.logicalParagraphId);
+    }
+
     const stack = [];
     const emitUnmatchedClose = (para, offset) => issues.push({
         kind: 'square-bracket-unmatched',
         severity: 'high',
         pageIdx: para.pageIdx,
         pageLabel: para.pageLabel,
-        paragraphIndex: para.paragraphIndex,
+        paragraphIndex: para.logicalParagraphIndex,
+        fragmentIndex: para.fragmentIndex,
+        tokenId: para.tokenId,
         offset,
         bracket: ']',
-        message: `סוגר מרובע סוגר ללא פתיחה תואמת בעמוד ${para.pageLabel}, פסקה ${para.paragraphIndex + 1}`
+        message: `סוגר מרובע סוגר ללא פתיחה תואמת בעמוד ${para.pageLabel}, פסקה מקורית ${para.logicalParagraphIndex + 1}`
     });
 
     for (const para of paragraphs) {
@@ -1410,7 +1430,7 @@ function auditSquareBracketScopes(issues) {
                 continue;
             }
             const open = stack.pop();
-            const crossedParagraph = open.para.paragraphIndex !== para.paragraphIndex;
+            const crossedParagraph = open.para.logicalParagraphId !== para.logicalParagraphId;
             const crossedColumn = open.para.column !== para.column;
             const crossedPage = open.para.pageIdx !== para.pageIdx;
             if (!crossedParagraph && !crossedColumn && !crossedPage) continue;
@@ -1422,13 +1442,18 @@ function auditSquareBracketScopes(issues) {
             if (crossedPage) { boundaries.push('page'); boundaryLabels.push('עמודים'); }
             const severity = crossedPage || crossedColumn ? 'medium' : 'low';
             let spanRawChars = 0;
-            for (let pi = open.para.paragraphIndex; pi <= para.paragraphIndex; pi++) {
-                const current = paragraphs[pi];
+            for (let fi = open.para.fragmentIndex; fi <= para.fragmentIndex; fi++) {
+                const current = paragraphs[fi];
                 if (!current) continue;
-                const from = pi === open.para.paragraphIndex ? open.offset : 0;
-                const to = pi === para.paragraphIndex ? offset + 1 : current.rawText.length;
+                const from = fi === open.para.fragmentIndex ? open.offset : 0;
+                const to = fi === para.fragmentIndex ? offset + 1 : current.rawText.length;
                 spanRawChars += Math.max(0, to - from);
-                if (pi < para.paragraphIndex) spanRawChars += 1; // מפריד פסקאות משוער
+                // Count a separator only when moving between different source paragraphs,
+                // not when the renderer split one source paragraph into multiple fragments.
+                if (fi < para.fragmentIndex &&
+                    current.logicalParagraphId !== paragraphs[fi + 1]?.logicalParagraphId) {
+                    spanRawChars += 1;
+                }
             }
             issues.push({
                 kind: 'square-bracket-scope',
@@ -1437,10 +1462,14 @@ function auditSquareBracketScopes(issues) {
                 pageIdx: para.pageIdx,
                 startPageLabel: open.para.pageLabel,
                 pageLabel: para.pageLabel,
-                startParagraphIndex: open.para.paragraphIndex,
-                endParagraphIndex: para.paragraphIndex,
-                startTokenId: open.para.el.getAttribute('data-token-id') || null,
-                endTokenId: para.el.getAttribute('data-token-id') || null,
+                startParagraphIndex: open.para.logicalParagraphIndex,
+                endParagraphIndex: para.logicalParagraphIndex,
+                startFragmentIndex: open.para.fragmentIndex,
+                endFragmentIndex: para.fragmentIndex,
+                startTokenId: open.para.tokenId,
+                endTokenId: para.tokenId,
+                startIsContinuation: open.para.isContinuation,
+                endIsContinuation: para.isContinuation,
                 startColumn: open.para.column,
                 endColumn: para.column,
                 startOffset: open.offset,
@@ -1452,7 +1481,7 @@ function auditSquareBracketScopes(issues) {
                 spanRawChars,
                 startPreview: open.para.rawText.slice(Math.max(0, open.offset - 55), Math.min(open.para.rawText.length, open.offset + 125)),
                 endPreview: para.rawText.slice(Math.max(0, offset - 90), Math.min(para.rawText.length, offset + 60)),
-                message: `טווח סוגריים מרובעים/הערת שוליים חוצה ${boundaryLabels.join(', ')}: עמוד ${open.para.pageLabel} → ${para.pageLabel}; פסקאות ${open.para.paragraphIndex + 1}–${para.paragraphIndex + 1}`
+                message: `טווח סוגריים מרובעים/הערת שוליים חוצה ${boundaryLabels.join(', ')}: עמוד ${open.para.pageLabel} → ${para.pageLabel}; ${crossedParagraph ? `פסקאות מקור ${open.para.logicalParagraphIndex + 1}–${para.logicalParagraphIndex + 1}` : 'אותה פסקת מקור'}`
             });
         }
     }
@@ -1462,10 +1491,12 @@ function auditSquareBracketScopes(issues) {
             severity: 'high',
             pageIdx: open.para.pageIdx,
             pageLabel: open.para.pageLabel,
-            paragraphIndex: open.para.paragraphIndex,
+            paragraphIndex: open.para.logicalParagraphIndex,
+            fragmentIndex: open.para.fragmentIndex,
+            tokenId: open.para.tokenId,
             offset: open.offset,
             bracket: '[',
-            message: `סוגר מרובע פותח ללא סגירה תואמת בעמוד ${open.para.pageLabel}, פסקה ${open.para.paragraphIndex + 1}`
+            message: `סוגר מרובע פותח ללא סגירה תואמת בעמוד ${open.para.pageLabel}, פסקה מקורית ${open.para.logicalParagraphIndex + 1}`
         });
     }
 }
