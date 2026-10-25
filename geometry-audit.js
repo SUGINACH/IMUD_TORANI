@@ -256,6 +256,22 @@ function buildNode(el, parent, pageOffset) {
             balanceCalled: el.getAttribute('data-layout-balance-called'),
             balanceStatus: el.getAttribute('data-layout-balance-status'),
             balanceSkipReason: el.getAttribute('data-layout-balance-skip-reason'),
+            balanceRouting: el.getAttribute('data-layout-balance-routing'),
+            lightJustifyResidualDiff: (() => {
+                const value = el.getAttribute('data-layout-balance-light-residual-diff');
+                const number = value === null ? NaN : Number(value);
+                return Number.isFinite(number) ? number : null;
+            })(),
+            finalJustifyOvershootAfterShrink: (() => {
+                const value = el.getAttribute('data-layout-final-justify-overshoot-after-shrink');
+                const number = value === null || value === 'none' ? NaN : Number(value);
+                return Number.isFinite(number) ? number : null;
+            })(),
+            finalJustifyCapacityAfter: (() => {
+                const raw = el.getAttribute('data-layout-final-justify-capacity-after');
+                if (!raw) return null;
+                try { return JSON.parse(raw); } catch { return { parseError: true }; }
+            })(),
             balanceInputHeight: el.getAttribute('data-layout-balance-input-height'),
             balanceAvailable: el.getAttribute('data-layout-balance-available'),
             balanceCandidates: el.getAttribute('data-layout-balance-candidates'),
@@ -635,20 +651,25 @@ function auditColumnBalance(node, issues) {
                 const decision = metrics.decisionRecord || {};
                 const selection = decision.selection || {};
                 const finalJustify = decision.finalJustify || {};
-                const capacityAfter = finalJustify.capacityAfter || {};
+                const routing = metrics.balanceRouting || selection.routing;
+                const residualDiff = Number.isFinite(metrics.lightJustifyResidualDiff)
+                    ? metrics.lightJustifyResidualDiff : selection.lightJustify?.residualDiff;
+                const overshootAfterShrink = Number.isFinite(metrics.finalJustifyOvershootAfterShrink)
+                    ? metrics.finalJustifyOvershootAfterShrink : finalJustify.overshootAfterShrink;
+                const capacityAfter = metrics.finalJustifyCapacityAfter || finalJustify.capacityAfter || {};
                 const shorterSide = right.rect.h <= left.rect.h ? 'right' : 'left';
                 const shorterCapacity = capacityAfter[shorterSide];
                 let balanceOutcome = 'unclassified-residual';
                 let acceptedResidualLimitPx = null;
-                if (selection.routing === 'light-justify' &&
-                    Number.isFinite(selection.lightJustify?.residualDiff) &&
-                    Math.abs(selection.lightJustify.residualDiff) <= 8) {
+                if (routing === 'light-justify' &&
+                    Number.isFinite(residualDiff) &&
+                    Math.abs(residualDiff) <= 8) {
                     // Preserve the finding, but make the existing policy exception explicit.
                     balanceOutcome = 'policy-accepted-light-justify-residual';
                     acceptedResidualLimitPx = 8;
-                } else if (selection.routing === 'balanceColumns' &&
-                    Number.isFinite(finalJustify.overshootAfterShrink) &&
-                    finalJustify.overshootAfterShrink < -0.5 &&
+                } else if (routing === 'balanceColumns' &&
+                    Number.isFinite(overshootAfterShrink) &&
+                    overshootAfterShrink < -0.5 &&
                     shorterCapacity &&
                     Number.isFinite(shorterCapacity.totalCapacity) &&
                     shorterCapacity.totalCapacity <= 0.5) {
