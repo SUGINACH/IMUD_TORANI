@@ -780,3 +780,8 @@ The 8 short-block residuals were checked against every candidate in their determ
 ### Active geometry gate scope (2026-10-26)
 
 The focused active-decoration fixtures now fail not only on containment, rounding, and overlap, but also on explicit overflow issue classes emitted by the audit: side-note, footnote, page-number, page-level, and footnote-line overflow. This is a stricter regression gate, not proof that every visual clipping mode is detected: SVG painted-glyph bounds, transparent SVG padding, and clipping caused by ancestor `overflow:hidden` still require dedicated checks.
+
+
+### Running-header SVG geometry audit (2026-10-26)
+
+The active fixture now records the geometry of each selected external header SVG/image, including wrapper and graphic rectangles, side (right/center/left), SVG `viewBox` parse status, and CSS ancestor overflow clipping. The active gate requires all selected external header positions to render a graphic and rejects missing graphics, malformed explicit viewBoxes, and measured clipping by ancestors. On the active SVG fixture, all three positions rendered `viewBox=[0,0,914,391]`; there were no missing graphics, malformed viewBoxes, or detected clipping ancestors. This is DOM/viewport evidence only; painted path bounds inside the SVG, transparent padding, masks/clip-path, and untested ornament families remain outside this audit.
