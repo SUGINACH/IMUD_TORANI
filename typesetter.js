@@ -938,6 +938,117 @@ const BALANCE_FINAL_JUSTIFY_MAX = 100; // תקרת ההפרש (px) שמיושר 
      על חשבון כיווץ עדין של השורות. */
 const ORPHAN_RECLAIM_BUFFER = 12;
 
+/* [חדש — שלב 1: רווח מילים דינמי]
+   מודד את רוחב הרווח הרגיל (baseline) ומשנה word-spacing בכל הפסקאות בטור.
+   - factor: 1.0 = רגיל, 1.1 = 110% (הרחבה), 0.9 = 90% (כיווץ)
+   - מודד את רוחב הרווח על-ידי יצירת span זמני עם רווח יחיד
+   - מחזיר את השינוי בגובה הטור (חיובי = גדל, שלילי = קטן) */
+const WORD_SPACING_BASELINE_CACHE = new Map();
+function measureWordSpacingBaseline(fontFamily, fontSize, lineHeight) {
+    const key = fontFamily + '|' + fontSize + '|' + lineHeight;
+    if (WORD_SPACING_BASELINE_CACHE.has(key)) return WORD_SPACING_BASELINE_CACHE.get(key);
+    const span = document.createElement('span');
+    span.style.fontFamily = fontFamily;
+    span.style.fontSize = fontSize;
+    span.style.lineHeight = lineHeight;
+    span.style.visibility = 'hidden';
+    span.style.position = 'absolute';
+    span.textContent = 'א ב';
+    document.body.appendChild(span);
+    const w1 = span.getBoundingClientRect().width;
+    span.textContent = 'א';
+    const w2 = span.getBoundingClientRect().width;
+    document.body.removeChild(span);
+    const spaceWidth = w1 - w2;
+    WORD_SPACING_BASELINE_CACHE.set(key, spaceWidth);
+    return spaceWidth;
+}
+
+/* [חדש] מחשב word-spacing ב-pixel לפי factor (1.0 = רגיל) */
+function wordSpacingFromFactor(factor, fontFamily, fontSize, lineHeight) {
+    if (Math.abs(factor - 1.0) < 0.001) return '';
+    const baseline = measureWordSpacingBaseline(fontFamily, fontSize, lineHeight);
+    if (baseline <= 0) return '';
+    const extra = (factor - 1.0) * baseline;
+    return extra.toFixed(2) + 'px';
+}
+
+/* [חדש] מחיל word-spacing על כל הפסקאות בטור.
+   - col: אלמנט הטור
+   - factor: יחס רווח מילים (1.0 = רגיל, 0.92-1.15 = טווח נורמלי)
+   - מחזיר את השינוי בגובה הטור (px) */
+function applyWordSpacing(col, factor) {
+    const kids = Array.from(col.children).filter(k => k.tagName === 'P');
+    if (kids.length === 0) return 0;
+
+    const styleObj = {
+        fontFamily: getComputedStyle(col).fontFamily,
+        fontSize: getComputedStyle(col).fontSize,
+        lineHeight: getComputedStyle(col).lineHeight,
+    };
+    const ws = wordSpacingFromFactor(factor, styleObj.fontFamily, styleObj.fontSize, styleObj.lineHeight);
+
+    const before = col.scrollHeight;
+    kids.forEach(k => {
+        k.style.wordSpacing = ws;
+    });
+    const after = col.scrollHeight;
+    return after - before;
+}
+
+/* [חדש] מכווץ טור על-ידי כיווץ רווח מילים (word-spacing).
+   - מחזיר את כמות הפיקסלים שכווצה בפועל
+   - מנסה כיווץ הדרגתי: 0.98 → 0.95 → 0.92 → 0.90 */
+function compressByWordSpacing(col, neededPx) {
+    if (!(neededPx > 0)) return 0;
+    const factors = [0.98, 0.95, 0.92, 0.90];
+    let totalFreed = 0;
+    const before = col.scrollHeight;
+    for (const f of factors) {
+        applyWordSpacing(col, f);
+        const after = col.scrollHeight;
+        const freed = before - after;
+        totalFreed = freed;
+        if (freed >= neededPx) break;
+    }
+    return totalFreed;
+}
+
+/* [חדש] מרחיב טור על-ידי הרחבת רווח מילים (word-spacing).
+   - מחזיר את כמות הפיקסלים שנוספה בפועל
+   - מנסה הרחבה הדרגתית: 1.02 → 1.05 (תקרה נמוכה — מונע גלישה) */
+function stretchByWordSpacing(col, neededPx) {
+    if (!(neededPx > 0)) return 0;
+    const factors = [1.02, 1.05];
+    let totalAdded = 0;
+    const before = col.scrollHeight;
+    for (const f of factors) {
+        applyWordSpacing(col, f);
+        const after = col.scrollHeight;
+        totalAdded = after - before;
+        if (totalAdded >= neededPx) break;
+    }
+    return totalAdded;
+}
+
+/* [חדש] מחשב קיבולת כיווץ של טור על-ידי רווח מילים (כמה px אפשר לכווץ) */
+function wordSpacingCompressCapacity(col) {
+    const before = col.scrollHeight;
+    applyWordSpacing(col, 0.90);
+    const after = col.scrollHeight;
+    applyWordSpacing(col, 1.0); // החזר לרגיל
+    return before - after;
+}
+
+/* [חדש] מחשב קיבולת הרחבה של טור על-ידי רווח מילים (כמה px אפשר להרחיב) */
+function wordSpacingStretchCapacity(col) {
+    const before = col.scrollHeight;
+    applyWordSpacing(col, 1.05);
+    const after = col.scrollHeight;
+    applyWordSpacing(col, 1.0); // החזר לרגיל
+    return after - before;
+}
+
 /* ==========================================================================
    יישור אנכי עדין של טור: מותח את הטור ל-targetHeight כך שתחתיות הטורים נוחתות על אותו קו.
    - הרווח מתווסף כ-padding-bottom ולא כ-margin-bottom: שוליים סמוכים "קורסים" זה לתוך זה,
@@ -1008,6 +1119,12 @@ function compressColumnBy(col, neededPx, allowBelowBase = 0) {
     if (!(neededPx > 0)) return 0;
     const kids = Array.from(col.children);
     let freed = 0;
+
+    // 0. [חדש — שלב 1] כיווץ רווח מילים (הכלי השקוף ביותר)
+    if (freed < neededPx) {
+        const wsFreed = compressByWordSpacing(col, neededPx - freed);
+        freed += wsFreed;
+    }
 
     // 1. הקטנת paddingBottom על כל פסקה (עד 0)
     for (const k of kids) {
@@ -1241,11 +1358,19 @@ function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) 
     return true;
 }
 
-function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, lhCap = null) {
+function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, lhCap = null, useWordSpacing = true) {
     let diff = targetHeight - col.scrollHeight;
     if (!(diff > 0.5 && diff <= maxStretch)) return col.scrollHeight;
 
     const kids = Array.from(col.children);
+
+    // 0. [חדש — שלב 1] רווח מילים דינמי — הכלי השקוף ביותר
+    //    רק כש-useWordSpacing=true (לא ב-stretchLastBlockToBottom שיכול לגרום לגלישה)
+    if (useWordSpacing && diff > 0.5) {
+        stretchByWordSpacing(col, diff);
+        diff = targetHeight - col.scrollHeight;
+        if (!(diff > 0.5)) return col.scrollHeight;
+    }
 
     // 1. רווחים בין פסקאות (עד התקרה הכוללת לכל רווח)
     const gapKids = kids.filter((k, i) => k.tagName === 'P' && i < kids.length - 1);
@@ -1304,6 +1429,13 @@ function shrinkColumnVertically(col, targetHeight, styleObj, maxShrink = 60) {
     if (!(diff > 0.5 && diff <= maxShrink)) return col.scrollHeight;
 
     const kids = Array.from(col.children);
+
+    // 0. [חדש — שלב 1] כיווץ רווח מילים (הכלי השקוף ביותר)
+    if (diff > 0.5) {
+        compressByWordSpacing(col, diff);
+        diff = col.scrollHeight - targetHeight;
+        if (!(diff > 0.5)) return col.scrollHeight;
+    }
 
     // 1. הסר paddingBottom שנוסף על-ידי מתיחה (עד 0)
     const gapKids = kids.filter((k, i) => k.tagName === 'P' && i < kids.length - 1);
@@ -1366,8 +1498,8 @@ function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
         const reach = Math.min(rH + columnStretchCapacity(rCol), lH + columnStretchCapacity(lCol));
         const target = Math.min(top + freeSpace, reach);
         if (target - top < 0.5) return false;
-        justifyColumnVertically(rCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA);
-        justifyColumnVertically(lCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA);
+        justifyColumnVertically(rCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA, false);
+        justifyColumnVertically(lCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA, false);
         repositionBlockNotes(last, Math.max(rCol.scrollHeight, lCol.scrollHeight));
         return true;
     }
@@ -1377,7 +1509,7 @@ function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
         const h = col.scrollHeight;
         const target = Math.min(h + freeSpace, h + columnStretchCapacity(col));
         if (target - h < 0.5) return false;
-        justifyColumnVertically(col, target, styleObj, maxStretch + 1, JUSTIFY_MAX_LH_EXTRA);
+        justifyColumnVertically(col, target, styleObj, maxStretch + 1, JUSTIFY_MAX_LH_EXTRA, false);
         repositionBlockNotes(last, col.scrollHeight);   // הערות צד של ההקדמה נשארות מול הפסקאות שלהן אחרי המתיחה
         return true;
     }
