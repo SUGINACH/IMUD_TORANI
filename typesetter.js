@@ -4832,14 +4832,6 @@ function typesetDocumentCore() {
 
     // [חדש] קווי ההפרדה בין הטורים מותאמים לקצוות הטקסט בפועל (אחרי שכל הבלוקים סופיים)
     fitColumnDividers(container);
-    // Controlled counterfactual: test local parenthesis font metrics without persisting any mutation.
-    try {
-        const parenFontCounterfactualSummary = captureParenFontCounterfactualDiagnostics(container);
-        container.setAttribute('data-layout-paren-font-counterfactual-summary', JSON.stringify(parenFontCounterfactualSummary));
-    } catch (error) {
-        container.setAttribute('data-layout-paren-font-counterfactual-error', String(error?.message || error));
-    }
-
     // [תיקון] מספרי העמודים בתוכן העניינים נגזרים מהמיקום הסופי בפועל ב-DOM (ולא מהרישום תוך כדי מילוי),
     // כי כותרת שהוחזרה לעמוד הבא יחד עם הפסקה שאחריה השאירה ברישום את העמוד הישן.
     rebuildHeadingPageMapFromDOM(container, headingPageMap);
@@ -5332,6 +5324,17 @@ function typesetDocumentCore() {
         };
         blk.setAttribute('data-layout-decision-record', JSON.stringify(decisionRecord));
     });
+
+    // Run the local-parenthesis font counterfactual only after cross-paragraph styling,
+    // scope classification, every balancing pass, and canonical final geometry capture.
+    // It temporarily changes font metrics on .paren-text spans and must restore the exact
+    // inline styles and geometry; it must not participate in layout decisions.
+    try {
+        const parenFontCounterfactualSummary = captureParenFontCounterfactualDiagnostics(container);
+        container.setAttribute('data-layout-paren-font-counterfactual-summary', JSON.stringify(parenFontCounterfactualSummary));
+    } catch (error) {
+        container.setAttribute('data-layout-paren-font-counterfactual-error', String(error?.message || error));
+    }
 }
 
 /* [חדש] טיפול בסוגריים שחוצות פסקאות.
