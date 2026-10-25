@@ -3824,3 +3824,152 @@ Stage Summary:
 - 0 בעיות overflow ✅
 - 7 פרקים עם containment (כולם ארוכים)
 - מסמך problem_chapters.txt נוצר
+
+---
+Task ID: enhanced-chapter-test-with-footnotes-parens
+Agent: main (GLM)
+Date: 2026-10-26
+Task: הרצת הטקסט המעודכן (עם הערות שוליים + סוגריים) בחלקים + עדכון problem/no_problem_chapters.txt + תשובה על שאלת "הכלה דלילה של עמוד"
+
+Work Log:
+
+### 1. פתרון קונפליקטי merge ב-app.js ו-renderer-bridge.js
+- נמצאו 4 קונפליקטים ב-app.js ו-1 ב-renderer-bridge.js מ-stash pop שלא הושלם
+- הצד "Updated upstream" כלל את קוד הגיאומטריה (requestGeomAudit, clearGeomOverlay, כפתורי overlay)
+- הצד "Stashed changes" היה ריק או מיושן (ללא תיקון file:// origin)
+- פתרנו על-ידי שמירת הצד "Updated upstream" בלבד
+- סקריפט: /home/z/my-project/scripts/resolve-merge-conflicts.py
+
+### 2. בדיקת 79 פרקים בחלקים
+- סקריפט: /home/z/my-project/scripts/test-chapters-enhanced.js
+- בדיקה מורחבת: איזון, overflow, containment, sparse-line, widow/orphan, הערות שוליים (fn-block, fn-area, side-note), סוגריים (paren-text, cross-paragraph-paren)
+- ריענון browser כל 5 פרקים כדי למנוע הצטברות זיכרון
+- הרצה ב-15 batches של 5 פרקים כל אחד
+
+### 3. תוצאות כלליות
+- 79 פרקים נבדקו
+- 1,193 עמודים נוצרו
+- 4,517 paren-spans נמצאו
+- 0 fn-blocks (⚠️ בעיה! ראה למטה)
+- 0 paren-overflow, 0 paren-cross-paragraph
+- 0 side-note-overflow
+
+סה"כ בעיות: 370 (H:106 M:124 L:140)
+לפי סוג:
+- containment: 275
+- imbalance: 63 (⚠️ עליה מ-0 בבדיקה הקודמת)
+- sparse-line: 30
+- containment-rounding: 2
+
+### 4. פרקים בעייתיים (47 מתוך 79)
+הפרקים עם הכי הרבה בעיות high-severity:
+- Ch 28: 9H (containment:23, imbalance:5) — בגדרי רשויות
+- Ch 8: 6H (containment:17, imbalance:6) — עקירה והנחה
+- Ch 30: 6H (containment:14, imbalance:5) — פרצה ומחיצה
+- Ch 41: 5H (imbalance:4, containment:12) — יוצא חוץ לתחום
+- Ch 55: 5H (containment:9, imbalance:2) — ביטול רשות
+- Ch 4: 4H (containment:21, imbalance:3) — רשויות
+
+פרקים תקינים: 32
+
+### 5. ⚠️ בעיית חוסר הערות שוליים
+- הגדרות נכונות: fn-delim-open='[', fn-delim-close=']'
+- הטקסט מכיל `[...]` רבים (כולל 4,517 סוגריים עגולים)
+- אבל 0 fn-blocks נוצרו בכל 79 הפרקים
+- הסוגריים `[` ו-`]` נעלמים מהפלט המרונדר (0 תווי `[` בכל ה-body)
+- מסקנה: ה-typesetter מזהה את הסוגריים `[...]` אך לא מרנדר אותם כ-footnotes
+- דרושה חקירה נוספת — ייתכן שהבעיה קשורה ל-commit 06f6aeb (שלב 2/3)
+
+### 6. ⚠️ עליה בבעיות איזון טורים
+- בדיקה קודמת (commit a70ca3b): 0 בעיות איזון
+- בדיקה נוכחית: 63 בעיות איזון
+- ייתכן ששלב 2/3 (רווח פסקאות + רווח שורות דינמי) הכניס רגרסיה
+- דרושה חקירה נוספת
+
+### 7. תשובה על שאלת "הכלה דלילה של עמוד"
+
+**התשובה: לא — הבדיקה הגיאומטרית לא בודקת הכלה דלילה של עמוד (page underfill).**
+
+הבדיקות הקיימות ב-geometry-audit.js:
+1. `auditContainment` — בודק רק גלישה החוצה (overflow של child מ-parent)
+2. `auditSiblingOverlap` — בודק חפיפות בין אחים
+3. `auditColumnBalance` — בודק הפרשי גובה בין טורים (>5px)
+4. `auditWidowOrphan` — בודק שורות אלמנה/יתום
+5. `auditSparseLastLine` — בודק שורה אחרונה דלילה ב-p-cut (לא עמוד!)
+6. `auditOverflowToFootnote` — בודק גלישת body-flow לאזור הערות
+7. `auditFnContainment` — בודק הכלה של fn-block ב-fn-area
+8. `auditPageOverflow` — בודק גלישה מתחתית העמוד
+9. `auditOrnaments` — בודק עיטורים
+
+**מה שחסר**: בדיקת "fill ratio" של עמוד — כמה משטח ה-body-flow מנוצל. אין בדיקה ש:
+- מזהה עמודים עם רווח רב מדי בתחתית (למעט סוף פרק)
+- מזהה עמודים שאינם מנוצלים במלואם
+- משווה ניצולת בין עמודים
+- מחשב יחס תוכן/שטח
+
+**המלצה**: להוסיף פונקציה חדשה `auditPageFillRatio` ש:
+- מחשבת אחוז מילוי של כל עמוד (body-flow height / page text area height)
+- מתעלמת מעמודי סוף פרק (אחרון בפרק)
+- מתעלמת מעמודי תחילת פרק (ראשון בפרק, שיכול להכיל רק כותרת)
+- מדווחת על עמודים עם יחס נמוך מ-X% (למשל 70%)
+
+### Files Created/Modified:
+- /home/z/my-project/scripts/test-chapters-enhanced.js — סקריפט בדיקה מורחב
+- /home/z/my-project/scripts/resolve-merge-conflicts.py — פתרון קונפליקטים
+- /home/z/my-project/scripts/summarize-chapter-results.py — סיכום תוצאות
+- /home/z/my-project/scripts/chapter-results/*.json — תוצאות לכל batch
+- /home/z/my-project/scripts/chapter-results/all-chapters-summary.json — דוח מסכם
+- /home/z/my-project/IMUD_TORANI/problem_chapters.txt — עודכן (47 פרקים בעייתיים)
+- /home/z/my-project/IMUD_TORANI/no_problem_chapters.txt — עודכן (32 פרקים תקינים)
+- /home/z/my-project/IMUD_TORANI/app.js — פתרון קונפליקט merge
+- /home/z/my-project/IMUD_TORANI/renderer-bridge.js — פתרון קונפליקט merge
+- /home/z/my-project/IMUD_TORANI/worklog.md — פתרון קונפליקט merge
+
+Stage Summary:
+- 79 פרקים נבדקו בהצלחה
+- 47 פרקים בעייתיים, 32 תקינים
+- 370 בעיות סה"כ (H:106 M:124 L:140)
+- ⚠️ באג חמור: 0 fn-blocks נוצרו (הערות שוליים לא מרונדרות)
+- ⚠️ רגרסיה: 63 בעיות איזון (לעומת 0 בבדיקה הקודמת)
+- תשובה על שאלת "הכלה דלילה": הבדיקה לא בודקת page underfill כלל
+
+---
+Task ID: footnote-test-fix-and-investigation
+Agent: main (GLM)
+Date: 2026-10-26 (cont.)
+Task: חקירת "באג הערות שוליים" — התברר כ-bug בסקריפט הבדיקה, לא במנוע
+
+Work Log:
+המשכתי לחקור את הטענה ש-0 fn-blocks נוצרו. מצאתי שהבעיה הייתה בסקריפט הבדיקה, לא במנוע העימוד.
+
+### ממצאים:
+
+1. **הערות שוליים עובדות בפועל!** בדקתי ידנית עם טקסט בדיקה פשוט ועם פרק 3 מתוך very_long_test_text.txt:
+   - פרק 3: 22 עמודים, 5 עמודים עם fnArea, 6 note-lines, 6 fn-markers
+   - כל הסוגריים המרובעות [ ... ] הומרו להערות שוליים
+   - הטקסט המלא של כל הערה נכון
+
+2. **הבאג בסקריפט הבדיקה**: חיפשתי `.fn-block` (סלקטור שגוי), אבל האלמנטים בפועל הם `.note-block` ו-`.note-line`.
+
+3. **תוקן**: סקריפט test-chapters-enhanced.js — שינוי הסלקטורים ל-`.note-block` ו-`.note-line`.
+
+### בדיקת רגרסיית איזון טורים:
+בדקתי את פרק 4 (רשויות) ומצאתי:
+- 3 בעיות איזון אמיתיות: page 19 (15px), page 22 (54px!), page 33 (17px)
+- הרגרסיה אמיתית — לא false positive
+- סביר ששלב 2/3 (רווח פסקאות + רווח שורות דינמי) הכניס את הבעיה
+
+### containment:
+- רוב ה-containment הם 1.8-6.2px (גלישה טבעית מ-stretchPageToBottom)
+- מסווגים כ-low severity — לא בעיה אמיתית
+- ה-high severity containment נובעים מחריגות גדולות יותר — דורש בדיקה
+
+### סיכום ביניים:
+- ✅ הערות שוליים עובדות תקין
+- ⚠️ יש רגרסיה באיזון טורים — דורש חקירה נוספת
+- ✅ סקריפט הבדיקה תוקן
+
+Stage Summary:
+- הערות שוליים אינן באג — הסקריפט היה שגוי
+- יש רגרסיה אמיתית באיזון טורים שדורשת תיקון
+- הסקריפט תוקן לספירה נכונה של הערות שוליים
