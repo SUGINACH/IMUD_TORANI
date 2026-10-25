@@ -3973,3 +3973,40 @@ Stage Summary:
 - הערות שוליים אינן באג — הסקריפט היה שגוי
 - יש רגרסיה אמיתית באיזון טורים שדורשת תיקון
 - הסקריפט תוקן לספירה נכונה של הערות שוליים
+
+---
+Task ID: column-balance-regression-fix
+Agent: main (GLM)
+Date: 2026-10-26 (cont.)
+Task: תיקון רגרסיה קריטית באיזון טורים שהוכנסה בשלב 1 (word-spacing דינמי)
+
+Work Log:
+מצאתי את הסיבה לרגרסיה באיזון טורים (63 בעיות חדשות, מ-0 לפני שלב 1).
+
+### שורש הבעיה:
+הפונקציה `stretchByWordSpacing(col, neededPx)` הייתה מותחת את הטור **הרבה מעבר ליעד** וגורמת לאי-איזון חמור.
+
+דוגמה ממשית מהלוגים:
+- target=879, before=876 (diff=3px)
+- after=919 (21px התווספו, **40px OVERSHOOT!**)
+
+סיבה: הפונקציה הייתה מחילה word-spacing factor על כל הפסקאות, מה שמוסיף הרבה יותר גובה ממה שצריך. היא בדקה רק "האם הגענו ל-neededPx?", אבל לא "האם עברנו את היעד?".
+
+### התיקון:
+ב-`stretchByWordSpacing` ו-`compressByWordSpacing`:
+- שמירת `lastGoodFactor` ו-`lastGoodHeight` לפני כל ניסיון
+- אחרי כל פקטור, בדיקה: האם עברנו את היעד ב-+2px או יותר?
+- אם כן — חזרה ל-`lastGoodFactor` (הפקטור הקודם הבטוח)
+
+### אימות:
+- לפני התיקון: פרק 4 היה עם 3 בעיות איזון (15px, 54px, 17px) ו-4 high-severity
+- אחרי התיקון: פרק 4 עם **0 בעיות איזון**, 0 high-severity, 8 low-severity containment (כולן 1-6px טבעיות)
+
+### קבצים ששונו:
+- `typesetter.js`: `stretchByWordSpacing` ו-`compressByWordSpacing` עם לוגיקת revert
+
+Stage Summary:
+- ✅ רגרסיית איזון הטורים תוקנה
+- ✅ אומת: פרק 4 — 0 בעיות איזון (לפני: 3)
+- ✅ אומת: 0 high-severity בפרק 4 (לפני: 4)
+- ⏳ דרושה בדיקה מלאה של 79 הפרקים

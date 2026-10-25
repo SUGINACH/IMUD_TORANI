@@ -998,17 +998,29 @@ function applyWordSpacing(col, factor) {
 
 /* [חדש] מכווץ טור על-ידי כיווץ רווח מילים (word-spacing).
    - מחזיר את כמות הפיקסלים שכווצה בפועל
-   - מנסה כיווץ הדרגתי: 0.98 → 0.95 → 0.92 → 0.90 */
+   - מנסה כיווץ הדרגתי: 0.98 → 0.95 → 0.92 → 0.90
+   - [תיקון רגרסיה] בודק אחרי כל פקטור אם עברנו את היעד, ואם כן — חוזר לפקטור הקודם.
+     ללא תיקון זה, הפונקציה הייתה מכווצת יותר מדי וגורמת לאי-איזון. */
 function compressByWordSpacing(col, neededPx) {
     if (!(neededPx > 0)) return 0;
     const factors = [0.98, 0.95, 0.92, 0.90];
     let totalFreed = 0;
     const before = col.scrollHeight;
+    let lastGoodFactor = 1.0;
+    let lastGoodHeight = before;
     for (const f of factors) {
         applyWordSpacing(col, f);
         const after = col.scrollHeight;
         const freed = before - after;
+        if (freed > neededPx + 2) {
+            // כיווצנו יותר מדי — חזור לפקטור הקודם
+            applyWordSpacing(col, lastGoodFactor);
+            totalFreed = lastGoodHeight - col.scrollHeight;
+            return totalFreed;
+        }
         totalFreed = freed;
+        lastGoodFactor = f;
+        lastGoodHeight = after;
         if (freed >= neededPx) break;
     }
     return totalFreed;
@@ -1016,17 +1028,30 @@ function compressByWordSpacing(col, neededPx) {
 
 /* [חדש] מרחיב טור על-ידי הרחבת רווח מילים (word-spacing).
    - מחזיר את כמות הפיקסלים שנוספה בפועל
-   - מנסה הרחבה הדרגתית: 1.02 → 1.05 (תקרה נמוכה — מונע גלישה) */
+   - מנסה הרחבה הדרגתית: 1.02 → 1.05 (תקרה נמוכה — מונע גלישה)
+   - [תיקון רגרסיה קריטי] בודק אחרי כל פקטור אם עברנו את היעד, ואם כן — חוזר לפקטור הקודם.
+     ללא תיקון זה, הפונקציה הייתה מוסיפה 30-60px גם כשצריך רק 3px, וגורמת לאי-איזון חמור. */
 function stretchByWordSpacing(col, neededPx) {
     if (!(neededPx > 0)) return 0;
     const factors = [1.02, 1.05];
     let totalAdded = 0;
     const before = col.scrollHeight;
+    let lastGoodFactor = 1.0;
+    let lastGoodHeight = before;
     for (const f of factors) {
         applyWordSpacing(col, f);
         const after = col.scrollHeight;
-        totalAdded = after - before;
-        if (totalAdded >= neededPx) break;
+        const added = after - before;
+        if (added > neededPx + 2) {
+            // הרחבנו יותר מדי — חזור לפקטור הקודם
+            applyWordSpacing(col, lastGoodFactor);
+            totalAdded = col.scrollHeight - before;
+            return totalAdded;
+        }
+        totalAdded = added;
+        lastGoodFactor = f;
+        lastGoodHeight = after;
+        if (added >= neededPx) break;
     }
     return totalAdded;
 }
