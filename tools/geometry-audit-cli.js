@@ -714,6 +714,8 @@ async function main() {
             runtime:{pageErrors,consoleErrors}
         };
         if (args.fullModel) report.geometry.model = data.model;
+        // Persist the diagnostic gate in the JSON artifact as well as enforcing it in the exit code.
+        decisionDiagnosticFailures(report);
         ensureParent(reportPath); fs.writeFileSync(reportPath,JSON.stringify(report,null,2),'utf8');
         ensureParent(summaryPath); fs.writeFileSync(summaryPath,markdown(report),'utf8');
         process.stdout.write('Geometry audit complete\nPages: ' + report.pageCount + '\nIssues: ' +
@@ -725,6 +727,11 @@ async function main() {
           .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
           .map(([kind, count]) => kind + '=' + count).join(', ') + '\n');
         const la = report.geometry.layoutDecisionRecordAudit || {};
+        const dda = report.geometry.layoutDecisionDiagnosticAudit || {};
+        process.stdout.write('Decision diagnostics: evaluated ' + (dda.evaluatedCount ?? 'n/a') +
+          '; candidate tables ' + (dda.candidateTableCount ?? 'n/a') +
+          '; capacity snapshots ' + (dda.capacitySnapshotCount ?? 'n/a') +
+          '; ' + (dda.passed === true ? 'PASS' : 'FAIL') + '\\n');
         process.stdout.write('Decision ledger: ' + (la.recordCount ?? 'n/a') + ' records / ' +
           (la.domBlockCount ?? 'n/a') + ' DOM blocks; parity ' +
           (la.recordCountMatchesDom === true ? 'PASS' : la.recordCountMatchesDom === false ? 'FAIL' : 'unknown') +
