@@ -97,7 +97,13 @@ function instrumentationIntegrityFailures(report) {
                 ((scope?.[side]?.openCount || 0) + (scope?.[side]?.closeCount || 0)) > 0);
             const crossesBoundary = (scope?.crossColumnScopeCountIntersectingBlock || 0) > 0 ||
                 (scope?.crossPageScopeCountIntersectingBlock || 0) > 0;
-            return Number.isFinite(diff) && Math.abs(diff) > 4 &&
+            // Exclude one-sided blocks: they are not a meaningful two-column
+            // balance case even if their wrapper happens to be .block-2col.
+            const rightHeight = record.rightHeight;
+            const leftHeight = record.leftHeight;
+            const bothColumnsHaveContent = Number.isFinite(rightHeight) && rightHeight > 0 &&
+                Number.isFinite(leftHeight) && leftHeight > 0;
+            return bothColumnsHaveContent && Number.isFinite(diff) && Math.abs(diff) > 4 &&
                 (counterfactual?.spanCount || 0) > 0 && localParenChars && !crossesBoundary;
         }).length;
         if (counterfactualSummary.eligibleCount !== expectedEligibleCount) {
