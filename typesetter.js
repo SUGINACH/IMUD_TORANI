@@ -5564,7 +5564,6 @@ function captureParenFontCounterfactualDiagnostics(container) {
             diag.diffChange = diag.sameFontDiff - diff;
         } catch (error) {
             diag.error = String(error?.message || error);
-            errorCount++;
         } finally {
             snapshots.forEach(({ span, style }) => {
                 if (style == null) span.removeAttribute('style');
