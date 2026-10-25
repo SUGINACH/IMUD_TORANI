@@ -480,3 +480,16 @@ Next audit gate:
 2. Inspect the candidate table for the repeated 71/65px blocks and the page-231 (reported as page 230 in the human-facing summary) 5px residual.
 3. Verify that the selected candidate is the true optimum under the documented priority order; do not assume minimum absolute difference overrides hard fit or widow/orphan validity.
 4. Only then decide whether the remaining difference is an algorithm defect, a deliberate widow/orphan trade-off, or a stretch-capacity limit. Do not change the comparator or thresholds before the candidate evidence is reviewed.
+
+
+## 8.20 Candidate-table audit gate correction (2026-10-25)
+
+The long-document run `40167956770` completed successfully on source commit `8c2638863ebd7baac0a3f587d120bdbea016673e`, but its JSON output contains zero decision records with `selection.candidateTable`. The CLI parser that copies the candidate-table DOM attribute into the ledger was committed later (`ec76d68a0171b120dfa3c646e0c60107dd1fdc22`). Therefore this run verifies the base layout and prior instrumentation, but does **not** verify candidate-table persistence.
+
+Required gate: rerun the long-document audit against the current `V23` HEAD, then assert all of the following from the emitted JSON, not only from workflow exit status:
+- 627 pages, 850 decision records, 850 DOM blocks, and parity PASS;
+- repeat-render determinism and instrumentation integrity PASS; no runtime/console errors;
+- for every record whose selection status is `evaluated`, candidate-table length equals `candidateCount`, every candidate score matches the comparator tuple, and `selectedCandidateIndex` points to the recorded winner;
+- the candidate table is present in both repeated renders and does not alter issue counts or selected layout geometry versus the prior run on the same source state.
+
+Do not diagnose or alter the balance algorithm until this gate passes. This is an audit correction, not a layout-algorithm change.
