@@ -2914,3 +2914,22 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Inspect the latest ledger report; compare candidate-estimated geometry against final geometry for cases with large differences (e.g. the selected candidate predicted right=293px / left=307px, while final right=314px / left=307px). Treat such deltas as a measurement-parity question, not as a cosmetic imbalance to conceal.
 - Only after the evidence is available, trace the measurement/render parity across `renderSingleItemFast`, `appendItemFinal`, `applyDelimiterStyles`, and `createDropWord`. Do not change candidate ranking or safety constraints before the discrepancy is explained.
 - All changes remain on `V23`; do not merge with `V21`.
+
+
+## V23 — run local parenthesis-font counterfactual after final geometry (2026-10-25)
+
+### Verified defect
+- In current `typesetter.js`, `captureParenFontCounterfactualDiagnostics(container)` was called before `applyCrossParagraphParens(container)` and before `captureParenthesisScopeDiagnostics(container)`.
+- The counterfactual function requires both existing `.paren-text` spans and the per-block scope diagnostic to identify local parentheses and exclude cross-column/page scopes. At its call site, the scope attribute had not yet been created, so `localParenChars` was false and the local-font experiment could not become eligible. In addition, it ran before the later cross-paragraph styling and global balancing passes, not against canonical final geometry.
+- The previous long-run artifact (commit `3e2566a`) contains no `parenFontCounterfactual` ledger fields. Its parenthesis-scope conclusions remain valid for cross-boundary pairing, but it does not answer whether local parenthesis font metrics affect the residual imbalances.
+
+### Change planned/applied
+- Move the counterfactual invocation to after cross-paragraph parenthesis styling, scope mapping, all later balancing, canonical final geometry capture, and decision-ledger creation.
+- Preserve the diagnostic-only contract: each span's original inline style must be restored exactly; restored geometry must match baseline within 0.5px; no pagination or layout policy changes are intended.
+- The report must expose eligible/tested counts, each imbalance block's counterfactual height delta, and zero restoration mismatches/errors.
+
+### Validation gate
+- Run smoke and the full long-document audit on the source commit containing this fix.
+- Confirm all 854 blocks have a version-1 counterfactual record, the document-level summary exists, and the local-parenthesis imbalance cases are actually tested (not merely marked ineligible due to missing scope data).
+- Confirm deterministic repeat render, 629-page baseline unless a proven deterministic reason explains a change, 854/854 ledger-to-DOM parity, source/content conservation, footnote measurements 60/60 exact, zero runtime errors, and no containment regressions.
+- Do not change balance/stretch caps based on the counterfactual until its measured effect is inspected. `V23` remains separate from `V21`; no merge.
