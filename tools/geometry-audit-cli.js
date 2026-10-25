@@ -333,6 +333,10 @@ function markdown(r) {
       '- Rendered ornament DOM elements with nonzero geometry: ' + JSON.stringify(r.geometry.ornamentDomCoverage || {}),
       '- Section-divider/note-rule/header-divider settings active: ' + activeDecorativeSettings.length + '/' + decorativeSettings.length,
       '- Rendered divider/header/H2-title/column-divider geometry: ' + JSON.stringify(r.geometry.decorativeGeometryDomCoverage || {}),
+      '- Running-header ornament wrapper/graphic geometry: ' + JSON.stringify({
+        wrapper: (r.geometry.decorativeGeometryDomCoverage || {}).headerOrnament || 0,
+        svgOrImage: (r.geometry.decorativeGeometryDomCoverage || {}).headerOrnamentGraphic || 0
+      }),
       '- Running-header ornament settings: ' + (headerOrnamentSettings.length ? headerOrnamentSettings.join(', ') : 'none'),
       '- Running-header selected types: ' + JSON.stringify(r.geometry.headerTypeSelection || {}),
       '- Coverage counts are observed DOM evidence, not configuration inference; zero can mean the input did not trigger that component.');
@@ -844,6 +848,7 @@ async function main() {
                         topHeaderDivider: headers,
                         colGutterDivider: visibleCount('#book-container .col-gutter-divider:not(.col-rule-none)'),
                         headerOrnament: visibleCount('#book-container .header-ornament-wrap'),
+                        headerOrnamentGraphic: visibleCount('#book-container .header-ornament-wrap svg, #book-container .header-ornament-wrap img'),
                         h2TitleTop: visibleCount('#book-container .h2-title-ornament-top'),
                         h2TitleBottom: visibleCount('#book-container .h2-title-ornament-bottom'),
                         h2TitleSideRight: visibleCount('#book-container .h2-title-ornament-right'),
@@ -1060,12 +1065,14 @@ async function main() {
                 ] !== settings[key]);
                 const actualExternalHeaderTypes = Object.entries(selectedHeaderTypes).filter(([, value]) =>
                     String(value || '').startsWith('ext_'));
-                const missingHeaderOrnament = actualExternalHeaderTypes.length && !(featureCoverage.headerOrnament > 0);
-                if (missingFeatures.length || missingTitleFeatures.length || missingHeaderSelections.length || missingHeaderOrnament) {
+                const missingHeaderFeatures = actualExternalHeaderTypes.length
+                    ? ['headerOrnament', 'headerOrnamentGraphic'].filter(key => !(featureCoverage[key] > 0))
+                    : [];
+                if (missingFeatures.length || missingTitleFeatures.length || missingHeaderSelections.length || missingHeaderFeatures.length) {
                     throw new Error('Required active geometry coverage missing or zero: ' +
                         [...missingFeatures, ...missingTitleFeatures,
                          ...(missingHeaderSelections.length ? ['header-type-selection-mismatch'] : []),
-                         ...(missingHeaderOrnament ? ['headerOrnament'] : [])].join(', ') +
+                         ...missingHeaderFeatures].join(', ') +
                         '; mode=' + titleMode + '; requestedHeaderTypes=' + requestedHeaderTypes.map(key => key + '=' + settings[key]).join(',') +
                         '; selectedHeaderTypes=' + JSON.stringify(selectedHeaderTypes) +
                         '; measured=' + JSON.stringify(featureCoverage));
