@@ -63,6 +63,39 @@ function resolveNoteMarkerInlineGeometry(targetRect) {
     const parent = best.el.parentElement;
     const ps = parent ? getComputedStyle(parent) : null;
     const pr = parent ? rectOf(parent) : null;
+
+    // The serialized tree can lack paragraph line fragments for generated/split
+    // note markers. Recover actual neighboring text line boxes from live Range
+    // geometry instead of reporting only the paragraph's outer rectangle.
+    const off = getBookContainerOffset();
+    const markerCenter = best.rect.y + best.rect.h / 2;
+    let nearestLine = null;
+    let nearestLineDistance = Infinity;
+    if (parent) {
+        const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                if (node.parentElement && node.parentElement.closest('.note-marker')) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        });
+        const range = document.createRange();
+        let textNode;
+        while ((textNode = walker.nextNode())) {
+            range.selectNodeContents(textNode);
+            for (const lineRect of Array.from(range.getClientRects())) {
+                if (lineRect.width <= 0 || lineRect.height <= 0) continue;
+                const lineY = lineRect.top - off.y;
+                const lineBottom = lineRect.bottom - off.y;
+                const distance = Math.abs(markerCenter - (lineY + lineBottom) / 2);
+                if (distance < nearestLineDistance) {
+                    nearestLineDistance = distance;
+                    nearestLine = { y: lineY, bottom: lineBottom, h: lineRect.height };
+                }
+            }
+        }
+        range.detach();
+    }
     return {
         source: 'live-dom-rect-match',
         lookupStatus: 'matched',
@@ -80,7 +113,16 @@ function resolveNoteMarkerInlineGeometry(targetRect) {
         markerTop: round(best.rect.y),
         markerBottom: round(best.rect.bottom),
         parentTop: pr ? round(pr.y) : null,
-        parentBottom: pr ? round(pr.bottom) : null
+        parentBottom: pr ? round(pr.bottom) : null,
+        nearestLine: nearestLine ? {
+            y: round(nearestLine.y),
+            bottom: round(nearestLine.bottom),
+            height: round(nearestLine.h),
+            topDelta: round(best.rect.y - nearestLine.y),
+            bottomDelta: round(best.rect.bottom - nearestLine.bottom),
+            centerDistance: round(nearestLineDistance),
+            source: 'live-text-range-client-rects'
+        } : null
     };
 }
 
