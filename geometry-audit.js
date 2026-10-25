@@ -1428,10 +1428,20 @@ function auditSquareBracketScopes(issues) {
             if (!crossedParagraph && !crossedColumn && !crossedPage) continue;
 
             const boundaries = [];
-            if (crossedParagraph) boundaries.push('paragraph');
-            if (crossedColumn) boundaries.push('column');
-            if (crossedPage) boundaries.push('page');
+            const boundaryLabels = [];
+            if (crossedParagraph) { boundaries.push('paragraph'); boundaryLabels.push('פסקאות'); }
+            if (crossedColumn) { boundaries.push('column'); boundaryLabels.push('טורים'); }
+            if (crossedPage) { boundaries.push('page'); boundaryLabels.push('עמודים'); }
             const severity = crossedPage || crossedColumn ? 'medium' : 'low';
+            let spanRawChars = 0;
+            for (let pi = open.para.paragraphIndex; pi <= para.paragraphIndex; pi++) {
+                const current = paragraphs[pi];
+                if (!current) continue;
+                const from = pi === open.para.paragraphIndex ? open.offset : 0;
+                const to = pi === para.paragraphIndex ? offset + 1 : current.rawText.length;
+                spanRawChars += Math.max(0, to - from);
+                if (pi < para.paragraphIndex) spanRawChars += 1; // מפריד פסקאות משוער
+            }
             issues.push({
                 kind: 'square-bracket-scope',
                 severity,
@@ -1441,6 +1451,8 @@ function auditSquareBracketScopes(issues) {
                 pageLabel: para.pageLabel,
                 startParagraphIndex: open.para.paragraphIndex,
                 endParagraphIndex: para.paragraphIndex,
+                startTokenId: open.para.el.getAttribute('data-token-id') || null,
+                endTokenId: para.el.getAttribute('data-token-id') || null,
                 startColumn: open.para.column,
                 endColumn: para.column,
                 startOffset: open.offset,
@@ -1449,9 +1461,10 @@ function auditSquareBracketScopes(issues) {
                 crossedColumn,
                 crossedPage,
                 boundaries,
-                sourceLength: paragraphs.slice(open.para.paragraphIndex, para.paragraphIndex + 1)
-                    .reduce((sum, p, idx, arr) => sum + p.rawText.length + (idx < arr.length - 1 ? 1 : 0), 0),
-                message: `טווח סוגריים מרובעים/הערת שוליים חוצה ${boundaries.join(', ')}: עמוד ${open.para.pageLabel} → ${para.pageLabel}`
+                spanRawChars,
+                startPreview: open.para.rawText.slice(Math.max(0, open.offset - 55), Math.min(open.para.rawText.length, open.offset + 125)),
+                endPreview: para.rawText.slice(Math.max(0, offset - 90), Math.min(para.rawText.length, offset + 60)),
+                message: `טווח סוגריים מרובעים/הערת שוליים חוצה ${boundaryLabels.join(', ')}: עמוד ${open.para.pageLabel} → ${para.pageLabel}; פסקאות ${open.para.paragraphIndex + 1}–${para.paragraphIndex + 1}`
             });
         }
     }
