@@ -3054,3 +3054,12 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Smoke workflow SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40235447401. Artifact `12615020877` was downloaded and inspected.
 - Side-mode fixture: right/left title ornaments each measured 1; top/bottom mode fixture: top/bottom title ornaments each measured 1. Both fixtures also retained the ten previously required geometry categories; audit instrumentation integrity PASS, no runtime/console errors, and no containment/containment-rounding/overlap findings. Each reports 2 low `capacity-limited-residual` balance findings.
 - The long-document audit for the same code commit is running separately; its artifact must be checked before declaring long-document regression PASS for this commit.
+
+
+## 2026-10-25 — Active column-gutter divider geometry
+
+- Code commit: `ef5b03384c66be2c374a3ad2eb5cd47caf8070a0`.
+- Set `col-divider-style=plain` in both active title-ornament fixtures and added `colGutterDivider` to observed DOM coverage and the strict `--require-geometry-features` gate.
+- Geometry audit CLI workflow: SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40235771112. Downloaded artifact `12615140838` and inspected both reports.
+- Each active fixture rendered 2 nonzero column-gutter dividers. The side-title fixture measured right/left H2 title ornaments (1 each); the top/bottom fixture measured its upper/lower ornaments (1 each). Both retained the other required geometry categories and had no containment/rounding/overlap findings; 2 low balance findings remain in each.
+- The long-document audit for this code commit is still running and must be inspected before marking the long regression complete.
