@@ -124,33 +124,76 @@ const TEXT_TYPES = new Set(['p', 'p-cut', 'p-end', 'fn-line', 'h2-title', 'h3-ti
 
 /* אוסף שורות טקסט מתוך אלמנט טקסט ע"י getClientRects על Range */
 function collectLines(el) {
-    const lines = [];
+    const fragments = [];
     try {
         const range = document.createRange();
         range.selectNodeContents(el);
         const rects = range.getClientRects();
-        const seen = new Set();
         const off = getBookContainerOffset();
         for (let i = 0; i < rects.length; i++) {
             const r = rects[i];
-            if (r.height < 1 || r.width < 1) continue;
-            // דה-דופליקציה לפי Y (לפעמים יש כפילויות)
-            const key = Math.round(r.top - off.y) + ':' + Math.round(r.height);
-            if (seen.has(key)) continue;
-            seen.add(key);
-            lines.push({
-                x: r.left - off.x, y: r.top - off.y, w: r.width, h: r.height,
-                right: r.right - off.x, bottom: r.bottom - off.y,
-                idx: lines.length
+            if (r.height < 1 || r.width < 0.5) continue;
+            fragments.push({
+                x: r.left - off.x,
+                y: r.top - off.y,
+                w: r.width,
+                h: r.height,
+                right: r.right - off.x,
+                bottom: r.bottom - off.y
             });
         }
     } catch (e) {
-        // אם הטקסט ריק או שגיאה — מחזיר מערך ריק
+        // Empty text or Range errors yield an empty line list.
     }
-    // מיון לפי Y עולה
-    lines.sort((a, b) => a.y - b.y || a.x - b.x);
-    lines.forEach((l, i) => l.idx = i);
-    return lines;
+
+    // Range.getClientRects() returns inline fragments, not necessarily one
+    // rectangle per visual line. Merge fragments by vertical center, then
+    // measure each line as the union of all its fragments. Keeping only the
+    // first rectangle (the previous behavior) understated line widths whenever
+    // a line contained multiple text nodes/spans, such as parentheses or markers.
+    const clusters = [];
+    fragments.sort((a, b) => ((a.y + a.bottom) / 2) - ((b.y + b.bottom) / 2) || a.x - b.x);
+    for (const fragment of fragments) {
+        const center = (fragment.y + fragment.bottom) / 2;
+        let best = null;
+        let bestDistance = Infinity;
+        for (const cluster of clusters) {
+            const clusterCenter = (cluster.y + cluster.bottom) / 2;
+            const maxCenterDelta = Math.max(9, Math.min(11, Math.max(fragment.h, cluster.bottom - cluster.y) * 0.45));
+            const distance = Math.abs(center - clusterCenter);
+            if (distance <= maxCenterDelta && distance < bestDistance) {
+                best = cluster;
+                bestDistance = distance;
+            }
+        }
+        if (!best) {
+            clusters.push({
+                x: fragment.x,
+                y: fragment.y,
+                right: fragment.right,
+                bottom: fragment.bottom,
+                fragmentCount: 1
+            });
+        } else {
+            best.x = Math.min(best.x, fragment.x);
+            best.y = Math.min(best.y, fragment.y);
+            best.right = Math.max(best.right, fragment.right);
+            best.bottom = Math.max(best.bottom, fragment.bottom);
+            best.fragmentCount++;
+        }
+    }
+
+    clusters.sort((a, b) => a.y - b.y || a.x - b.x);
+    return clusters.map((line, idx) => ({
+        x: line.x,
+        y: line.y,
+        w: line.right - line.x,
+        h: line.bottom - line.y,
+        right: line.right,
+        bottom: line.bottom,
+        fragmentCount: line.fragmentCount,
+        idx
+    }));
 }
 
 /* [חדש] אוסף מילים ורווחים מתוך אלמנט טקסט ע"י TreeWalker + Range.
