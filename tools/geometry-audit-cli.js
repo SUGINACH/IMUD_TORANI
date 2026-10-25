@@ -532,7 +532,7 @@ async function main() {
                     return (box.textContent || '').replace(/\u00a0/g, ' ').replace(/[\s\u200f\u200e]+/g, ' ').trim();
                 };
                 const sourceParagraphs = source.filter(token => token && token.type === 'p');
-                const sourceHeadings = source.filter(token => token && /^h\\d+$/.test(token.type));
+                const sourceHeadings = source.filter(token => token && /^h\d+$/.test(token.type));
                 const sourceSideNotes = sourceParagraphs.filter(token => token.sideNote);
                 const sourceEndNotes = sourceParagraphs.filter(token => token.endNote);
                 const segments = new Map();
