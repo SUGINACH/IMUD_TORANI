@@ -185,8 +185,8 @@ function markdown(r) {
       '- Parenthesis final-snapshot mismatches: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenFinalSnapshotMismatchCount ?? 'n/a'),
       '- Blocks with missing/incomplete cross-parenthesis diagnostics: ' + (r.geometry.layoutDecisionRecordAudit?.missingCrossParenDiagnosticCount ?? 'n/a'),
       '- Blocks with cross-parenthesis diagnostic errors: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenDiagnosticErrorCount ?? 'n/a'),
-      '- Postfit stage snapshots: ' + (r.geometry.layoutDecisionRecordAudit?.stageGeometryDiagnosticCount ?? 'n/a') + '/' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a'),
-      '- Stage snapshots missing postfit: ' + (r.geometry.layoutDecisionRecordAudit?.missingStageGeometryDiagnosticCount ?? 'n/a'),
+      '- Canonical final stage snapshots: ' + (r.geometry.layoutDecisionRecordAudit?.stageGeometryDiagnosticCount ?? 'n/a') + '/' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a'),
+      '- Blocks missing canonical final stage: ' + (r.geometry.layoutDecisionRecordAudit?.missingStageGeometryDiagnosticCount ?? 'n/a'),
       '- Stage diagnostic capture errors: ' + (r.geometry.layoutDecisionRecordAudit?.stageGeometryDiagnosticErrorCount ?? 'n/a'),
       '- Stage snapshot coverage: ' + JSON.stringify(r.geometry.layoutDecisionRecordAudit?.stageGeometryStageCounts ?? {}),
       '- Issues: ' + (s.total ?? r.audit.issues.length),
@@ -667,11 +667,11 @@ async function main() {
                 x.crossParenDiagnostic.version !== 2 || !x.crossParenDiagnostic.postGlobal).length,
             crossParenDiagnosticErrorCount: ledger.filter(x => !!x.crossParenDiagnosticError).length,
             stageGeometryDiagnosticCount: ledger.filter(x => x.stageGeometryDiagnostic?.schemaVersion === 1 &&
-                x.stageGeometryDiagnostic?.stages?.postfit).length,
+                x.stageGeometryDiagnostic?.stages?.['canonical-final']).length,
             missingStageGeometryDiagnosticCount: ledger.filter(x => !x.stageGeometryDiagnostic ||
-                x.stageGeometryDiagnostic.schemaVersion !== 1 || !x.stageGeometryDiagnostic.stages?.postfit).length,
+                x.stageGeometryDiagnostic.schemaVersion !== 1 || !x.stageGeometryDiagnostic.stages?.['canonical-final']).length,
             stageGeometryDiagnosticErrorCount: ledger.filter(x => !!x.stageGeometryDiagnosticError).length,
-            stageGeometryStageCounts: Object.fromEntries(['postfit','before-page-stretch','after-page-stretch','after-orphan-reclaim','after-page-final-justify'].map(stage => [
+            stageGeometryStageCounts: Object.fromEntries(['postfit','before-page-stretch','after-page-stretch','after-orphan-reclaim','after-page-final-justify','canonical-final'].map(stage => [
                 stage, ledger.filter(x => !!x.stageGeometryDiagnostic?.stages?.[stage]).length
             ])),
             crossParenGeometryChangedBlockCount: ledger.filter(x =>
