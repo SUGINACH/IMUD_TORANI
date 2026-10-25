@@ -312,6 +312,31 @@ function markdown(r) {
     const kinds = Object.entries(s.byKind || {}).sort((a,b) => b[1]-a[1]);
     if (!kinds.length) lines.push('| None | 0 |');
     for (const [k,v] of kinds) lines.push('| ' + String(k).replaceAll('|', '¦') + ' | ' + v + ' |');
+    const counterfactualRows = (Array.isArray(r.geometry.layoutDecisionRecords) ? r.geometry.layoutDecisionRecords : [])
+      .filter(record => record.parenFontCounterfactual?.tested === true)
+      .sort((a, b) => (a.pageIdx ?? 0) - (b.pageIdx ?? 0));
+    lines.push('', '## Local parenthesis-font counterfactuals', '',
+      'These are diagnostic-only measurements. The engine restores the original styles after each test; same-font values are not the production layout.',
+      '', '| Page | Baseline R/L (px) | Same-font R/L (px) | Residual before → after (px) | Restored exactly |',
+      '|---:|---:|---:|---:|:---:|');
+    if (!counterfactualRows.length) {
+      lines.push('| No eligible cases | — | — | — | — |');
+    } else {
+      for (const record of counterfactualRows) {
+        const c = record.parenFontCounterfactual;
+        const baseline = c.baseline || {};
+        const same = c.sameFont || {};
+        const beforeDiff = Math.abs((baseline.rightHeight || 0) - (baseline.leftHeight || 0));
+        const afterDiff = Number.isFinite(c.sameFontDiff) ? c.sameFontDiff :
+          Math.abs((same.rightHeight || 0) - (same.leftHeight || 0));
+        const page = record.pageLabel || record.pageIdx;
+        lines.push('| ' + String(page).replaceAll('|', '¦') +
+          ' | ' + (baseline.rightHeight ?? 'n/a') + '/' + (baseline.leftHeight ?? 'n/a') +
+          ' | ' + (same.rightHeight ?? 'n/a') + '/' + (same.leftHeight ?? 'n/a') +
+          ' | ' + beforeDiff + ' → ' + afterDiff +
+          ' | ' + (c.restoreMatches === true ? 'yes' : 'NO') + ' |');
+      }
+    }
     const balanceOutcomes = Object.entries(s.byBalanceOutcome || {}).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
     if (balanceOutcomes.length) {
       lines.push('', '## Balance residual classification', '',
