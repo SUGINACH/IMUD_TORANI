@@ -1,5 +1,33 @@
 # Worklog
 
+## 2026-10-25 — V23 geometry audit: counterfactual eligibility correction
+
+### Validated long-document baseline (commit `de37188b18e1337846169ed782a087c7d6577144`)
+- Full audit completed successfully on `very_long_test_text.txt`: 629 pages, 854 two-column wrappers and 854 valid decision records.
+- Repeat-render determinism: PASS; both renders produced 629 pages with identical hash.
+- Instrumentation integrity: PASS; decision diagnostic gate PASS; no runtime errors.
+- Source conservation: 3,081/3,081 paragraphs, 524/524 headings, and 2,043/2,043 side notes matched.
+- Footnote measurement: exact matches 60/60 pages.
+- Remaining inventory: 10 low-severity column imbalance findings and 4 low-severity note-marker containment-rounding findings.
+- Local parenthesis-font counterfactual coverage: 5/5, with 0 restore mismatches and 0 errors. Inspection found one false-positive eligible case: page index 317 (`שטז`) had right height 71px and left height 0px. It is a one-sided block, not a meaningful two-column balance residual.
+
+### Counterfactual findings
+- `רלא`: 479/484px → same-font 500/500px (balanced, but the block grows ~16px).
+- `תקלד`: 71/66px → same-font 71/65px (residual changes from 5px to 6px).
+- `תקלה`: 71/65px → same-font 93/65px (right-side reflow; residual changes from 6px to 28px).
+- `תקצ`: 157/152px → same-font 179/152px (right-side reflow; residual changes from 5px to 27px).
+- These are diagnostic counterfactuals only; they do not change production layout. The evidence shows local parenthesis font metrics can change line wrapping in two cases, but it does not justify removing the typography rule or increasing stretch caps without further controlled tests.
+
+### Correction committed; full validation pending
+- Updated `typesetter.js` so counterfactual eligibility requires both columns to contain content. One-sided wrappers are now labeled `single-column-content` and excluded.
+- Updated `tools/geometry-audit-cli.js` to independently apply the same two-column eligibility rule, keeping the instrumentation gate aligned with the engine.
+- Commits: `bfdee2ed769a2feaae6f565162d9da033b2cd6e1` (typesetter) and `27e40d6713d2ee9702349f4bfad2fb3cb30c30c0` (CLI).
+- CI runs for these commits are in progress. Do not treat the expected 4/4 eligible-case result as validated until the latest long-document artifact and CLI workflow both pass.
+- Branch separation remains unchanged: all changes are on `V23`; no merge into `V21`.
+
+---
+
+
 ---
 
 ## Task ID: 5-points-implementation
