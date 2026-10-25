@@ -465,3 +465,18 @@ Commit `2c996ce74be463ee622058b8051e53cb1aa1478c` adds a bounded 22px box to all
 5. total issue counts and all non-header issue classes are compared with the 48-finding baseline.
 
 Do not adjust audit thresholds to hide the findings. If the header issue persists, inspect the exact ornament/content node and its rendered rectangle rather than adding further generic line-height changes.
+
+
+## 8.19 Full balance-candidate ledger (2026-10-25)
+
+The long audit after the running-header fix removed the 16 repeated header-containment findings (48 total findings became 32; medium findings became 0), while retaining 627 pages, 850/850 decision-ledger parity, repeat-render determinism, and clean runtime error lists.
+
+The remaining 9 imbalance findings include a recurring short-block pattern: right column 71px, left column 65px, while the chosen candidate's pre-justify geometry was 71px vs 50px (diff 21px), and final vertical justification reduced the residual gap to 6px. The existing decision record exposes only the winner; it cannot explain whether a better legal alternative existed or why alternatives lost.
+
+Commits `8c2638863ebd7baac0a3f587d120bdbea016673e` and `ec76d68a0171b120dfa3c646e0c60107dd1fdc22` add a complete, ordered candidate table to the decision record for every evaluated split. Each entry records candidate index, split item/line, measured right/left heights, signed/absolute difference, fit and widow/orphan validity, overflow, partial-paragraph line counts, and the exact lexicographic score used by `better()`. The table is diagnostic metadata only and must not change the chosen candidate.
+
+Next audit gate:
+1. Confirm the long audit still passes and the ledger remains deterministic.
+2. Inspect the candidate table for the repeated 71/65px blocks and the page-231 (reported as page 230 in the human-facing summary) 5px residual.
+3. Verify that the selected candidate is the true optimum under the documented priority order; do not assume minimum absolute difference overrides hard fit or widow/orphan validity.
+4. Only then decide whether the remaining difference is an algorithm defect, a deliberate widow/orphan trade-off, or a stretch-capacity limit. Do not change the comparator or thresholds before the candidate evidence is reviewed.
