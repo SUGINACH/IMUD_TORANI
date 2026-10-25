@@ -731,7 +731,7 @@ async function main() {
         process.stdout.write('Decision diagnostics: evaluated ' + (dda.evaluatedCount ?? 'n/a') +
           '; candidate tables ' + (dda.candidateTableCount ?? 'n/a') +
           '; capacity snapshots ' + (dda.capacitySnapshotCount ?? 'n/a') +
-          '; ' + (dda.passed === true ? 'PASS' : 'FAIL') + '\\n');
+          '; ' + (dda.passed === true ? 'PASS' : 'FAIL') + '\n');
         process.stdout.write('Decision ledger: ' + (la.recordCount ?? 'n/a') + ' records / ' +
           (la.domBlockCount ?? 'n/a') + ' DOM blocks; parity ' +
           (la.recordCountMatchesDom === true ? 'PASS' : la.recordCountMatchesDom === false ? 'FAIL' : 'unknown') +
