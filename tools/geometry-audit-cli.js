@@ -145,11 +145,42 @@ function decisionDiagnosticFailures(report) {
             capacitySnapshotCount++;
         }
     }
+    const stageAudit = report.geometry?.layoutDecisionRecordAudit || {};
+    if ((stageAudit.missingStageGeometryDiagnosticCount ?? 0) !== 0) {
+        failures.push('one or more blocks are missing the canonical final geometry snapshot');
+    }
+    if ((stageAudit.stageGeometryDiagnosticErrorCount ?? 0) !== 0) {
+        failures.push('one or more stage geometry snapshots failed to capture');
+    }
+    let canonicalFinalOverflowCount = 0;
+    let orphanReclaimOverflowCount = 0;
+    for (const record of records) {
+        const stages = record.stageGeometryDiagnostic?.stages || {};
+        const finalOverflow = stages['canonical-final']?.block?.bottomOverflow;
+        if (Number.isFinite(finalOverflow) && finalOverflow > 0.5) canonicalFinalOverflowCount++;
+        const reclaimOverflow = stages['after-orphan-reclaim']?.block?.bottomOverflow;
+        if (Number.isFinite(reclaimOverflow) && reclaimOverflow > 0.5) orphanReclaimOverflowCount++;
+    }
+    const containmentIssueCount = (report.audit?.issues || []).filter(issue => issue.kind === 'containment').length;
+    if (canonicalFinalOverflowCount > 0) {
+        failures.push(canonicalFinalOverflowCount + ' canonical final block(s) overflow body-flow by more than 0.5px');
+    }
+    if (orphanReclaimOverflowCount > 0) {
+        failures.push(orphanReclaimOverflowCount + ' post-orphan-reclaim block(s) overflow body-flow by more than 0.5px');
+    }
+    if (containmentIssueCount > 0) {
+        failures.push(containmentIssueCount + ' final containment audit finding(s) remain');
+    }
     report.geometry.layoutDecisionDiagnosticAudit = {
         recordCount: records.length,
         evaluatedCount,
         candidateTableCount,
         capacitySnapshotCount,
+        canonicalFinalOverflowCount,
+        orphanReclaimOverflowCount,
+        containmentIssueCount,
+        stageGeometryDiagnosticCount: stageAudit.stageGeometryDiagnosticCount ?? 0,
+        missingStageGeometryDiagnosticCount: stageAudit.missingStageGeometryDiagnosticCount ?? null,
         passed: failures.length === 0,
         failures
     };
