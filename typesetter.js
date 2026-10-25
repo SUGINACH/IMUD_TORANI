@@ -1560,8 +1560,10 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     // make the height difference discontinuous.
     const m = cands.length;
     let best = null;
+    const evaluatedCandidates = [];
     for (let k = 0; k < m; k++) {
         const e = evalCand(k);
+        evaluatedCandidates.push(e);
         if (!best || better(e, best)) best = e;
     }
     const bestSplit = cands[best.k];
@@ -1573,6 +1575,33 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         best.diff >= 0 ? 0 : 1,
         best.k
     ];
+
+    // Full deterministic candidate ledger: preserve every evaluated alternative,
+    // not only the winner. This is diagnostic metadata only; it does not affect
+    // candidate evaluation, ordering, scoring, or selection.
+    const candidateTable = evaluatedCandidates.map(e => ({
+        k: e.k,
+        splitItemIndex: cands[e.k]?.i ?? null,
+        splitLineCount: cands[e.k]?.l ?? null,
+        rightHeight: e.rH,
+        leftHeight: e.lH,
+        signedDiff: e.diff,
+        absoluteDiff: e.abs,
+        fits: e.fits,
+        valid: e.valid,
+        overflow: e.over,
+        rightPartLines: e.rightPartLines ?? null,
+        leftPartLines: e.leftPartLines ?? null,
+        score: [
+            e.fits ? 0 : 1,
+            e.valid ? 0 : 1,
+            e.fits ? 0 : e.over,
+            e.abs,
+            e.diff >= 0 ? 0 : 1,
+            e.k
+        ]
+    }));
+    block.setAttribute('data-layout-balance-candidate-table', JSON.stringify(candidateTable));
 
     // Keep the selected candidate itself inspectable, not just its measured heights.
     // The tuple mirrors better()'s exact lexicographic priority order.
