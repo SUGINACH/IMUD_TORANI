@@ -46,6 +46,10 @@ jobs:
             console.error('Expected exactly one sparse-page finding: the short final chapter page; the preceding chapter-end page must be exempt. Findings:', sparse, 'audit summary:', report.audit?.summary);
             process.exit(1);
           }
+          if (!sparse[0].startsChapter || !(sparse[0].excludedChapterStartPx > 0) || !(sparse[0].availableBodyHeightPx > 0)) {
+            console.error('Sparse-page report must expose and apply the chapter-start exclusion:', sparse[0]);
+            process.exit(1);
+          }
           if (brackets.length === 0) {
             console.error('Expected the cross-paragraph [] source scope to trigger square-bracket-scope; audit summary:', report.audit?.summary);
             process.exit(1);
