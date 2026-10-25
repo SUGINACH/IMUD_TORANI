@@ -493,3 +493,56 @@ Required gate: rerun the long-document audit against the current `V23` HEAD, the
 - the candidate table is present in both repeated renders and does not alter issue counts or selected layout geometry versus the prior run on the same source state.
 
 Do not diagnose or alter the balance algorithm until this gate passes. This is an audit correction, not a layout-algorithm change.
+
+
+## 8.21 Verified full audit with routing and stretch-capacity diagnostics (2026-10-25)
+
+The long-document audit for commit `0f716014420d36a8c6f895e6382dc7ba77e98d86` completed successfully in GitHub Actions run `40184847298` (artifact `12595317843`). The smoke workflow `40184847280` also completed successfully on the same source state.
+
+Verified directly from `geometry-audit-summary.md` and `geometry-audit.json`:
+- 627 pages; 850 decision records; 850 direct two-column DOM blocks; ledger/DOM parity PASS.
+- All 850 records valid; no missing/malformed records.
+- Repeat-render determinism PASS; instrumentation integrity PASS.
+- Runtime page errors and console errors: 0.
+- Footnote measurement: 60/60 exact queue matches; maximum absolute discrepancy 0px.
+- Findings unchanged at 32 LOW: 14 containment, 9 imbalance, 5 sparse-line, 4 containment-rounding.
+- Routing is fully classified: 381 `evaluated/balanceColumns`, 469 `not-requested/light-justify`; no `pending` or `routing-pending` records.
+- All 381 evaluated records have a candidate table with length equal to `candidateCount`; selected candidate and selected score match the candidate table in all 381 records.
+- Capacity snapshots are present for all 381 evaluated records.
+
+### Proven short-block capacity result
+
+For the seven recurring short-block imbalance findings (page indexes 236, 272, 326, 502, 533, 534, 603):
+- Candidate split geometry is 71/50px or 50/71px (absolute pre-justify difference 21px); both symmetric candidates are valid and have the same primary score. The deterministic tie-break selects the 71px right-column candidate.
+- The short/left column has two lines and a measured remaining line-height capacity of 15.008px (7.504px per line), with no paragraph-gap capacity.
+- Final justification reaches 65px or 66px, leaving a 6px or 5px difference. The recorded overshoot values remain negative (-6px or -5px), meaning the requested 71px target is beyond the current stretch cap.
+- This establishes a current policy/capacity limitation, not a candidate-table/comparator mismatch. Do not simply increase the cap: first define the acceptable typography/stretch bounds and add a regression fixture for these exact blocks.
+
+### Light-justify threshold mismatch is explicit
+
+The audit flags imbalance at an absolute residual greater than 4px, while the light-justify policy intentionally accepts residuals up to 8px. There are 21 records with a recorded residual between 5px and 8px; two reported findings are page indexes 230 (5px) and 589 (5px). This is a documented policy/measurement-threshold mismatch, not an instrumentation failure. Keep the raw residuals visible. Before changing the threshold or policy, decide whether the audit should distinguish a policy-accepted residual from an actual balance defect; do not suppress the evidence by globally raising the threshold.
+
+### Remaining geometry findings and next diagnostic focus
+
+The 14 containment findings are not all a single class:
+- Some blocks overflow the body-flow by 1–4px even without a page-final-justify diagnostic.
+- At page indexes 83, 137, 473 and 492, the late page-final-justify pass records an attempted increase in outer/inner height and restores the pre-attempt DOM state. The recorded attempted outer heights are about 918.9px, 331.2px, 923.1px and 925.8px respectively. The audit still detects the underlying block extending past body-flow, so rollback of that late pass alone is not a complete containment fix.
+- Larger late-page cases at page indexes 525 and 609 occur after preceding heading/spacer geometry or a chapter-start offset. These need a coordinate/available-height accounting audit, not a generic CSS overflow clip.
+- The four note-marker containment-rounding findings are small vertical excursions around 1.3px. Verify actual glyph/line-box geometry before deciding whether they are true paint overflows or a known fractional metric tolerance.
+- The five sparse-line findings remain separate from vertical column balance and require a line-breaking / paragraph-tail policy review.
+
+## 8.22 Ordered completion plan and release gates
+
+Work remains on `V23` only. Do not merge `V23` into `V21`.
+
+The following gates are sequential. Do not proceed to algorithm tuning while a preceding gate fails.
+
+1. **Measurement integrity gate — PASS for commit `0f716014`.** Keep syntax + smoke + long audit, ledger/DOM parity, candidate-table consistency, repeat-render determinism, zero runtime errors, and complete routing as mandatory checks.
+2. **Containment root-cause gate — IN PROGRESS.** Classify each of the 14 findings by the first stage at which the outer block exceeds its reserved body-flow interval: initial block construction, local justification, post-fit fallback, page-bottom stretch, orphan reclamation, late page-final justification, note repositioning, or heading/spacer reservation. Capture before/after rectangles and the relevant `actualAvailH`, `remPageHeight`, body-flow bounds and outer-box overhead. Fix the earliest causal stage; do not clip overflow or raise tolerances.
+3. **Short-block balance policy gate — OPEN.** Decide the permitted line-height cap and acceptable residual for short blocks; preserve the candidate score ordering. Add a regression test proving the selected candidate, 15.008px capacity, and final residual for the seven recurring cases.
+4. **Sparse-line / widow-orphan gate — OPEN.** For each of the five sparse-line findings, record paragraph source text, legal breakpoints, line widths and rejected alternatives. Enforce paragraph-tail and widow/orphan rules without creating a worse column split.
+5. **Note-marker geometry gate — OPEN.** Compare marker painted bounds, inline line boxes and baseline metrics; use a tolerance only if it is justified by measured browser fractional layout, and keep it distinct from actual text overflow.
+6. **Full geometry inventory gate — OPEN.** Audit all layout-affecting descendants, not only paragraph boxes: ornaments, running headers, dividers, note separators, footnote/endnote regions, headings, page numbers, and decoration elements. Verify that each component has an explicit geometry owner, measured bounds, and a clear relationship to the page's reserved flow area.
+7. **Regression and release gate — OPEN.** Run the short smoke fixture, the 1.9MB+ long fixture, repeated render, and targeted regression fixtures for cross-column/page parentheses, heading transitions, footnotes, short final chapters, notes, sparse tails and containment. Compare page count, deterministic signature, issue inventory, and visual output against the preceding accepted baseline. No stage is complete solely because the workflow exits 0.
+
+A stage is accepted only when its specific hypothesis is confirmed by the report and the complete test suite shows no new regressions. Keep unresolved findings in the report; never relabel them as fixed based on severity alone.
