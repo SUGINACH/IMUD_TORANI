@@ -592,6 +592,27 @@ async function main() {
             settingsSource = 'empty (default_settings.json not found)';
         }
     }
+    // External header ornaments are loaded by the interactive app from header_ornaments.json.
+    // The headless renderer bypasses that UI initialization, so explicitly register only the
+    // selected assets. This makes the audit exercise the same SVG/HTML instead of silently
+    // rendering an empty header when a setting references an external ornament.
+    const requestedHeaderOrnamentIds = ['hdr-r-type', 'hdr-c-type', 'hdr-l-type']
+      .map(key => String(settings[key] || ''))
+      .filter(id => id.startsWith('ext_'));
+    let externalHeaderAssets = [];
+    const headerOrnamentsPath = abs('./header_ornaments.json');
+    if (requestedHeaderOrnamentIds.length) {
+        if (!fs.existsSync(headerOrnamentsPath)) {
+            throw new Error('Settings select external header ornament(s), but header_ornaments.json is missing: ' + requestedHeaderOrnamentIds.join(', '));
+        }
+        const storedHeaderOrnaments = JSON.parse(fs.readFileSync(headerOrnamentsPath, 'utf8'));
+        if (!Array.isArray(storedHeaderOrnaments)) throw new Error('header_ornaments.json must contain an array.');
+        const assetsById = new Map(storedHeaderOrnaments.filter(x => x && x.id && typeof x.svg === 'string').map(x => [x.id, x.svg]));
+        const missing = requestedHeaderOrnamentIds.filter(id => !assetsById.has(id));
+        if (missing.length) throw new Error('Selected external header ornament(s) not found in header_ornaments.json: ' + missing.join(', '));
+        externalHeaderAssets = requestedHeaderOrnamentIds.map(id => ({ id, svg: assetsById.get(id) }));
+    }
+
     let chromium;
     try { chromium = require('playwright').chromium; }
     catch { throw new Error('Playwright is not installed. Run npm install, then npx playwright install chromium.'); }
@@ -622,6 +643,17 @@ async function main() {
                 throw new Error('default_settings.json did not load; refusing to typeset with implicit fallback settings');
             }
         });
+
+        // Register selected external header SVGs. renderer.html intentionally skips the
+        // interactive app's folder-loading UI, so without this step an ext_* setting would
+        // resolve to an empty string and the geometry test could not validate real ornament DOM.
+        const registeredExternalHeaderAssets = await page.evaluate((assets) => {
+            if (assets.length && typeof window.registerExternalHeader !== 'function') {
+                throw new Error('External header ornament registration API unavailable');
+            }
+            for (const asset of assets) window.registerExternalHeader(asset.id, asset.svg);
+            return assets.map(asset => asset.id);
+        }, externalHeaderAssets);
 
         // Wait for initial CSS/web fonts before pagination decisions are made.
         // Waiting only after typesetting can leave page breaks measured with fallback fonts.
@@ -1145,7 +1177,7 @@ async function main() {
             run:{ input:path.relative(root,inputPath).split(path.sep).join('/'), inputBytes:Buffer.byteLength(inputText,'utf8'),
               generatedAt:new Date().toISOString(), branch:process.env.GITHUB_REF_NAME || null,
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
-              renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
+              renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, externalHeaderAssetsLoaded:registeredExternalHeaderAssets, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
             geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,headerTypeSelection:data.headerTypeSelection,decorativeGeometryDomCoverage:data.decorativeGeometryDomCoverage,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
