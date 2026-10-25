@@ -389,6 +389,38 @@ function markdown(r) {
         lines.push('| ' + String(outcome).replaceAll('|', '¦') + ' | ' + count + ' |');
       }
     }
+    const imbalanceRows = (r.audit.issues || []).filter(issue => issue.kind === 'imbalance');
+    if (imbalanceRows.length) {
+      const px = value => Number.isFinite(value) ? String(Math.round(value * 100) / 100) : 'n/a';
+      const capacity = (obj, side) => px(obj && obj[side] && obj[side].totalCapacity);
+      lines.push('', '## Per-page balance capacity diagnostics', '',
+        'This table exposes the selected route and measured vertical-stretch capacity for each imbalance. A value of `n/a` means that route did not produce a final-justify capacity snapshot; residuals remain in the issue inventory.',
+        '', '| Page | Final Δ (px) | Classification | Decision route | Target side/height (px) | Capacity before R/L (px) | Capacity after R/L (px) |',
+        '|---:|---:|---|---|---|---|---|');
+      for (const issue of imbalanceRows) {
+        const metrics = issue.layoutMetrics || {};
+        const record = metrics.decisionRecord || {};
+        const selection = record.selection || {};
+        const finalJustify = record.finalJustify || {};
+        const before = finalJustify.capacityBefore || {};
+        const after = finalJustify.capacityAfter || {};
+        const light = selection.lightJustify || {};
+        const route = selection.skipReason || selection.routing || selection.status || 'n/a';
+        const target = finalJustify.targetSide && finalJustify.targetSide !== 'none'
+          ? finalJustify.targetSide + '/' + px(finalJustify.targetHeight)
+          : 'none';
+        const beforeCaps = 'R ' + capacity(before, 'right') + ' / L ' + capacity(before, 'left');
+        const afterCaps = 'R ' + capacity(after, 'right') + ' / L ' + capacity(after, 'left');
+        const lightTrace = Number.isFinite(light.beforeRightHeight) && Number.isFinite(light.beforeLeftHeight)
+          ? ' [' + px(light.beforeRightHeight) + '/' + px(light.beforeLeftHeight) + '→' +
+            px(light.afterRightHeight) + '/' + px(light.afterLeftHeight) + ']'
+          : '';
+        lines.push('| ' + (issue.pageIdx ?? 'n/a') + ' | ' + px(issue.diff) + ' | ' +
+          String(issue.balanceOutcome || 'unclassified').replaceAll('|', '¦') + ' | ' +
+          String(route).replaceAll('|', '¦') + lightTrace + ' | ' + target + ' | ' +
+          beforeCaps + ' | ' + afterCaps + ' |');
+      }
+    }
     const fnRows = Array.isArray(r.footnoteMeasurementAudit) ? r.footnoteMeasurementAudit : [];
     const fnMatched = fnRows.filter(x => x.matchFound && Number.isFinite(x.diff));
     const fnUnmatched = fnRows.filter(x => !x.matchFound);
