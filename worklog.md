@@ -3099,3 +3099,12 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Long-document workflow SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40238938601. Downloaded and inspected artifact `12615179711`. Regression: 643 pages; deterministic repeat render; 3,105/3,105 paragraphs, 529/529 headings, 2,042/2,042 side notes conserved; 859/859 decision records valid with DOM parity; zero page/runtime or console errors; 14 LOW findings (10 imbalance, 4 note-marker containment-rounding), zero medium/high.
 - The long fixture correctly reports running-header ornaments NOT EXERCISED because default settings disable them. Active ornament evidence comes from the dedicated fixtures.
 - Historical follow-up (resolved by the 2026-10-26 note-marker diagnostics commit below): the serialized issue record previously lacked reliable computed-style/nearest-line evidence. The four findings remain visible pending interpretation of the new measurements.
+
+
+## 2026-10-26 — Candidate-table analysis of the 10 residual column imbalances
+
+- Inspected the downloaded 643-page report for all 10 imbalance findings, not only the summary.
+- All 8 `capacity-limited-residual` cases have the same three legal candidates: (R/L) 50/71px, 71/50px, and 114/0px. The first two tie at 21px before final justification; the deterministic tie-break selects the candidate with the right column taller.
+- For the selected 71/50px candidate, the 2-line short column has a remaining stretch capacity of 15.008px (2 × 7.504px under the 35%-of-base-line-height cap). The raw 21px gap therefore cannot be eliminated under the current typography cap; after stretch the residual is 5–6px. The mirrored candidate would leave the same residual on the opposite side. This confirms that changing only the tie-break or choosing the other currently enumerated candidate does not improve these eight cases.
+- The two other findings remain distinct 5px `policy-accepted-light-justify-residual` cases. Page 233's late justify attempt grew the taller content by 6px and was rolled back by the `tallestGrowth` postcondition; page 592's light-justify route reduced a 43px pre-adjustment gap to 5px and skipped the balance search under the explicit 8px policy.
+- Decision: preserve all 10 findings. Do not raise the stretch cap or change legal split policy without a controlled typography experiment. The current evidence supports capacity/policy limits, not an incorrect candidate ordering.
