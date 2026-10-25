@@ -292,6 +292,46 @@ function buildNode(el, parent, pageOffset) {
             afterLastBlockOverflow: el.getAttribute('data-fn-reflow-after-last-block-overflow'),
             lastBlockTopOffset: el.getAttribute('data-fn-reflow-last-block-top-offset')
         } : null,
+        inlineGeometry: cls.type === 'note-marker' ? (() => {
+            const cs = getComputedStyle(el);
+            const markerRect = el.getBoundingClientRect();
+            const parentRect = el.parentElement?.getBoundingClientRect?.() || null;
+            const parentLines = Array.isArray(parent?.lines) ? parent.lines : [];
+            const markerCenter = ((markerRect.top + markerRect.bottom) / 2) - getBookContainerOffset().y;
+            let nearestLine = null;
+            let nearestLineDistance = Infinity;
+            for (const line of parentLines) {
+                const lineCenter = line.y + line.h / 2;
+                const distance = Math.abs(markerCenter - lineCenter);
+                if (distance < nearestLineDistance) {
+                    nearestLine = line;
+                    nearestLineDistance = distance;
+                }
+            }
+            const round = value => Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
+            return {
+                verticalAlign: cs.verticalAlign,
+                lineHeight: cs.lineHeight,
+                fontSize: cs.fontSize,
+                fontFamily: cs.fontFamily,
+                display: cs.display,
+                position: cs.position,
+                markerTop: round(rect.y),
+                markerBottom: round(rect.bottom),
+                parentTop: round(parent?.rect?.y),
+                parentBottom: round(parent?.rect?.bottom),
+                offsetFromParentTop: round(rect.y - (parent?.rect?.y ?? rect.y)),
+                nearestLine: nearestLine ? {
+                    y: round(nearestLine.y),
+                    bottom: round(nearestLine.y + nearestLine.h),
+                    topDelta: round(rect.y - nearestLine.y),
+                    bottomDelta: round(rect.bottom - (nearestLine.y + nearestLine.h)),
+                    centerDistance: round(nearestLineDistance)
+                } : null,
+                parentDomTop: parentRect ? round(parentRect.top - getBookContainerOffset().y) : null,
+                parentDomBottom: parentRect ? round(parentRect.bottom - getBookContainerOffset().y) : null
+            };
+        })() : null,
         layoutMetrics: cls.type === 'block-2col' ? {
             fillRemaining: el.getAttribute('data-layout-fill-remaining'),
             fillFlowHeight: el.getAttribute('data-layout-fill-flow-height'),
@@ -542,6 +582,7 @@ function auditContainment(node, issues) {
                 })),
                 childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h), bottom: Math.round(child.rect.bottom) },
                 layoutMetrics: child.layoutMetrics || null,
+                inlineGeometry: child.inlineGeometry || null,
                 childDetails: child.type === 'block-2col' ? child.children.filter(c => c.type === 'column').map(col => ({
                     side: col.side,
                     rect: { x: Math.round(col.rect.x), y: Math.round(col.rect.y), w: Math.round(col.rect.w), h: Math.round(col.rect.h), bottom: Math.round(col.rect.bottom) },
