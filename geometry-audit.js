@@ -1294,24 +1294,12 @@ function auditSparsePage(page, issues) {
         ? Math.max(flowRect.top, headingRect.bottom)
         : flowRect.top;
 
-    // חשב את קיבולת שטח הטקסט לפי הבלוקים בפועל: בלוק דו-טורי תורם שתי
-    // עמודות, ובלוק חד-טורי/רוחבי תורם עמודה אחת.
-    const blocks = Array.from(bodyFlow.children).filter(el =>
-        el.matches('.block-2col, .block-single-col, .block-h3-span')
-    );
-    let capacityPx = 0;
-    if (blocks.length) {
-        for (const block of blocks) {
-            const r = block.getBoundingClientRect();
-            if (r.height <= 0) continue;
-            const effectiveTop = Math.max(r.top, contentStartY);
-            const effectiveHeight = Math.max(0, r.bottom - effectiveTop);
-            if (block.matches('.block-2col')) capacityPx += effectiveHeight * 2;
-            else capacityPx += effectiveHeight;
-        }
-    } else {
-        capacityPx = Math.max(0, flowRect.bottom - contentStartY) * 2;
-    }
+    // המכנה חייב להיות השטח הזמין בעמוד, לא גובה הבלוקים שנוצרו בפועל:
+    // שימוש בגובה הבלוקים היה מנרמל עמוד קצר כאילו כל השטח הזמין נוצל.
+    // עמודי תוכן דו-טוריים נמדדים מול שתי עמודות; עמוד חד-טורי מול אחת.
+    const hasTwoColumnBlock = !!bodyFlow.querySelector('.block-2col');
+    const columnCapacityMultiplier = hasTwoColumnBlock ? 2 : 1;
+    const capacityPx = Math.max(0, flowRect.bottom - contentStartY) * columnCapacityMultiplier;
     if (!(capacityPx > 0)) return;
 
     const textSelector = [
