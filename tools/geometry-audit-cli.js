@@ -185,6 +185,10 @@ function markdown(r) {
       '- Parenthesis final-snapshot mismatches: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenFinalSnapshotMismatchCount ?? 'n/a'),
       '- Blocks with missing/incomplete cross-parenthesis diagnostics: ' + (r.geometry.layoutDecisionRecordAudit?.missingCrossParenDiagnosticCount ?? 'n/a'),
       '- Blocks with cross-parenthesis diagnostic errors: ' + (r.geometry.layoutDecisionRecordAudit?.crossParenDiagnosticErrorCount ?? 'n/a'),
+      '- Postfit stage snapshots: ' + (r.geometry.layoutDecisionRecordAudit?.stageGeometryDiagnosticCount ?? 'n/a') + '/' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a'),
+      '- Stage snapshots missing postfit: ' + (r.geometry.layoutDecisionRecordAudit?.missingStageGeometryDiagnosticCount ?? 'n/a'),
+      '- Stage diagnostic capture errors: ' + (r.geometry.layoutDecisionRecordAudit?.stageGeometryDiagnosticErrorCount ?? 'n/a'),
+      '- Stage snapshot coverage: ' + JSON.stringify(r.geometry.layoutDecisionRecordAudit?.stageGeometryStageCounts ?? {}),
       '- Issues: ' + (s.total ?? r.audit.issues.length),
       '- High: ' + (s.high || 0) + ' | Medium: ' + (s.medium || 0) + ' | Low: ' + (s.low || 0),
       '', '## Issue counts by kind', '', '| Kind | Count |', '|---|---:|'];
@@ -606,6 +610,7 @@ async function main() {
                         const left = el.querySelector('.left-col');
                         let decision = null;
                         let crossParenDiagnostic = null;
+                        let stageGeometryDiagnostic = null;
                         try {
                             const raw = el.getAttribute('data-layout-decision-record');
                             if (raw) decision = JSON.parse(raw);
@@ -614,7 +619,12 @@ async function main() {
                             const raw = el.getAttribute('data-layout-cross-paren-diagnostic');
                             if (raw) crossParenDiagnostic = JSON.parse(raw);
                         } catch (_) { /* malformed diagnostics remain explicitly absent in the report */ }
+                        try {
+                            const raw = el.getAttribute('data-layout-stage-geometry-diagnostic');
+                            if (raw) stageGeometryDiagnostic = JSON.parse(raw);
+                        } catch (_) { /* malformed stage snapshots remain explicitly absent in the report */ }
                         const crossParenDiagnosticError = el.getAttribute('data-layout-cross-paren-diagnostic-error');
+                        const stageGeometryDiagnosticError = el.getAttribute('data-layout-stage-geometry-diagnostic-error');
                         return {
                             pageIdx,
                             pageLabel: pg.querySelector('.page-number-footer')?.textContent?.trim() || String(pageIdx + 1),
@@ -625,7 +635,9 @@ async function main() {
                             leftHeight: left ? left.scrollHeight : null,
                             decision,
                             crossParenDiagnostic,
-                            crossParenDiagnosticError
+                            crossParenDiagnosticError,
+                            stageGeometryDiagnostic,
+                            stageGeometryDiagnosticError
                         };
                     });
                 }),
@@ -654,6 +666,14 @@ async function main() {
             missingCrossParenDiagnosticCount: ledger.filter(x => !x.crossParenDiagnostic ||
                 x.crossParenDiagnostic.version !== 2 || !x.crossParenDiagnostic.postGlobal).length,
             crossParenDiagnosticErrorCount: ledger.filter(x => !!x.crossParenDiagnosticError).length,
+            stageGeometryDiagnosticCount: ledger.filter(x => x.stageGeometryDiagnostic?.schemaVersion === 1 &&
+                x.stageGeometryDiagnostic?.stages?.postfit).length,
+            missingStageGeometryDiagnosticCount: ledger.filter(x => !x.stageGeometryDiagnostic ||
+                x.stageGeometryDiagnostic.schemaVersion !== 1 || !x.stageGeometryDiagnostic.stages?.postfit).length,
+            stageGeometryDiagnosticErrorCount: ledger.filter(x => !!x.stageGeometryDiagnosticError).length,
+            stageGeometryStageCounts: Object.fromEntries(['postfit','before-page-stretch','after-page-stretch','after-orphan-reclaim','after-page-final-justify'].map(stage => [
+                stage, ledger.filter(x => !!x.stageGeometryDiagnostic?.stages?.[stage]).length
+            ])),
             crossParenGeometryChangedBlockCount: ledger.filter(x =>
                 (x.crossParenDiagnostic?.geometryChangedParagraphCount || 0) > 0 ||
                 Math.abs(x.crossParenDiagnostic?.delta?.rightHeight || 0) > 0.5 ||
