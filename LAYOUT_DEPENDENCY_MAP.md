@@ -673,3 +673,15 @@ The page count changed from 627 to 629 and decision records from 850 to 854 rela
 - Five sparse-line findings are at pages 59, 261, 317, 328 and 551 in this report (page numbering in the issue objects is zero-based; the summary prints one-based page labels). These are paragraph fragments of type `p-cut`; record line-by-line text, widths, legal breakpoints, and split attributes before modifying the line breaker.
 - Four note-marker rounding findings remain near 1.3px. Preserve the raw bounds; determine whether they are glyph-paint excursions or line-box/inline geometry mismatch before choosing any tolerance.
 - Do not relax strict containment, suppress low findings, or change the line-break/balance policy without a targeted regression fixture and full rerun.
+
+
+## 8.26 Audit measurement correction: visual line widths (2026-10-25)
+
+Commit `45d28d106c4d3ae9984ddcb9c004ced695bc5431` changes the audit-only `collectLines()` measurement. A DOM Range may return multiple inline fragments for one visual line; the previous implementation deduplicated fragments by vertical key but kept only the first fragment's rectangle. The new implementation groups fragments by vertical center and measures the union of each visual line's horizontal/vertical bounds. This affects audit measurements only; it does not change `typesetter.js` or pagination.
+
+The same commit adds line-token and split-policy details to each sparse-line finding: first/last visual-line text and token geometry, split input/fit/placed counts, widow/orphan minima, parenthesis state, font size, line height and `text-align-last`. These fields are intended to distinguish a real short final line from a measurement artifact before changing the line breaker.
+
+Validation status:
+- CLI syntax + smoke workflow on this commit: SUCCESS.
+- Full long-document audit: started as workflow run `40193778860`; at the time of this note it was still running, so the visual-line measurement correction is **not yet accepted**.
+- Acceptance criteria: long audit completes successfully; repeat-render determinism remains PASS; content conservation and hard containment gates remain PASS; all sparse-line findings expose usable line text/tokens; no new high/medium issues or instrumentation errors. Compare the resulting sparse-line inventory against the previous 5 findings before any layout-algorithm change.
