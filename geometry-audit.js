@@ -523,6 +523,8 @@ function buildNode(el, parent, pageOffset) {
             globalJustifyBeforeLeft: el.getAttribute('data-layout-global-justify-before-left'),
             globalJustifyAfterRight: el.getAttribute('data-layout-global-justify-after-right'),
             globalJustifyAfterLeft: el.getAttribute('data-layout-global-justify-after-left'),
+            globalJustifyOvershootBeforeShrink: el.getAttribute('data-layout-global-justify-overshoot-before-shrink'),
+            globalJustifyOvershootAfterShrink: el.getAttribute('data-layout-global-justify-overshoot-after-shrink'),
             pageFinalJustifyRolledBack: el.getAttribute('data-layout-page-final-justify-rolled-back'),
             decisionRecord: (() => {
                 const raw = el.getAttribute('data-layout-decision-record');

@@ -5111,26 +5111,26 @@ function typesetDocumentCore() {
             const globalColumnsBefore = [captureGlobalJustifyColumn(rC), captureGlobalJustifyColumn(lC)];
             const attrsBefore = Array.from(blk.querySelectorAll('*')).map(el =>
                 [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
+            let globalJustifyOvershootBeforeShrink = null;
+            let globalJustifyOvershootAfterShrink = null;
 
             if (fDiff > 2) {
                 // טור ימין גבוה יותר — מותחים את שמאל להגיע אליו
                 justifyColumnVertically(lC, rH, styleObj, 150, null);
-                // בדיקת יירוס: אם שמאל הירבר ונהיה גבוה מימין — מכווצים חזרה
-                const lHafter = lC.scrollHeight;
-                // Match the hard postcondition tolerance below: even a 1px overshoot
-                // must be corrected before the rollback check, otherwise a near-perfect
-                // equalization is discarded and the original large imbalance returns.
-                if (lHafter > rH + 0.5) {
+                // Record the quantized overshoot before and after the bounded correction.
+                globalJustifyOvershootBeforeShrink = lC.scrollHeight - rH;
+                if (globalJustifyOvershootBeforeShrink > 0.5) {
                     shrinkColumnVertically(lC, rH, styleObj, 150);
                 }
+                globalJustifyOvershootAfterShrink = lC.scrollHeight - rH;
             } else {
                 // טור שמאל גבוה יותר — מותחים את ימין להגיע אליו
                 justifyColumnVertically(rC, lH, styleObj, 150, null);
-                // בדיקת יירוס: אם ימין הירבר ונהיה גבוה משמאל — מכווצים חזרה
-                const rHafter = rC.scrollHeight;
-                if (rHafter > lH + 0.5) {
+                globalJustifyOvershootBeforeShrink = rC.scrollHeight - lH;
+                if (globalJustifyOvershootBeforeShrink > 0.5) {
                     shrinkColumnVertically(rC, lH, styleObj, 150);
                 }
+                globalJustifyOvershootAfterShrink = rC.scrollHeight - lH;
             }
 
             // Hard postcondition: this late pass must not increase the block's required
@@ -5165,6 +5165,8 @@ function typesetDocumentCore() {
                     initialDiff: Math.abs(fDiff),
                     targetSide: fDiff > 2 ? 'left' : 'right',
                     targetHeight: fDiff > 2 ? rH : lH,
+                    overshootBeforeShrink: globalJustifyOvershootBeforeShrink,
+                    overshootAfterShrink: globalJustifyOvershootAfterShrink,
                     outerBefore, outerAfter, innerBefore, innerAfter,
                     flowBottomBefore, flowBottomAfter,
                     flowMaxChildBottomBefore, flowMaxChildBottomAfter,
@@ -5191,6 +5193,10 @@ function typesetDocumentCore() {
                 blk.setAttribute('data-layout-global-justify-rolled-back', 'false');
                 blk.setAttribute('data-layout-global-justify-rollback-reason', 'none');
             }
+            blk.setAttribute('data-layout-global-justify-overshoot-before-shrink',
+                String(globalJustifyOvershootBeforeShrink));
+            blk.setAttribute('data-layout-global-justify-overshoot-after-shrink',
+                String(globalJustifyOvershootAfterShrink));
 
             // [תיקון] החזרת הערות הצד למקומן אחרי המתיחה/כיווץ/rollback
             repositionBlockNotes(blk, Math.max(rC.scrollHeight, lC.scrollHeight));
