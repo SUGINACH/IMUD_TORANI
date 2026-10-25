@@ -2985,3 +2985,15 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - The previous `instrumentationIntegrityFailures()` required a document-level counterfactual summary and zero errors/restoration mismatches, but did not require the number of tested cases to equal the expected eligible cases.
 - The pre-fix long artifact on commit `8ef8bd2` reported `eligibleCount=0` and `testedCount=0`, while the imbalance inventory plus scope/span records imply four eligible local-parenthesis cases. The run nevertheless reported instrumentation integrity PASS. This is a second, independent transparency defect: the test was not only ordered too early; the gate also failed to detect that it had tested nothing.
 - Strengthen the CLI integrity gate to independently derive the expected eligible count from each record's final residual, local parenthesis counts, span count, and cross-boundary exclusion. Require the summary's eligible/tested counts to match this derived count. Smoke fixtures with no eligible cases must still pass with 0/0.
+
+## 2026-10-25 — V23 audit-summary counterfactual table verified
+
+- Commit under verification: `bf4a3df1b7e341f9e97d513e8eca570b659831ca` (`V23: show parenthesis counterfactual results in audit summary`).
+- Both CI workflows succeeded:
+  - Long-document geometry audit: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40218782134
+  - Geometry audit CLI: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40218782115
+- Downloaded and inspected the produced long-audit artifact, rather than relying only on the workflow status.
+- Verified that the Markdown report includes the four measured counterfactual rows (pages `רלא`, `תקלד`, `תקלה`, `תקצ`) with baseline heights, same-font heights, residual before/after, and exact-restoration status.
+- The artifact confirms: 629 pages; 854 two-column blocks and valid decision records; deterministic repeat render; counterfactuals 4/4 tested, 0 restoration mismatches, 0 errors; 14 low findings (10 imbalance, 4 containment-rounding), with no high/medium findings.
+- The counterfactual table is diagnostic only. It does not change production typography or waive any remaining imbalance.
+- Branch discipline unchanged: this commit and work remain on `V23`; no merge into `V21`.
