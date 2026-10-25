@@ -1393,6 +1393,33 @@ function buildNodeWithRefs(el, parent) {
             balanceCalled: el.getAttribute('data-layout-balance-called'),
             balanceStatus: el.getAttribute('data-layout-balance-status'),
             balanceSkipReason: el.getAttribute('data-layout-balance-skip-reason'),
+            balanceRouting: el.getAttribute('data-layout-balance-routing'),
+            lightJustifyResidualDiff: (() => {
+                const value = el.getAttribute('data-layout-balance-light-residual-diff');
+                const number = value === null ? NaN : Number(value);
+                return Number.isFinite(number) ? number : null;
+            })(),
+            finalJustifyOvershootAfterShrink: (() => {
+                const value = el.getAttribute('data-layout-final-justify-overshoot-after-shrink');
+                const number = value === null || value === 'none' ? NaN : Number(value);
+                return Number.isFinite(number) ? number : null;
+            })(),
+            finalJustifyCapacityAfter: (() => {
+                const raw = el.getAttribute('data-layout-final-justify-capacity-after');
+                if (!raw) return null;
+                try { return JSON.parse(raw); } catch { return { parseError: true }; }
+            })(),
+            stageGeometryDiagnostic: (() => {
+                const raw = el.getAttribute('data-layout-stage-geometry-diagnostic');
+                if (!raw) return null;
+                try { return JSON.parse(raw); } catch { return { parseError: true }; }
+            })(),
+            stageGeometryDiagnosticError: el.getAttribute('data-layout-stage-geometry-diagnostic-error'),
+            decisionRecord: (() => {
+                const raw = el.getAttribute('data-layout-decision-record');
+                if (!raw) return null;
+                try { return JSON.parse(raw); } catch { return { parseError: true }; }
+            })(),
             balanceInputHeight: el.getAttribute('data-layout-balance-input-height'),
             balanceAvailable: el.getAttribute('data-layout-balance-available'),
             balanceCandidates: el.getAttribute('data-layout-balance-candidates'),
