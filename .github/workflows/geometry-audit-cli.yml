@@ -32,6 +32,26 @@ jobs:
         run: node tools/geometry-audit-cli.js --help
       - name: Run geometry audit smoke test
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/smoke-report.json --summary ./artifacts/smoke-summary.md --fail-on none --repeat-check
+      - name: Run sparse-page and square-bracket diagnostic fixture
+        run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-diagnostics-smoke.txt --report ./artifacts/diagnostics-smoke-report.json --summary ./artifacts/diagnostics-smoke-summary.md --fail-on none
+      - name: Assert sparse-page and square-bracket diagnostics
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('./artifacts/diagnostics-smoke-report.json', 'utf8'));
+          const issues = report.audit?.issues || [];
+          const sparse = issues.filter(issue => issue.kind === 'sparse-page');
+          const brackets = issues.filter(issue => issue.kind === 'square-bracket-scope');
+          if (sparse.length === 0) {
+            console.error('Expected the short final content page to trigger sparse-page; audit summary:', report.audit?.summary);
+            process.exit(1);
+          }
+          if (brackets.length === 0) {
+            console.error('Expected the cross-paragraph [] source scope to trigger square-bracket-scope; audit summary:', report.audit?.summary);
+            process.exit(1);
+          }
+          console.log(JSON.stringify({ sparsePageFindings: sparse.length, squareBracketScopeFindings: brackets.length }));
+          NODE
       - name: Run active-ornament geometry smoke test
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/ornament-geometry-smoke.txt --settings ./tests/fixtures/ornament-geometry-settings.json --report ./artifacts/ornament-smoke-report.json --summary ./artifacts/ornament-smoke-summary.md --fail-on none --require-geometry-features
       - name: Run distinct recto/verso header geometry smoke test
@@ -46,6 +66,8 @@ jobs:
           path: |
             artifacts/smoke-report.json
             artifacts/smoke-summary.md
+            artifacts/diagnostics-smoke-report.json
+            artifacts/diagnostics-smoke-summary.md
             artifacts/ornament-smoke-report.json
             artifacts/ornament-smoke-summary.md
             artifacts/ornament-parity-report.json
