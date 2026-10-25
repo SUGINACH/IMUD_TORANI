@@ -5110,6 +5110,10 @@ function typesetDocumentCore() {
         // erase the evidence needed to explain final containment findings.
         const stageDiagnostic = layoutGeometryStageSnapshots.get(blk);
         if (stageDiagnostic) blk.setAttribute('data-layout-stage-geometry-diagnostic', JSON.stringify(stageDiagnostic));
+        recordLayoutGeometryStage(blk, 'canonical-final', blk.closest('.page-body-flow'), {
+            phase: 'post-global-justify',
+            canonicalFinalSnapshot: true
+        });
 
         const rightHeight = right.scrollHeight;
         const leftHeight = left.scrollHeight;
