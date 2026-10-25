@@ -2997,3 +2997,15 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - The artifact confirms: 629 pages; 854 two-column blocks and valid decision records; deterministic repeat render; counterfactuals 4/4 tested, 0 restoration mismatches, 0 errors; 14 low findings (10 imbalance, 4 containment-rounding), with no high/medium findings.
 - The counterfactual table is diagnostic only. It does not change production typography or waive any remaining imbalance.
 - Branch discipline unchanged: this commit and work remain on `V23`; no merge into `V21`.
+
+## 2026-10-25 — V23 audit report now declares unexercised ornament coverage
+
+- Commit: `e00de6f6bb4929302aafb66f6f57bed0bee81906` (`V23: report unexercised ornament geometry coverage`).
+- The audit Markdown now inspects ornament-related settings in the run metadata and explicitly reports whether any are active.
+- If all ornament settings are disabled/none, the report says `NOT EXERCISED` and explicitly avoids implying that ornament containment, clipping, or collision behavior was validated.
+- If ornament settings are active, the report lists the exact active keys/values; if no relevant settings exist in metadata, it reports coverage as unknown.
+- Local validation: full CLI source syntax check PASS; synthetic report test PASS for both disabled-settings and active-setting cases.
+- Geometry audit CLI workflow: SUCCESS: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40219154319
+- Full long-document audit for this commit is still running at the time of this entry; its result must be checked before claiming full-document validation.
+- Motivation from the previous full audit: the actual run used `default_settings.json` with ornament-specific settings set to `none`. Therefore, that run cannot establish correct geometry for enabled ornaments even though its other audit checks passed.
+- Branch separation unchanged: work remains on `V23`; no merge into `V21`.
