@@ -13,7 +13,7 @@ const crypto = require('node:crypto');
 function parseArgs(argv) {
     const o = { input: null, settings: null, report: './artifacts/geometry-audit.json',
         summary: './artifacts/geometry-audit-summary.md', fullModel: false, failOn: 'high',
-        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, help: false };
+        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, requireOrnaments: false, help: false };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         const take = () => { if (i + 1 >= argv.length) throw new Error('Missing value for ' + arg); return argv[++i]; };
@@ -24,6 +24,7 @@ function parseArgs(argv) {
             case '--summary': o.summary = take(); break;
             case '--full-model': o.fullModel = true; break;
             case '--repeat-check': o.repeatCheck = true; break;
+            case '--require-ornaments': o.requireOrnaments = true; break;
             case '--fail-on': o.failOn = take(); break;
             case '--timeout-ms': o.timeoutMs = Number(take()); break;
             case '--viewport-width': o.viewportWidth = Number(take()); break;
@@ -38,7 +39,7 @@ function parseArgs(argv) {
 function help() {
     process.stdout.write('Geometry audit CLI\nRequired: --input <text-file>\n' +
       'Options: --settings <json-file>, --report <json-file>, --summary <md-file>, --full-model, --repeat-check,\n' +
-      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>\n');
+      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>, --require-ornaments\n');
 }
 function abs(p) { return path.resolve(process.cwd(), p); }
 function ensureParent(p) { fs.mkdirSync(path.dirname(p), { recursive: true }); }
@@ -321,7 +322,8 @@ function markdown(r) {
       String(value).trim() !== '' && !['none', 'false', '0', 'null'].includes(String(value).trim().toLowerCase());
     const activeOrnamentSettings = ornamentSettings.filter(([, value]) => isSettingActive(value));
     lines.push('', '## Geometry feature coverage', '',
-      '- Ornament-related settings active: ' + activeOrnamentSettings.length + '/' + ornamentSettings.length);
+      '- Ornament-related settings active: ' + activeOrnamentSettings.length + '/' + ornamentSettings.length,
+      '- Rendered ornament DOM elements with nonzero geometry: ' + JSON.stringify(r.geometry.ornamentDomCoverage || {}));
     if (activeOrnamentSettings.length) {
       lines.push('- Active ornament settings: ' + activeOrnamentSettings.map(([key, value]) => key + '=' + String(value)).join(', '));
     } else if (ornamentSettings.length) {
@@ -750,6 +752,22 @@ async function main() {
             })();
             return {
                 pageCount: document.querySelectorAll('#book-container .a4-page').length,
+                ornamentDomCoverage: (() => {
+                    const selectors = {
+                        h2Top: '#book-container .h2-ornament-top',
+                        h2Bottom: '#book-container .h2-ornament-bottom',
+                        h3Right: '#book-container .h3-ornament-right',
+                        h3Left: '#book-container .h3-ornament-left',
+                        noteHeaderRight: '#book-container .note-header-ornament-right',
+                        noteHeaderLeft: '#book-container .note-header-ornament-left'
+                    };
+                    return Object.fromEntries(Object.entries(selectors).map(([key, selector]) => [key,
+                        Array.from(document.querySelectorAll(selector)).filter(el => {
+                            const rect = el.getBoundingClientRect();
+                            return rect.width > 0 && rect.height > 0;
+                        }).length
+                    ]));
+                })(),
                 summary:audit.summary, issues:audit.issues, stats:model.stats, model:clean,
                 footnoteMeasurementAudit:fnAudit, textConservationAudit,
                 fontsStatus:document.fonts ? document.fonts.status : 'unknown',
@@ -934,6 +952,12 @@ async function main() {
             };
         }, { includeFullModel: args.fullModel });
 
+        if (args.requireOrnaments) {
+            const coverage = data.ornamentDomCoverage || {};
+            const required = ['h2Top', 'h2Bottom', 'h3Right', 'h3Left', 'noteHeaderRight', 'noteHeaderLeft'];
+            const missing = required.filter(key => !(coverage[key] > 0));
+            if (missing.length) throw new Error('Required active-ornament DOM coverage missing or zero: ' + missing.join(', ') + '; measured=' + JSON.stringify(coverage));
+        }
         const ledger = Array.isArray(data.layoutDecisionRecords) ? data.layoutDecisionRecords : [];
         const domBlockCount = Number.isInteger(data.layoutDecisionBlockCount) ? data.layoutDecisionBlockCount : null;
         const layoutDecisionRecordAudit = {
@@ -1026,7 +1050,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
