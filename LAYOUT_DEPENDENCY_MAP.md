@@ -625,3 +625,27 @@ The accepted strict-containment / atomic orphan-reclaim work changed the long fi
 4. Classify the eight short-block residuals using measured remaining capacity; choose and document a typography-preserving policy, then add a fixture that asserts the capacity limit and exact outcome.
 5. Resolve note-marker geometry by measuring baseline/line box versus painted glyph bounds; keep this separate from block containment.
 6. Only after the issue inventory is reduced and regression fixtures pass, enable a strict release gate that fails on all actionable geometry issues. Keep `V23` separate from `V21`.
+
+
+## 8.23 Candidate/routing/capacity diagnostics gate — verified (2026-10-25)
+
+The strengthened CLI gate and long audit passed on commit `4327d2e5845ca542c4326c3e06374d88c2558677`:
+- CLI workflow run `40185685887`: SUCCESS.
+- Long-document workflow run `40185685897`: SUCCESS.
+- Long audit artifact `12596307289`: `geometry-audit-long-report`.
+- The CLI now validates the diagnostic ledger and fails on missing/unknown routing, candidate table count mismatches, selected-candidate/score mismatches, non-minimal lexicographic selection, or missing before/after capacity snapshots. The diagnostic gate result is persisted into the JSON report as `geometry.layoutDecisionDiagnosticAudit`.
+- Prior verified counts remain the expected baseline: 850 decision records, 381 evaluated candidate tables/capacity snapshots, and 469 light-justify/not-requested routes. The artifact from this commit is the release evidence for the strengthened gate.
+
+Important: this passing run verifies diagnostic consistency and instrumentation, not that all page geometry defects are fixed. The 32 LOW findings remain open until their root causes are fixed and a new full audit proves their removal without regressions.
+
+## 8.24 Next execution order
+
+1. Extract the artifact from run `40185685897` and verify `geometry.layoutDecisionDiagnosticAudit.passed === true`, `failures.length === 0`, and the exact expected counts; verify the summary records the same result.
+2. Build a per-finding containment table from the JSON: page index, block selector/ID, outer bounds, body-flow bounds, overflow, preceding block, headings/spacers, local final-justify diagnostics, and whether the issue existed before the last mutation stage.
+3. Add stage-by-stage snapshots for all geometry-changing operations in the final page pipeline. The first stage where the reserved flow interval is exceeded is the causal stage; avoid CSS clipping and threshold inflation.
+4. Fix one causal category at a time, starting with containment. After every change: syntax/smoke -> targeted fixture -> full long audit -> compare page count, deterministic signature, issue inventory, and console errors.
+5. Then resolve the seven short-block capacity-limited imbalances through a documented typography policy; separately decide how to report 5–8px light-justify residuals; then address sparse tails and note-marker paint bounds.
+6. Complete an explicit geometry inventory for every layout-affecting component (ornaments, headers, separators, footnotes, side notes, headings, page numbers, and decorations), each with a geometry owner and a test.
+7. Release only when all required regression fixtures pass, all geometry findings are either fixed or explicitly accepted by a documented rule, and no unresolved instrumentation gap remains.
+
+Branch boundary remains strict: work on `V23` only; do not merge it into `V21`.
