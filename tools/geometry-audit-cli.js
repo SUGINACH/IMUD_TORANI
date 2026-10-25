@@ -77,6 +77,10 @@ function instrumentationIntegrityFailures(report) {
     if ((a.missingParenthesisScopeDiagnosticCount ?? 0) !== 0) failures.push('missing parenthesis-scope diagnostics');
     if ((a.parenthesisScopeDiagnosticErrorCount ?? 0) !== 0) failures.push('parenthesis-scope diagnostic capture error');
     if (report.geometry?.parenthesisScopeSummary == null) failures.push('missing document-level parenthesis-scope summary');
+    if ((a.missingParenFontCounterfactualDiagnosticCount ?? 0) !== 0) failures.push('missing local paren-font counterfactual diagnostics');
+    if ((a.parenFontCounterfactualRestoreMismatchCount ?? 0) !== 0) failures.push('counterfactual changed geometry after restoring original styles');
+    if ((a.parenFontCounterfactualErrorCount ?? 0) !== 0) failures.push('local paren-font counterfactual diagnostic error');
+    if (report.geometry?.parenFontCounterfactualSummary == null) failures.push('missing document-level paren-font counterfactual summary');
     return failures.concat(decisionDiagnosticFailures(report));
 }
 function decisionDiagnosticFailures(report) {
@@ -227,6 +231,8 @@ function markdown(r) {
       '- Blocks with cross-column parenthesis scopes: ' + (r.geometry.layoutDecisionRecordAudit?.crossColumnScopeIntersectingBlockCount ?? 'n/a'),
       '- Blocks with cross-page parenthesis scopes: ' + (r.geometry.layoutDecisionRecordAudit?.crossPageScopeIntersectingBlockCount ?? 'n/a'),
       '- Parenthesis-scope diagnostic coverage: ' + (r.geometry.layoutDecisionRecordAudit?.parenthesisScopeDiagnosticCount ?? 'n/a') + '/' + (r.geometry.layoutDecisionRecordAudit?.recordCount ?? 'n/a'),
+      '- Local paren-font counterfactuals: ' + (r.geometry.parenFontCounterfactualSummary ? JSON.stringify(r.geometry.parenFontCounterfactualSummary) : 'missing'),
+      '- Counterfactual restoration mismatches/errors: ' + (r.geometry.layoutDecisionRecordAudit?.parenFontCounterfactualRestoreMismatchCount ?? 'n/a') + '/' + (r.geometry.layoutDecisionRecordAudit?.parenFontCounterfactualErrorCount ?? 'n/a'),
       '- Decision diagnostic gate: ' + (r.geometry.layoutDecisionDiagnosticAudit?.passed === true ? 'PASS' : 'FAIL'),
       '- Decision diagnostic records: ' + (r.geometry.layoutDecisionDiagnosticAudit?.recordCount ?? 'n/a'),
       '- Evaluated candidates/tables/capacity snapshots: ' +
@@ -793,6 +799,7 @@ async function main() {
                         let decision = null;
                         let crossParenDiagnostic = null;
                         let parenScopeDiagnostic = null;
+                        let parenFontCounterfactual = null;
                         let stageGeometryDiagnostic = null;
                         try {
                             const raw = el.getAttribute('data-layout-decision-record');
@@ -806,6 +813,10 @@ async function main() {
                             const raw = el.getAttribute('data-layout-paren-scope-diagnostic');
                             if (raw) parenScopeDiagnostic = JSON.parse(raw);
                         } catch (_) { /* malformed parenthesis-scope diagnostics remain explicitly absent */ }
+                        try {
+                            const raw = el.getAttribute('data-layout-paren-font-counterfactual');
+                            if (raw) parenFontCounterfactual = JSON.parse(raw);
+                        } catch (_) { /* malformed counterfactual diagnostics remain explicitly absent */ }
                         try {
                             const raw = el.getAttribute('data-layout-stage-geometry-diagnostic');
                             if (raw) stageGeometryDiagnostic = JSON.parse(raw);
@@ -824,6 +835,7 @@ async function main() {
                             crossParenDiagnostic,
                             crossParenDiagnosticError,
                             parenScopeDiagnostic,
+                            parenFontCounterfactual,
                             stageGeometryDiagnostic,
                             stageGeometryDiagnosticError
                         };
@@ -832,6 +844,8 @@ async function main() {
                 layoutDecisionBlockCount: document.querySelectorAll('#book-container .page-body-flow > .block-2col').length,
                 parenthesisScopeSummary: (() => { try { return JSON.parse(document.querySelector('#book-container')?.getAttribute('data-layout-paren-scope-summary') || 'null'); } catch (_) { return null; } })(),
                 parenthesisScopeDiagnosticError: document.querySelector('#book-container')?.getAttribute('data-layout-paren-scope-diagnostic-error') || null,
+                parenFontCounterfactualSummary: (() => { try { return JSON.parse(document.querySelector('#book-container')?.getAttribute('data-layout-paren-font-counterfactual-summary') || 'null'); } catch (_) { return null; } })(),
+                parenFontCounterfactualError: document.querySelector('#book-container')?.getAttribute('data-layout-paren-font-counterfactual-error') || null,
                 bodyScrollHeight:document.body.scrollHeight,
                 bookContainerScrollHeight:document.getElementById('book-container')?.scrollHeight ?? null
             };
@@ -862,6 +876,11 @@ async function main() {
             crossColumnScopeIntersectingBlockCount: ledger.filter(x => (x.parenScopeDiagnostic?.crossColumnScopeCountIntersectingBlock || 0) > 0).length,
             crossPageScopeIntersectingBlockCount: ledger.filter(x => (x.parenScopeDiagnostic?.crossPageScopeCountIntersectingBlock || 0) > 0).length,
             crossBoundaryScopeEndpointBlockCount: ledger.filter(x => (x.parenScopeDiagnostic?.crossBoundaryScopeEndpointCount || 0) > 0).length,
+            parenFontCounterfactualDiagnosticCount: ledger.filter(x => x.parenFontCounterfactual?.version === 1).length,
+            missingParenFontCounterfactualDiagnosticCount: ledger.filter(x => x.parenFontCounterfactual?.version !== 1).length,
+            parenFontCounterfactualTestedCount: ledger.filter(x => x.parenFontCounterfactual?.tested === true).length,
+            parenFontCounterfactualRestoreMismatchCount: ledger.filter(x => x.parenFontCounterfactual?.tested === true && x.parenFontCounterfactual?.restoreMatches !== true).length,
+            parenFontCounterfactualErrorCount: ledger.filter(x => !!x.parenFontCounterfactual?.error).length + (data.parenFontCounterfactualError ? 1 : 0),
             stageGeometryDiagnosticCount: ledger.filter(x => x.stageGeometryDiagnostic?.schemaVersion === 1 &&
                 x.stageGeometryDiagnostic?.stages?.['canonical-final']).length,
             missingStageGeometryDiagnosticCount: ledger.filter(x => !x.stageGeometryDiagnostic ||
@@ -924,7 +943,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}
