@@ -334,6 +334,7 @@ function markdown(r) {
       '- Section-divider/note-rule/header-divider settings active: ' + activeDecorativeSettings.length + '/' + decorativeSettings.length,
       '- Rendered divider/header/H2-title/column-divider geometry: ' + JSON.stringify(r.geometry.decorativeGeometryDomCoverage || {}),
       '- Running-header ornament settings: ' + (headerOrnamentSettings.length ? headerOrnamentSettings.join(', ') : 'none'),
+      '- Running-header selected types: ' + JSON.stringify(r.geometry.headerTypeSelection || {}),
       '- Coverage counts are observed DOM evidence, not configuration inference; zero can mean the input did not trigger that component.');
     if (activeOrnamentSettings.length) {
       lines.push('- Active ornament settings: ' + activeOrnamentSettings.map(([key, value]) => key + '=' + String(value)).join(', '));
@@ -786,6 +787,11 @@ async function main() {
                         }).length
                     ]));
                 })(),
+                headerTypeSelection: {
+                    right: document.getElementById('hdr-r-type')?.value || null,
+                    center: document.getElementById('hdr-c-type')?.value || null,
+                    left: document.getElementById('hdr-l-type')?.value || null
+                },
                 decorativeGeometryDomCoverage: (() => {
                     const visibleCount = selector => Array.from(document.querySelectorAll(selector)).filter(el => {
                         const rect = el.getBoundingClientRect();
@@ -1014,13 +1020,22 @@ async function main() {
                     ? ['h2TitleSideRight', 'h2TitleSideLeft']
                     : titleMode === 'top_bottom' ? ['h2TitleTop', 'h2TitleBottom'] : [];
                 const missingTitleFeatures = titleModeFeatures.filter(key => !(featureCoverage[key] > 0));
-                const headerTypes = ['hdr-r-type', 'hdr-c-type', 'hdr-l-type'].filter(key =>
+                const requestedHeaderTypes = ['hdr-r-type', 'hdr-c-type', 'hdr-l-type'].filter(key =>
                     String(settings[key] || '').startsWith('ext_'));
-                const missingHeaderOrnament = headerTypes.length && !(featureCoverage.headerOrnament > 0);
-                if (missingFeatures.length || missingTitleFeatures.length || missingHeaderOrnament) {
+                const selectedHeaderTypes = data.headerTypeSelection || {};
+                const missingHeaderSelections = requestedHeaderTypes.filter(key => selectedHeaderTypes[
+                    key === 'hdr-r-type' ? 'right' : key === 'hdr-c-type' ? 'center' : 'left'
+                ] !== settings[key]);
+                const actualExternalHeaderTypes = Object.entries(selectedHeaderTypes).filter(([, value]) =>
+                    String(value || '').startsWith('ext_'));
+                const missingHeaderOrnament = actualExternalHeaderTypes.length && !(featureCoverage.headerOrnament > 0);
+                if (missingFeatures.length || missingTitleFeatures.length || missingHeaderSelections.length || missingHeaderOrnament) {
                     throw new Error('Required active geometry coverage missing or zero: ' +
-                        [...missingFeatures, ...missingTitleFeatures, ...(missingHeaderOrnament ? ['headerOrnament'] : [])].join(', ') +
-                        '; mode=' + titleMode + '; headerTypes=' + headerTypes.map(key => key + '=' + settings[key]).join(',') +
+                        [...missingFeatures, ...missingTitleFeatures,
+                         ...(missingHeaderSelections.length ? ['header-type-selection-mismatch'] : []),
+                         ...(missingHeaderOrnament ? ['headerOrnament'] : [])].join(', ') +
+                        '; mode=' + titleMode + '; requestedHeaderTypes=' + requestedHeaderTypes.map(key => key + '=' + settings[key]).join(',') +
+                        '; selectedHeaderTypes=' + JSON.stringify(selectedHeaderTypes) +
                         '; measured=' + JSON.stringify(featureCoverage));
                 }
             }
@@ -1132,7 +1147,7 @@ async function main() {
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
               renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, failOn:args.failOn, browser:'Chromium headless' },
             pageCount:data.pageCount,
-            geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,decorativeGeometryDomCoverage:data.decorativeGeometryDomCoverage,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
+            geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,headerTypeSelection:data.headerTypeSelection,decorativeGeometryDomCoverage:data.decorativeGeometryDomCoverage,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
             footnoteMeasurementAudit:data.footnoteMeasurementAudit,
             runtime:{pageErrors,consoleErrors}

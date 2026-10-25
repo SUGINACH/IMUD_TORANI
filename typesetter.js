@@ -604,12 +604,23 @@ function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR
         pageNum: toGematria(pNum)
     };
 
-    // טקסט כותרת עליונה נעטף ב-.hdr-txt: כשהטקסט ארוך מרוחב העמודה הוא נחתך בסופו עם "…" (ולא נחתך בתחילתו
-    // בלי סימן, כפי שקרה כשהטקסט היה צאצא ישיר של מיכל ה-flex). עיטורים (SVG) לא נעטפים.
-    const wrapHdrText = html => (html && !/^<span class="header-ornament-wrap"/.test(html)) ? `<span class="hdr-txt">${html}</span>` : html;
-    const hdrRHTML = wrapHdrText(renderHeaderSectionHTML(hdrRType, cR, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
-    const hdrCHTML = wrapHdrText(renderHeaderSectionHTML(hdrCType, customC, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
-    const hdrLHTML = wrapHdrText(renderHeaderSectionHTML(hdrLType, cL, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
+    // Ordinary header text is ellipsized; ornaments (built-in or external SVG/HTML) get
+    // a stable wrapper so their geometry can be measured and they are never treated as text.
+    const wrapHdrText = (html, type) => {
+        if (!html) return '';
+        const isOrnament = type === 'custom_img' ||
+            (typeof HEADER_ORNAMENTS !== 'undefined' && Object.prototype.hasOwnProperty.call(HEADER_ORNAMENTS, type)) ||
+            (typeof EXTERNAL_ALL_ORNAMENTS !== 'undefined' && Object.prototype.hasOwnProperty.call(EXTERNAL_ALL_ORNAMENTS, type));
+        if (isOrnament) {
+            return /^<span class="header-ornament-wrap"/.test(html)
+                ? html
+                : `<span class="header-ornament-wrap">${html}</span>`;
+        }
+        return `<span class="hdr-txt">${html}</span>`;
+    };
+    const hdrRHTML = wrapHdrText(renderHeaderSectionHTML(hdrRType, cR, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra), hdrRType);
+    const hdrCHTML = wrapHdrText(renderHeaderSectionHTML(hdrCType, customC, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra), hdrCType);
+    const hdrLHTML = wrapHdrText(renderHeaderSectionHTML(hdrLType, cL, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra), hdrLType);
 
     // [חדש] "מיקום מספור: משולב בכותרת עליונה חיצונית" - מספר העמוד נכנס לפס הכותרת בפינה החיצונית
     // (שמאל בעמוד אי-זוגי וימין בזוגי - כמו מספור תחתון "חיצוני"; ההחלטה ב-CSS לפי מיקום העמוד בספר),
