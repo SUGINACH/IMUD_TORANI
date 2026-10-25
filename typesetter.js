@@ -827,11 +827,10 @@ const BALANCE_FINAL_JUSTIFY_MAX = 100; // תקרת ההפרש (px) שמיושר 
    למשיכת זנב יתום בן 1-2 שורות. בשילוב עם כיווץ עדין (allowBelowBase=1.5px), זה מאפשר
    לפתור יתומים בלי לכווץ יתר את התוכן ובלי לבזבז עמוד שלם על באפר גדול.
    איך זה עובד:
-   - stretchPageToBottom מקבל target שקטן ב-12px מהתחתית האמיתית — כלומר התוכן מתוח
-     רק עד 12px לפני תחתית העמוד. ה-12px האלה נשארים ריקים כבאפר.
-   - tryReclaimOrphanTail יכול להשתמש ב-12px האלה כחלק מ-currentFree.
-   - אם 12px לא מספיקים, compressColumnBy עם allowBelowBase=1.5 משלים את החסר
-     על חשבון כיווץ עדין של השורות. */
+   - 12px הם מרווח תכנון שמאפשר לנסות להחזיר יתום גם כשהמקום החופשי הראשוני קטן.
+   - tryReclaimOrphanTail רשאי להשתמש בקיבולת הכיווץ ובמרווח התכנון כדי לבדוק ניסיון.
+   - תנאי הקבלה הסופי קשיח: לאחר ההשמה, הבלוק חייב להישאר בתוך אזור הגוף (סטייה מרבית 0.5px);
+     אם לא, מסירים את היתום ומחזירים אטומית את כל שינויי הכיווץ ומוני ההערות. */
 const ORPHAN_RECLAIM_BUFFER = 12;
 
 /* ==========================================================================
@@ -1106,9 +1105,8 @@ function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) 
     // צריך מקום לפסקה היתומה. currentFree שמור להערות. נשתמש בבולם קטן (2px) בלבד.
     const neededPx = orphanActualH + 2;
 
-    // [Option C] סך המקום הפנוי = שטח פנוי נוכחי + קיבולת כיווץ + באפר גלישה (ORPHAN_RECLAIM_BUFFER).
-    // הבאפר מאפשר לבלוק לגלוש עד 12px מתחת לתחתית הרגילה — מרווח חירום שמשתלם כדי למנוע יתום.
-    // בדיקת הגלישה בפועל מתבצעת אחרי הנחת היתום (ראה newFree check למטה).
+    // [Option C] הבאפר הוא סף מקדים לניסיון בלבד, לא הרשאה לגלוש מעבר לאזור הגוף.
+    // אחרי הנחת היתום נבדקת הגאומטריה בפועל; חריגה של יותר מ-0.5px מחייבת rollback מלא.
     if (currentFree + totalCap + ORPHAN_RECLAIM_BUFFER < neededPx) {
         if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({
             reason: 'not_enough_space',
