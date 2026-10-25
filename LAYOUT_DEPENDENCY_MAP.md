@@ -681,7 +681,23 @@ Commit `45d28d106c4d3ae9984ddcb9c004ced695bc5431` changes the audit-only `collec
 
 The same commit adds line-token and split-policy details to each sparse-line finding: first/last visual-line text and token geometry, split input/fit/placed counts, widow/orphan minima, parenthesis state, font size, line height and `text-align-last`. These fields are intended to distinguish a real short final line from a measurement artifact before changing the line breaker.
 
-Validation status:
-- CLI syntax + smoke workflow on this commit: SUCCESS.
-- Full long-document audit: started as workflow run `40193778860`; at the time of this note it was still running, so the visual-line measurement correction is **not yet accepted**.
-- Acceptance criteria: long audit completes successfully; repeat-render determinism remains PASS; content conservation and hard containment gates remain PASS; all sparse-line findings expose usable line text/tokens; no new high/medium issues or instrumentation errors. Compare the resulting sparse-line inventory against the previous 5 findings before any layout-algorithm change.
+Validation status — PASSED on commit `45d28d106c4d3ae9984ddcb9c004ced695bc5431`:
+- CLI syntax + smoke workflow `40193778837`: SUCCESS.
+- Full long-document audit `40193778860`: SUCCESS; artifact `12598863365`.
+- Repeat-render determinism: PASS; page count 629; ledger/DOM 854/854; decision diagnostic gate PASS (854 records, 389/389 candidate tables and capacity snapshots).
+- Content conservation: 3,081/3,081 source paragraphs, 524/524 headings, 2,043/2,043 side notes; zero missing/mismatched content.
+- Hard containment and stage capture gates: PASS; canonical snapshots 854/854; stage capture errors 0; no final containment findings.
+- Sparse-line findings fell from 5 to **0** after fixing line-fragment aggregation. Total findings fell from 19 to **14**, with no high/medium findings and no runtime/console errors.
+- This confirms the five prior sparse-line alerts were artifacts of the audit's line-width measurement, not a proven layout-engine defect. Do not change the line breaker to address those former alerts.
+
+
+## 8.27 Verified result after visual-line measurement correction (2026-10-25)
+
+The completed long audit for `45d28d106c4d3ae9984ddcb9c004ced695bc5431` confirms that the corrected line-fragment union changed the audit inventory from 19 to 14 LOW findings:
+- Sparse-line: 5 -> 0.
+- Containment: remains 0.
+- Imbalance: remains 10 (8 capacity-limited, 2 policy-accepted residuals).
+- Note-marker containment-rounding: remains 4 at about 1.3125px.
+- Page count remains 629 and decision records remain 854; deterministic hash and content-conservation gates pass.
+
+The next unresolved work is now narrowed to two independent categories: (1) define and enforce an acceptable mathematical balance/stretch policy for the 10 residuals without violating typographic caps; (2) measure the four note-marker bounds with their computed `vertical-align`, `line-height`, font size and actual line box so that intended superscript/subscript paint bounds can be distinguished from real geometry errors. Do not change line-breaking rules in response to the removed sparse-line alerts.
