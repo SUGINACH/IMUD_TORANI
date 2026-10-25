@@ -80,21 +80,55 @@ function resolveNoteMarkerInlineGeometry(targetRect) {
             }
         });
         const range = document.createRange();
+        const fragments = [];
         let textNode;
         while ((textNode = walker.nextNode())) {
             range.selectNodeContents(textNode);
             for (const lineRect of Array.from(range.getClientRects())) {
                 if (lineRect.width <= 0 || lineRect.height <= 0) continue;
-                const lineY = lineRect.top - off.y;
-                const lineBottom = lineRect.bottom - off.y;
-                const distance = Math.abs(markerCenter - (lineY + lineBottom) / 2);
-                if (distance < nearestLineDistance) {
-                    nearestLineDistance = distance;
-                    nearestLine = { y: lineY, bottom: lineBottom, h: lineRect.height };
-                }
+                fragments.push({
+                    x: lineRect.left - off.x, y: lineRect.top - off.y,
+                    right: lineRect.right - off.x, bottom: lineRect.bottom - off.y,
+                    h: lineRect.height
+                });
             }
         }
         range.detach();
+
+        // Range rectangles are inline fragments, not guaranteed one-per-line.
+        // Merge them with the same vertical-center clustering used by collectLines().
+        fragments.sort((a, b) => ((a.y + a.bottom) / 2) - ((b.y + b.bottom) / 2) || a.x - b.x);
+        const lineClusters = [];
+        for (const fragment of fragments) {
+            const center = (fragment.y + fragment.bottom) / 2;
+            let bestCluster = null;
+            let bestDistance = Infinity;
+            for (const cluster of lineClusters) {
+                const clusterCenter = (cluster.y + cluster.bottom) / 2;
+                const maxCenterDelta = Math.max(9, Math.min(11, Math.max(fragment.h, cluster.bottom - cluster.y) * 0.45));
+                const distance = Math.abs(center - clusterCenter);
+                if (distance <= maxCenterDelta && distance < bestDistance) {
+                    bestCluster = cluster;
+                    bestDistance = distance;
+                }
+            }
+            if (!bestCluster) {
+                lineClusters.push({ x: fragment.x, y: fragment.y, right: fragment.right, bottom: fragment.bottom, fragmentCount: 1 });
+            } else {
+                bestCluster.x = Math.min(bestCluster.x, fragment.x);
+                bestCluster.y = Math.min(bestCluster.y, fragment.y);
+                bestCluster.right = Math.max(bestCluster.right, fragment.right);
+                bestCluster.bottom = Math.max(bestCluster.bottom, fragment.bottom);
+                bestCluster.fragmentCount++;
+            }
+        }
+        for (const line of lineClusters) {
+            const distance = Math.abs(markerCenter - (line.y + line.bottom) / 2);
+            if (distance < nearestLineDistance) {
+                nearestLineDistance = distance;
+                nearestLine = { y: line.y, bottom: line.bottom, h: line.bottom - line.y, fragmentCount: line.fragmentCount };
+            }
+        }
     }
     return {
         source: 'live-dom-rect-match',
@@ -121,7 +155,8 @@ function resolveNoteMarkerInlineGeometry(targetRect) {
             topDelta: round(best.rect.y - nearestLine.y),
             bottomDelta: round(best.rect.bottom - nearestLine.bottom),
             centerDistance: round(nearestLineDistance),
-            source: 'live-text-range-client-rects'
+            fragmentCount: nearestLine.fragmentCount,
+            source: 'live-text-range-fragment-union'
         } : null
     };
 }

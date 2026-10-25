@@ -13,7 +13,7 @@ const crypto = require('node:crypto');
 function parseArgs(argv) {
     const o = { input: null, settings: null, report: './artifacts/geometry-audit.json',
         summary: './artifacts/geometry-audit-summary.md', fullModel: false, failOn: 'high',
-        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, requireOrnaments: false, requireGeometryFeatures: false, help: false };
+        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, requireOrnaments: false, requireGeometryFeatures: false, requireNoteMarkerLineDiagnostics: false, help: false };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         const take = () => { if (i + 1 >= argv.length) throw new Error('Missing value for ' + arg); return argv[++i]; };
@@ -26,6 +26,7 @@ function parseArgs(argv) {
             case '--repeat-check': o.repeatCheck = true; break;
             case '--require-ornaments': o.requireOrnaments = true; break;
             case '--require-geometry-features': o.requireGeometryFeatures = true; break;
+            case '--require-note-marker-line-diagnostics': o.requireNoteMarkerLineDiagnostics = true; break;
             case '--fail-on': o.failOn = take(); break;
             case '--timeout-ms': o.timeoutMs = Number(take()); break;
             case '--viewport-width': o.viewportWidth = Number(take()); break;
@@ -40,7 +41,7 @@ function parseArgs(argv) {
 function help() {
     process.stdout.write('Geometry audit CLI\nRequired: --input <text-file>\n' +
       'Options: --settings <json-file>, --report <json-file>, --summary <md-file>, --full-model, --repeat-check,\n' +
-      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>, --require-ornaments, --require-geometry-features\n');
+      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>, --require-ornaments, --require-geometry-features, --require-note-marker-line-diagnostics\n');
 }
 function abs(p) { return path.resolve(process.cwd(), p); }
 function ensureParent(p) { fs.mkdirSync(path.dirname(p), { recursive: true }); }
@@ -1288,12 +1289,26 @@ async function main() {
         const fail = threshold > 0 && report.audit.issues.some(i => rank(i.severity) >= threshold);
         const nondeterministic = report.run.determinismCheck && !report.run.determinismCheck.identical;
         const integrityFailures = instrumentationIntegrityFailures(report);
+        const noteMarkerLineIssues = report.audit.issues.filter(issue =>
+            issue.kind === 'containment-rounding' && issue.childType === 'note-marker');
+        const noteMarkerLineDiagnosticsMissing = args.requireNoteMarkerLineDiagnostics
+            ? (!noteMarkerLineIssues.length || noteMarkerLineIssues.some(issue =>
+                !issue.inlineGeometry || issue.inlineGeometry.lookupStatus !== 'matched' ||
+                !issue.inlineGeometry.nearestLine || !Number.isFinite(issue.inlineGeometry.nearestLine.centerDistance)))
+            : false;
+        process.stdout.write('Note-marker line diagnostics: ' +
+            (noteMarkerLineDiagnosticsMissing
+                ? 'FAIL (' + noteMarkerLineIssues.filter(issue => !issue.inlineGeometry?.nearestLine).length +
+                  '/' + noteMarkerLineIssues.length + ' missing; required=' + args.requireNoteMarkerLineDiagnostics + ')'
+                : 'PASS (' + noteMarkerLineIssues.length + ' containment-rounding marker findings; required=' +
+                  args.requireNoteMarkerLineDiagnostics + ')') + '\n');
         process.stdout.write('Audit instrumentation integrity: ' +
             (integrityFailures.length ? 'FAIL (' + integrityFailures.join('; ') + ')' : 'PASS') + '\n');
         if (pageErrors.length) { process.stderr.write('Browser JavaScript errors: ' + pageErrors.length + '\n'); process.exitCode = 2; }
         else if (nondeterministic) { process.stderr.write('Determinism check failed at page ' + report.run.determinismCheck.firstDifferingPage + '\n'); process.exitCode = 3; }
         else if (fail) process.exitCode = 1;
         else if (integrityFailures.length) process.exitCode = 4;
+        if (noteMarkerLineDiagnosticsMissing && !process.exitCode) process.exitCode = 5;
     } finally {
         if (browser) await browser.close().catch(() => {});
         await new Promise(resolve => server.close(resolve));

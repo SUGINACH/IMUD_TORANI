@@ -44,7 +44,7 @@ jobs:
           test -s ./very_long_test_text.txt
           wc -c ./very_long_test_text.txt
       - name: Run long-document geometry audit
-        run: npm run audit:geometry:long -- --fail-on high --repeat-check
+        run: npm run audit:geometry:long -- --fail-on high --repeat-check --require-note-marker-line-diagnostics
       - name: Upload long-document audit report
         if: always()
         uses: actions/upload-artifact@v4
