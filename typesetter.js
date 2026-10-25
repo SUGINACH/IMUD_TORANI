@@ -1093,9 +1093,9 @@ function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) 
     pElem.setAttribute('data-raw-text', orphanText);
     pElem.innerHTML = createDropWord(orphanText, true, false, orphanLines);
     applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
-    if (orphanTok.endNote) {
-        pElem.appendChild(createNoteMarkerAndQueue(orphanTok.endNote, null, 'endnote'));
-    }
+    // Measurement must not mutate note queues/counters. The real endnote marker is
+    // created only after the orphan has passed the strict page-fit check.
+    if (orphanTok.endNote) pElem.appendChild(createDryEndNoteMarker());
 
     // מדידה: מוסיפים זמנית ל-lCol ומודדים את התוספת האמיתית
     const colHBefore = lCol.scrollHeight;
@@ -1124,6 +1124,26 @@ function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) 
         return false;
     }
 
+    // Snapshot the compressible column before any speculative mutation. If the actual
+    // post-placement geometry violates the page-fit invariant, both the orphan and every
+    // compression style/attribute must be rolled back atomically.
+    const compressedColumnSnapshot = Array.from(lCol.querySelectorAll('*')).map(el =>
+        [el, Array.from(el.attributes).map(attr => [attr.name, attr.value])]);
+    const endnoteQueueLengthBefore = endnoteQueueForPart.length;
+    const endnoteCounterBefore = noteCounters.endnote || 0;
+    const noteUidCounterBefore = noteUidCounter;
+    const restoreFailedReclaim = () => {
+        if (pElem.parentNode) pElem.parentNode.removeChild(pElem);
+        for (const [el, attrs] of compressedColumnSnapshot) {
+            for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+            for (const [name, value] of attrs) el.setAttribute(name, value);
+        }
+        endnoteQueueForPart.length = endnoteQueueLengthBefore;
+        noteCounters.endnote = endnoteCounterBefore;
+        noteUidCounter = noteUidCounterBefore;
+        repositionBlockNotes(lastBlock, Math.max(rCol.scrollHeight, lCol.scrollHeight));
+    };
+
     // הפעלת כיווץ (רק כמה שצריך)
     const compressNeeded = Math.max(0, neededPx - currentFree);
     let actualCompressed = 0;
@@ -1139,16 +1159,14 @@ function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) 
     // הנחת הזנב היתום בטור שמאל (הטור השני מתמלא אחרון, אז יש לו מקום)
     lCol.appendChild(pElem);
 
-    // וידוא שהבלוק עדיין נכנס בעמוד (עם באפר גלישה של ORPHAN_RECLAIM_BUFFER)
-    // [Option C] מאפשרים לבלוק לגלוש עד 12px מתחת לתחתית הרגילה — זה הבאפר שהוקצה למשיכת יתומים.
-    // הגלישה הזו היא "מרווח חירום" שמתקבל כדי למנוע יתום חזותי בראש העמוד הבא.
-    const newFree = (flowBottom - reservedNow()) - lastBlock.getBoundingClientRect().bottom - 1;
-    if (newFree < -ORPHAN_RECLAIM_BUFFER) {
-        // גלש מעבר לבאפר — ביטול ההנחה והחזרת false
-        lCol.removeChild(pElem);
+    // The 12px value is a feasibility allowance, not permission to overflow the reserved
+    // page body. Final acceptance requires the rendered block to remain within 0.5px.
+    let newFree = (flowBottom - reservedNow()) - lastBlock.getBoundingClientRect().bottom - 1;
+    if (newFree < -0.5) {
+        restoreFailedReclaim();
         if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({
-            reason: 'overflow_after_placement',
-            newFree: Math.round(newFree),
+            reason: 'strict-fit-rollback-after-placement',
+            newFree: Math.round(newFree * 1000) / 1000,
             orphanActualH: Math.round(orphanActualH),
             compressNeeded: Math.round(compressNeeded),
             actualCompressed: Math.round(actualCompressed),
@@ -1157,13 +1175,30 @@ function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) 
             lColH_before: Math.round(lColH_before),
             rColH_afterCompress: Math.round(rColH_afterCompress),
             lColH_afterCompress: Math.round(lColH_afterCompress),
-            rColH_afterOrphan: Math.round(rCol.scrollHeight),
-            lColH_afterOrphan: Math.round(lCol.scrollHeight),
             blockBottom: Math.round(lastBlock.getBoundingClientRect().bottom),
             flowBottom: Math.round(flowBottom),
             reservedNow: Math.round(reservedNow())
         });
         return false;
+    }
+
+    // Only now enqueue the real endnote marker; verify its final measured geometry too.
+    if (orphanTok.endNote) {
+        const dryMarker = pElem.querySelector('.note-marker');
+        const realMarker = createNoteMarkerAndQueue(orphanTok.endNote, null, 'endnote');
+        if (dryMarker) dryMarker.replaceWith(realMarker);
+        newFree = (flowBottom - reservedNow()) - lastBlock.getBoundingClientRect().bottom - 1;
+        if (newFree < -0.5) {
+            restoreFailedReclaim();
+            if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({
+                reason: 'strict-fit-rollback-after-endnote-marker',
+                newFree: Math.round(newFree * 1000) / 1000,
+                orphanActualH: Math.round(orphanActualH),
+                blockBottom: Math.round(lastBlock.getBoundingClientRect().bottom),
+                flowBottom: Math.round(flowBottom)
+            });
+            return false;
+        }
     }
 
     // הצלחה! הקורא אחראי לעדכן pendingWordTokens = null ו-tokenIndex++
