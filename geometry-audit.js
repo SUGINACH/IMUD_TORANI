@@ -38,6 +38,52 @@ function rectOf(el) {
     };
 }
 
+/* Resolve note-marker styles directly from the live DOM when the tree's inline
+   diagnostic is missing. Matching by the full relative rectangle avoids relying on
+   text content (which may be empty for some generated marker nodes) or on unstable IDs. */
+function resolveNoteMarkerInlineGeometry(targetRect) {
+    const markers = Array.from(document.querySelectorAll('#book-container .note-marker'));
+    let best = null;
+    for (const el of markers) {
+        const rect = rectOf(el);
+        const score = Math.abs(rect.x - targetRect.x) + Math.abs(rect.y - targetRect.y) +
+            Math.abs(rect.w - targetRect.w) + Math.abs(rect.h - targetRect.h);
+        if (!best || score < best.score) best = { el, rect, score };
+    }
+    const round = value => Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
+    if (!best || best.score > 2) {
+        return {
+            source: 'live-dom-rect-match',
+            lookupStatus: 'not-found',
+            candidateCount: markers.length,
+            bestRectDeltaPx: best ? round(best.score) : null
+        };
+    }
+    const cs = getComputedStyle(best.el);
+    const parent = best.el.parentElement;
+    const ps = parent ? getComputedStyle(parent) : null;
+    const pr = parent ? rectOf(parent) : null;
+    return {
+        source: 'live-dom-rect-match',
+        lookupStatus: 'matched',
+        rectDeltaPx: round(best.score),
+        verticalAlign: cs.verticalAlign,
+        lineHeight: cs.lineHeight,
+        fontSize: cs.fontSize,
+        fontFamily: cs.fontFamily,
+        display: cs.display,
+        position: cs.position,
+        marginTop: cs.marginTop,
+        transform: cs.transform,
+        parentDisplay: ps ? ps.display : null,
+        parentLineHeight: ps ? ps.lineHeight : null,
+        markerTop: round(best.rect.y),
+        markerBottom: round(best.rect.bottom),
+        parentTop: pr ? round(pr.y) : null,
+        parentBottom: pr ? round(pr.bottom) : null
+    };
+}
+
 /* מזהה את סוג הרכיב לפי ה-class וה-tag */
 function classifyElement(el) {
     const cls = el.className || '';
@@ -590,7 +636,8 @@ function auditContainment(node, issues) {
                 })),
                 childRect: { x: Math.round(child.rect.x), y: Math.round(child.rect.y), w: Math.round(child.rect.w), h: Math.round(child.rect.h), bottom: Math.round(child.rect.bottom) },
                 layoutMetrics: child.layoutMetrics || null,
-                inlineGeometry: child.inlineGeometry || null,
+                inlineGeometry: child.inlineGeometry || (child.type === 'note-marker' ? resolveNoteMarkerInlineGeometry(child.rect) : null),
+                inlineGeometrySource: child.inlineGeometry ? 'tree-extraction' : (child.type === 'note-marker' ? 'live-dom-fallback' : null),
                 childDetails: child.type === 'block-2col' ? child.children.filter(c => c.type === 'column').map(col => ({
                     side: col.side,
                     rect: { x: Math.round(col.rect.x), y: Math.round(col.rect.y), w: Math.round(col.rect.w), h: Math.round(col.rect.h), bottom: Math.round(col.rect.bottom) },
