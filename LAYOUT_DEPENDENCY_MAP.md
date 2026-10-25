@@ -758,3 +758,15 @@ The 4 remaining `containment-rounding` findings are note-marker top-bound excurs
 ### Decision
 
 Do not change parenthesis styling or its cross-column/page handling to address the current 10 imbalance findings. The next balance work should focus on the deterministic candidate/capacity policy and the two light-justify residuals. Preserve the scope mapper as a regression diagnostic for future changes.
+
+
+### Verified three-column running-header ornament geometry — 2026-10-26
+
+The active ornament fixtures now select the external SVG `ext________2_svg` in the right, center and left running-header columns for both regular and verso/even-page settings. The CLI measures each wrapper and its SVG/image independently. CI and downloaded-artifact inspection confirm all six per-column measurements are nonzero in both fixture modes: right/center/left wrappers = 1 each, and right/center/left SVG/image graphics = 1 each. Each fixture has 0 containment, containment-rounding and overlap findings; the two LOW findings in each are column imbalance findings, not ornament geometry.
+
+- CLI run: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40238938604 (artifact `12615769263`).
+- Long-document regression run: https://github.com/SUGINACH/IMUD_TORANI/actions/runs/40238938601 (artifact `12615179711`).
+
+The long regression remains stable at 643 pages with deterministic repeat rendering, 3,105/3,105 source paragraphs, 529/529 headings, 2,042/2,042 side notes, 859/859 valid decision records with DOM parity, zero runtime/console errors, and 14 LOW findings (10 imbalance, 4 note-marker containment-rounding), zero MEDIUM/HIGH. Ornament settings are disabled in the long fixture, so it is a regression check rather than ornament coverage.
+
+Remaining geometry follow-up: the four superscript note-marker findings still show a 1.3125px top protrusion, while the serialized `inlineGeometry` field is null despite the extraction code attempting to populate it. Do not infer the marker's computed `vertical-align` from the current report; repair this diagnostic inconsistency before deciding whether the protrusion is expected typographic geometry or a real containment issue.
