@@ -5390,7 +5390,7 @@ function captureParenthesisScopeDiagnostics(container) {
                 const start = stack.pop();
                 const startCtx = start.context;
                 const crossesPage = startCtx.pageIdx != null && context.pageIdx != null && startCtx.pageIdx !== context.pageIdx;
-                const crossesColumn = crossesPage || (['right','left'].includes(startCtx.side) &&
+                const crossesColumn = !crossesPage && (['right','left'].includes(startCtx.side) &&
                     ['right','left'].includes(context.side) && startCtx.side !== context.side);
                 pairs.push({
                     startParagraphIndex: start.paragraphIndex, endParagraphIndex: paragraphIndex,
