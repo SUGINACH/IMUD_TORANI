@@ -1255,6 +1255,220 @@ function findPageIdxInTree(node) {
     return n ? n.idx : -1;
 }
 
+/* בדיקת תפוסה נמוכה של עמודי תוכן.
+   זו בדיקת אבחון בלבד: היא אינה משנה את העימוד ואינה מסיקה שחוסר איזון הוא תקלה.
+   עמוד סוף פרק מוחרג כאשר העמוד הבא נפתח בכותרת 2; בעמוד תחילת פרק
+   שטח הכותרת והמרווח שמעל הטקסט אינם נחשבים לשטח טקסט חסר. */
+function auditSparsePage(page, issues) {
+    const pageEl = _nodeToEl && _nodeToEl.get(page);
+    if (!pageEl) return;
+
+    const pageEls = Array.from(document.querySelectorAll('#book-container .a4-page'));
+    const pageIndex = pageEls.indexOf(pageEl);
+    const bodyFlow = pageEl.querySelector('.page-body-flow');
+    if (!bodyFlow) return;
+
+    const flowRect = bodyFlow.getBoundingClientRect();
+    if (!(flowRect.height > 0)) return;
+
+    const heading2Selector = '.title-level-2-standalone';
+    const nextPage = pageIndex >= 0 ? pageEls[pageIndex + 1] : null;
+    const nextHeading2 = nextPage?.querySelector(heading2Selector);
+    const nextFlow = nextPage?.querySelector('.page-body-flow');
+    const nextFlowRect = nextFlow?.getBoundingClientRect();
+    const nextHeadingRect = nextHeading2?.getBoundingClientRect();
+    const nextPageStartsChapter = !!(
+        nextHeadingRect && nextFlowRect && nextFlowRect.height > 0 &&
+        nextHeadingRect.top < nextFlowRect.top + nextFlowRect.height * 0.45
+    );
+
+    // סוף פרק: כותרת 2 בראש העמוד הבא מעידה שהעמוד הנוכחי מסתיים לפני פרק חדש.
+    if (nextPageStartsChapter) return;
+
+    const heading2 = pageEl.querySelector(heading2Selector);
+    const headingRect = heading2?.getBoundingClientRect();
+    const startsChapter = !!(
+        headingRect && headingRect.top < flowRect.top + flowRect.height * 0.45
+    );
+    const contentStartY = startsChapter
+        ? Math.max(flowRect.top, headingRect.bottom)
+        : flowRect.top;
+
+    // חשב את קיבולת שטח הטקסט לפי הבלוקים בפועל: בלוק דו-טורי תורם שתי
+    // עמודות, ובלוק חד-טורי/רוחבי תורם עמודה אחת.
+    const blocks = Array.from(bodyFlow.children).filter(el =>
+        el.matches('.block-2col, .block-single-col, .block-h3-span')
+    );
+    let capacityPx = 0;
+    if (blocks.length) {
+        for (const block of blocks) {
+            const r = block.getBoundingClientRect();
+            if (r.height <= 0) continue;
+            const effectiveTop = Math.max(r.top, contentStartY);
+            const effectiveHeight = Math.max(0, r.bottom - effectiveTop);
+            if (block.matches('.block-2col')) capacityPx += effectiveHeight * 2;
+            else capacityPx += effectiveHeight;
+        }
+    } else {
+        capacityPx = Math.max(0, flowRect.bottom - contentStartY) * 2;
+    }
+    if (!(capacityPx > 0)) return;
+
+    const textSelector = [
+        '.main-column p', '.single-wide-col p',
+        '.main-column .title-level-2-standalone',
+        '.main-column .title-level-3', '.main-column .title-level-4',
+        '.main-column .title-level-5', '.main-column .title-level-6',
+        '.main-column .title-level-7', '.main-column .title-level-custom',
+        '.single-wide-col .title-level-2-standalone',
+        '.single-wide-col .title-level-3', '.single-wide-col .title-level-4',
+        '.single-wide-col .title-level-5', '.single-wide-col .title-level-6',
+        '.single-wide-col .title-level-7', '.single-wide-col .title-level-custom'
+    ].join(',');
+    const textEls = Array.from(new Set(bodyFlow.querySelectorAll(textSelector)));
+    let occupiedPx = 0;
+    let paragraphCount = 0;
+    let lineCount = 0;
+    let firstTextTop = Infinity;
+    let lastTextBottom = -Infinity;
+    for (const el of textEls) {
+        // הערות שוליים, הערות צד ואלמנטים שאינם נראים אינם חלק מתפוסת גוף הטקסט.
+        if (el.closest('.footnote-area, .margin-notes-column')) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0 || r.bottom <= contentStartY) continue;
+        const effectiveTop = Math.max(r.top, contentStartY);
+        occupiedPx += Math.max(0, r.bottom - effectiveTop);
+        if (el.matches('p')) {
+            paragraphCount++;
+            const raw = el.getAttribute('data-raw-text') || el.textContent || '';
+            if (raw.trim()) lineCount += Math.max(1, Math.round(r.height /
+                (parseFloat(getComputedStyle(el).lineHeight) || Math.max(1, r.height))));
+        }
+        firstTextTop = Math.min(firstTextTop, effectiveTop);
+        lastTextBottom = Math.max(lastTextBottom, r.bottom);
+    }
+    if (paragraphCount === 0 || !Number.isFinite(lastTextBottom)) return;
+
+    // גובהי פסקאות נמדדים בנפרד לכל טור; היחס אינו "אחוז דיו" אלא אומדן
+    // שמרני של תפוסת שטח העימוד. הסף נמוך בכוונה כדי למנוע התרעות שווא.
+    const fillRatio = occupiedPx / capacityPx;
+    const roundedRatio = Math.round(fillRatio * 1000) / 1000;
+    if (fillRatio >= 0.24) return;
+
+    const severity = fillRatio < 0.12 ? 'medium' : 'low';
+    issues.push({
+        kind: 'sparse-page',
+        severity,
+        pageIdx: page.idx,
+        pageLabel: page.label,
+        fillRatio: roundedRatio,
+        occupiedTextHeightPx: Math.round(occupiedPx * 100) / 100,
+        estimatedCapacityPx: Math.round(capacityPx * 100) / 100,
+        paragraphCount,
+        estimatedLineCount: lineCount,
+        startsChapter,
+        firstTextTop: Number.isFinite(firstTextTop) ? Math.round(firstTextTop - flowRect.top) : null,
+        lastTextBottom: Math.round(lastTextBottom - flowRect.top),
+        message: `תפוסת טקסט נמוכה בעמוד ${page.label}: ${Math.round(fillRatio * 100)}% מהקיבולת המשוערת${startsChapter ? ' (כותרת תחילת הפרק הוחרגה מהחישוב)' : ''}`
+    });
+}
+
+/* בדיקת טווחי סוגריים מרובעים במקור, לפני שמסתמכים על ה-DOM המעוצב.
+   היא מאתרת סוגריים לא מאוזנים, וכן זוגות שחוצים פסקאות/טורים/עמודים.
+   זוג מקומי באותה פסקה ובאותו טור אינו מדווח כדי למנוע רעש מכל הערת שוליים רגילה. */
+function auditSquareBracketScopes(issues) {
+    const pageEls = Array.from(document.querySelectorAll('#book-container .a4-page'));
+    const paragraphs = [];
+    pageEls.forEach((pageEl, pageIdx) => {
+        const pageLabel = pageEl.querySelector('.page-number-footer')?.textContent?.trim() || String(pageIdx + 1);
+        const ps = Array.from(pageEl.querySelectorAll('.page-body-flow p[data-raw-text]'));
+        ps.forEach((p, localIdx) => {
+            const rawText = p.getAttribute('data-raw-text') || '';
+            if (!rawText) return;
+            const col = p.closest('.main-column, .single-wide-col');
+            paragraphs.push({
+                el: p, rawText, pageIdx, pageLabel,
+                paragraphIndex: paragraphs.length,
+                localParagraphIndex: localIdx,
+                column: col?.classList.contains('left-col') ? 'left' :
+                    col?.classList.contains('right-col') ? 'right' :
+                    col?.classList.contains('single-wide-col') ? 'single' : 'unknown'
+            });
+        });
+    });
+
+    const stack = [];
+    const emitUnmatchedClose = (para, offset) => issues.push({
+        kind: 'square-bracket-unmatched',
+        severity: 'high',
+        pageIdx: para.pageIdx,
+        pageLabel: para.pageLabel,
+        paragraphIndex: para.paragraphIndex,
+        offset,
+        bracket: ']',
+        message: `סוגר מרובע סוגר ללא פתיחה תואמת בעמוד ${para.pageLabel}, פסקה ${para.paragraphIndex + 1}`
+    });
+
+    for (const para of paragraphs) {
+        for (let offset = 0; offset < para.rawText.length; offset++) {
+            const ch = para.rawText[offset];
+            if (ch === '[') {
+                stack.push({ para, offset });
+                continue;
+            }
+            if (ch !== ']') continue;
+            if (!stack.length) {
+                emitUnmatchedClose(para, offset);
+                continue;
+            }
+            const open = stack.pop();
+            const crossedParagraph = open.para.paragraphIndex !== para.paragraphIndex;
+            const crossedColumn = open.para.column !== para.column;
+            const crossedPage = open.para.pageIdx !== para.pageIdx;
+            if (!crossedParagraph && !crossedColumn && !crossedPage) continue;
+
+            const boundaries = [];
+            if (crossedParagraph) boundaries.push('paragraph');
+            if (crossedColumn) boundaries.push('column');
+            if (crossedPage) boundaries.push('page');
+            const severity = crossedPage || crossedColumn ? 'medium' : 'low';
+            issues.push({
+                kind: 'square-bracket-scope',
+                severity,
+                startPageIdx: open.para.pageIdx,
+                pageIdx: para.pageIdx,
+                startPageLabel: open.para.pageLabel,
+                pageLabel: para.pageLabel,
+                startParagraphIndex: open.para.paragraphIndex,
+                endParagraphIndex: para.paragraphIndex,
+                startColumn: open.para.column,
+                endColumn: para.column,
+                startOffset: open.offset,
+                endOffset: offset,
+                crossedParagraph,
+                crossedColumn,
+                crossedPage,
+                boundaries,
+                sourceLength: paragraphs.slice(open.para.paragraphIndex, para.paragraphIndex + 1)
+                    .reduce((sum, p, idx, arr) => sum + p.rawText.length + (idx < arr.length - 1 ? 1 : 0), 0),
+                message: `טווח סוגריים מרובעים/הערת שוליים חוצה ${boundaries.join(', ')}: עמוד ${open.para.pageLabel} → ${para.pageLabel}`
+            });
+        }
+    }
+    for (const open of stack) {
+        issues.push({
+            kind: 'square-bracket-unmatched',
+            severity: 'high',
+            pageIdx: open.para.pageIdx,
+            pageLabel: open.para.pageLabel,
+            paragraphIndex: open.para.paragraphIndex,
+            offset: open.offset,
+            bracket: '[',
+            message: `סוגר מרובע פותח ללא סגירה תואמת בעמוד ${open.para.pageLabel}, פסקה ${open.para.paragraphIndex + 1}`
+        });
+    }
+}
+
 /* הפעלת כל הבדיקות */
 function auditGeometry(model) {
     const issues = [];
@@ -1271,9 +1485,11 @@ function auditGeometry(model) {
             auditWidowOrphan(c, issues);
             auditSparseLastLine(c, issues);
         }
+        auditSparsePage(page, issues);
         auditOverflowToFootnote(page, issues);
         auditPageOverflow(page, issues);
     }
+    auditSquareBracketScopes(issues);
     // עדכן pageIdx בכל בעיה ע"י חיפוש בעץ
     issues.forEach(iss => {
         if (iss.pageIdx === -1 || iss.pageIdx === undefined) {
