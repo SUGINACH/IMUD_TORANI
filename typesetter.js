@@ -5531,9 +5531,15 @@ function captureParenFontCounterfactualDiagnostics(container) {
             (scope?.[side]?.openCount || 0) + (scope?.[side]?.closeCount || 0) > 0);
         const hasCrossBoundaryScope = (scope?.crossColumnScopeCountIntersectingBlock || 0) > 0 ||
             (scope?.crossPageScopeCountIntersectingBlock || 0) > 0;
-        const eligible = diff != null && diff > 4 && spans.length > 0 && localParenChars && !hasCrossBoundaryScope;
+        // A .block-2col wrapper can contain content in only one column (for example,
+        // a short terminal block). That is not a column-balance residual: changing the
+        // parenthesis font cannot meaningfully test a two-sided balance decision.
+        const bothColumnsHaveContent = baseline.rightHeight > 0 && baseline.leftHeight > 0;
+        const eligible = bothColumnsHaveContent && diff != null && diff > 4 &&
+            spans.length > 0 && localParenChars && !hasCrossBoundaryScope;
         const diag = { version: 1, tested: false, reason: null, spanCount: spans.length, baseline, sameFont: null, restored: null, restoreMatches: null, error: null };
         if (!right || !left) diag.reason = 'missing-column';
+        else if (!bothColumnsHaveContent) diag.reason = 'single-column-content';
         else if (diff == null || diff <= 4) diag.reason = 'residual-not-over-4px';
         else if (!localParenChars || spans.length === 0) diag.reason = 'no-local-parenthetical-style';
         else if (hasCrossBoundaryScope) diag.reason = 'cross-boundary-scope-excluded';
