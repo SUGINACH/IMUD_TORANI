@@ -1806,12 +1806,66 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     }
 
     // ---- 5. יישור עדין של הבסיס התחתון ----
+    // [הערה] balanceByWordSpacing הוסר מכאן כי הוא יכול לשבור את האיזון שכבר נעשה
+    // על-ידי חלוקת פסקאות. חלוקת עומס פועלת רק ב-Branch 4 (עמוד רגיל).
     const finalDiff = rCol.scrollHeight - lCol.scrollHeight;
     if (finalDiff > 0.5) justifyColumnVertically(lCol, rCol.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
     else if (finalDiff < -0.5) justifyColumnVertically(rCol, lCol.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
 
     finalizeNotePositions(finalNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
     return { rH: rCol.scrollHeight, lH: lCol.scrollHeight, fits: Math.max(rCol.scrollHeight, lCol.scrollHeight) <= availableHeight };
+}
+
+/* [חדש — שלב 1: רווח מילים דינמי] חלוקת עומס בין טורים.
+   אם יש פער קטן בין הטורים, כווץ את הארוך (word-spacing < 1.0) והרחב את הקצר (word-spacing > 1.0).
+   כל טור סופג 50% מהעומס — הפער נעלם בצורה הרמונית בלי לשנות line-height.
+   - rCol, lCol: שני הטורים
+   - diff: rCol - lCol (חיובי = ימין ארוך יותר)
+   - טווחים: כיווץ 0.95-0.98, הרחבה 1.02-1.05
+   - חשוב: פועל רק על פערים קטנים (2-20px) ובודק שיפור אחרי כל שינוי */
+function balanceByWordSpacing(rCol, lCol, diff) {
+    if (Math.abs(diff) <= 2 || Math.abs(diff) > 20) return;
+
+    const longCol = diff > 0 ? rCol : lCol;
+    const shortCol = diff > 0 ? lCol : rCol;
+    const neededPx = Math.abs(diff) / 2; // כל טור סופג 50%
+
+    // שמור את הגבהים לפני השינוי
+    const longBefore = longCol.scrollHeight;
+    const shortBefore = shortCol.scrollHeight;
+
+    // 1. כווץ את הארוך בעדינות — רק פקטור אחד (0.98)
+    applyWordSpacing(longCol, 0.98);
+    const longAfter = longCol.scrollHeight;
+
+    // 2. הרחב את הקצר בעדינות — רק פקטור אחד (1.02)
+    applyWordSpacing(shortCol, 1.02);
+    const shortAfter = shortCol.scrollHeight;
+
+    // 3. בדוק תוצאה — אם הפער גדל, החזר את השינוי
+    const newDiff = Math.abs(longAfter - shortAfter);
+    const oldDiff = Math.abs(longBefore - shortBefore);
+    if (newDiff >= oldDiff) {
+        // החזר לרגיל — השינוי לא עזר
+        applyWordSpacing(longCol, 1.0);
+        applyWordSpacing(shortCol, 1.0);
+        return;
+    }
+
+    // 4. אם עזר אבל עדיין יש פער, נסה עוד צעד
+    if (newDiff > 2 && newDiff < oldDiff) {
+        const remaining = newDiff / 2;
+        if (remaining > 1) {
+            applyWordSpacing(longCol, 0.95);
+            applyWordSpacing(shortCol, 1.05);
+            // בדוק שוב — אם הרע, החזר
+            const finalDiff = Math.abs(longCol.scrollHeight - shortCol.scrollHeight);
+            if (finalDiff >= newDiff) {
+                applyWordSpacing(longCol, 0.98);
+                applyWordSpacing(shortCol, 1.02);
+            }
+        }
+    }
 }
 
 /* ==========================================================================
@@ -4372,6 +4426,11 @@ function typesetDocumentCore() {
                         let usedBlockH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
                         let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
                         if (usedBlockH <= remPageHeight) {
+                            // [חדש — שלב 1] חלוקת עומס בין טורים לפני justifyColumnVertically
+                            if (Math.abs(finalDiff) > 2 && Math.abs(finalDiff) <= 20) {
+                                balanceByWordSpacing(rCol, lCol, finalDiff);
+                                finalDiff = rCol.scrollHeight - lCol.scrollHeight;
+                            }
                             if (finalDiff > 2 && finalDiff <= 60) {
                                 justifyColumnVertically(lCol, rCol.scrollHeight, styleObj);
                             } else if (finalDiff < -2 && Math.abs(finalDiff) <= 60) {
