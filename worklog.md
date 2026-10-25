@@ -2933,3 +2933,8 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Confirm all 854 blocks have a version-1 counterfactual record, the document-level summary exists, and the local-parenthesis imbalance cases are actually tested (not merely marked ineligible due to missing scope data).
 - Confirm deterministic repeat render, 629-page baseline unless a proven deterministic reason explains a change, 854/854 ledger-to-DOM parity, source/content conservation, footnote measurements 60/60 exact, zero runtime errors, and no containment regressions.
 - Do not change balance/stretch caps based on the counterfactual until its measured effect is inspected. `V23` remains separate from `V21`; no merge.
+
+
+### Interim validation (2026-10-25)
+- CLI smoke workflow `40199965372` passed on source commit `4bbc7b3631b116e469655a829342b092d2703dff`: 6 pages, repeat-render determinism PASS, 2/2 decision records, and no audit/runtime issues. The smoke fixture has no parenthesis pairs, so its expected counterfactual eligible/tested counts are 0/0; it does not validate the local-parenthesis experiment.
+- Full long-document workflow `40199965410` was triggered on the same source commit and was still reported as `in_progress` at the time of this note. No long-run result is claimed yet.
