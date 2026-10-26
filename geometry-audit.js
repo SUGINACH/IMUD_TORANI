@@ -1154,6 +1154,8 @@ function auditWidowOrphan(node, issues) {
                     isContinuation: last.isContinuation,
                     renderedLineCount: last.lines.length,
                     renderedLineWidths: last.lines.map(line => Math.round(line.w * 100) / 100),
+                    balanceFallback,
+                    balanceFallbackSparseLine,
                     splitDiagnostics: {
                         inputLines: splitAttr('data-layout-split-input-lines'),
                         fitLines: splitAttr('data-layout-split-fit-lines'),
@@ -1199,6 +1201,9 @@ function auditSparseLastLine(node, issues) {
                 }
             }
             if (!hasParenOnLastLine) {
+                const balanceBlock = _nodeToEl.get(node)?.closest('.block-2col') || null;
+                const balanceFallback = balanceBlock?.getAttribute('data-layout-balance-fallback') || null;
+                const balanceFallbackSparseLine = balanceBlock?.getAttribute('data-layout-balance-fallback-sparse-line') || null;
                 const lineTokens = line => (Array.isArray(node.words) ? node.words : [])
                     .filter(token => Math.abs(token.y - line.y) < Math.max(4, line.h * 0.35))
                     .sort((a, b) => a.idx - b.idx)
