@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>תוכנית פיתוח — מערכת תוספים לעימוד תורני</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700;900&family=David+Libre:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --ink:#211c18; --ink-soft:#4a423b;
+    --paper:#f4f1e8; --paper-alt:#eae4d2;
+    --cover:#3b1f2b; --cover-soft:#5a3546;
+    --brass:#a9822e; --brass-light:#e4d4a8;
+    --line:#d8cfb8;
+    --good:#4b6b4f; --warn:#8a3b2b;
+    --serif:'Frank Ruhl Libre',serif;
+    --serif-alt:'David Libre',serif;
+    --mono:'JetBrains Mono',ui-monospace,'Courier New',monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--serif); line-height:1.75; font-size:16.5px;
+  }
+  ::selection{background:var(--brass-light)}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    background:linear-gradient(160deg,var(--cover) 0%,var(--cover-soft) 100%);
+    color:var(--paper); padding:64px 8vw 46px; position:relative; overflow:hidden;
+    border-bottom:6px solid var(--brass);
+  }
+  .hero::before{
+    content:""; position:absolute; inset:0; opacity:.08; pointer-events:none;
+    background-image:repeating-linear-gradient(135deg,var(--brass) 0 1px,transparent 1px 26px);
+  }
+  .hero .eyebrow{
+    font-family:var(--mono); font-size:12.5px; letter-spacing:.14em; color:var(--brass-light);
+    text-transform:uppercase; margin-bottom:14px; display:flex; gap:10px; align-items:center;
+  }
+  .hero .eyebrow::before{content:"§"; color:var(--brass); font-family:var(--serif-alt)}
+  .hero h1{
+    font-size:clamp(30px,4vw,46px); margin:0 0 14px; font-weight:900; letter-spacing:.01em;
+  }
+  .hero p{max-width:760px; font-size:18px; color:#ede4d3; margin:0 0 6px}
+  .hero .meta{
+    margin-top:26px; font-family:var(--mono); font-size:12.5px; color:var(--brass-light);
+    border-top:1px solid rgba(228,212,168,.25); padding-top:16px; display:flex; gap:28px; flex-wrap:wrap;
+  }
+  .hero .meta b{color:var(--paper); font-weight:600}
+
+  /* ---------- LAYOUT ---------- */
+  .layout{display:flex; align-items:flex-start; max-width:1280px; margin:0 auto; padding:0 8vw 100px}
+  .content{flex:1; min-width:0; padding-left:56px}
+  .toc-rail{
+    width:236px; flex:none; position:sticky; top:26px;
+    border-right:1px solid var(--line); padding-right:22px; margin-top:46px;
+  }
+  .toc-rail .toc-label{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; color:var(--brass);
+    text-transform:uppercase; margin-bottom:14px;
+  }
+  .toc-rail a{
+    display:block; color:var(--ink-soft); text-decoration:none; font-size:14.5px;
+    padding:7px 0; border-bottom:1px dotted transparent;
+  }
+  .toc-rail a:hover{color:var(--cover); border-bottom-color:var(--line)}
+  .toc-rail a b{
+    font-family:var(--mono); color:var(--brass); margin-left:8px; font-weight:600; font-size:12.5px;
+  }
+
+  /* ---------- SECTIONS ---------- */
+  section{padding-top:56px; scroll-margin-top:20px}
+  section:first-of-type{padding-top:46px}
+  .sec-head{display:flex; align-items:center; gap:16px; margin-bottom:22px}
+  .sec-num{
+    width:42px; height:42px; border-radius:50%; border:2px solid var(--brass); flex:none;
+    display:flex; align-items:center; justify-content:center; font-family:var(--serif-alt);
+    font-weight:700; font-size:17px; color:var(--cover); background:var(--brass-light);
+  }
+  h2{font-size:26px; margin:0; font-weight:700; color:var(--cover)}
+  h3{font-size:19px; color:var(--cover); margin:30px 0 12px; font-weight:700}
+  p{color:var(--ink-soft); margin:0 0 14px; max-width:74ch}
+  ul,ol{color:var(--ink-soft); padding-right:22px; margin:0 0 16px}
+  li{margin-bottom:7px; max-width:72ch}
+  strong{color:var(--ink); font-weight:700}
+  code{font-family:var(--mono); direction:ltr; unicode-bidi:embed; background:var(--paper-alt); padding:1px 6px; border-radius:4px; font-size:.86em; color:var(--cover)}
+
+  /* ---------- CALLOUTS ---------- */
+  .callout{
+    border-radius:8px; padding:16px 20px; margin:16px 0; border-right:4px solid var(--brass);
+    background:linear-gradient(90deg,var(--brass-light) 0%,rgba(228,212,168,.18) 100%);
+  }
+  .callout p:last-child{margin-bottom:0}
+  .callout .tag{font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; color:var(--cover); text-transform:uppercase; font-weight:600; margin-bottom:6px; display:block}
+  .decision{
+    border:1.5px solid var(--cover); border-radius:8px; padding:16px 20px; margin:16px 0;
+    background:#fbf9f3; position:relative;
+  }
+  .decision .tag{font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; color:var(--warn); text-transform:uppercase; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px}
+  .decision .tag::before{content:"?"; width:18px; height:18px; border-radius:50%; background:var(--warn); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-family:var(--serif-alt)}
+  .decision .rec{margin-top:8px; font-size:14.5px}
+  .decision .rec b{color:var(--good)}
+
+  /* ---------- TABLES ---------- */
+  table{width:100%; border-collapse:collapse; margin:18px 0 26px; font-size:14.5px}
+  caption{text-align:right; font-family:var(--mono); font-size:12px; color:var(--ink-soft); margin-bottom:8px; letter-spacing:.03em}
+  th,td{padding:9px 12px; border:1px solid var(--line); text-align:right; vertical-align:top}
+  th{background:var(--cover); color:var(--paper); font-weight:600; font-size:13.5px}
+  tr:nth-child(even) td{background:var(--paper-alt)}
+  td.yes{color:var(--good); font-weight:700}
+  td.no{color:#9c9184}
+  td code{white-space:nowrap}
+
+  /* ---------- CODE BLOCK ---------- */
+  pre{
+    background:var(--ink); color:#efe6d0; border-radius:10px; padding:18px 20px;
+    direction:ltr; text-align:left; overflow-x:auto; font-family:var(--mono); font-size:13.3px;
+    line-height:1.65; margin:14px 0 24px; border:1px solid #000; box-shadow:inset 0 0 0 1px rgba(228,212,168,.06);
+  }
+  pre .k{color:#e4b869} pre .s{color:#a9c98a} pre .c{color:#8a8177; font-style:italic}
+
+  /* ---------- DIAGRAM ---------- */
+  .diagram-wrap{background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; margin:18px 0}
+  .diagram-cap{text-align:center; font-size:13px; color:var(--ink-soft); margin-top:8px; font-family:var(--mono)}
+
+  /* ---------- STEP LIST ---------- */
+  .steps{list-style:none; padding:0; counter-reset:step; margin:0 0 10px}
+  .steps li{
+    counter-increment:step; position:relative; padding-right:40px; margin-bottom:14px; color:var(--ink-soft);
+  }
+  .steps li::before{
+    content:counter(step); position:absolute; right:0; top:1px; width:26px; height:26px; border-radius:50%;
+    background:var(--cover); color:var(--brass-light); font-family:var(--serif-alt); font-weight:700;
+    font-size:13px; display:flex; align-items:center; justify-content:center;
+  }
+
+  /* ---------- MOCKUP (reconstruction of the sidebar panel) ---------- */
+  .mockup{
+    background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px; margin:18px 0;
+  }
+  .mockup-frame{max-width:360px; border:1px solid #c9c0a8; border-radius:8px; overflow:hidden; font-size:13px; box-shadow:0 6px 18px rgba(59,31,43,.12)}
+  .mockup-frame .m-head{
+    background:var(--cover); color:var(--brass-light); padding:9px 14px; font-weight:700; font-size:13.5px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .mockup-frame .m-body{padding:12px 14px; background:#fdfcf8}
+  .mockup-frame .m-sub{font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--brass); margin:12px 0 6px; border-top:1px dashed var(--line); padding-top:10px}
+  .mockup-frame .m-sub:first-child{border-top:none; padding-top:0; margin-top:0}
+  .m-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0}
+  .m-row label{color:var(--ink-soft); font-size:12.6px}
+  .m-row select,.m-row input[type=range]{
+    font-family:var(--serif); font-size:12px; border:1px solid #cfc6ae; border-radius:5px; padding:3px 6px; background:#fff; color:var(--ink); max-width:150px;
+  }
+  .m-row .op{color:var(--brass); font-family:var(--mono); font-size:11px}
+
+  footer{border-top:1px solid var(--line); margin-top:60px; padding-top:24px; color:var(--ink-soft); font-size:13.5px; font-family:var(--mono)}
+
+  @media (max-width:880px){
+    .layout{flex-direction:column; padding:0 6vw 60px}
+    .toc-rail{display:none}
+    .content{padding-left:0}
+  }
+  @media print{ .toc-rail{display:none} .hero{-webkit-print-color-adjust:exact} }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="eyebrow">מסמך תכנון · לפני כתיבת קוד</div>
+  <h1>מערכת תוספים לעימוד תורני</h1>
+  <p>תוכנית מפורטת להרחבת הכלי לתמיכה בסוגי עמודים וסגנונות טקסט הניתנים להגדרה, שמירה וייבוא — וכן בתוספת בחירת רקע עצמאית לכל סוג עמוד, קיים וחדש כאחד.</p>
+  <div class="meta">
+    <div>מקור: <b>ai_studio_code__41_.html</b> (2,440 שורות, נסקר במלואו)</div>
+    <div>גרסת תכנון: <b>1</b></div>
+    <div>שלב נוכחי: <b>תכנון — טרם נכתב קוד</b></div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc-rail">
+    <div class="toc-label">תוכן העניינים</div>
+    <a href="#s1"><b>01</b>תקציר</a>
+    <a href="#s2"><b>02</b>ארכיטקטורה</a>
+    <a href="#s3"><b>03</b>רקע כתכונת עמוד</a>
+    <a href="#s4"><b>04</b>פורמט קובץ ההגדרה</a>
+    <a href="#s5"><b>05</b>מלאי הגדרות קיימות</a>
+    <a href="#s6"><b>06</b>הגדרות מוצעות</a>
+    <a href="#s7"><b>07</b>זרימת עבודה</a>
+    <a href="#s8"><b>08</b>הצעות נוספות</a>
+    <a href="#s9"><b>09</b>שינויים נדרשים</a>
+    <a href="#s10"><b>10</b>החלטות פתוחות</a>
+    <a href="#s11"><b>11</b>סדר עבודה</a>
+  </nav>
+
+  <main class="content">
+
+    <section id="s1">
+      <div class="sec-head"><div class="sec-num">01</div><h2>תקציר</h2></div>
+      <p>הבקשה מורכבת משלוש יכולות שלובות זו בזו:</p>
+      <ul>
+        <li><strong>סוגי עמוד ניתנים להגדרה</strong> — עמוד בעל שם, רקע, ואלמנטי טקסט הנקשרים לקידומת בטקסט המקור, נשמר כקובץ וניתן לייבוא עם בחירת מיקום בסדר העמודים.</li>
+        <li><strong>סגנונות טקסט ניתנים להגדרה</strong> — סוג כותרת/טקסט חדש, עם פיענוח (parsing) משלו לטקסט המקור, נשמר וניתן לייבוא באותו אופן.</li>
+        <li><strong>בקרת רקע אחידה לכל סוגי העמוד</strong> — לא רק לשערים (שכבר קיימת להם היום), אלא גם לעמודי טקסט רגילים, לעמודי תוכן העניינים (ראשון/אחרון/רגיל) ולעמודים הנוצרים ע"י כותרת 0 וכותרת 2.</li>
+      </ul>
+      <p>המסמך הזה הוא תכנון בלבד — אין בו קוד. הוא בנוי כך שאפשר לאשר, לתקן או להעיר על כל חלק בנפרד (ראו פרק 10) לפני שניגש למימוש.</p>
+      <div class="callout">
+        <span class="tag">הנחת עבודה</span>
+        <p>ברשימת סוגי העמודים כתבת "עמוד 'כותרת ס'" — הנחתי שהכוונה ל<strong>כותרת 0</strong> (הספרה והאות ס דומות מאוד ויזואלית), במיוחד לאור כך ש"כותרת 2" מופיע מיד אחריה כדוגמה מקבילה. כל ההתייחסות במסמך היא לכותרת 0. אם התכוונת לדבר אחר — קל לתקן.</p>
+      </div>
+    </section>
+
+    <section id="s2">
+      <div class="sec-head"><div class="sec-num">02</div><h2>ארכיטקטורה כללית</h2></div>
+      <p>המערכת המורחבת מורכבת משלושה חלקים, שהקובץ הראשי כבר "מכיר" איך לדבר איתם:</p>
+      <ol>
+        <li><strong>הכלי הראשי (הקיים)</strong> — מקבל טקסט גולמי ומייצר עימוד. מתווסף לו: אזור ייבוא תוספים, יצירת פאנל הגדרות דינמי לכל תוסף שיובא, והרחבת מנוע העימוד לדעת לצייר סוגי עמוד וסגנונות טקסט מיובאים.</li>
+        <li><strong>עורך תוספים חדש</strong> — כלי נפרד (קובץ HTML נוסף, באותה רוח של הכלי הקיים: חד-קובצי, בלי שרת) עם שני מצבי עבודה: מעצב סוגי עמוד, ומעצב סגנונות טקסט. תוצר הפעולה בו הוא קובץ הגדרה.</li>
+        <li><strong>קובצי הגדרה (JSON)</strong> — "השכבה המתווכת" הניידת בין העורך לכלי הראשי. ראו פרק 4 להנמקת הבחירה בפורמט.</li>
+      </ol>
+      <div class="diagram-wrap" id="diagram-holder"></div>
+      <div class="diagram-cap">איור 1 — זרימת הנתונים בין שלושת החלקים</div>
+    </section>
+
+    <section id="s3">
+      <div class="sec-head"><div class="sec-num">03</div><h2>עקרון מאחד: רקע כתכונה של סוג עמוד</h2></div>
+      <p>היום קיימת בחירת רקע (3 סגנונות מובנים + תמונה מותאמת) רק לשני סוגי עמוד: <strong>שער ראשי</strong> ו<strong>שער-חלק</strong>. הבקשה היא להרחיב את אותו עיקרון לכל סוגי העמוד הבאים, כל אחד עם בחירה עצמאית משלו:</p>
+      <ul>
+        <li>עמוד טקסט רגיל (עמודי הגוף הדו-טוריים)</li>
+        <li>עמוד תוכן עניינים ראשון</li>
+        <li>עמוד תוכן עניינים אחרון</li>
+        <li>עמוד תוכן עניינים רגיל (עמוד ביניים)</li>
+        <li>עמוד הנפתח ע"י כותרת 0</li>
+        <li>עמוד הנפתח ע"י כותרת 2</li>
+      </ul>
+      <p>מבחינת המנוע הקיים, זה בהחלט ניתן למימוש נקי — אך לא "בחינם" בכל מקום:</p>
+      <ul>
+        <li><code>createPageLayout</code> כבר משרתת גם עמודי גוף רגילים וגם עמודים שנפתחים ע"י כותרת 2 — צריך להוסיף לה פרמטר "תפקיד עמוד" כדי שתדע איזו הגדרת רקע להחיל.</li>
+        <li>עמוד כותרת 0 עובר בנתיב רינדור נפרד (עמודה בודדת רחבה) — קל להוסיף לו את אותה בחירת רקע.</li>
+        <li>עמוד תוכן העניינים <strong>הראשון</strong> כבר מזוהה בקוד הקיים (<code>isFirstTOCPage</code>). זיהוי העמוד <strong>האחרון</strong> דורש תוספת קטנה: <code>renderPaginatedTOC</code> פועלת בלולאה שלא יודעת מראש כמה עמודים ייצרו, כך שסימון "זהו העמוד האחרון" צריך להתבצע רטרואקטיבית על העמוד האחרון שנוצר, אחרי שהלולאה סיימה.</li>
+      </ul>
+      <h3>שני סטים של אפשרויות רקע, לא אחד</h3>
+      <p>סגנונות הרקע המפוארים של השערים (דמשק ומדליון, תחרה כפולה, פינות וילנה) הוגדרו לעמוד שרובו קישוט. על עמוד טקסט רגיל, תוכן עניינים, או כותרת — יש טקסט צפוף שיושב <em>מעל</em> הרקע, ולכן מוצע סט קליל יותר, עם שקיפות לתמונה כדי לא לפגוע בקריאות:</p>
+      <table>
+        <tr><th>הקשר</th><th>אפשרויות רקע</th></tr>
+        <tr><td>שער ראשי / שער-חלק (קיים)</td><td>3-2 סגנונות מפוארים מובנים + תמונה מותאמת (ללא שינוי)</td></tr>
+        <tr><td>עמודי טקסט, תוכן עניינים, כותרת 0/2 (חדש)</td><td>ללא (ברירת מחדל) · צבע אחיד · מרקם עדין (דוגמת רקע בשקיפות נמוכה) · תמונה מותאמת + מחוון שקיפות</td></tr>
+      </table>
+      <h3>תצוגה מקדימה של הפאנל המוצע</h3>
+      <p>שחזור של פאנל ההגדרות שיתווסף לסרגל הצד, באותה שפת עיצוב של הפאנלים הקיימים (כותרת כהה, שורות תווית+בקרה):</p>
+      <div class="mockup">
+        <div class="mockup-frame">
+          <div class="m-head">🎨 רקע לעמודי תוכן <span class="op">▾</span></div>
+          <div class="m-body">
+            <div class="m-row"><label>עמוד טקסט רגיל</label><select><option>ללא</option><option>צבע אחיד</option><option>מרקם עדין</option><option>תמונה מותאמת</option></select></div>
+            <div class="m-row"><label>עמוד "כותרת 0"</label><select><option>ללא</option><option>צבע אחיד</option><option>מרקם עדין</option><option>תמונה מותאמת</option></select></div>
+            <div class="m-row"><label>עמוד "כותרת 2"</label><select><option>ללא</option><option>צבע אחיד</option><option>מרקם עדין</option><option>תמונה מותאמת</option></select></div>
+            <div class="m-sub">תוכן עניינים</div>
+            <div class="m-row"><label>עמוד ראשון</label><select><option>ללא</option><option>תמונה מותאמת</option></select></div>
+            <div class="m-row"><label>עמוד אחרון</label><select><option>ללא</option><option>תמונה מותאמת</option></select></div>
+            <div class="m-row"><label>עמוד רגיל (ביניים)</label><select><option>ללא</option><option>תמונה מותאמת</option></select></div>
+            <div class="m-row" style="opacity:.75"><label>שקיפות תמונה</label><input type="range" min="0" max="100" value="15"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="s4">
+      <div class="sec-head"><div class="sec-num">04</div><h2>פורמט קובץ ההגדרה</h2></div>
+      <p>ביקשת שאציע HTML או פורמט אחר. ההמלצה שלי: <strong>JSON</strong>, לא HTML.</p>
+      <ul>
+        <li>סוג עמוד וסגנון טקסט הם, במהותם, <strong>נתונים מובנים</strong> (שם, רקע, רשימת שדות, מיקומים) — לא markup. JSON הוא הייצוג הטבעי לכך.</li>
+        <li>הכלי הראשי כולו JS וניל, ללא ספריות — <code>JSON.parse</code> הוא native, בלי צורך בפרסור HTML של קובץ חיצוני.</li>
+        <li>קובץ JSON קריא, ניתן להשוואה (diff) ולניהול גרסאות בקלות רבה יותר ממסמך HTML שלם.</li>
+        <li>ה"שמירת תבנית" הקיימת יוצרת HTML כי היא שומרת <em>עותק עובד שלם של האפליקציה</em> — הקשר שונה מהותית מהגדרת-עמוד בודדת שרק "נכנסת" לתוך אפליקציה קיימת.</li>
+      </ul>
+      <p>תמונת רקע שתוגדר בתוך סוג עמוד תוטמע כ-<code>data:</code> URI בתוך שדה טקסטואלי ב-JSON — בדיוק כמו שהתמונות המותאמות של השערים כבר נשמרות היום.</p>
+      <h3>שרטוט הסכמה — סוג עמוד</h3>
+      <pre>{
+  "kind": "pageType",
+  "id": "author-publisher-info",
+  "name": "עמוד פרטי מחבר והוצאה לאור",
+  "version": 1,
+  "background": {
+    "mode": "fixed",            <span class="c">// "fixed" | "deferred"</span>
+    "style": "custom_img",
+    "image": "data:image/png;base64,...",
+    "opacity": 1
+  },
+  "elements": [
+    {
+      "id": "el1",
+      "label": "שם המחבר המלא",
+      "prefix": "שם המחבר המלא",
+      "defaultText": "",
+      "position": { "vAnchor": "upper", "hAlign": "center", "offsetY": 0 },
+      "font": { "family": "David Libre", "size": 14, "weight": 700 },
+      "maxLines": 1
+    }
+  ],
+  "showPageNumber": false,
+  "includeInToc": false,
+  "insertionAnchor": "afterMainShaar",
+  "repeatMode": "once"          <span class="c">// "once" | "perPart"</span>
+}</pre>
+      <h3>שרטוט הסכמה — סגנון טקסט</h3>
+      <pre>{
+  "kind": "textStyle",
+  "id": "colophon-note",
+  "name": "הערת קולופון",
+  "version": 1,
+  "trigger": { "prefix": "כותרת-קולופון" },
+  "parseMode": "splitFirstDash",
+  "layoutMode": "span_1col",
+  "typography": {
+    "family": "Hadassah Friedlaender", "size": 10, "weight": 400,
+    "color": "#3B1F2B", "letterSpacing": 0.5, "case": "none",
+    "ruleAbove": true, "ruleBelow": false
+  },
+  "spacing": { "marginTop": 14, "marginBottom": 6 },
+  "toc": { "include": true, "level": 5, "grouping": false },
+  "allowSideNote": true
+}</pre>
+      <p>שדה <code>kind</code> חובה בכל קובץ — כך שהייבוא בכלי הראשי יודע מיד אם מדובר בסוג עמוד או בסגנון טקסט, ויכול לדחות קובץ פגום בבירור במקום להיכשל בשקט.</p>
+    </section>
+
+    <section id="s5">
+      <div class="sec-head"><div class="sec-num">05</div><h2>מלאי ההגדרות הקיימות היום</h2></div>
+      <p>כדי להרחיב בעקביות, ריכזתי קודם מה כבר קיים בפועל — נבדק מול הבחירות בפאנלים עצמם, לא רק מול ה-CSS.</p>
+      <table>
+        <caption>טבלה א — סוגי עמוד קיימים</caption>
+        <tr><th>היבט</th><th>שער ראשי</th><th>שער-חלק</th><th>עמוד גוף / כותרת 2</th><th>עמוד תוכן עניינים</th></tr>
+        <tr><td>בחירת רקע</td><td class="yes">כן</td><td class="yes">כן</td><td class="no">לא קיים</td><td class="no">לא קיים</td></tr>
+        <tr><td>תמונת רקע מותאמת</td><td class="yes">כן</td><td class="yes">כן</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>שדות טקסט קבועים</td><td>שם, נושא, תיאור, פרקים, מחבר, שנה</td><td>כותרת ראשית+משנה (מפוצל ב-" - ")</td><td>זורם מהטוקנים עצמם</td><td>נבנה אוטומטית מרשימת הכותרות</td></tr>
+        <tr><td>פונט/גודל לכל שדה</td><td class="yes">כן, לכל שדה בנפרד</td><td class="yes">כן</td><td>לפי רמת הכותרת</td><td>לפי רמת ה-TOC</td></tr>
+        <tr><td>מספר עמוד מודפס</td><td class="no">לא</td><td class="no">לא</td><td class="yes">כן</td><td class="yes">כן</td></tr>
+        <tr><td>נספר בתוכן עניינים</td><td>—（לפני התוכן）</td><td class="yes">כן, כרמה 1</td><td class="yes">כן, לפי רמת הכותרת</td><td>—</td></tr>
+      </table>
+      <table>
+        <caption>טבלה ב — רמות כותרת (h0–h7), כפי שמוגדר בפועל בבקרות הסרגל</caption>
+        <tr><th>רמה</th><th>מצב ברירת מחדל</th><th>חלופות בתפריט</th><th>גופן</th><th>גודל</th><th>הערה</th></tr>
+        <tr><td>0</td><td><code>new_page_1col</code></td><td>span_1col</td><td>AlphaBlack</td><td>26pt</td><td>עמודה בודדת רחבה (הקדמה)</td></tr>
+        <tr><td>1</td><td><code>sub_shaar</code></td><td>new_page_1col</td><td>Lia Sgula</td><td>50pt</td><td>מפוצל ב-" - " לכותרת+תת-כותרת</td></tr>
+        <tr><td>2</td><td><code>new_page_1col</code></td><td class="no">אין — קבוע</td><td>AlphaBlack</td><td>17pt</td><td>התפריט נעול לאפשרות אחת</td></tr>
+        <tr><td>3</td><td><code>span_1col</code></td><td>inline_2col</td><td>Alpha</td><td>13.5pt</td><td>—</td></tr>
+        <tr><td>4</td><td><code>inline_2col</code></td><td>span_1col</td><td>Alpha</td><td>12.5pt</td><td>—</td></tr>
+        <tr><td>5</td><td><code>inline_2col</code></td><td>side_note</td><td>AlphaLight</td><td>11.5pt</td><td>—</td></tr>
+        <tr><td>6</td><td><code>inline_2col</code></td><td>side_note</td><td>Noto Serif Hebrew</td><td>10.5pt</td><td>—</td></tr>
+        <tr><td>7</td><td><code>side_note</code></td><td>inline_2col</td><td>Hadassah Friedlaender</td><td>6pt</td><td>ה-tokenizer ממיר תמיד להערת שוליים; התפריט בפועל דקורטיבי</td></tr>
+      </table>
+      <div class="callout">
+        <span class="tag">הערת אגב מבדיקת הקוד</span>
+        <p>בעת ריכוז הטבלה גיליתי שבקובץ קיימים <em>שני</em> בלוקים של ערכי ברירת מחדל לגופנים/גדלים — אחד ב-<code>style</code> המוטבע על תגית ה-HTML, ואחד בבלוק <code>:root</code>. הם חלוקים ביניהם כמעט בכל שורה (למשל <code>--fn-h0</code>: "AlphaBlack" מול "David Libre"). מכיוון שה-style המוטבע גובר תמיד, בלוק ה-<code>:root</code> כולו כרגע "מת" ואינו משפיע על שום דבר בפועל. לא קריטי לתוכנית הנוכחית, אך שווה ניקוי בנפרד — כדי שמישהו שיפתח את הקובץ בעתיד לא יטעה לחשוב שהוא קובע את ברירות המחדל.</p>
+      </div>
+    </section>
+
+    <section id="s6">
+      <div class="sec-head"><div class="sec-num">06</div><h2>הגדרות מוצעות — קיימות + חדשות יחד</h2></div>
+      <p>לבקשתך, ריכזתי את כל מה שסוג עמוד/סגנון טקסט יכול לשאת: מה שכבר קיים (מטבלה א-ב למעלה) בתוספת מה שאני מעריך שישתמשים ירצו ולא קיים היום.</p>
+      <h3>סוג עמוד — מלאי שדות מלא</h3>
+      <table>
+        <tr><th>שדה</th><th>מקור</th><th>הערה</th></tr>
+        <tr><td>שם תצוגה</td><td>מבוקש</td><td>מופיע ככותרת הפאנל</td></tr>
+        <tr><td>רקע (מצב/סגנון/תמונה/שקיפות)</td><td>מבוקש + פרק 3</td><td>כולל אפשרות "מצב נדחה" — ההחלטה תישאר לבחירה הכללית בקובץ הראשי</td></tr>
+        <tr><td>רשימת אלמנטי טקסט, כל אחד עם: קידומת, טקסט ברירת מחדל, מיקום, גופן/גודל/משקל/צבע, מס' שורות מקסימלי</td><td>מבוקש</td><td>ראו מודל המיקום למטה</td></tr>
+        <tr><td>הצגת מספר עמוד</td><td class="yes">מוצע חדש</td><td>קיים כבר כתכונה נבדלת בעמודי גוף/TOC לעומת שערים — כדאי לחשוף גם כאן</td></tr>
+        <tr><td>הכללה בתוכן העניינים + רמה</td><td class="yes">מוצע חדש</td><td>אם כן — תחת איזו רמת כותרת (1-7) להתייחס אליו לצורך הזחה/קיבוץ</td></tr>
+        <tr><td>שוליים מותאמים לעמוד זה</td><td class="yes">מוצע חדש</td><td>עוקף את שוליי ה-A4 הגלובליים לעמוד הזה בלבד</td></tr>
+        <tr><td>נקודת עיגון (מיקום בסדר העמודים)</td><td>מבוקש</td><td>7 אפשרויות — ראו טבלה נפרדת</td></tr>
+        <tr><td>מצב חזרה: פעם אחת / אוטומטית לכל חלק</td><td class="yes">מוצע חדש</td><td>ראו הרחבה תחת "נקודות עיגון"</td></tr>
+      </table>
+      <h3>נקודות העיגון המוצעות למיקום</h3>
+      <table>
+        <tr><th>ערך</th><th>משמעות</th><th>חוזר אוטומטית?</th></tr>
+        <tr><td><code>beforeAll</code></td><td>לפני הכל</td><td>לא</td></tr>
+        <tr><td><code>afterMainShaar</code></td><td>אחרי השער הראשי</td><td>לא</td></tr>
+        <tr><td><code>afterGeneralToc</code></td><td>אחרי תוכן העניינים הכללי</td><td>לא</td></tr>
+        <tr><td><code>beforeEachPart</code></td><td>לפני כל שער-חלק</td><td class="yes">כן (אחת לכל כותרת 1)</td></tr>
+        <tr><td><code>afterEachPart</code></td><td>מיד אחרי כל שער-חלק</td><td class="yes">כן</td></tr>
+        <tr><td><code>endOfEachPart</code></td><td>בסוף כל חלק, לפני החלק הבא</td><td class="yes">כן</td></tr>
+        <tr><td><code>afterAll</code></td><td>אחרי הכל (סוף הספר)</td><td>לא</td></tr>
+      </table>
+      <p>ארבע האפשרויות ה"חוזרות" הן תוספת שלי מעבר למבוקש: לפי הבקשה המקורית, מיקום זהה בכמה מקומות (למשל לפני כל חלק) דורש ייבוא ידני של אותו קובץ כמה פעמים. הצעתי מוסיפה אפשרות "חזרה אוטומטית" נוחה לצד האפשרות הידנית — שתישאר זמינה למקרה של מיקום חד-פעמי (למשל רק לפני חלק ג').</p>
+      <h3>מודל המיקום של אלמנט טקסט על העמוד</h3>
+      <p>מוצע מודל עוגן+יישור (כמו ברשת האחוזים של הכלי עצמו) ולא קואורדינטות פיקסליות חופשיות: <strong>עוגן אנכי</strong> (עליון/מרכז/תחתון) × <strong>יישור אופקי</strong> (ימין/מרכז/שמאל) + <strong>היסט עדין</strong> (פיקסלים בודדים לכיוונון). כך המיקום נשאר יציב גם אם משנים גודל גופן או רוחב עמוד — בניגוד לקואורדינטת X/Y מוחלטת שתישבר בקלות.</p>
+      <h3>סגנון טקסט — מלאי שדות מלא</h3>
+      <table>
+        <tr><th>שדה</th><th>מקור</th><th>הערה</th></tr>
+        <tr><td>שם הסגנון + קידומת הפעלה</td><td>מבוקש</td><td>הקידומת מזוהה בטקסט המקור בדיוק כמו "כותרת N" היום</td></tr>
+        <tr><td>מצב פענוח (parseMode)</td><td>מבוקש</td><td>4 מצבים מוצעים — ראו למטה</td></tr>
+        <tr><td>מצב פריסה (layoutMode)</td><td>קיים, נעשה בר-בחירה</td><td>אחד מ-5 המצבים הקיימים: new_page_1col / sub_shaar / span_1col / inline_2col / side_note</td></tr>
+        <tr><td>גופן, גודל, משקל</td><td>קיים</td><td>—</td></tr>
+        <tr><td>צבע טקסט</td><td class="yes">מוצע חדש</td><td>כיום כל הכותרות בשחור/ירושה מהעמוד</td></tr>
+        <tr><td>ריווח אותיות (letter-spacing)</td><td class="yes">מוצע חדש</td><td>—</td></tr>
+        <tr><td>טרנספורמציית טקסט (רגיל / כל-אותיות-גדולות וכד')</td><td class="yes">מוצע חדש</td><td>רלוונטי בעיקר לטקסט לועזי מוטבע</td></tr>
+        <tr><td>קו מעל / קו מתחת</td><td class="yes">מוצע חדש</td><td>נפוץ בכותרות מפתיחות בספרי קודש</td></tr>
+        <tr><td>הדגשת רקע (highlight)</td><td class="yes">מוצע חדש</td><td>—</td></tr>
+        <tr><td>מרווח לפני/אחרי</td><td>קיים בקוד, לא חשוף בסרגל</td><td>מוצע לחשוף גם לרמות הקיימות תוך כדי העבודה</td></tr>
+        <tr><td>הכללה בתוכן עניינים + רמה + קיבוץ</td><td>קיים לרמות המובנות</td><td>מורחב לסגנונות מיובאים</td></tr>
+        <tr><td>זכאות להערת שוליים צמודה (כמו כותרת 7)</td><td class="yes">מוצע חדש</td><td>מאפשר לכל סגנון מותאם "לאמץ" הערת שוליים, לא רק פסקת גוף רגילה</td></tr>
+      </table>
+      <h3>מצבי הפענוח (parseMode) המוצעים</h3>
+      <ol>
+        <li><code>plain</code> — הטקסט מוצג כמות שהוא, ללא פיצול.</li>
+        <li><code>splitFirstDash</code> — פיצול במקף הראשון לשני חלקים (ההתנהגות הקיימת של כותרת 1).</li>
+        <li><code>splitCustomDelimiter</code> — פיצול לפי מפריד מותאם אישית שהמשתמש מגדיר (למשל "|" או "::").</li>
+        <li><code>regexGroups</code> — מצב מתקדם: ביטוי רגולרי עם קבוצות-לכידה בשם, וכל קבוצה ממופה לאלמנט תוכן נפרד. גמיש מאוד, אך מיועד למשתמש מנוסה.</li>
+      </ol>
+      <div class="decision">
+        <span class="tag">החלטה שכדאי לשים לב אליה כבר כאן</span>
+        <p>סגנון טקסט חדש "שואל" את אחד מ-5 מצבי הפריסה הקיימים, ולא מקבל מנוע פריסה חדש משלו. הרחבה של <em>מנוע העימוד עצמו</em> (למשל התנהגות זרימה חדשה שלא דומה לאף אחד מה-5) היא פרויקט הרבה יותר גדול, שכדאי להשאיר בצד בשלב זה. פירוט מלא בפרק 10.</p>
+      </div>
+    </section>
+
+    <section id="s7">
+      <div class="sec-head"><div class="sec-num">07</div><h2>זרימת עבודה למשתמש</h2></div>
+      <h3>יצירה ושימוש בסוג עמוד חדש</h3>
+      <ol class="steps">
+        <li>פותחים את עורך התוספים, בוחרים "סוג עמוד חדש".</li>
+        <li>נותנים שם, בוחרים רקע (או "נשאיר לבחירה בכלי הראשי"), ומוסיפים אלמנטי טקסט עם קידומת ומיקום לכל אחד.</li>
+        <li>מייצאים לקובץ <code>.json</code>.</li>
+        <li>בכלי הראשי, לוחצים "ייבוא סוג עמוד", בוחרים את הקובץ, ובוחרים נקודת עיגון.</li>
+        <li>פאנל הגדרות חדש מופיע אוטומטית בסרגל הצד עם כל השדות שהוגדרו.</li>
+        <li>אם רוצים את אותו סוג עמוד גם במקום אחר — מייבאים את אותו קובץ שוב; נוצר פאנל נוסף, עצמאי.</li>
+      </ol>
+      <h3>יצירה ושימוש בסגנון טקסט חדש</h3>
+      <ol class="steps">
+        <li>באותו עורך, עוברים למצב "סגנון טקסט חדש".</li>
+        <li>קובעים קידומת הפעלה, מצב פענוח, מצב פריסה, וטיפוגרפיה.</li>
+        <li>מייצאים לקובץ <code>.json</code> ומייבאים בכלי הראשי דרך אותו אזור ייבוא.</li>
+        <li>מהרגע הזה, שורה בטקסט המקור שמתחילה בקידומת שהוגדרה תזוהה ותעוצב לפי ההגדרה החדשה — בדיוק כמו "כותרת 3" מובנית.</li>
+      </ol>
+      <p>בשני המקרים: שמירת תבנית (<code>saveAsDefaultTemplate</code>) לאחר ייבוא כזה תשמור גם את ההגדרות המיובאות בתוך קובץ ה-HTML המתקבל (כ"אי-מידע" מוטמע), כך שפתיחה מחדש של התבנית תשחזר הכל בלי צורך בקובצי ה-JSON המקוריים.</p>
+    </section>
+
+    <section id="s8">
+      <div class="sec-head"><div class="sec-num">08</div><h2>הצעות נוספות (מעבר למבוקש)</h2></div>
+      <p>שאלת אם יש הצעות לאלמנטים נוספים. שלוש הצעות שנשענות ישירות על מה שכבר קיים בקובץ:</p>
+      <h3>קישוטי מדור כתוסף עצמאי</h3>
+      <p>חמשת קישוטי-סיום-הפרק הקיימים בנויים באותה רוח בדיוק כמו סוג עמוד — הם מועמד טבעי לאותה תשתית ייבוא/ייצוא. "מעצב קישוטים" שלישי בעורך, פשוט יחסית לבנייה מכיוון שהוא כבר חולק תשתית עם מעצב סוגי העמוד.</p>
+      <h3>ערכות כותרת עליונה שמורות</h3>
+      <p>תצורת הכותרת העליונה (3 אזורים, כל אחד עם 6+ אפשרויות) יכולה להישמר כ"ערכה" בשם, ולהיטען בבחירה אחת — נוח כשעובדים על כמה ספרים בסגנון דומה.</p>
+      <h3>חבילות נושא מאוחדות (Theme Bundle)</h3>
+      <p>שכבת-על שמאגדת כמה הגדרות יחד (למשל: 2 סוגי עמוד + סגנון טקסט אחד + קישוט) לקובץ יבוא בודד. שימושי לאחר שהמנגנון הבסיסי עובד — מאפשר להעביר "זהות עיצובית" שלמה מספר אחד למשנהו בפעולה אחת, במקום לייבא כל רכיב בנפרד.</p>
+    </section>
+
+    <section id="s9">
+      <div class="sec-head"><div class="sec-num">09</div><h2>שינויים נדרשים — סקירה ברמה גבוהה</h2></div>
+      <p>ללא קוד בשלב זה, רק מיפוי היקף העבודה לפי קובץ:</p>
+      <h3>בקובץ הראשי</h3>
+      <ul>
+        <li>פאנל ואזור כפתורים: "ייבוא סוג עמוד", "ייבוא סגנון טקסט", "ייבוא תמונה כעמוד" — כל אחד עם <code>&lt;input type="file"&gt;</code> מתאים.</li>
+        <li>פונקציית ולידציה לקובץ JSON שיובא (בדיקת שדה <code>kind</code> ותקינות מבנה בסיסית) לפני שהוא נכנס לזיכרון.</li>
+        <li>בניית פאנל DOM דינמי לכל הגדרה שיובאה, כולל תמיכה במספר מופעים של אותו קובץ.</li>
+        <li>הרחבת ה-tokenizer לזהות גם קידומות מותאמות אישית של סגנונות טקסט מיובאים, לצד "כותרת N" הקבועה.</li>
+        <li>הרחבת שלב בניית ה-<code>sections</code> להטמיע מופעי סוגי עמוד מיובאים בנקודות העיגון שנבחרו.</li>
+        <li>הוספת פרמטר "תפקיד עמוד" ל-<code>createPageLayout</code>, והוספת זיהוי "עמוד TOC אחרון" ב-<code>renderPaginatedTOC</code>.</li>
+        <li>הרחבת <code>saveAsDefaultTemplate</code> להטמיע את כל ההגדרות המיובאות (וערכי השדות הנוכחיים בפאנלים שלהן) בתוך קובץ התבנית המיוצא.</li>
+      </ul>
+      <h3>בעורך התוספים החדש (קובץ נפרד)</h3>
+      <ul>
+        <li>תצוגה מקדימה חיה של עמוד A4 בודד, בהשאלה מהסגנונות הקיימים.</li>
+        <li>ממשק הוספת/מחיקת אלמנטי טקסט, כל אחד עם קידומת, מיקום וטיפוגרפיה.</li>
+        <li>לוח בחירת רקע (עם אותם רכיבים כמו בכלי הראשי).</li>
+        <li>כפתור ייצוא שמסדר את המצב הנוכחי לפי הסכמה ומוריד קובץ <code>.json</code>.</li>
+      </ul>
+    </section>
+
+    <section id="s10">
+      <div class="sec-head"><div class="sec-num">10</div><h2>החלטות פתוחות — לאישורך</h2></div>
+      <p>שבע נקודות שבהן קיבלתי החלטת-ברירת-מחדל כדי שהתוכנית תהיה שלמה וקונקרטית. כל אחת ניתנת לשינוי בלי להפוך שום דבר אחר במסמך.</p>
+      <div class="decision"><span class="tag">1 · פורמט קובץ</span><p>JSON מול HTML.</p><p class="rec"><b>המלצה:</b> JSON (פרק 4).</p></div>
+      <div class="decision"><span class="tag">2 · מבנה הכלים</span><p>עורך תוספים אחד עם שני מצבים, מול שני כלים נפרדים.</p><p class="rec"><b>המלצה:</b> כלי אחד — תשתית משותפת (תצוגה מקדימה, ייצוא, מבנה קובץ).</p></div>
+      <div class="decision"><span class="tag">3 · מנוע פריסה לסגנונות חדשים</span><p>שימוש חוזר ב-5 מצבי הפריסה הקיימים, מול מנוע גמיש-לגמרי.</p><p class="rec"><b>המלצה:</b> להישאר על ה-5 הקיימים בשלב א — מנוע גמיש-לגמרי הוא פרויקט נפרד ומשמעותית גדול יותר.</p></div>
+      <div class="decision"><span class="tag">4 · מצבי פענוח (parseMode)</span><p>האם 4 המצבים המוצעים (plain / פיצול-במקף / פיצול-במפריד-מותאם / regex) מספיקים כפתיחה?</p></div>
+      <div class="decision"><span class="tag">5 · נקודות עיגון</span><p>האם 7 האפשרויות במיקום שהוצעו שלמות? האם "חזרה אוטומטית לכל חלק" (הצעה שלי, לא התבקשה במפורש) רצויה, או להישאר רק על ייבוא ידני חוזר?</p></div>
+      <div class="decision"><span class="tag">6 · מודל מיקום לאלמנט</span><p>עוגן+יישור+היסט עדין, מול קואורדינטות פיקסליות חופשיות.</p><p class="rec"><b>המלצה:</b> עוגן+יישור — עמיד יותר לשינויי גודל/רוחב.</p></div>
+      <div class="decision"><span class="tag">7 · סט אפשרויות רקע לעמודי תוכן</span><p>הסט הקליל שהוצע (ללא / צבע / מרקם / תמונה+שקיפות) — מספיק, או שרוצים גם את הסגנונות המפוארים של השערים זמינים כאן?</p></div>
+    </section>
+
+    <section id="s11">
+      <div class="sec-head"><div class="sec-num">11</div><h2>סדר עבודה מוצע</h2></div>
+      <ol class="steps">
+        <li><strong>שלב 1 — רקע לכל סוגי העמוד הקיימים.</strong> הכי ממוקד, לא תלוי בשום דבר אחר במסמך, וערכו מיידי וניכר.</li>
+        <li><strong>שלב 2 — תשתית ייבוא/ייצוא ופאנלים דינמיים בכלי הראשי.</strong> משרתת גם סוגי עמוד וגם סגנונות טקסט מאותה תשתית אחת.</li>
+        <li><strong>שלב 3 — עורך התוספים החדש.</strong> שני המצבים (סוגי עמוד, סגנונות טקסט).</li>
+        <li><strong>שלב 4 — הטמעה בשמירת התבנית + חיווט מלא בין הכלים.</strong></li>
+        <li><strong>שלב 5 (רשות) — התוספות הבונוס:</strong> קישוטים כתוסף, ערכות כותרת עליונה, חבילות נושא.</li>
+      </ol>
+      <p>ברגע שתאשר/תתקן את פרק 10, אפשר להתחיל משלב 1.</p>
+    </section>
+
+    <footer>מסמך תכנון — מערכת תוספים לעימוד תורני · גרסה 1</footer>
+  </main>
+</div>
+
+<script>
+(function(){
+  var holder = document.getElementById('diagram-holder');
+  holder.innerHTML = '<svg viewBox="0 0 920 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:Frank Ruhl Libre, serif;" direction="rtl">' +
+    '<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a9822e"/></marker></defs>' +
+    '<rect x="660" y="30" width="220" height="140" rx="10" fill="#3b1f2b"/>' +
+    '<text x="770" y="60" text-anchor="middle" fill="#e4d4a8" font-size="17" font-weight="700">הכלי הראשי</text>' +
+    '<text x="770" y="88" text-anchor="middle" fill="#f4f1e8" font-size="12.5">קליטת טקסט גולמי</text>' +
+    '<text x="770" y="110" text-anchor="middle" fill="#f4f1e8" font-size="12.5">ייבוא תוספים</text>' +
+    '<text x="770" y="132" text-anchor="middle" fill="#f4f1e8" font-size="12.5">מנוע עימוד ופריסה</text>' +
+    '<rect x="350" y="60" width="200" height="90" rx="8" fill="#fff" stroke="#a9822e" stroke-width="1.5" stroke-dasharray="5,4"/>' +
+    '<text x="450" y="93" text-anchor="middle" fill="#3b1f2b" font-size="15" font-weight="700">קובצי הגדרה</text>' +
+    '<text x="450" y="114" text-anchor="middle" fill="#4a423b" font-size="11" font-family="JetBrains Mono, monospace">.pagetype.json</text>' +
+    '<text x="450" y="130" text-anchor="middle" fill="#4a423b" font-size="11" font-family="JetBrains Mono, monospace">.textstyle.json</text>' +
+    '<rect x="40" y="30" width="220" height="140" rx="10" fill="#3b1f2b"/>' +
+    '<text x="150" y="60" text-anchor="middle" fill="#e4d4a8" font-size="17" font-weight="700">עורך התוספים</text>' +
+    '<text x="150" y="80" text-anchor="middle" fill="#c9b98d" font-size="11" font-family="JetBrains Mono, monospace">(חדש)</text>' +
+    '<text x="150" y="105" text-anchor="middle" fill="#f4f1e8" font-size="12.5">מעצב סוגי עמוד</text>' +
+    '<text x="150" y="127" text-anchor="middle" fill="#f4f1e8" font-size="12.5">מעצב סגנונות טקסט</text>' +
+    '<rect x="660" y="250" width="220" height="90" rx="10" fill="#fff" stroke="#3b1f2b" stroke-width="1.5"/>' +
+    '<text x="770" y="283" text-anchor="middle" fill="#3b1f2b" font-size="15" font-weight="700">הספר המוגמר</text>' +
+    '<text x="770" y="306" text-anchor="middle" fill="#4a423b" font-size="12">עמודי A4 מוכנים להדפסה</text>' +
+    '<path d="M660,100 L555,100" stroke="#a9822e" stroke-width="2" marker-end="url(#arrow)"/>' +
+    '<path d="M550,115 L655,115" stroke="#a9822e" stroke-width="2" marker-end="url(#arrow)" opacity="0.55"/>' +
+    '<path d="M345,100 L265,100" stroke="#a9822e" stroke-width="2" marker-end="url(#arrow)"/>' +
+    '<path d="M260,115 L340,115" stroke="#a9822e" stroke-width="2" marker-end="url(#arrow)" opacity="0.55"/>' +
+    '<path d="M770,170 L770,245" stroke="#3b1f2b" stroke-width="2" marker-end="url(#arrow)"/>' +
+    '</svg>';
+})();
+</script>
+</body>
+</html>
