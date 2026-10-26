@@ -3189,3 +3189,12 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - Parenthesis coverage: 2,493 paired scopes; 86 cross-column pairs; 47 cross-page pairs; zero unmatched opening delimiters at document end. The summary still reports 3 unmatched closing delimiters; their source locations are not yet exposed as a dedicated diagnostic and remain a follow-up task.
 - Ornament coverage is exercised by separate smoke fixtures, not the long-document default settings. The previous smoke run at commit `810e05927bb41e642d74bc02d4ae67e25b3e9f28` passed active ornament, recto/verso header, and H2 title top/bottom geometry tests with zero header-SVG clipping findings. A fresh smoke rerun for commit `74ab453754dd807e71f4410c1dedfd38a994b183` was still in progress when this entry was written; do not treat it as passed until its run concludes.
 - V21 was not modified or merged.
+
+## 2026-10-26 — verify bracket-state invariant and current long audit (V23)
+
+- Confirmed both GitHub Actions workflows for commit `3b117b0d9c867434f84c1a82c456bfc13065d87f` completed successfully: `geometry-audit-long` and `geometry-audit-smoke`.
+- Long audit: 639 pages; deterministic repeated render (identical hashes `55ba00139b1b147a719c34e8165a340a59e925b3c21918951027c8fa4fe6ec5d`); 3,105/3,105 paragraphs, 529/529 headings, 2,042/2,042 side notes, 858/858 decision records conserved/valid.
+- Quality gate: 0 HIGH findings; 4 MEDIUM and 23 LOW findings. Counts: 6 validated structural fallbacks, 9 low-severity balance findings, 3 sparse-page findings (one medium, two low), 6 containment-rounding findings, and 3 medium square-bracket-scope findings.
+- The remaining medium bracket-scope findings occur on pages 505, 514, and 629; these are cross-paragraph/cross-column or cross-page editorial spans, not automatically pagination defects. Do not change layout policy until their rendered text and source scope are reviewed.
+- The current report still has one medium sparse page (page index 501, estimated text capacity 7%). This needs context-aware inspection before choosing between a valid structural page and a layout regression.
+- V23 only. V21 remains untouched and separate.
