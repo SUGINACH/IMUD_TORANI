@@ -945,6 +945,55 @@ function auditColumnBalance(node, issues) {
                     w: Math.round(Number.isFinite(rect.w) ? rect.w : 0),
                     h: Math.round(Number.isFinite(rect.h) ? rect.h : 0)
                 });
+                // Capture the structural cause of an imbalance without changing layout.
+                // Keep this compact and source-oriented so a report can distinguish a
+                // genuinely short terminal paragraph from a routing/pagination defect.
+                const summarizeElement = el => {
+                    if (!el) return null;
+                    const rawText = (el.getAttribute?.('data-raw-text') || el.textContent || '')
+                        .replace(/\\s+/g, ' ').trim();
+                    const r = rectOf(el);
+                    return {
+                        tag: String(el.tagName || '').toLowerCase(),
+                        className: typeof el.className === 'string' ? el.className : '',
+                        tokenId: el.getAttribute?.('data-token-id') || null,
+                        isContinuation: el.getAttribute?.('data-is-cont') === 'true',
+                        isCut: el.classList?.contains('p-cut') || false,
+                        height: Math.round(Number.isFinite(r?.h) ? r.h : 0),
+                        textPreview: rawText.slice(0, 180),
+                        textLength: rawText.length
+                    };
+                };
+                const summarizeColumn = side => {
+                    const col = blockEl?.querySelector(side === 'right' ? '.main-column.right-col' : '.main-column.left-col');
+                    return col ? Array.from(col.children).map(summarizeElement) : null;
+                };
+                const summarizeNeighbor = el => {
+                    if (!el) return null;
+                    const r = rectOf(el);
+                    return {
+                        tag: String(el.tagName || '').toLowerCase(),
+                        className: typeof el.className === 'string' ? el.className : '',
+                        tokenId: el.getAttribute?.('data-token-id') || null,
+                        height: Math.round(Number.isFinite(r?.h) ? r.h : 0),
+                        textPreview: (el.getAttribute?.('data-raw-text') || el.textContent || '')
+                            .replace(/\\s+/g, ' ').trim().slice(0, 180)
+                    };
+                };
+                const bodyFlow = blockEl?.parentElement || null;
+                const previousBlock = blockEl?.previousElementSibling || null;
+                const nextBlock = blockEl?.nextElementSibling || null;
+                const pageEl = blockEl?.closest('.page') || blockEl?.closest('[data-page-idx]') || null;
+                const contentContext = {
+                    blockClass: typeof blockEl?.className === 'string' ? blockEl.className : null,
+                    blockChildCount: blockEl?.children?.length ?? null,
+                    rightChildren: summarizeColumn('right'),
+                    leftChildren: summarizeColumn('left'),
+                    previousSibling: summarizeNeighbor(previousBlock),
+                    nextSibling: summarizeNeighbor(nextBlock),
+                    pageLabel: pageEl?.getAttribute('data-page-label') || pageEl?.querySelector('.page-number')?.textContent?.trim() || null,
+                    bodyFlowClass: typeof bodyFlow?.className === 'string' ? bodyFlow.className : null
+                };
                 const emptySide = rightHeight <= leftHeight ? 'right' : 'left';
                 const emptyHeight = emptySide === 'right' ? rightHeight : leftHeight;
                 const emptySideGeometry = emptySide === 'right' ? right : left;
@@ -980,6 +1029,7 @@ function auditColumnBalance(node, issues) {
                     injectedMissingColumnTest: blockEl?.getAttribute('data-geometry-audit-test-missing-column') === 'true',
                     rightRect: roundRect(right.rect),
                     leftRect: roundRect(left.rect),
+                    contentContext,
                     layoutMetrics: metrics ? {
                         globalJustifyDiagnostic: metrics.globalJustifyDiagnostic || null,
                         pageFinalJustifyDiagnostic: metrics.pageFinalJustifyDiagnostic || null,
