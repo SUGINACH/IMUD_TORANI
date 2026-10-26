@@ -910,7 +910,40 @@ function auditColumnBalance(node, issues) {
             const rightHeight = Number.isFinite(right.rect.h) ? right.rect.h : 0;
             const leftHeight = Number.isFinite(left.rect.h) ? left.rect.h : 0;
             const diff = Math.abs(rightHeight - leftHeight);
-            if (diff > TOL.balance) {
+            const fullWidthFallback = blockEl?.getAttribute('data-layout-balance-fallback') === 'full-width-terminal-residual';
+            if (fullWidthFallback) {
+                const side = blockEl.getAttribute('data-layout-balance-fallback-side');
+                const activeEl = blockEl.querySelector(side === 'left' ? '.main-column.left-col' : '.main-column.right-col');
+                const inactiveEl = blockEl.querySelector(side === 'left' ? '.main-column.right-col' : '.main-column.left-col');
+                const activeStyle = activeEl ? activeEl.ownerDocument.defaultView.getComputedStyle(activeEl) : null;
+                const inactiveStyle = inactiveEl ? inactiveEl.ownerDocument.defaultView.getComputedStyle(inactiveEl) : null;
+                const activeRect = activeEl ? rectOf(activeEl) : null;
+                const fallbackValid = ['left', 'right'].includes(side) &&
+                    !!activeEl && !!inactiveEl &&
+                    activeStyle?.display !== 'none' &&
+                    activeStyle?.gridColumnStart === '3' &&
+                    activeStyle?.gridColumnEnd === '6' &&
+                    inactiveStyle?.display === 'none' &&
+                    !!activeRect && activeRect.w > 0 &&
+                    (activeEl.textContent || '').trim().length > 0 &&
+                    inactiveEl.children.length === 0;
+                issues.push({
+                    kind: 'structural-fallback',
+                    severity: fallbackValid ? 'low' : 'high',
+                    pageIdx: getPageIdx(node),
+                    location: describePath(node),
+                    balanceOutcome: 'full-width-terminal-residual',
+                    fallbackSide: side,
+                    fallbackValid,
+                    activeColumnWidth: Math.round(activeRect?.w || 0),
+                    activeRenderedTextLength: (activeEl?.textContent || '').trim().length,
+                    inactiveColumnDisplay: inactiveStyle?.display || null,
+                    message: fallbackValid
+                        ? 'Short terminal fragment intentionally spans both text columns because no legal two-column split exists.'
+                        : 'Invalid full-width terminal residual fallback: verify side, grid span, hidden opposite column, and preserved rendered text.'
+                });
+            }
+            if (diff > TOL.balance && !fullWidthFallback) {
                 const metrics = node.layoutMetrics || {};
                 const decision = metrics.decisionRecord || {};
                 const selection = decision.selection || {};
