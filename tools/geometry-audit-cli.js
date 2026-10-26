@@ -170,12 +170,29 @@ function decisionDiagnosticFailures(report) {
         const decision = record.decision || {};
         const selection = decision.selection || {};
         const where = 'record #' + (i + 1) + ' (pageIdx=' + record.pageIdx + ')';
-        if (!['evaluated', 'not-requested'].includes(selection.status)) {
+        if (!['evaluated', 'not-requested', 'skipped'].includes(selection.status)) {
             failures.push(where + ': unknown/missing selection status');
             continue;
         }
         if (!['balanceColumns', 'light-justify', 'chapter-end-fill-policy'].includes(selection.routing)) {
             failures.push(where + ': unknown/missing balance routing');
+        }
+        if (selection.status === 'skipped') {
+            // A skip is valid only for the explicit, auditable no-legal-split state.
+            // Never let a generic "skipped" status bypass candidate-ledger integrity.
+            if (selection.routing !== 'balanceColumns') {
+                failures.push(where + ': skipped selection has non-balance routing');
+            }
+            if (selection.skipReason !== 'no-legal-two-column-split') {
+                failures.push(where + ': skipped selection has unknown/missing skip reason');
+            }
+            if (selection.candidateCount !== 0) {
+                failures.push(where + ': no-legal-split selection must report zero candidates');
+            }
+            if (selection.selectedCandidateIndex !== null) {
+                failures.push(where + ': no-legal-split selection must not report a selected candidate');
+            }
+            continue;
         }
         if (selection.status !== 'evaluated') continue;
         evaluatedCount++;
