@@ -32,6 +32,29 @@ jobs:
         run: node tools/geometry-audit-cli.js --help
       - name: Run geometry audit smoke test
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/smoke-report.json --summary ./artifacts/smoke-summary.md --fail-on none --repeat-check
+      - name: Run completely empty column balance regression
+        run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/empty-column-report.json --summary ./artifacts/empty-column-summary.md --fail-on none --test-empty-column-balance
+      - name: Assert completely empty column is reported as imbalance
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('./artifacts/empty-column-report.json', 'utf8'));
+          const issues = report.audit?.issues || [];
+          const emptyColumn = issues.filter(issue =>
+            issue.kind === 'imbalance' &&
+            issue.balanceOutcome === 'one-column-empty' &&
+            (issue.rightH < 1 || issue.leftH < 1));
+          if (emptyColumn.length === 0) {
+            console.error('Expected an imbalance finding when one column is forced to zero height. Findings:', issues.filter(issue => issue.kind === 'imbalance'));
+            process.exit(1);
+          }
+          if (!emptyColumn.some(issue => issue.columnGeometrySource?.right === 'live-dom-including-zero-height' ||
+                                        issue.columnGeometrySource?.left === 'live-dom-including-zero-height')) {
+            console.error('Expected zero-height geometry to be recovered from the live DOM:', emptyColumn);
+            process.exit(1);
+          }
+          console.log(JSON.stringify({ emptyColumnBalanceFindings: emptyColumn.length, zeroHeightDomRecovery: 'PASS' }));
+          NODE
       - name: Run sparse-page and square-bracket diagnostic fixture
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-diagnostics-smoke.txt --report ./artifacts/diagnostics-smoke-report.json --summary ./artifacts/diagnostics-smoke-summary.md --fail-on none
       - name: Assert sparse-page and square-bracket diagnostics
