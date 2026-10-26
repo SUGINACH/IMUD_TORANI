@@ -1529,6 +1529,26 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     block.setAttribute('data-layout-balance-status', 'started');
     block.setAttribute('data-layout-balance-skip-reason', '');
     block.setAttribute('data-layout-balance-fallback', 'none');
+    // A block can pass through balancing more than once. Clear selection outputs first,
+    // otherwise a later no-candidate/early-return path could serialize a stale winner.
+    [
+        'data-layout-balance-candidates',
+        'data-layout-balance-items',
+        'data-layout-balance-fits',
+        'data-layout-balance-valid',
+        'data-layout-balance-right',
+        'data-layout-balance-left',
+        'data-layout-balance-over',
+        'data-layout-balance-diff',
+        'data-layout-balance-selected-candidate',
+        'data-layout-balance-candidate-table',
+        'data-layout-balance-split-item-index',
+        'data-layout-balance-split-line-count',
+        'data-layout-balance-selection-score',
+        'data-layout-balance-selection-policy',
+        'data-layout-balance-right-part-lines',
+        'data-layout-balance-left-part-lines'
+    ].forEach(attribute => block.removeAttribute(attribute));
     if (snapshot) {
         footnoteQueueForPage.length = snapshot.footnoteQueueLen;
         endnoteQueueForPart.length = snapshot.endnoteQueueLen;
