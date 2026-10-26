@@ -1693,33 +1693,62 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             block.setAttribute('data-layout-balance-fallback-side', side);
             block.classList.add('layout-full-width-terminal-residual');
 
-            // A p-cut must retain at least the configured minimum number of lines.
-            // If spanning both columns would collapse it to a one-line orphan, find
-            // the widest centered measure that still satisfies the widow/orphan rule.
-            let chosenWidth = null;
-            const fullWidth = activeColumn.getBoundingClientRect().width;
-            if (residualParagraph.classList.contains('p-cut') &&
-                residualLinesAtWidth(fullWidth) < rules.minLast) {
-                // Line count is monotone non-increasing as the measure widens, so find
-                // the widest widow-safe measure with a deterministic integer binary search.
-                let low = Math.floor(colWidth);
-                let high = Math.floor(fullWidth);
-                if (residualLinesAtWidth(low) >= rules.minLast) {
-                    while (low < high) {
-                        const mid = Math.ceil((low + high) / 2);
-                        if (residualLinesAtWidth(mid) >= rules.minLast) low = mid;
-                        else high = mid - 1;
+            // Validate widow/orphan constraints against the actual DOM after reflow,
+            // not only the text measurer: p-cut nodes can contain inline markup whose
+            // browser wrapping differs from the plain-text estimate.
+            if (residualParagraph.classList.contains('p-cut')) {
+                const minRenderedLines = Math.max(2, rules.minLast || 1);
+                const fullWidth = activeColumn.getBoundingClientRect().width;
+                const measureRenderedLines = () => {
+                    const paragraphStyle = window.getComputedStyle(residualParagraph);
+                    const rect = residualParagraph.getBoundingClientRect();
+                    const lineHeight = parseFloat(paragraphStyle.lineHeight || '');
+                    if (Number.isFinite(lineHeight) && lineHeight > 0) {
+                        return Math.max(1, Math.round(rect.height / lineHeight));
                     }
-                    chosenWidth = low;
+                    // Fallback for 'normal' line-height: use the existing line measurer
+                    // only when browser metrics cannot yield a reliable integer count.
+                    return residualLinesAtWidth(activeColumn.getBoundingClientRect().width);
+                };
+                let low = Math.max(1, Math.floor(colWidth));
+                let high = Math.max(low, Math.floor(fullWidth));
+                let chosenWidth = null;
+
+                activeColumn.style.setProperty('--layout-residual-width', low + 'px');
+                if (measureRenderedLines() >= minRenderedLines) {
+                    while (low <= high) {
+                        const mid = Math.floor((low + high) / 2);
+                        activeColumn.style.setProperty('--layout-residual-width', mid + 'px');
+                        if (measureRenderedLines() >= minRenderedLines) {
+                            chosenWidth = mid;
+                            low = mid + 1;
+                        } else {
+                            high = mid - 1;
+                        }
+                    }
                 }
+
                 if (chosenWidth === null) {
+                    activeColumn.style.removeProperty('--layout-residual-width');
                     block.classList.remove('layout-full-width-terminal-residual');
                     block.removeAttribute('data-layout-balance-fallback-side');
+                    block.removeAttribute('data-layout-balance-fallback-width');
                     block.setAttribute('data-layout-balance-fallback', 'preserve-existing-flow-no-legal-split');
                     return;
                 }
+
                 activeColumn.style.setProperty('--layout-residual-width', chosenWidth + 'px');
                 block.setAttribute('data-layout-balance-fallback-width', String(chosenWidth));
+                if (measureRenderedLines() < minRenderedLines) {
+                    // Guard against non-monotone font/layout metrics or a measurement
+                    // discrepancy at the final selected width.
+                    activeColumn.style.removeProperty('--layout-residual-width');
+                    block.classList.remove('layout-full-width-terminal-residual');
+                    block.removeAttribute('data-layout-balance-fallback-side');
+                    block.removeAttribute('data-layout-balance-fallback-width');
+                    block.setAttribute('data-layout-balance-fallback', 'preserve-existing-flow-no-legal-split');
+                    return;
+                }
             }
 
             // Recompute side-note positions against the new width/height geometry.
