@@ -1637,7 +1637,8 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         block.setAttribute('data-layout-balance-left', String(lCol.scrollHeight));
         block.setAttribute('data-layout-balance-over', String(Math.max(rCol.scrollHeight, lCol.scrollHeight)));
         block.setAttribute('data-layout-balance-diff', String(rCol.scrollHeight - lCol.scrollHeight));
-        finalizeNotePositions([], 0);
+        // Do not call finalizeNotePositions([], 0): this branch preserves the existing
+        // column DOM, so an empty note list would incorrectly skip/misplace its side notes.
         return;
     }
 
