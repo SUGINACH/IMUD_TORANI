@@ -950,9 +950,12 @@ function auditColumnBalance(node, issues) {
                 // genuinely short terminal paragraph from a routing/pagination defect.
                 const summarizeElement = el => {
                     if (!el) return null;
-                    const rawText = (el.getAttribute?.('data-raw-text') || el.textContent || '')
-                        .replace(/\s+/g, ' ').trim();
+                    const dataRawText = el.getAttribute?.('data-raw-text') || '';
+                    const renderedText = el.textContent || '';
+                    const rawText = (dataRawText || renderedText).replace(/\s+/g, ' ').trim();
                     const r = rectOf(el);
+                    const computed = el.ownerDocument?.defaultView?.getComputedStyle
+                        ? el.ownerDocument.defaultView.getComputedStyle(el) : null;
                     return {
                         tag: String(el.tagName || '').toLowerCase(),
                         className: typeof el.className === 'string' ? el.className : '',
@@ -960,7 +963,19 @@ function auditColumnBalance(node, issues) {
                         isContinuation: el.getAttribute?.('data-is-cont') === 'true',
                         isCut: el.classList?.contains('p-cut') || false,
                         height: Math.round(Number.isFinite(r?.h) ? r.h : 0),
+                        scrollHeight: Number.isFinite(el.scrollHeight) ? el.scrollHeight : null,
+                        clientHeight: Number.isFinite(el.clientHeight) ? el.clientHeight : null,
+                        offsetHeight: Number.isFinite(el.offsetHeight) ? el.offsetHeight : null,
+                        childElementCount: Number.isFinite(el.childElementCount) ? el.childElementCount : null,
+                        dataRawTextLength: dataRawText.length,
+                        renderedTextLength: renderedText.length,
+                        computedDisplay: computed?.display || null,
+                        computedOverflowY: computed?.overflowY || null,
+                        computedWhiteSpace: computed?.whiteSpace || null,
+                        computedLineHeight: computed?.lineHeight || null,
+                        computedHeight: computed?.height || null,
                         textPreview: rawText.slice(0, 180),
+                        renderedTextPreview: renderedText.replace(/\s+/g, ' ').trim().slice(0, 180),
                         textLength: rawText.length
                     };
                 };
