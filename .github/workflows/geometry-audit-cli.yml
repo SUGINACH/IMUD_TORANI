@@ -56,6 +56,31 @@ jobs:
           }
           console.log(JSON.stringify({ emptyColumnBalanceFindings: emptyColumn.length, zeroHeightDomRecovery: 'PASS' }));
           NODE
+      - name: Run missing column element regression
+        run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/missing-column-report.json --summary ./artifacts/missing-column-summary.md --fail-on none --test-missing-column-element
+      - name: Assert missing column is not mislabeled as empty
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('./artifacts/missing-column-report.json', 'utf8'));
+          const issues = report.audit?.issues || [];
+          const missing = issues.filter(issue =>
+            issue.kind === 'imbalance' &&
+            issue.injectedMissingColumnTest === true &&
+            issue.balanceOutcome === 'missing-column-element' &&
+            issue.missingColumnSide === 'left' &&
+            issue.columnElementPresent?.left === false &&
+            issue.severity === 'high');
+          if (missing.length === 0) {
+            console.error('Expected a high-severity missing-column-element finding distinct from one-column-empty:', issues.filter(issue => issue.kind === 'imbalance'));
+            process.exit(1);
+          }
+          if (missing.some(issue => issue.balanceOutcome === 'one-column-empty')) {
+            console.error('A missing DOM column must never be classified as an existing empty column:', missing);
+            process.exit(1);
+          }
+          console.log(JSON.stringify({ missingColumnElementFindings: missing.length, distinctClassification: 'PASS' }));
+          NODE
       - name: Run sparse-page and square-bracket diagnostic fixture
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-diagnostics-smoke.txt --report ./artifacts/diagnostics-smoke-report.json --summary ./artifacts/diagnostics-smoke-summary.md --fail-on none
       - name: Assert sparse-page and square-bracket diagnostics
