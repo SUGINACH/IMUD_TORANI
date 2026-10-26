@@ -1566,6 +1566,44 @@ function auditSparsePage(page, issues) {
         startsChapter,
         firstTextTop: Number.isFinite(firstTextTop) ? Math.round(firstTextTop - flowRect.top) : null,
         lastTextBottom: Math.round(lastTextBottom - flowRect.top),
+        // Context is diagnostic only: it helps distinguish a legitimate structural
+        // ending from an accidental early page break without changing pagination.
+        firstVisibleTextPreview: (() => {
+            const el = textEls
+                .filter(node => !node.closest('.footnote-area, .margin-notes-column'))
+                .map(node => ({ node, rect: node.getBoundingClientRect() }))
+                .filter(item => item.rect.width > 0 && item.rect.height > 0 && item.rect.bottom > contentStartY)
+                .sort((a, b) => a.rect.top - b.rect.top)[0]?.node;
+            return (el?.getAttribute('data-raw-text') || el?.textContent || '')
+                .replace(/\\s+/g, ' ').trim().slice(0, 180) || null;
+        })(),
+        lastVisibleTextPreview: (() => {
+            const el = textEls
+                .filter(node => !node.closest('.footnote-area, .margin-notes-column'))
+                .map(node => ({ node, rect: node.getBoundingClientRect() }))
+                .filter(item => item.rect.width > 0 && item.rect.height > 0 && item.rect.bottom > contentStartY)
+                .sort((a, b) => a.rect.bottom - b.rect.bottom).at(-1)?.node;
+            return (el?.getAttribute('data-raw-text') || el?.textContent || '')
+                .replace(/\\s+/g, ' ').trim().slice(-180) || null;
+        })(),
+        textElementClasses: textEls
+            .filter(node => {
+                const rect = node.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && rect.bottom > contentStartY;
+            })
+            .slice(0, 12)
+            .map(node => ({
+                tag: node.tagName.toLowerCase(),
+                className: String(node.className || '').slice(0, 140),
+                column: node.closest('.left-col') ? 'left' :
+                    node.closest('.right-col') ? 'right' :
+                    node.closest('.single-wide-col') ? 'single' : 'unknown'
+            })),
+        flowChildStructure: Array.from(bodyFlow.children).slice(0, 12).map(node => ({
+            tag: node.tagName.toLowerCase(),
+            className: String(node.className || '').slice(0, 140),
+            height: Math.round(node.getBoundingClientRect().height)
+        })),
         message: `תפוסת טקסט נמוכה בעמוד ${page.label}: ${Math.round(fillRatio * 100)}% מהקיבולת המשוערת${startsChapter ? ' (כותרת תחילת הפרק הוחרגה מהחישוב)' : ''}`
     });
 }
