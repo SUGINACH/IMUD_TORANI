@@ -968,6 +968,7 @@ function auditColumnBalance(node, issues) {
                         right: right.elementPresent,
                         left: left.elementPresent
                     },
+                    injectedEmptyColumnTest: blockEl?.getAttribute('data-geometry-audit-test-empty-column') === 'true',
                     rightRect: roundRect(right.rect),
                     leftRect: roundRect(left.rect),
                     layoutMetrics: metrics ? {
