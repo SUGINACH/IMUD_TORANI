@@ -45,6 +45,36 @@ jobs:
           wc -c ./very_long_test_text.txt
       - name: Run long-document geometry audit
         run: npm run audit:geometry:long -- --fail-on high --repeat-check --require-note-marker-line-diagnostics
+      - name: Assert terminal residual fallbacks do not leave sparse last lines
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('./artifacts/geometry-audit.json', 'utf8'));
+          const records = report.geometry?.layoutDecisionRecords || [];
+          const residuals = records.filter(record =>
+            record.decision?.selection?.fallback === 'full-width-terminal-residual');
+          const unresolved = residuals.filter(record =>
+            record.decision?.selection?.fallbackSparseLine === 'unresolved');
+          const sparseFallbacks = (report.audit?.issues || []).filter(issue =>
+            issue.kind === 'sparse-line' &&
+            issue.balanceFallback === 'full-width-terminal-residual');
+          if (unresolved.length || sparseFallbacks.length) {
+            console.error('A full-width terminal residual still has a sparse final line or an unresolved density decision.', {
+              unresolved: unresolved.map(record => ({
+                pageLabel: record.pageLabel,
+                selection: record.decision?.selection
+              })),
+              sparseFallbacks
+            });
+            process.exit(1);
+          }
+          console.log(JSON.stringify({
+            terminalResidualFallbacks: residuals.length,
+            sparseLineCorrections: residuals.filter(record =>
+              record.decision?.selection?.fallbackSparseLine === 'corrected').length,
+            sparseLineGate: 'PASS'
+          }));
+          NODE
       - name: Upload long-document audit report
         if: always()
         uses: actions/upload-artifact@v4
