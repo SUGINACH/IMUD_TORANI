@@ -5754,7 +5754,8 @@ function captureParenthesisScopeDiagnostics(container) {
     });
     const crossPairs = pairs.filter(pair => pair.crossesColumn || pair.crossesPage);
     const unmatchedOpenContexts = stack.map(open => ({
-        paragraphIndex: open.paragraphIndex, pageIdx: open.context.pageIdx,
+        paragraphIndex: open.paragraphIndex, charIndex: open.charIndex,
+        pageIdx: open.context.pageIdx,
         blockIndex: open.context.blockIndex, side: open.context.side, tokenId: open.context.tokenId,
         preview: open.context.rawText.slice(Math.max(0, open.charIndex - 45), Math.min(open.context.rawText.length, open.charIndex + 100))
     }));
@@ -5776,10 +5777,12 @@ function captureParenthesisScopeDiagnostics(container) {
                     const page = p.closest('.a4-page');
                     const block = p.closest('.block-2col');
                     unmatchedCloseContexts.push({
-                        paragraphIndex, pageIdx: pageIndex.has(page) ? pageIndex.get(page) : null,
+                        paragraphIndex, charIndex,
+                        pageIdx: pageIndex.has(page) ? pageIndex.get(page) : null,
                         blockIndex: block && blockIndex.has(block) ? blockIndex.get(block) : null,
                         side: p.closest('.right-col') ? 'right' : p.closest('.left-col') ? 'left' : 'other',
-                        tokenId: p.getAttribute('data-token-id') || null
+                        tokenId: p.getAttribute('data-token-id') || null,
+                        preview: rawText.slice(Math.max(0, charIndex - 60), Math.min(rawText.length, charIndex + 100))
                     });
                 }
             }
@@ -5834,7 +5837,9 @@ function captureParenthesisScopeDiagnostics(container) {
         crossColumnPairCount: crossPairs.filter(pair => pair.crossesColumn).length,
         crossPagePairCount: crossPairs.filter(pair => pair.crossesPage).length,
         unmatchedOpenCountAtDocumentEnd: unmatchedOpenContexts.length,
-        unmatchedCloseCount: unmatchedCloseContexts.length
+        unmatchedOpenExamples: unmatchedOpenContexts.slice(0, 20),
+        unmatchedCloseCount: unmatchedCloseContexts.length,
+        unmatchedCloseExamples: unmatchedCloseContexts.slice(0, 20)
     };
 }
 
