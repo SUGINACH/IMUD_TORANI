@@ -801,3 +801,14 @@ The long-document geometry report at commit `42d54f5f1ebac08d77e289ce12bdb6a3343
 **Latest verified long-document result:** commit `74ab453754dd807e71f4410c1dedfd38a994b183` completed the 639-page long audit with identical repeated-render hashes (`55ba00139b1b147a719c34e8165a340a59e925b3c21918951027c8fa4fe6ec5d)), 3,105/3,105 paragraphs, 529/529 headings, 2,042/2,042 side notes, and 858/858 valid decision records. The quality gate passed with zero HIGH findings; the sparse-line issue formerly associated with the terminal residual is gone, and the decision ledger marks that fallback's density correction as `corrected`. Remaining findings: 4 MEDIUM and 23 LOW (9 imbalance, 6 structural-fallback, 6 containment-rounding, 3 sparse-page, 3 square-bracket-scope overall; the MEDIUM subset is one sparse page and three bracket scopes). See the generated audit artifact for exact pages/categories.
 
 Diagnostic note: the double-escaped whitespace-normalization regex was corrected in commit `2368b613b144848d807a63039dbc654949eb1647`. Diagnostics distinguish source/raw-text length from actual rendered text length and record scroll/client/offset heights plus computed display/overflow/line-height. The no-legal-split fixture verifies an explicit fallback and its before/after height. Parenthesis scope coverage includes 86 cross-column and 47 cross-page pairs, but 3 unmatched closing delimiters remain without source-location diagnostics. Ornament geometry is covered by separate active-setting smoke fixtures; the long-document default settings disable ornaments, so that run does not validate their full-document interactions. V21 remains a separate parallel branch and was not modified or merged.
+
+
+---
+
+## 12. ביקורת כיסוי התמלילים לפני מחיקה — 26.10.2026
+
+בוצעה השוואה שיטתית של שש השיחות `שיחה_מספר_1.md`–`שיחה_מספר_6.md` מול התיעוד הטכני, מפת התלויות, תכנית היציבות ויומן העבודה. הממצאים המפורטים, ה-SHA של המקורות, ההחלטות ההיסטוריות והסתירות הכרונולוגיות נשמרו ב-`V23/TRANSCRIPT_DELETION_AUDIT.md`.
+
+**החלטה:** אין למחוק עדיין את שש השיחות. התיעוד המסכם משפר את המשכיות העבודה, אך לא מחליף את כל ראיות המקור, קובצי ה-attachment או ההקשר של תוצאות CI היסטוריות. מחיקה מהעותק הפעיל תישקל רק לאחר השלמת תנאי הסף במסמך הביקורת ושמירת עותק ארכיוני עצמאי.
+
+הביקורת היא שינוי תיעוד בלבד: לא שונה קוד המנוע, לא שונה מדיניות הפריסה, ולא בוצע מיזוג או שינוי בענף `V21`. יש להמשיך להבחין בין תוצאות Smoke לבין long audit, ולשייך כל תוצאה ל-commit ול-artifact המדויקים.
