@@ -860,10 +860,56 @@ function auditSiblingOverlap(node, issues) {
 
 function auditColumnBalance(node, issues) {
     if (node.type === 'block-2col') {
-        const right = node.children.find(c => c.type === 'column' && c.side === 'right');
-        const left = node.children.find(c => c.type === 'column' && c.side === 'left');
+        const rightNode = node.children.find(c => c.type === 'column' && c.side === 'right') || null;
+        const leftNode = node.children.find(c => c.type === 'column' && c.side === 'left') || null;
+        const blockEl = _nodeToEl.get(node) || null;
+
+        // buildNodeWithRefs intentionally omits rectangles < 1px high. That is
+        // correct for the general geometry tree, but it must not make a fully
+        // empty column invisible to the balance audit. Recover both sides from
+        // the live DOM, including zero-height rectangles, whenever possible.
+        function resolveColumnGeometry(side, existingNode) {
+            if (existingNode) {
+                return {
+                    rect: existingNode.rect,
+                    node: existingNode,
+                    source: 'geometry-model',
+                    elementPresent: true
+                };
+            }
+            if (blockEl) {
+                const candidates = Array.from(blockEl.querySelectorAll('.main-column'));
+                const el = candidates.find(candidate => {
+                    const cls = typeof candidate.className === 'string' ? candidate.className : '';
+                    return side === 'right' ? cls.includes('right-col') : cls.includes('left-col');
+                });
+                if (el) {
+                    return {
+                        rect: rectOf(el),
+                        node: null,
+                        source: 'live-dom-including-zero-height',
+                        elementPresent: true
+                    };
+                }
+            }
+            // Missing markup is not silently ignored: model it as zero geometry
+            // and label the source so the report distinguishes malformed/missing
+            // DOM from an actual empty column element.
+            const blockRect = node.rect || { x: 0, y: 0, w: 0, h: 0, right: 0, bottom: 0 };
+            return {
+                rect: { x: blockRect.x, y: blockRect.y, w: 0, h: 0, right: blockRect.x, bottom: blockRect.y },
+                node: null,
+                source: 'missing-dom-column',
+                elementPresent: false
+            };
+        }
+
+        const right = resolveColumnGeometry('right', rightNode);
+        const left = resolveColumnGeometry('left', leftNode);
         if (right && left) {
-            const diff = Math.abs(right.rect.h - left.rect.h);
+            const rightHeight = Number.isFinite(right.rect.h) ? right.rect.h : 0;
+            const leftHeight = Number.isFinite(left.rect.h) ? left.rect.h : 0;
+            const diff = Math.abs(rightHeight - leftHeight);
             if (diff > TOL.balance) {
                 const metrics = node.layoutMetrics || {};
                 const decision = metrics.decisionRecord || {};
@@ -875,14 +921,13 @@ function auditColumnBalance(node, issues) {
                 const overshootAfterShrink = Number.isFinite(metrics.finalJustifyOvershootAfterShrink)
                     ? metrics.finalJustifyOvershootAfterShrink : finalJustify.overshootAfterShrink;
                 const capacityAfter = metrics.finalJustifyCapacityAfter || finalJustify.capacityAfter || {};
-                const shorterSide = right.rect.h <= left.rect.h ? 'right' : 'left';
+                const shorterSide = rightHeight <= leftHeight ? 'right' : 'left';
                 const shorterCapacity = capacityAfter[shorterSide];
                 let balanceOutcome = 'unclassified-residual';
                 let acceptedResidualLimitPx = null;
                 if (routing === 'light-justify' &&
                     Number.isFinite(residualDiff) &&
                     Math.abs(residualDiff) <= 8) {
-                    // Preserve the finding, but make the existing policy exception explicit.
                     balanceOutcome = 'policy-accepted-light-justify-residual';
                     acceptedResidualLimitPx = 8;
                 } else if (routing === 'balanceColumns' &&
@@ -891,25 +936,40 @@ function auditColumnBalance(node, issues) {
                     shorterCapacity &&
                     Number.isFinite(shorterCapacity.totalCapacity) &&
                     shorterCapacity.totalCapacity <= 0.5) {
-                    // A real residual remains because the shorter side has exhausted its
-                    // recorded stretch capacity. Do not suppress it or raise the cap here.
                     balanceOutcome = 'capacity-limited-residual';
                 }
+
+                const roundRect = rect => ({
+                    x: Math.round(Number.isFinite(rect.x) ? rect.x : 0),
+                    y: Math.round(Number.isFinite(rect.y) ? rect.y : 0),
+                    w: Math.round(Number.isFinite(rect.w) ? rect.w : 0),
+                    h: Math.round(Number.isFinite(rect.h) ? rect.h : 0)
+                });
+                const emptySide = rightHeight <= leftHeight ? 'right' : 'left';
+                const emptyHeight = emptySide === 'right' ? rightHeight : leftHeight;
+                const isCompletelyEmpty = emptyHeight < 1;
+
                 issues.push({
                     kind: 'imbalance',
                     severity: diff > 30 ? 'high' : (diff > 10 ? 'medium' : 'low'),
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
-                    rightH: Math.round(right.rect.h),
-                    leftH: Math.round(left.rect.h),
+                    rightH: Math.round(rightHeight),
+                    leftH: Math.round(leftHeight),
                     diff: Math.round(diff),
-                    balanceOutcome,
+                    balanceOutcome: isCompletelyEmpty ? 'one-column-empty' : balanceOutcome,
                     acceptedResidualLimitPx,
-                    rightRect: { x: Math.round(right.rect.x), y: Math.round(right.rect.y), w: Math.round(right.rect.w), h: Math.round(right.rect.h) },
-                    leftRect: { x: Math.round(left.rect.x), y: Math.round(left.rect.y), w: Math.round(left.rect.w), h: Math.round(left.rect.h) },
-                    // Preserve both the stage evidence and the decision/capacity proof on
-                    // the finding itself. These are classifications, not suppressions:
-                    // every residual remains an audit issue with its raw measured heights.
+                    emptyColumnSide: isCompletelyEmpty ? emptySide : null,
+                    columnGeometrySource: {
+                        right: right.source,
+                        left: left.source
+                    },
+                    columnElementPresent: {
+                        right: right.elementPresent,
+                        left: left.elementPresent
+                    },
+                    rightRect: roundRect(right.rect),
+                    leftRect: roundRect(left.rect),
                     layoutMetrics: metrics ? {
                         globalJustifyDiagnostic: metrics.globalJustifyDiagnostic || null,
                         pageFinalJustifyDiagnostic: metrics.pageFinalJustifyDiagnostic || null,
@@ -919,7 +979,9 @@ function auditColumnBalance(node, issues) {
                         decisionRecord: decision,
                         stageGeometryDiagnostic: metrics.stageGeometryDiagnostic || null
                     } : null,
-                    message: `אי-איזון טורים: ימין=${Math.round(right.rect.h)}px שמאל=${Math.round(left.rect.h)}px פער=${Math.round(diff)}px [${balanceOutcome}]`
+                    message: isCompletelyEmpty
+                        ? `אי-איזון חמור: הטור ${emptySide === 'right' ? 'הימני' : 'השמאלי'} ריק לחלוטין (גובה ${Math.round(emptyHeight)}px); הטור השני בגובה ${Math.round(emptySide === 'right' ? leftHeight : rightHeight)}px; פער=${Math.round(diff)}px`
+                        : `אי-איזון טורים: ימין=${Math.round(rightHeight)}px שמאל=${Math.round(leftHeight)}px פער=${Math.round(diff)}px [${balanceOutcome}]`
                 });
             }
         }
