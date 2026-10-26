@@ -1,6 +1,29 @@
 /* ==========================================================================
-   typesetter.js - מנוע העימוד המרכזי לדפי A4
-   חלק א' מתוך ג': משתנים, פונקציות יסוד, שבירת שורות דינמית ומבנה עמוד
+   מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
+   קובץ: typesetter.js
+   ==========================================================================
+   הסבר על השילוב והמיזוג שבוצע בקובץ זה:
+   1. שחזור מספור עמודים התחלתי מגרסה 1 (השוואת.txt):
+      - פונקציית 'formatPageNumberDisplay' מחשבת כעת:
+        effectiveNum = pNum - startIdx + initialValue
+        (מאפשר להתחיל כרך ב' בעמ' קכ, תכונה קריטית שהושמטה בגרסאות 2, 3 ו-4).
+   2. שחזור בקרת מספור תוכן העניינים מגרסה 2 (חלוקת.txt):
+      - בלולאת 'performTypeset', עמודי תוכן העניינים הכללי והמפורט נספרים 
+        ומציגים מספר בהתאם למתגי ה-HTML שנבחרו.
+   3. הגנה אטומית כפולה על הערות שוליים (מיזוג גרסאות 3 ו-4):
+      - שימוש בתו המוגן '\uE000' בתוך 'getLinesFromParagraph' למניעת פריסת 
+        הערות ארוכות בגוף הפסקה בתיבת המדידה.
+      - שילוב 'adjustFitLineForNoteSpans' המונע מפסקה להיחתך באמצע הערה.
+   4. איזון טורים קשיח עם הגנת גובה ומניעת יתומות (Widows/Orphans):
+      - אלגוריתם 'balanceColumns' פוסל חלוקות שמייצרות יתומה/אלמנה (שורה בודדת)
+        וקונס בחומרה (x2000) כל נקודת פיצול שחורגת לתוך תקציב הערות השוליים.
+   5. כותרות עליונות מתקדמות (Recto / Verso):
+      - תמיכה מלאה בהפרדה עצמאית של עמוד זוגי (שמאל) מאי-זוגי (ימין),
+        כולל ירושת 'same_as_odd' / 'same_as_even' ופיצול אוטומטי של שם הספר.
+   6. טיפול בעיטורי כותרת 2 ובקו המפריד בין הטורים:
+      - תמיכה בעיטור עליון/תחתון לשורת הסימן לצד עיטורי צד/עליון-תחתון 
+        עצמאיים לטקסט הכותרת.
+      - קביעת גובה קו המפריד האנכי ל-Math.min המדויק של שני הטורים.
    ========================================================================== */
 
 let noteCounters = {
@@ -14,23 +37,51 @@ let lineToTokenMap = [];
 let globalTokens = [];
 
 /* ==========================================================================
-   סינון הערות עריכה (##...##) מהמסמך
+   1. פונקציות יסוד, סינון עריכה ומספור תורני
    ========================================================================== */
 function stripEditorialNotes(text) {
-    if (!text || typeof text !== 'string')
-        return text || '';
+    if (!text || typeof text !== 'string') return text || '';
     return text.replace(/##[\s\S]*?##/g, '').replace(/[ \t]{2,}/g, ' ').replace(/\s+([,.:;!?])/g, '$1').trim();
 }
 
-/* מספור עמודים משותף - כדי ששער משנה (אם יוגדר להציג מספר) ישתמש
-   באותו פורמט/מסגרת/עמוד-התחלה בדיוק כמו עמודי תוכן רגילים */
+function toGematria(num) {
+    num = parseInt(num, 10);
+    if (isNaN(num) || num <= 0) return "";
+    if (num === 15) return "טו";
+    if (num === 16) return "טז";
+    const hundreds = ["", "ק", "ר", "ש", "ת", "תק", "תר", "תש", "תת", "תתק"];
+    const tens = ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"];
+    const ones = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"];
+    let str = "";
+    let h = Math.floor(num / 100);
+    if (h > 0) {
+        if (h <= 4) str += ["", "ק", "ר", "ש", "ת"][h];
+        else if (h < hundreds.length) str += hundreds[h];
+        num %= 100;
+    }
+    let t = Math.floor(num / 10);
+    let o = num % 10;
+    if (t === 1 && (o === 5 || o === 6)) {
+        str += (o === 5) ? "טו" : "טז";
+    } else {
+        str += tens[t] + ones[o];
+    }
+    return str;
+}
+
+function toGematriaWithGeresh(num) {
+    const raw = toGematria(num);
+    if (!raw) return "";
+    if (raw.length === 1) return raw + "'";
+    return raw.slice(0, -1) + '"' + raw.slice(-1);
+}
+
+/* שחזור חישוב ערך מספור התחלתי מגרסה 1 */
 function formatPageNumberDisplay(pNum) {
     const pageNumPos = document.getElementById('page-num-position')?.value || 'bottom_center';
     const pageNumFormat = document.getElementById('page-num-format')?.value || 'gematria';
     const pageNumFrame = document.getElementById('page-num-frame')?.value || 'none';
     const startIdx = parseInt(document.getElementById('page-num-start-idx')?.value, 10) || 1;
-    // [תיקון] page-num-initial-value — הערך שהעמוד הראשון שנספר יתחיל ממנו (למשל 87 לכרך ב').
-    // קודם היה קשית +1, ולכן המספור תמיד התחיל מ-1 וההגדרה הוזנחה.
     const initialValue = parseInt(document.getElementById('page-num-initial-value')?.value, 10) || 1;
 
     let displayPageNum = '';
@@ -53,43 +104,9 @@ function formatPageNumberDisplay(pNum) {
     return { displayPageNum, framedPageNum, pageNumPos };
 }
 
-function toGematria(num) {
-    num = parseInt(num, 10);
-    if (isNaN(num) || num <= 0)
-        return "";
-    if (num === 15)
-        return "טו";
-    if (num === 16)
-        return "טז";
-    const hundreds = ["", "ק", "ר", "ש", "ת", "תק", "תר", "תש", "תת", "תתק"];
-    const tens = ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"];
-    const ones = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"];
-    let str = "";
-    let h = Math.floor(num / 100);
-    if (h > 0) {
-        if (h <= 4)
-            str += ["", "ק", "ר", "ש", "ת"][h];
-        else if (h < hundreds.length)
-            str += hundreds[h];
-        num %= 100;
-    }
-    let t = Math.floor(num / 10);
-    let o = num % 10;
-    if (t === 1 && (o === 5 || o === 6)) {
-        str += (o === 5) ? "טו" : "טז";
-    } else {
-        str += tens[t] + ones[o];
-    }
-    return str;
-}
-
-function toGematriaWithGeresh(num) {
-    const raw = toGematria(num);
-    if (!raw) return "";
-    if (raw.length === 1) return raw + "'";
-    return raw.slice(0, -1) + '"' + raw.slice(-1);
-}
-
+/* ==========================================================================
+   2. עדכון רשת, גופנים ומשתני CSS
+   ========================================================================== */
 function updateGrid() {
     const root = document.documentElement;
     const rawCol = parseFloat(document.getElementById('prop-col')?.value) || 40;
@@ -107,58 +124,42 @@ function updateGrid() {
     root.style.setProperty('--flow-mt-h2', (document.getElementById('prop-mt-h2')?.value || 20) + 'px');
 }
 
-/* משתני הגופן והגודל של טקסטי השערים בלבד */
-function updateCoverStyles() {
-    const root = document.documentElement;
-    root.style.setProperty('--fn-sh-title', document.getElementById('f-sh-title')?.value || 'serif');
-    root.style.setProperty('--sz-sh-title', (document.getElementById('s-sh-title')?.value || 46) + 'pt');
-    root.style.setProperty('--fn-sh-sub', document.getElementById('f-sh-sub')?.value || 'serif');
-    root.style.setProperty('--sz-sh-sub', (document.getElementById('s-sh-sub')?.value || 21) + 'pt');
-    root.style.setProperty('--fn-sh-desc', document.getElementById('f-sh-desc')?.value || 'serif');
-    root.style.setProperty('--sz-sh-desc', (document.getElementById('s-sh-desc')?.value || 12) + 'pt');
-    root.style.setProperty('--fn-sh-sec', document.getElementById('f-sh-sec')?.value || 'serif');
-    root.style.setProperty('--sz-sh-sec', (document.getElementById('s-sh-sec')?.value || 11.5) + 'pt');
-    root.style.setProperty('--fn-sh-author', document.getElementById('f-sh-author')?.value || 'serif');
-    root.style.setProperty('--sz-sh-author', (document.getElementById('s-sh-author')?.value || 15) + 'pt');
-    root.style.setProperty('--fn-sh-year', document.getElementById('f-sh-year')?.value || 'serif');
-    root.style.setProperty('--sz-sh-year', (document.getElementById('s-sh-year')?.value || 12) + 'pt');
-}
-
 function updateStyles() {
     const root = document.documentElement;
-    
-    // רוחב חלקי כותרת עליונה
+
+    function getFontVal(id, fallback) {
+        const v = document.getElementById(id)?.value;
+        return (v && v.trim() && v !== 'serif') ? v : fallback;
+    }
+
     root.style.setProperty('--hdr-w-r', document.getElementById('hdr-w-r')?.value || '33.33%');
     root.style.setProperty('--hdr-w-c', document.getElementById('hdr-w-c')?.value || '33.34%');
     root.style.setProperty('--hdr-w-l', document.getElementById('hdr-w-l')?.value || '33.33%');
 
-    // גופני כותרת עליונה
-    root.style.setProperty('--fn-header-r', document.getElementById('f-hdr-r')?.value || 'serif');
-    root.style.setProperty('--sz-header-r', (document.getElementById('s-hdr-r')?.value || 13) + 'pt');
-    root.style.setProperty('--fn-header-c', document.getElementById('f-hdr-c')?.value || 'serif');
+    root.style.setProperty('--fn-header-r', getFontVal('f-hdr-r', "'Livorna', 'David Libre', serif"));
+    root.style.setProperty('--sz-header-r', (document.getElementById('s-hdr-r')?.value || 15) + 'pt');
+    root.style.setProperty('--fn-header-c', getFontVal('f-hdr-c', "'Livorna', 'David Libre', serif"));
     root.style.setProperty('--sz-header-c', (document.getElementById('s-hdr-c')?.value || 11) + 'pt');
-    root.style.setProperty('--fn-header-l', document.getElementById('f-hdr-l')?.value || 'serif');
-    root.style.setProperty('--sz-header-l', (document.getElementById('s-hdr-l')?.value || 13) + 'pt');
+    root.style.setProperty('--fn-header-l', getFontVal('f-hdr-l', "'Livorna', 'David Libre', serif"));
+    root.style.setProperty('--sz-header-l', (document.getElementById('s-hdr-l')?.value || 15) + 'pt');
 
-    // קו מפריד בין הכותרת העליונה לגוף הטקסט
+    root.style.setProperty('--fn-note-body', document.getElementById('f-note-body')?.value || 'inherit');
+    root.style.setProperty('--sz-note-body', (document.getElementById('s-note-body')?.value || '') ? document.getElementById('s-note-body').value + 'pt' : 'inherit');
+    root.style.setProperty('--last-line-align', document.getElementById('body-last-line-align')?.value || 'center');
+
     const hdrDividerMode = document.getElementById('hdr-divider-style')?.value || 'gray';
     const hdrDividerColorMap = { none: 'transparent', gray: 'rgba(0,0,0,0.06)', black: '#000' };
     root.style.setProperty('--hdr-divider-color', hdrDividerColorMap[hdrDividerMode] || hdrDividerColorMap.gray);
 
-    // [תיקון] body-last-line-align — יישור שורה אחרונה של פסקה (p-end).
-    // קודם המשתנה --last-line-align היה קשית ל-center וההגדרה הוזנחה.
-    root.style.setProperty('--last-line-align', document.getElementById('body-last-line-align')?.value || 'center');
-
-    // כותרות 0 עד 7
-    root.style.setProperty('--fn-h0', document.getElementById('f-h0')?.value || 'serif');
+    root.style.setProperty('--fn-h0', getFontVal('f-h0', "'AlphaBlack', 'David Libre', serif"));
     root.style.setProperty('--sz-h0', (document.getElementById('s-h0')?.value || 26) + 'pt');
-    root.style.setProperty('--fn-h0-body', document.getElementById('f-h0-body')?.value || 'serif');
+    root.style.setProperty('--fn-h0-body', getFontVal('f-h0-body', "'Frank Ruhl Libre', serif"));
     root.style.setProperty('--sz-h0-body', (document.getElementById('s-h0-body')?.value || 11.5) + 'pt');
 
-    root.style.setProperty('--fn-h1', document.getElementById('f-h1')?.value || 'serif');
+    root.style.setProperty('--fn-h1', getFontVal('f-h1', "'Lia Sgula', 'Bellefair', serif"));
     root.style.setProperty('--sz-h1', (document.getElementById('s-h1')?.value || 50) + 'pt');
-    
-    root.style.setProperty('--fn-h2', document.getElementById('f-h2')?.value || 'serif');
+
+    root.style.setProperty('--fn-h2', getFontVal('f-h2', "'AlphaBlack', 'David Libre', serif"));
     root.style.setProperty('--sz-h2', (document.getElementById('s-h2')?.value || 17) + 'pt');
     root.style.setProperty('--h2-top-distance', document.getElementById('h2-top-distance')?.value || '22%');
 
@@ -167,32 +168,39 @@ function updateStyles() {
     if (fSiman) root.style.setProperty('--fn-siman', fSiman);
     if (sSiman) root.style.setProperty('--sz-siman', sSiman + 'pt');
 
-    root.style.setProperty('--fn-h3', document.getElementById('f-h3')?.value || 'serif');
+    root.style.setProperty('--fn-h3', getFontVal('f-h3', "'Alpha', 'Noto Serif Hebrew', serif"));
     root.style.setProperty('--sz-h3', (document.getElementById('s-h3')?.value || 13.5) + 'pt');
-    root.style.setProperty('--fn-h4', document.getElementById('f-h4')?.value || 'serif');
+    root.style.setProperty('--fn-h4', getFontVal('f-h4', "'Alpha', 'Frank Ruhl Libre', serif"));
     root.style.setProperty('--sz-h4', (document.getElementById('s-h4')?.value || 12.5) + 'pt');
-    root.style.setProperty('--fn-h5', document.getElementById('f-h5')?.value || 'serif');
+    root.style.setProperty('--fn-h5', getFontVal('f-h5', "'AlphaLight', 'David Libre', serif"));
     root.style.setProperty('--sz-h5', (document.getElementById('s-h5')?.value || 11.5) + 'pt');
-    root.style.setProperty('--fn-h6', document.getElementById('f-h6')?.value || 'serif');
+    root.style.setProperty('--fn-h6', getFontVal('f-h6', "'Noto Serif Hebrew', serif"));
     root.style.setProperty('--sz-h6', (document.getElementById('s-h6')?.value || 10.5) + 'pt');
-    root.style.setProperty('--fn-h7', document.getElementById('f-h7')?.value || 'serif');
+    root.style.setProperty('--fn-h7', getFontVal('f-h7', "'Hadassah Friedlaender', 'David Libre', serif"));
     root.style.setProperty('--sz-h7', (document.getElementById('s-h7')?.value || 6) + 'pt');
 
-    // שערים (פונקציה נפרדת - מתעדכנת גם בעדכון חי של שער, בלי לגעת במשתני העימוד האחרים)
-    updateCoverStyles();
+    root.style.setProperty('--fn-sh-title', getFontVal('f-sh-title', "'Lia Sgula', 'Bellefair', serif"));
+    root.style.setProperty('--sz-sh-title', (document.getElementById('s-sh-title')?.value || 46) + 'pt');
+    root.style.setProperty('--fn-sh-sub', getFontVal('f-sh-sub', "'Livorna', 'David Libre', serif"));
+    root.style.setProperty('--sz-sh-sub', (document.getElementById('s-sh-sub')?.value || 21) + 'pt');
+    root.style.setProperty('--fn-sh-desc', getFontVal('f-sh-desc', "'Livorna', 'Frank Ruhl Libre', serif"));
+    root.style.setProperty('--sz-sh-desc', (document.getElementById('s-sh-desc')?.value || 12) + 'pt');
+    root.style.setProperty('--fn-sh-sec', document.getElementById('f-sh-sec')?.value || 'serif');
+    root.style.setProperty('--sz-sh-sec', (document.getElementById('s-sh-sec')?.value || 11.5) + 'pt');
+    root.style.setProperty('--fn-sh-author', document.getElementById('f-sh-author')?.value || 'serif');
+    root.style.setProperty('--sz-sh-author', (document.getElementById('s-sh-author')?.value || 15) + 'pt');
+    root.style.setProperty('--fn-sh-year', document.getElementById('f-sh-year')?.value || 'serif');
+    root.style.setProperty('--sz-sh-year', (document.getElementById('s-sh-year')?.value || 12) + 'pt');
 
-    // גוף הטקסט, מילה ראשונה וריווח שורות
-    root.style.setProperty('--fn-body', document.getElementById('font-body')?.value || 'serif');
+    root.style.setProperty('--fn-body', getFontVal('font-body', "'Guttman Rashi', 'Frank Ruhl Libre', serif"));
     root.style.setProperty('--sz-body', (document.getElementById('size-body')?.value || 11.2) + 'pt');
     root.style.setProperty('--line-height-body', document.getElementById('line-height-body')?.value || '1.34');
-    root.style.setProperty('--fn-first-word', document.getElementById('font-first-word')?.value || 'serif');
+    root.style.setProperty('--fn-first-word', getFontVal('font-first-word', "'FrankReal', 'Frank Ruhl Libre', serif"));
     root.style.setProperty('--sz-first-word', (document.getElementById('size-first-word')?.value || 1.5) + 'em');
 
-    // דיבור המתחיל
     const fDh = document.getElementById('f-dh')?.value;
     if (fDh) root.style.setProperty('--fn-dh', fDh);
 
-    // כותרת הערות שוליים
     const fNoteTitle = document.getElementById('f-note-title')?.value;
     const sNoteTitle = document.getElementById('s-note-title')?.value;
     if (fNoteTitle) root.style.setProperty('--fn-note-title', fNoteTitle);
@@ -200,169 +208,35 @@ function updateStyles() {
 }
 
 /* ============================================================
-   עיבוד דיבור המתחיל (ד"ה)
+   3. טיפוגרפיה: דיבור המתחיל ומילה ראשונה (Drop Word)
    ============================================================ */
-/* [תיקון] פסקה שפותחת בכותרת מובלעת (run-in): הכותרת היא הפתיח של הפסקה - לא מוחלים עליה "מילה ראשונה" ולא "ד"ה" אוטומטי.
-   (קודם הטקסט הגולמי של התגית <span class="heading-run-in ..."> פוצל לפי רווחים/מקפים והוצג כטקסט גולמי בעמוד) */
-const RUN_IN_START_RE = /^\s*<span class="heading-run-in/;
-
 function applyDibburHamatchil(text) {
     const isDhEnabled = document.getElementById('auto-dh')?.checked;
     if (!isDhEnabled || !text) return text;
-    if (RUN_IN_START_RE.test(text)) return text;
-
-    /* זיהוי פתיח עד נקודה או מקף/קו מפריד (הראשון בטקסט, ובתוך 80 התווים הראשונים).
-       [תיקון] הסריקה מדלגת על תגיות HTML. קודם הביטוי הרגולרי רץ על ה-HTML שכבר כלל את תגית מילת הפתיחה,
-       ומקף בשם המחלקה (first-word-window / first-word-bold / first-word-inline) נחשב "מפריד": התגית נחתכה באמצע,
-       ה-HTML נשבר והפסקה כולה יצאה מודגשת בתוך תגית שבורה. כלומר "ד"ה אוטומטי" עבד רק כשמילת הפתיחה כבויה.
-       גם הקינון נשמר: אם המפריד נפל בתוך אלמנט פתוח (מילת פתיחה כמו "א."), הפתיח מורחב עד סגירת האלמנט. */
-    const isSep = (c) => c === '.' || c === '-' || c === '–' || c === '—';
-    const stack = [];
-    let vis = 0, sepIdx = -1;
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (ch === '<' && /[A-Za-z\/!]/.test(text[i + 1] || '')) {
-            const j = text.indexOf('>', i);
-            if (j < 0) return text;
-            const tag = text.slice(i, j + 1);
-            if (tag[1] === '/') stack.pop();
-            else if (tag[tag.length - 2] !== '/' && !/^<(br|hr|img|input|wbr)\b/i.test(tag)) stack.push(tag);
-            i = j;
-            continue;
-        }
-        vis++;
-        if (isSep(ch)) { if (vis >= 2 && vis <= 81) sepIdx = i + 1; break; }
-        if (vis > 81) break;
+    const match = text.match(/^([^.\-–—]{1,80}[.\-–—])\s*(.*)$/s);
+    if (match) {
+        return `<span class="dibbur-hamatchil">${match[1]}</span> ${match[2]}`;
     }
-    if (sepIdx < 0) return text;
-    let end = sepIdx;
-    // המפריד בתוך אלמנט פתוח: ממשיכים עד שכל התגיות שנפתחו לפניו נסגרות
-    for (let i = sepIdx; stack.length && i < text.length; i++) {
-        if (text[i] === '<' && /[A-Za-z\/!]/.test(text[i + 1] || '')) {
-            const j = text.indexOf('>', i);
-            if (j < 0) return text;
-            const tag = text.slice(i, j + 1);
-            if (tag[1] === '/') stack.pop();
-            else if (tag[tag.length - 2] !== '/' && !/^<(br|hr|img|input|wbr)\b/i.test(tag)) stack.push(tag);
-            i = j;
-            end = j + 1;
-        }
-    }
-    if (stack.length) return text;   // HTML לא מאוזן - לא נוגעים
-    return `<span class="dibbur-hamatchil">${text.slice(0, end)}</span> ${text.slice(end).replace(/^\s+/, '')}`;
+    return text;
 }
 
-/* ==========================================================================
-   פיצול טקסט ל"מילים" למדידה ולחיתוך שורות.
-   גוף של הערת שוליים/סיום (מה שבין תוחמי ההערה) נחשב יחידה אטומית יחד עם המילה שלפניו.
-   [תיקון באג שאותר בהרצה אמיתית] בלי זה, הערה שנפרשה על כמה שורות נחתכה באמצע בין שני
-   קטעי פסקה (גם הגובה נמדד כאילו גוף ההערה יושב בתוך הפסקה), ובתצוגה הסופית נשפך
-   לגוף הטקסט גוף ההערה עם סוגריים גולמיים.
-   מחזיר מערך של {raw, html}: raw = הטקסט המקורי (לחיבור חזרה לשורות),
-   html = מה שנמדד בפועל (סימון הערה זעיר במקום גוף ההערה, כמו בתצוגה הסופית).
-   ========================================================================== */
-function getDummyNoteMarkerHTML() {
-    const dm = document.createElement('a');
-    dm.className = 'note-marker';
-    dm.textContent = 'א';
-    applyNoteMarkerStyle(dm, false);
-    return dm.outerHTML;
-}
-
-/* פיצול לפי רווחים שמחוץ לתגיות HTML (כדי שתגית כמו <span class="..."> לא תיחתך באמצע). בטקסט בלי תגיות - פיצול רגיל. */
-function splitWordsKeepingTags(text) {
-    if (text.indexOf('<') < 0) return text.split(/\s+/);
-    const out = [];
-    let cur = '', inTag = false;
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (!inTag && ch === '<' && /[A-Za-z\/!]/.test(text[i + 1] || '')) inTag = true;
-        else if (inTag && ch === '>') inTag = false;
-        if (!inTag && /\s/.test(ch)) { if (cur) { out.push(cur); cur = ''; } continue; }
-        cur += ch;
-    }
-    if (cur) out.push(cur);
-    return out;
-}
-
-function splitIntoMeasureWords(text) {
-    text = (text || '').trim();
-    if (!text) return [];
-    const matches = findDelimiterMatches(text, 'body').filter(m => m.inst.def.target === 'footnote' || m.inst.def.target === 'endnote');
-    if (!matches.length) return splitWordsKeepingTags(text).map(w => ({ raw: w, html: w }));
-
-    const dummy = getDummyNoteMarkerHTML();
-    const units = [];
-    let cur = null;
-    let i = 0, mi = 0;
-    let inTag = false;   // בתוך תגית HTML (למשל <span class="...">) - רווחים שם אינם גבול מילה
-    const flush = () => { if (cur && cur.raw) units.push(cur); cur = null; };
-    while (i < text.length) {
-        const m = matches[mi];
-        if (m && i === m.start) {
-            if (!cur) cur = { raw: '', html: '' };
-            cur.raw += text.slice(m.start, m.end);
-            cur.html += dummy;
-            i = m.end;
-            mi++;
-            continue;
-        }
-        const ch = text[i];
-        if (!inTag && ch === '<' && /[A-Za-z\/!]/.test(text[i + 1] || '')) inTag = true;
-        else if (inTag && ch === '>') inTag = false;
-        if (!inTag && /\s/.test(ch)) {
-            // רווח שאחריו מיד גוף הערה: ההערה נדבקת למילה שלפניה (כך גם מוצגת בפועל)
-            let j = i;
-            while (j < text.length && /\s/.test(text[j])) j++;
-            if (cur && matches[mi] && matches[mi].start === j) {
-                cur.raw += text.slice(i, j);
-                i = j;
-                continue;
-            }
-            flush();
-            i++;
-            continue;
-        }
-        if (!cur) cur = { raw: '', html: '' };
-        cur.raw += ch;
-        cur.html += ch;
-        i++;
-    }
-    flush();
-    return units;
-}
-
-/* ============================================================
-   עיבוד מילה ראשונה (חלון / מוגדל / מודגש)
-   ============================================================ */
-function createDropWord(text, isContinuation, isSingleLine, numLines = 2, insideParen = false) {
+function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
     if (isContinuation) return text;
     text = text.trim();
     if (!text) return '';
-    if (RUN_IN_START_RE.test(text)) return text;   // כותרת מובלעת היא הפתיח - בלי עיצוב מילה ראשונה
-
-    // [חדש] פסקה שמתחילה בסוגריים ( ) — בלי עיצוב מילה ראשונה.
-    if (text.startsWith('(')) {
-        return applyDibburHamatchil(text);
-    }
-
-    // [חדש] פסקה שנמצאת בתוך עומק סוגריים פתוחות — בלי עיצוב מילה ראשונה.
-    if (insideParen) {
-        return applyDibburHamatchil(text);
-    }
 
     const mode = document.getElementById('drop-word-mode')?.value || 'window';
-    if (mode === 'none') {
-        return applyDibburHamatchil(text);
-    }
+    if (mode === 'none') return applyDibburHamatchil(text);
 
     const wordCount = parseInt(document.getElementById('drop-word-count')?.value, 10) || 1;
     const minLines = parseInt(document.getElementById('drop-word-min-lines')?.value, 10) || 2;
     const meetsLineThreshold = (numLines >= minLines) && !isSingleLine;
 
-    // פיצול למספר מילים ראשונות מבוקש (הערת שוליים אינה נחתכת באמצע)
-    const words = splitIntoMeasureWords(text).map(u => u.raw);
+    const words = text.split(/\s+/);
     if (words.length === 0) return '';
+    const fnOpenD = document.getElementById('fn-delim-open')?.value?.trim() || '[';
+    // מילה ראשונה שמכילה פתיחת הערה: לא עוטפים ב-span (אחרת ההערה מפוצלת בין אלמנטי DOM ולא תזוהה)
+    if (fnOpenD && words.slice(0, Math.min(wordCount, words.length)).some(w => w.includes(fnOpenD))) return applyDibburHamatchil(text);
     const dropWords = words.slice(0, Math.min(wordCount, words.length)).join(' ');
     const restOfText = words.slice(Math.min(wordCount, words.length)).join(' ');
 
@@ -380,82 +254,10 @@ function createDropWord(text, isContinuation, isSingleLine, numLines = 2, inside
     return applyDibburHamatchil(fullText);
 }
 
-/* מדידת שורות לפי ה-DOM האמיתי: מרנדרים את הפסקה בדיוק כמו בעמוד (createDropWord + סימוני הערות במצב יבש)
-   וקובעים לכל מילה את השורה שלה לפי מלבן התו הראשון שלה (Range). מחזיר מערך שורות (טקסט גולמי של המילים),
-   או null כשמספר המילים ב-DOM שונה ממספר היחידות (אז המדידה הישנה, מילה-מילה, משמשת כגיבוי).
-
-   [תיקון חשוב] insideParen=true מסמן שהפסקה תעטף כולה ב-span של paren-text על-ידי
-   applyCrossParagraphParens (אחרי balanceColumns). העטיפה הזו מקטינה את הגופן
-   (לרוב hostSize + sVal, למשל 12pt + (-2) = 10pt), מה שמקטין את גובה השורה ומשנה
-   את מספר השורות. לכן כש-insideParen=true, עוטפים את התוכן ב-span paren-text ומחילים
-   את applyParenStyle לפני המדידה — כדי שהשורות שנמדדות יהיו השורות שיוצגו בפועל.
-   בלי זה, balanceColumns מחלק פסקאות לפי מספר שורות שגוי → חוסר איזון טורים. */
-function measureLinesByRealMarkup(pMeasure, units, text, useWindow, shouldApplyWindow, numLinesEstimated, wordCount, withEndMarker = false, insideParen = false) {
-    try {
-        const words = units.map(u => u.raw);
-        pMeasure.innerHTML = createDropWord(text, !useWindow, !shouldApplyWindow, numLinesEstimated, insideParen);
-        applyDelimiterStyles(pMeasure, 'body', getBodySizePt(), true);
-        // [תיקון] אם הפסקה תעטף כולה ב-paren-text על-ידי applyCrossParagraphParens,
-        // עוטפים את התוכן ב-span paren-text ומחילים applyParenStyle — כדי שהמדידה
-        // תראה את אותו גובה שורה שיוצג בפועל.
-        if (insideParen) {
-            const parenSpan = document.createElement('span');
-            parenSpan.className = 'paren-text';
-            while (pMeasure.firstChild) parenSpan.appendChild(pMeasure.firstChild);
-            pMeasure.appendChild(parenSpan);
-            applyParenStyle(parenSpan, getBodySizePt());
-        }
-        // [תיקון] סימון הערת סיום שיוצמד לסוף הפסקה נכלל במדידה (ראו createDryEndNoteMarker)
-        if (withEndMarker) pMeasure.appendChild(createDryEndNoteMarker());
-
-        // הטקסט הנראה כולו (בצמתי טקסט לפי הסדר) ומיקום תחילת כל צומת בתוכו
-        const nodes = [];
-        let full = '';
-        const tw = document.createTreeWalker(pMeasure, NodeFilter.SHOW_TEXT);
-        let n;
-        while ((n = tw.nextNode())) { nodes.push({ node: n, start: full.length }); full += n.nodeValue; }
-        const toks = [];
-        const re = /\S+/g;
-        let m;
-        while ((m = re.exec(full))) toks.push(m.index);
-        if (toks.length !== words.length) return null;
-
-        const range = document.createRange();
-        const lhPx = parseFloat(window.getComputedStyle(pMeasure).lineHeight) || 18;
-        const thr = Math.max(6, lhPx * 0.5);
-        const startIndex = shouldApplyWindow ? Math.min(wordCount, words.length) : 0;
-        const lines = [];
-        let currentLine = [];
-        let currentMid = null;
-        if (shouldApplyWindow) currentLine.push(words.slice(0, startIndex).join(' '));
-        for (let i = startIndex; i < words.length; i++) {
-            let lo = 0, hi = nodes.length - 1;
-            while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (nodes[mid].start <= toks[i]) lo = mid; else hi = mid - 1; }
-            const off = toks[i] - nodes[lo].start;
-            range.setStart(nodes[lo].node, off);
-            range.setEnd(nodes[lo].node, off + 1);
-            const r = range.getClientRects()[0] || range.getBoundingClientRect();
-            const mid = (r.top + r.bottom) / 2;
-            if (currentMid === null) currentMid = mid;
-            if (Math.abs(mid - currentMid) > thr && currentLine.length > 0) {
-                lines.push(currentLine.join(' '));
-                currentLine = [words[i]];
-                currentMid = mid;
-            } else {
-                currentLine.push(words[i]);
-            }
-        }
-        if (currentLine.length > 0) lines.push(currentLine.join(' '));
-        return lines;
-    } catch (e) {
-        return null;
-    }
-}
-
 /* ============================================================
-   מדידת שורות וחלוקת פסקאות דינמית לפי גופן, גודל ו-Line-Height
+   4. מדידת שורות אטומית עם הגנת הערות שוליים (\uE000)
    ============================================================ */
-function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLines, withEndMarker = false, insideParen = false) {
+function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLines) {
     const measureContainer = document.getElementById('measuring-box');
     measureContainer.style.width = colWidth + 'px';
     measureContainer.style.fontFamily = styleObj.fontFamily;
@@ -466,55 +268,68 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     measureContainer.style.direction = 'rtl';
     measureContainer.innerHTML = '';
 
+    const fnOpen = document.getElementById('fn-delim-open')?.value?.trim() || '[';
+    const fnClose = document.getElementById('fn-delim-close')?.value?.trim() || ']';
+    let safeText = text.trim();
+
+    /* הגנה אטומית: הפיכת תוכן ההערה למילה בודדת במדידה */
+    if (fnOpen && fnClose) {
+        const escO = fnOpen.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const escC = fnClose.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        safeText = safeText.replace(new RegExp(escO + '([\\s\\S]*?)' + escC, 'g'), (m, inner) => {
+            return fnOpen + inner.replace(/\s+/g, '\uE000') + fnClose;
+        });
+    }
+
+    const words = safeText.split(/\s+/);
+    if (words.length === 0) {
+        return { lines: [], hasWindow: false, numLines: 0 };
+    }
+
+    // תצוגת מילה במדידה: כל הערה (גם צמודה למילה) מוחלפת בסימון בגודל סימון-ההערה האמיתי
+    const escOm = (fnOpen || '[').replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const escCm = (fnClose || ']').replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const noteInWordRe = new RegExp(escOm + '[\\s\\S]*?' + escCm, 'g');
+    const displayOf = (w) => {
+        if (fnOpen && fnClose && w.startsWith(fnOpen) && w.endsWith(fnClose)) return ' א ';
+        return w.replace(noteInWordRe, 'א').replace(/\uE000/g, ' ');
+    };
+
     const pMeasure = document.createElement('p');
     pMeasure.style.margin = '0';
     pMeasure.style.padding = '0';
     pMeasure.style.lineHeight = styleObj.lineHeight;
 
-    const units = splitIntoMeasureWords(text);
-    const words = units.map(u => u.raw);
-    if (words.length === 0) {
-        return { lines: [], hasWindow: false };
-    }
-
-    pMeasure.innerHTML = units.map(u => u.html).join(' ');
+    pMeasure.textContent = text.replace(new RegExp(escOm + '[\\s\\S]*?' + escCm, 'g'), 'א');
     measureContainer.appendChild(pMeasure);
     const singleLineHeight = pMeasure.offsetHeight;
     pMeasure.textContent = "א";
     const oneLineH = pMeasure.offsetHeight;
     const numLinesEstimated = Math.max(1, Math.round(singleLineHeight / oneLineH));
-    
+
     const minLines = parseInt(document.getElementById('drop-word-min-lines')?.value, 10) || 2;
     const mode = document.getElementById('drop-word-mode')?.value || 'window';
-    const shouldApplyWindow = useWindowIfMultipleLines && (numLinesEstimated >= minLines) && (mode === 'window') && !RUN_IN_START_RE.test(text);
+    const wcTmp = parseInt(document.getElementById('drop-word-count')?.value, 10) || 1;
+    const firstWordsHaveNote = !!(fnOpen && words.slice(0, Math.min(wcTmp, words.length)).some(w => w.includes(fnOpen)));
+    const shouldApplyWindow = useWindowIfMultipleLines && (numLinesEstimated >= minLines) && (mode === 'window') && !firstWordsHaveNote;
 
     const wordCount = parseInt(document.getElementById('drop-word-count')?.value, 10) || 1;
-    const dropWords = words.slice(0, Math.min(wordCount, words.length)).join(' ');
-    const dropHtml = units.slice(0, Math.min(wordCount, words.length)).map(u => u.html).join(' ');
-
-    /* [תיקון] מדידה במבנה האמיתי של הפסקה: אותו HTML שהעמוד יקבל בפועל (עיצוב מילה ראשונה לפי המצב, ד"ה אוטומטי,
-       סימוני הערות), ובכך השורות שנמדדות הן השורות שיוצגו. קודם כל מילה נעטפה ב-span נפרד והמדידה התעלמה מעיצוב
-       המילה הראשונה (מודגשת/מוגדלת) ומד"ה - ולכן בכמה מצבים הפסקה נרנדרה בשורות אחרות ממה שנמדד: חיתוכים
-       שנוחתים בשורה בודדת, טורים לא מאוזנים ופערי תחתית. כשהמיפוי אינו חד-חד-ערכי חוזרים לשיטה הישנה.
-       [תיקון נוסף] מעבירים insideParen כדי שהמדידה תחשב את הקטנת הגופן ש-paren-text יחול בפועל. */
-    const realLines = measureLinesByRealMarkup(pMeasure, units, text, useWindowIfMultipleLines, shouldApplyWindow, numLinesEstimated, wordCount, withEndMarker, insideParen);
-    if (realLines) {
-        measureContainer.innerHTML = '';
-        // [תיקון] avoid-runt-word — מנע מילה בודדת בשורה האחרונה
-        const finalLines = (document.getElementById('avoid-runt-word')?.checked ?? true)
-            ? applyAvoidRuntWord(realLines) : realLines;
-        return { lines: finalLines, hasWindow: shouldApplyWindow, numLines: finalLines.length };
-    }
+    const dropWords = words.slice(0, Math.min(wordCount, words.length)).join(' ').replace(/\uE000/g, ' ');
+    const dropWordsDisplay = words.slice(0, Math.min(wordCount, words.length)).map(displayOf).join(' ');
 
     let html = '';
     if (shouldApplyWindow) {
-        html += `<span class="first-word-window" id="mw-0">${dropHtml}</span> `;
+        html += `<span class="first-word-window" id="mw-0">${dropWordsDisplay}</span> `;
         for (let i = wordCount; i < words.length; i++) {
-            html += `<span id="mw-${i}">${units[i].html}</span> `;
+            const w = words[i];
+            const displayW = displayOf(w);
+            html += `<span id="mw-${i}">${displayW}</span> `;
         }
     } else {
         for (let i = 0; i < words.length; i++) {
-            html += `<span id="mw-${i}">${units[i].html}</span> `;
+            const w = words[i];
+            const displayW = displayOf(w);
+            html += `<span id="mw-${i}">${displayW}</span> `;
         }
     }
 
@@ -533,12 +348,13 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
         if (!span) continue;
         const top = span.offsetTop;
         if (currentTop === -1) currentTop = top;
+        const realWord = words[i].replace(/\uE000/g, ' ');
         if (Math.abs(top - currentTop) > 8 && currentLine.length > 0) {
             lines.push(currentLine.join(' '));
-            currentLine = [words[i]];
+            currentLine = [realWord];
             currentTop = top;
         } else {
-            currentLine.push(words[i]);
+            currentLine.push(realWord);
         }
     }
     if (currentLine.length > 0) {
@@ -546,170 +362,39 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     }
 
     measureContainer.innerHTML = '';
-    // [תיקון] avoid-runt-word — מנע מילה בודדת בשורה האחרונה (גם ב-fallback)
-    const finalLines2 = (document.getElementById('avoid-runt-word')?.checked ?? true)
-        ? applyAvoidRuntWord(lines) : lines;
     return {
-        lines: finalLines2,
+        lines,
         hasWindow: shouldApplyWindow,
-        numLines: finalLines2.length
+        numLines: lines.length
     };
 }
 
-/* ============================================================
-   בניית מעטפת עמוד (Page Layout) כולל כותרות מתחלפות ומספור עמודים
-   ============================================================ */
-/* [חדש] מחלץ את החלק הראשון של כותרת 1 (הטקסט שלפני המקף "-" הראשון).
-   תואם לחלוקה ב-renderSubShaar: titleMain = parts[0].trim().
-   למשל: "כותרת 1 מספר 1 - הקדמות וכללים - יום השבת - גדרי מלאכה" → "כותרת 1 מספר 1".
-   אם אין מקף, מחזיר את כל הטקסט. */
-function extractH1TitleMain(text) {
-    if (!text) return '';
-    text = text.trim();
-    if (!/[-–—]/.test(text)) return text;
-    return text.split(/[-–—]/)[0].trim();
-}
-
-/* [חדש] מונע מילה בודדת בשורה האחרונה של פסקה (runt word).
-   אם השורה האחרונה מכילה מילה אחת בלבד ויש יותר משורה אחת,
-   מוזג אותה עם השורה הקודמת — כך שתי המילים האחרונות נשארות יחד.
-   פועל רק כש-avoid-runt-word מסומן. */
-function applyAvoidRuntWord(lines) {
-    if (lines.length < 2) return lines;
-    const last = lines[lines.length - 1];
-    const lastWords = last.split(/\s+/).filter(Boolean);
-    if (lastWords.length === 1) {
-        // השורה האחרונה היא מילה אחת — מזג עם הקודמת
-        const merged = lines.slice(0, -2);
-        merged.push(lines[lines.length - 2] + ' ' + last);
-        return merged;
+/* מניעת שבירת שורה באמצע תוחם הערה */
+function adjustFitLineForNoteSpans(lines, bestFitLine) {
+    if (bestFitLine <= 0 || bestFitLine >= lines.length) return bestFitLine;
+    const fullText = lines.join(' ');
+    const spans = findDelimiterMatches(fullText, 'body');
+    if (!spans.length) return bestFitLine;
+    const cutsNote = (fit) => {
+        const offset = lines.slice(0, fit).join(' ').length;
+        return spans.some(m => offset > m.start && offset < m.end);
+    };
+    for (let fit = bestFitLine; fit > 0; fit--) {
+        if (!cutsNote(fit)) return fit;
     }
-    return lines;
+    for (let fit = bestFitLine + 1; fit <= lines.length; fit++) {
+        if (!cutsNote(fit)) return fit;
+    }
+    return bestFitLine;
 }
 
-/* "חיצוני"/"פנימי" מתורגם לימין/שמאל לפי העמודה הפיזית (ולא לפי איזה
-   תוכן יושב בה) - כך שכותרת שמוגדרת "חיצונית" תמיד תיצמד לשוליים
-   החיצוניים של הדף, גם בעמוד ימני וגם בעמוד שמאלי (אחרי היפוך בכותרות
-   מתחלפות). ערכים אחרים (ימין/שמאל/מרכז מוחלטים) עוברים ללא שינוי. */
+/* ============================================================
+   5. בניית מעטפת עמוד (כותרות עליונות מתחלפות ועצמאיות)
+   ============================================================ */
 function resolveHeaderAlign(align, slot) {
     if (align === 'outer') return slot === 'r' ? 'right' : 'left';
     if (align === 'inner') return slot === 'r' ? 'left' : 'right';
     return align;
-}
-
-/* [חדש] פונקציית עזר לקריאת הגדרות כותרת עליונה לפי side (r/c/l) וזוגיות העמוד.
-   כש-hdr-distinct-even-odd מופעל והעמוד זוגי, קורא את הגדרות hdr-verso-{side}-*.
-   טיפול ב-same_as_odd/same_as_even: נופל להגדרה הראשית (או מחזיר ריק במעגליות).
-   מחזיר { type, align, font, size, custom }. */
-function getHeaderSettings(side, isEven) {
-    const isDistinct = !!document.getElementById('hdr-distinct-even-odd')?.checked;
-    const useVerso = isDistinct && isEven;
-
-    const typePrefix = useVerso ? 'hdr-verso-' : 'hdr-';
-    const fontPrefix = useVerso ? 'f-hdr-verso-' : 'f-hdr-';
-    const sizePrefix = useVerso ? 's-hdr-verso-' : 's-hdr-';
-
-    let type = document.getElementById(typePrefix + side + '-type')?.value || '';
-
-    // טפל ב-same_as_odd (ב-verso) — נופל ל-primary
-    if (type === 'same_as_odd') {
-        type = document.getElementById('hdr-' + side + '-type')?.value || '';
-        if (type === 'same_as_even') type = ''; // מעגליות — ריק
-    }
-    // טפל ב-same_as_even (ב-primary) — נופל ל-verso
-    if (type === 'same_as_even') {
-        type = document.getElementById('hdr-verso-' + side + '-type')?.value || '';
-        if (type === 'same_as_odd') type = ''; // מעגליות — ריק
-    }
-
-    const align = document.getElementById(typePrefix + side + '-align')?.value || '';
-    const font = document.getElementById(fontPrefix + side)?.value || '';
-    const size = document.getElementById(sizePrefix + side)?.value || '';
-    const custom = document.getElementById(typePrefix + side + '-custom')?.value || '';
-
-    return { type, align, font, size, custom };
-}
-
-/* [חדש] בונה את HTML של פס הכותרת העליונה (שלוש עמודות) לעמוד לפי כל הגדרות הכותרות העליונות:
-   כותרות מתחלפות (בעמוד זוגי), "פצל שם ספר", יישור חיצוני/פנימי לפי העמודה הפיזית, וגופן/גודל לכל צד.
-   משמש גם את עמודי התוכן וגם את עמודי תוכן העניינים - כך שההתנהגות זהה בכל עמוד בספר.
-   tocFallback: טקסט חלופי כשהכותרת ריקה (בעמודי תוכן העניינים - שם התוכן). */
-function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR, customC, customL, pageContext = {}, tocFallback = '') {
-    const isEven = (pNum % 2 === 0);
-    // טוגל "פצל שם ספר": קובע בעצמו את תוכן הכותרת הימנית (חצי ראשון של שם הספר) והשמאלית (חצי שני),
-    // בלי לבחור ידנית בכל כותרת, ומבטל את ההחלפה בין עמודים (כותרות מתחלפות) - שתי האפשרויות סותרות.
-    const isSplitTitle = !!document.getElementById('hdr-title-split')?.checked;
-    const isDistinct = !!document.getElementById('hdr-distinct-even-odd')?.checked;
-    // [תיקון] כותרות מתחלפות (alternating) לא פועלות יחד עם הפרדה (distinct) — הן סותרות.
-    const isAlternating = !isSplitTitle && !isDistinct && !!document.getElementById('hdr-alternating')?.checked;
-
-    // [תיקון] קרא הגדרות לפי זוגיות העמוד ו-hdr-distinct-even-odd.
-    // קודם, הקוד תמיד קרא hdr-{side}-type גם בעמוד זוגי, והתעלם מ-hdr-verso-{side}-type.
-    // לכן כותרת אמצעית שהוגדרה כ-h1 בעמוד זוגי לא הופיעה — תמיד הופיע h2.
-    const rSet = getHeaderSettings('r', isEven);
-    const cSet = getHeaderSettings('c', isEven);
-    const lSet = getHeaderSettings('l', isEven);
-
-    let hdrRType = rSet.type || 'h1';
-    let hdrCType = cSet.type || 'spear';
-    let hdrLType = lSet.type || 'h2';
-    if (isSplitTitle) { hdrRType = 'book_title_split_r'; hdrLType = 'book_title_split_l'; }
-
-    let hdrRAlign = rSet.align || 'right';
-    let hdrCAlign = cSet.align || 'center';
-    let hdrLAlign = lSet.align || 'left';
-
-    let hdrRFont = rSet.font || "'Livorna','David Libre',serif";
-    let hdrRSize = (rSet.size || 13) + 'pt';
-    let hdrLFont = lSet.font || "'Livorna','David Libre',serif";
-    let hdrLSize = (lSet.size || 13) + 'pt';
-
-    let cR = rSet.custom || customR;
-    let cL = lSet.custom || customL;
-    // [תיקון] גם customC צריך להיקרא מ-verso כש-useVerso
-    const cCustom = cSet.custom || customC;
-
-    // היפוך תוכן (לא יישור) בעמודים זוגיים בעת הפעלת כותרות מתחלפות.
-    // היישור נשאר צמוד לעמודה הפיזית ונפתר למטה דרך resolveHeaderAlign,
-    // כך ש"חיצוני/פנימי" ממשיך להצביע על הקצה הנכון גם אחרי ההיפוך.
-    // הגופן/הגודל מתחלפים יחד עם התוכן - אחרת תוכן שעבר לעמודה השנייה
-    // ימשיך להיראות בגופן שהוגדר לעמודה המקורית שלו, לא לתוכן שבו.
-    // [תיקון] החלפה זו רלוונטית רק כש-isAlternating (לא עם isDistinct — שם כל צד מקבל את הגדרותיו).
-    if (isAlternating && isEven) {
-        const tempType = hdrRType; hdrRType = hdrLType; hdrLType = tempType;
-        const tempCust = cR; cR = cL; cL = tempCust;
-        const tempFont = hdrRFont; hdrRFont = hdrLFont; hdrLFont = tempFont;
-        const tempSize = hdrRSize; hdrRSize = hdrLSize; hdrLSize = tempSize;
-    }
-
-    hdrRAlign = resolveHeaderAlign(hdrRAlign, 'r');
-    hdrCAlign = resolveHeaderAlign(hdrCAlign, 'c');
-    hdrLAlign = resolveHeaderAlign(hdrLAlign, 'l');
-
-    const contextExtra = {
-        ...pageContext,
-        pageNum: toGematria(pNum)
-    };
-
-    // טקסט כותרת עליונה נעטף ב-.hdr-txt: כשהטקסט ארוך מרוחב העמודה הוא נחתך בסופו עם "…" (ולא נחתך בתחילתו
-    // בלי סימן, כפי שקרה כשהטקסט היה צאצא ישיר של מיכל ה-flex). עיטורים (SVG) לא נעטפים.
-    const wrapHdrText = html => (html && !/^<span class="header-ornament-wrap"/.test(html)) ? `<span class="hdr-txt">${html}</span>` : html;
-    const hdrRHTML = wrapHdrText(renderHeaderSectionHTML(hdrRType, cR, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
-    const hdrCHTML = wrapHdrText(renderHeaderSectionHTML(hdrCType, cCustom, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
-    const hdrLHTML = wrapHdrText(renderHeaderSectionHTML(hdrLType, cL, h1Title, h2Title, h3Title, bookTitle, tocFallback, contextExtra));
-
-    // [חדש] "מיקום מספור: משולב בכותרת עליונה חיצונית" - מספר העמוד נכנס לפס הכותרת בפינה החיצונית
-    // (שמאל בעמוד אי-זוגי וימין בזוגי - כמו מספור תחתון "חיצוני"; ההחלטה ב-CSS לפי מיקום העמוד בספר),
-    // בפורמט/מסגרת/עמוד-התחלה של המספור הרגיל. הכותרת בעמודה החיצונית מקבלת ריווח כדי שלא תחפוף את המספר.
-    const pnInfo = formatPageNumberDisplay(pNum);
-    const hdrPn = (pnInfo.pageNumPos === 'header_outer' && !!pnInfo.displayPageNum);
-
-    return `<div class="top-header-grid${hdrPn ? ' has-hdr-pn' : ''}">
-        <div class="header-col-r" style="text-align:${hdrRAlign}; justify-content:${hdrRAlign}; font-family:${hdrRFont}; font-size:${hdrRSize};">${hdrRHTML}</div>
-        <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign}; font-family:${cSet.font || hdrRFont}; font-size:${(cSet.size || 11) + 'pt'};">${hdrCHTML}</div>
-        <div class="header-col-l" style="text-align:${hdrLAlign}; justify-content:${hdrLAlign}; font-family:${hdrLFont}; font-size:${hdrLSize};">${hdrLHTML}</div>${hdrPn ? `
-        <span class="hdr-pagenum">${pnInfo.framedPageNum}</span>` : ''}
-      </div>`;
 }
 
 function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, h3Title, bookTitle, customR, customC, customL, pageRole, pageContext = {}) {
@@ -718,17 +403,85 @@ function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, 
     page.setAttribute('data-page-index', String(pNum));
     applyContentBg(page, pageRole || 'regular');
 
-    const headerGridHTML = buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR, customC, customL, pageContext, '');
+    const isEven = (pNum % 2 === 0);
+    const isDistinct = document.getElementById('hdr-distinct-even-odd')?.checked;
 
-    // עיצוב מספור עמודים ומסגרות
+    let oddR = document.getElementById('hdr-r-type')?.value || 'h1';
+    let oddC = document.getElementById('hdr-c-type')?.value || 'spear';
+    let oddL = document.getElementById('hdr-l-type')?.value || 'h2';
+    let oddRAlign = document.getElementById('hdr-r-align')?.value || 'right';
+    let oddCAlign = document.getElementById('hdr-c-align')?.value || 'center';
+    let oddLAlign = document.getElementById('hdr-l-align')?.value || 'left';
+    let oddRFont = document.getElementById('f-hdr-r')?.value || "'Livorna','David Libre',serif";
+    let oddRSize = (document.getElementById('s-hdr-r')?.value || 15) + 'pt';
+    let oddLFont = document.getElementById('f-hdr-l')?.value || "'Livorna','David Libre',serif";
+    let oddLSize = (document.getElementById('s-hdr-l')?.value || 15) + 'pt';
+
+    let evenR = document.getElementById('hdr-verso-r-type')?.value || 'same_as_odd';
+    let evenC = document.getElementById('hdr-verso-c-type')?.value || 'same_as_odd';
+    let evenL = document.getElementById('hdr-verso-l-type')?.value || 'same_as_odd';
+    let evenRAlign = document.getElementById('hdr-verso-r-align')?.value || 'right';
+    let evenCAlign = document.getElementById('hdr-verso-c-align')?.value || 'center';
+    let evenLAlign = document.getElementById('hdr-verso-l-align')?.value || 'left';
+    let evenRFont = document.getElementById('f-hdr-verso-r')?.value || oddRFont;
+    let evenRSize = (document.getElementById('s-hdr-verso-r')?.value || 15) + 'pt';
+    let evenLFont = document.getElementById('f-hdr-verso-l')?.value || oddLFont;
+    let evenLSize = (document.getElementById('s-hdr-verso-l')?.value || 15) + 'pt';
+
+    let hdrRType, hdrCType, hdrLType, hdrRAlign, hdrCAlign, hdrLAlign, hdrRFont, hdrRSize, hdrLFont, hdrLSize;
+    let cR = customR, cL = customL, cC = customC;
+
+    if (isDistinct && isEven) {
+        hdrRType = (evenR === 'same_as_odd') ? oddR : evenR;
+        hdrCType = (evenC === 'same_as_odd') ? oddC : evenC;
+        hdrLType = (evenL === 'same_as_odd') ? oddL : evenL;
+        hdrRAlign = evenRAlign; hdrCAlign = evenCAlign; hdrLAlign = evenLAlign;
+        hdrRFont = evenRFont; hdrRSize = evenRSize; hdrLFont = evenLFont; hdrLSize = evenLSize;
+        const vCustR = document.getElementById('hdr-verso-r-custom')?.value;
+        const vCustL = document.getElementById('hdr-verso-l-custom')?.value;
+        if (vCustR) cR = vCustR;
+        if (vCustL) cL = vCustL;
+    } else {
+        hdrRType = (oddR === 'same_as_even' && evenR !== 'same_as_odd') ? evenR : oddR;
+        hdrCType = (oddC === 'same_as_even' && evenC !== 'same_as_odd') ? evenC : oddC;
+        hdrLType = (oddL === 'same_as_even' && evenL !== 'same_as_odd') ? evenL : oddL;
+        hdrRAlign = oddRAlign; hdrCAlign = oddCAlign; hdrLAlign = oddLAlign;
+        hdrRFont = oddRFont; hdrRSize = oddRSize; hdrLFont = oddLFont; hdrLSize = oddLSize;
+    }
+
+    hdrRAlign = resolveHeaderAlign(hdrRAlign, 'r');
+    hdrCAlign = resolveHeaderAlign(hdrCAlign, 'c');
+    hdrLAlign = resolveHeaderAlign(hdrLAlign, 'l');
+
+    if (document.getElementById('hdr-title-split')?.checked && bookTitle) {
+        const words = bookTitle.trim().split(/\s+/);
+        const mid = Math.ceil(words.length / 2);
+        hdrRType = 'custom';
+        cR = words.slice(0, mid).join(' ');
+        hdrLType = 'custom';
+        cL = words.slice(mid).join(' ');
+    }
+
+    const contextExtra = {
+        ...pageContext,
+        pageNum: toGematria(pNum)
+    };
+
+    const hdrRHTML = renderHeaderSectionHTML(hdrRType, cR, h1Title, h2Title, h3Title, bookTitle, '', contextExtra);
+    const hdrCHTML = renderHeaderSectionHTML(hdrCType, cC, h1Title, h2Title, h3Title, bookTitle, '', contextExtra);
+    const hdrLHTML = renderHeaderSectionHTML(hdrLType, cL, h1Title, h2Title, h3Title, bookTitle, '', contextExtra);
+
     const { displayPageNum, framedPageNum, pageNumPos } = formatPageNumberDisplay(pNum);
-
     const footerClass = (pageNumPos === 'bottom_outer') ? 'pos-outer' : 'pos-center';
     const showFooter = (pageNumPos === 'bottom_center' || pageNumPos === 'bottom_outer') && displayPageNum;
 
     page.innerHTML = `
     <div class="page-content-wrapper">
-      ${headerGridHTML}
+      <div class="top-header-grid">
+        <div class="header-col-r" style="text-align:${hdrRAlign}; justify-content:${hdrRAlign}; font-family:${hdrRFont}; font-size:${hdrRSize};">${hdrRHTML}</div>
+        <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign};">${hdrCHTML}</div>
+        <div class="header-col-l" style="text-align:${hdrLAlign}; justify-content:${hdrLAlign}; font-family:${hdrLFont}; font-size:${hdrLSize};">${hdrLHTML}</div>
+      </div>
       <div class="page-body-flow ${h2Text ? 'h2-flow-page' : ''}">
         ${h2Text ? `<div class="h2-spacer"></div><div class="title-level-2-standalone" ${h2TokenId !== undefined ? `data-token-id="${h2TokenId}" id="heading-tok-${h2TokenId}"` : ''}>${h2Text}</div>` : ''}
       </div>
@@ -742,7 +495,7 @@ function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, 
 }
 
 /* ============================================================
-   חילוץ מטא-דאטה ראשוני מהטקסט המוזן
+   6. חילוץ מטא-דאטה ראשוני מהטקסט המוזן
    ============================================================ */
 function parseMetadataFromText(rawText) {
     const lines = rawText.split('\n');
@@ -800,39 +553,59 @@ function parseMetadataFromText(rawText) {
     }
     return cleanLines.join('\n');
 }
-/* ==========================================================================
-   typesetter.js - מנוע העימוד המרכזי לדפי A4
-   חלק ב' מתוך ג': איזון טורים, הערות שוליים/סיום, תוחמים ותוכן עניינים
-   (יש להדביק חלק זה מיד בהמשך חלק א')
-   ========================================================================== */
 
-function estimateSectionFillRatio(tokens) {
+/* ============================================================
+   7. איזון טורים (Column Balancing) עם עונש גובה ומניעת יתומות
+   ============================================================ */
+function estimateSectionFillRatio(tokens, headingModes) {
     const sampleFlow = document.querySelector('.page-body-flow');
     const perPageCapacity = (sampleFlow ? sampleFlow.clientHeight : 900) * 2;
+
+    const existingRCol = document.querySelector('.right-col');
+    const colWidth = (existingRCol && existingRCol.offsetWidth) || 272;
+    const existingBlock = document.querySelector('.block-2col');
+    const spanWidth = (existingBlock && existingBlock.offsetWidth) || (colWidth * 2 + 20);
+
+    const styleObj = {
+        fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--fn-body'),
+        fontSize: getComputedStyle(document.documentElement).getPropertyValue('--sz-body'),
+        lineHeight: '1.34'
+    };
+
     const probe = document.createElement('div');
-    probe.style.cssText = 'position:absolute;visibility:hidden;width:580px;';
-    probe.className = 'page-body-flow';
+    probe.className = 'main-column';
+    probe.style.cssText = `position:absolute; visibility:hidden; top:-9999px; width:${colWidth}px; font-family:${styleObj.fontFamily}; font-size:${styleObj.fontSize}; line-height:${styleObj.lineHeight};`;
     document.body.appendChild(probe);
+
+    const spanProbe = document.createElement('div');
+    spanProbe.style.cssText = `position:absolute; visibility:hidden; top:-9999px; width:${spanWidth}px;`;
+    document.body.appendChild(spanProbe);
+
     let totalHeight = 0;
     tokens.forEach(t => {
         if (t.type === 'p') {
             const p = document.createElement('p');
             p.innerHTML = createDropWord(t.text, false, true);
             probe.appendChild(p);
-            totalHeight += layoutHeightOf(p);
+            totalHeight += p.getBoundingClientRect().height;
             probe.removeChild(p);
         } else if (t.type.startsWith('h')) {
+            const mode = headingModes ? headingModes[t.level] : 'inline_2col';
+            const hostProbe = mode === 'span_1col' ? spanProbe : probe;
             const h = document.createElement('div');
             h.className = t.customStyleId ? 'title-level-custom' : `title-level-${t.level}`;
             h.textContent = t.text;
-            probe.appendChild(h);
-            totalHeight += layoutHeightOf(h);
+            hostProbe.appendChild(h);
+            let hHeight = h.getBoundingClientRect().height;
             const hStyle = window.getComputedStyle(h);
-            totalHeight += parseFloat(hStyle.marginTop) + parseFloat(hStyle.marginBottom);
-            probe.removeChild(h);
+            hHeight += parseFloat(hStyle.marginTop) + parseFloat(hStyle.marginBottom);
+            hostProbe.removeChild(h);
+            totalHeight += (mode === 'span_1col') ? hHeight * 2 : hHeight;
         }
     });
     document.body.removeChild(probe);
+    document.body.removeChild(spanProbe);
+
     if (totalHeight <= 0) return 1;
     const naivePages = Math.ceil(totalHeight / perPageCapacity);
     if (naivePages <= 1) return 1;
@@ -840,794 +613,176 @@ function estimateSectionFillRatio(tokens) {
     return Math.max(0.3, Math.min(1, ratio));
 }
 
-/* ==========================================================================
-   כללי חיתוך פסקאות והחזרת כותרות - מקור אמת יחיד לכל מנגנוני העימוד
-   (מילוי עמוד, איזון טורים). כולל:
-   - אין שורה בודדת בסוף טור/עמוד (תיבת "מנע שורות בודדות בסוף עמוד") ואין שורה בודדת בראשו
-     (תיבת "מנע שורות בודדות בראש עמוד") - כל חלק של פסקה חתוכה חייב להיות בן 2 שורות לפחות.
-   - כותרת (רמות 2-6) לעולם לא נשארת לבדה בתחתית טור: היא עוברת יחד עם הפסקה שאחריה.
-   ========================================================================== */
-function getSplitRules() {
-    const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;   // שורה בודדת בסוף טור/עמוד
-    const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true; // שורה בודדת בראש טור/עמוד
-    return { minFirst: avoidWidows ? 2 : 1, minLast: avoidOrphans ? 2 : 1 };
-}
-
-/* כמה שורות להציב מפסקה בת totalLines שורות כשבפועל נכנסות fitLines שורות.
-   מחזיר 0 כשאי אפשר לפצל בלי להפר את הכללים - הפסקה כולה (והכותרות שלפניה) עוברות לטור/עמוד הבא.
-   mustPlace=true כשזו הפסקה הראשונה בעמוד ואין לאן לדחות (מונע לולאה אינסופית). */
-function resolveParagraphSplit(totalLines, fitLines, mustPlace) {
-    if (fitLines >= totalLines) return totalLines;
-    const { minFirst, minLast } = getSplitRules();
-    const k = Math.min(fitLines, totalLines - minLast);
-    if (k >= minFirst) return k;
-    if (mustPlace && fitLines >= 1) return Math.max(1, Math.min(fitLines, totalLines - 1));
-    return 0;
-}
-
-/* מסיר מסוף הטור את הכותרות הרצופות (כדי שיעברו יחד עם הפסקה שלא נכנסה). מחזיר כמה הוסרו */
-function rollbackTrailingHeadings(col) {
-    let n = 0;
-    let last = col.lastElementChild;
-    while (last && /(^|\s)title-level-/.test(last.className)) {
-        col.removeChild(last);
-        n++;
-        last = col.lastElementChild;
-    }
-    // [חדש] הסר גם עיטור הפרדה שהיה לפני הכותרת שהוסרה
-    last = col.lastElementChild;
-    if (last && last.classList.contains('heading-divider-wrap')) {
-        col.removeChild(last);
-        n++;
-    }
-    return n;
-}
-
-/* [חדש] בודק אם צריך להכניס עיטור הפרדה לפני כותרת חדשה.
-   מחזיר את ה-HTML של העיטור, או '' אם לא צריך.
-   - level: רמת הכותרת החדשה
-   - lastHeadingSeen: אובייקט שמכיל את ה-id של הכותרת הקודמת מכל רמה
-   - מחזיר עיטור רק אם:
-     1. יש כותרת קודמת מאותה רמה (לא נוקתה על-ידי כותרת גבוהה יותר)
-     2. רמה 3-6 בלבד (לא 1/2/7)
-   - הניקוי של lastHeadingSeen מבטיח שאם הייתה כותרת גבוהה יותר בינתיים,
-     lastHeadingSeen[level] יהיה null (כי כותרת גבוהה יותר מנקה את הכותרות הנמוכות יותר) */
-function maybeGetHeadingDivider(level, lastHeadingSeen) {
-    if (!lastHeadingSeen || !lastHeadingSeen[level]) return '';
-    if (level < 3 || level > 6) return '';
-    const dividerType = document.getElementById('heading-divider-h' + level)?.value || 'none';
-    if (dividerType === 'none') return '';
-    if (typeof getHeadingDividerHTML !== 'function') return '';
-    return getHeadingDividerHTML(dividerType, 40);
-}
-
-/* מספר השורות המרבי של פסקה שנכנס בטור (נמדד בפועל, כולל סימוני הערות ועיצוב תוחמים).
-   getAvail(testText) מחזיר את הגובה הפנוי עבור קטע הטקסט הנבדק (כולל שטח להערות שהוא מכניס). */
-function computeBestFitLine(pElem, targetCol, lines, isContinuation, hasWindow, getAvail, withEndMarker = false) {
-    let best = 0;
-    for (let i = 1; i <= lines.length; i++) {
-        const testText = lines.slice(0, i).join(' ');
-        pElem.className = (i === lines.length) ? 'p-end' : 'p-cut';
-        pElem.innerHTML = createDropWord(testText, isContinuation, !hasWindow, lines.length);
-        applyDelimiterStyles(pElem, 'body', getBodySizePt(), true);
-        // [תיקון] בבדיקת הפסקה כולה גם סימון הערת הסיום שיוצמד לסופה תופס מקום (ראו createDryEndNoteMarker)
-        if (withEndMarker && i === lines.length) pElem.appendChild(createDryEndNoteMarker());
-        if (targetCol.scrollHeight <= getAvail(testText)) best = i;
-        else break;
-    }
-    return best;
-}
-
-let PAGE_STRETCH_MAX = 48;      // תקרת המתיחה (px) של בלוק אחרון בעמוד לצורך ישור תחתית
-const JUSTIFY_MAX_GAP = 9;      // תקרת הרווח הכולל (px) שמתווסף אחרי פסקה
-const JUSTIFY_MAX_LH_EXTRA = 3; // תקרת התוספת (px) לגובה שורה כשהרווחים בין הפסקאות לא מספיקים
-const JUSTIFY_BALANCE_LH_RATIO = 0.35; // באיזון שני טורים של בלוק (הפרש עד שורה): תקרת התוספת לשורה כאחוז מגובה השורה
-const BALANCE_FINAL_JUSTIFY_MAX = 100; // תקרת ההפרש (px) שמיושר בסוף איזון טורים. קודם 60: בלוק שבו טור אחד הוא פסקה ארוכה בודדת
-                                       // (אין רווחים בין פסקאות למתוח) נשאר עם טורים לא מיושרים בהפרש של 3-4 שורות. התוספת לשורה עדיין
-                                       // מוגבלת ב-JUSTIFY_BALANCE_LH_RATIO, כלומר אי אפשר "למתוח" מעבר ליכולת הטור.
-
-/* [חדש] באפר תחתית קבוע למשיכת יתומים (Option C — היברידי).
-   כל עמוד מכיל 12px ריק מתחת לתוכן (מעל אזור הערות השוליים) שמשמש כ"מקום חירום"
-   למשיכת זנב יתום בן 1-2 שורות. בשילוב עם כיווץ עדין (allowBelowBase=1.5px), זה מאפשר
-   לפתור יתומים בלי לכווץ יתר את התוכן ובלי לבזבז עמוד שלם על באפר גדול.
-   איך זה עובד:
-   - stretchPageToBottom מקבל target שקטן ב-12px מהתחתית האמיתית — כלומר התוכן מתוח
-     רק עד 12px לפני תחתית העמוד. ה-12px האלה נשארים ריקים כבאפר.
-   - tryReclaimOrphanTail יכול להשתמש ב-12px האלה כחלק מ-currentFree.
-   - אם 12px לא מספיקים, compressColumnBy עם allowBelowBase=1.5 משלים את החסר
-     על חשבון כיווץ עדין של השורות. */
-const ORPHAN_RECLAIM_BUFFER = 12;
-
-/* [חדש — שלב 1: רווח מילים דינמי]
-   מודד את רוחב הרווח הרגיל (baseline) ומשנה word-spacing בכל הפסקאות בטור.
-   - factor: 1.0 = רגיל, 1.1 = 110% (הרחבה), 0.9 = 90% (כיווץ)
-   - מודד את רוחב הרווח על-ידי יצירת span זמני עם רווח יחיד
-   - מחזיר את השינוי בגובה הטור (חיובי = גדל, שלילי = קטן) */
-const WORD_SPACING_BASELINE_CACHE = new Map();
-function measureWordSpacingBaseline(fontFamily, fontSize, lineHeight) {
-    const key = fontFamily + '|' + fontSize + '|' + lineHeight;
-    if (WORD_SPACING_BASELINE_CACHE.has(key)) return WORD_SPACING_BASELINE_CACHE.get(key);
-    const span = document.createElement('span');
-    span.style.fontFamily = fontFamily;
-    span.style.fontSize = fontSize;
-    span.style.lineHeight = lineHeight;
-    span.style.visibility = 'hidden';
-    span.style.position = 'absolute';
-    span.textContent = 'א ב';
-    document.body.appendChild(span);
-    const w1 = span.getBoundingClientRect().width;
-    span.textContent = 'א';
-    const w2 = span.getBoundingClientRect().width;
-    document.body.removeChild(span);
-    const spaceWidth = w1 - w2;
-    WORD_SPACING_BASELINE_CACHE.set(key, spaceWidth);
-    return spaceWidth;
-}
-
-/* [חדש] מחשב word-spacing ב-pixel לפי factor (1.0 = רגיל) */
-function wordSpacingFromFactor(factor, fontFamily, fontSize, lineHeight) {
-    if (Math.abs(factor - 1.0) < 0.001) return '';
-    const baseline = measureWordSpacingBaseline(fontFamily, fontSize, lineHeight);
-    if (baseline <= 0) return '';
-    const extra = (factor - 1.0) * baseline;
-    return extra.toFixed(2) + 'px';
-}
-
-/* [חדש] מחיל word-spacing על כל הפסקאות בטור.
-   - col: אלמנט הטור
-   - factor: יחס רווח מילים (1.0 = רגיל, 0.92-1.15 = טווח נורמלי)
-   - מחזיר את השינוי בגובה הטור (px) */
-function applyWordSpacing(col, factor) {
-    const kids = Array.from(col.children).filter(k => k.tagName === 'P');
-    if (kids.length === 0) return 0;
-
-    const styleObj = {
-        fontFamily: getComputedStyle(col).fontFamily,
-        fontSize: getComputedStyle(col).fontSize,
-        lineHeight: getComputedStyle(col).lineHeight,
-    };
-    const ws = wordSpacingFromFactor(factor, styleObj.fontFamily, styleObj.fontSize, styleObj.lineHeight);
-
-    const before = col.scrollHeight;
-    kids.forEach(k => {
-        k.style.wordSpacing = ws;
-    });
-    const after = col.scrollHeight;
-    return after - before;
-}
-
-/* [חדש] מכווץ טור על-ידי כיווץ רווח מילים (word-spacing).
-   - מחזיר את כמות הפיקסלים שכווצה בפועל
-   - מנסה כיווץ הדרגתי: 0.98 → 0.95 → 0.92 → 0.90
-   - [תיקון רגרסיה] בודק אחרי כל פקטור אם עברנו את היעד, ואם כן — חוזר לפקטור הקודם.
-     ללא תיקון זה, הפונקציה הייתה מכווצת יותר מדי וגורמת לאי-איזון.
-   - [תיקון נוסף] הסף revert הועלה מ-+2px ל-+10px כדי לאפשר כיווץ יעיל יותר מבלי לגרום לרגרסיה. */
-function compressByWordSpacing(col, neededPx) {
-    if (!(neededPx > 0)) return 0;
-    const factors = [0.98, 0.95, 0.92, 0.90];
-    let totalFreed = 0;
-    const before = col.scrollHeight;
-    let lastGoodFactor = 1.0;
-    let lastGoodHeight = before;
-    for (const f of factors) {
-        applyWordSpacing(col, f);
-        const after = col.scrollHeight;
-        const freed = before - after;
-        if (freed > neededPx + 10) {
-            // כיווצנו יותר מדי — חזור לפקטור הקודם
-            applyWordSpacing(col, lastGoodFactor);
-            totalFreed = lastGoodHeight - col.scrollHeight;
-            return totalFreed;
-        }
-        totalFreed = freed;
-        lastGoodFactor = f;
-        lastGoodHeight = after;
-        if (freed >= neededPx) break;
-    }
-    return totalFreed;
-}
-
-/* [חדש] מרחיב טור על-ידי הרחבת רווח מילים (word-spacing).
-   - מחזיר את כמות הפיקסלים שנוספה בפועל
-   - מנסה הרחבה הדרגתית: 1.02 → 1.05 (תקרה נמוכה — מונע גלישה)
-   - [תיקון רגרסיה קריטי] בודק אחרי כל פקטור אם עברנו את היעד, ואם כן — חוזר לפקטור הקודם.
-     ללא תיקון זה, הפונקציה הייתה מוסיפה 30-60px גם כשצריך רק 3px, וגורמת לאי-איזון חמור.
-   - [תיקון נוסף] הסף revert הועלה מ-+2px ל-+10px כדי לאפשר הרחבה יעילה יותר מבלי לגרום לרגרסיה. */
-function stretchByWordSpacing(col, neededPx) {
-    if (!(neededPx > 0)) return 0;
-    const factors = [1.02, 1.05];
-    let totalAdded = 0;
-    const before = col.scrollHeight;
-    let lastGoodFactor = 1.0;
-    let lastGoodHeight = before;
-    for (const f of factors) {
-        applyWordSpacing(col, f);
-        const after = col.scrollHeight;
-        const added = after - before;
-        if (added > neededPx + 10) {
-            // הרחבנו יותר מדי — חזור לפקטור הקודם
-            applyWordSpacing(col, lastGoodFactor);
-            totalAdded = col.scrollHeight - before;
-            return totalAdded;
-        }
-        totalAdded = added;
-        lastGoodFactor = f;
-        lastGoodHeight = after;
-        if (added >= neededPx) break;
-    }
-    return totalAdded;
-}
-
-/* [חדש] מחשב קיבולת כיווץ של טור על-ידי רווח מילים (כמה px אפשר לכווץ) */
-function wordSpacingCompressCapacity(col) {
-    const before = col.scrollHeight;
-    applyWordSpacing(col, 0.90);
-    const after = col.scrollHeight;
-    applyWordSpacing(col, 1.0); // החזר לרגיל
-    return before - after;
-}
-
-/* [חדש] מחשב קיבולת הרחבה של טור על-ידי רווח מילים (כמה px אפשר להרחיב) */
-function wordSpacingStretchCapacity(col) {
-    const before = col.scrollHeight;
-    applyWordSpacing(col, 1.05);
-    const after = col.scrollHeight;
-    applyWordSpacing(col, 1.0); // החזר לרגיל
-    return after - before;
-}
-
-/* ==========================================================================
-   יישור אנכי עדין של טור: מותח את הטור ל-targetHeight כך שתחתיות הטורים נוחתות על אותו קו.
-   - הרווח מתווסף כ-padding-bottom ולא כ-margin-bottom: שוליים סמוכים "קורסים" זה לתוך זה,
-     ולכן תוספת margin הייתה נבלעת ברווח הקיים והטור לא היה מגיע ליעד.
-   - הרווח מתווסף רק אחרי פסקאות (לא אחרי כותרת), כדי שכותרת תישאר צמודה לפסקה שאחריה,
-     ועם תקרה כוללת לכל רווח (JUSTIFY_MAX_GAP) כדי שהטור לא ייראה "מרוח".
-   - מה שנשאר (כשיש מעט פסקאות) נפרס באופן אחיד על גובה השורות, עם תקרה (JUSTIFY_MAX_LH_EXTRA).
-     בפסקה עם "חלון" מילה ראשונה גם גובה החלון מוגדל באותו יחס - כך מספר השורות שנגללות סביבו
-     (ולכן חלוקת השורות של הפסקה) נשאר בדיוק כמו שנמדד.
-   - הפונקציה מחזירה את הגובה שהושג בפועל (ייתכן קטן מהיעד אם נגמרה היכולת למתוח).
-   ========================================================================== */
-function paraLineInfo(p) {
-    const cs = getComputedStyle(p);
-    const lh = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) * 1.34) || 18;
-    const inner = p.offsetHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
-    return { lh, lines: Math.max(1, Math.round(inner / lh)) };
-}
-
-/* כמה px אפשר עוד למתוח בטור, לפי הרווחים הפנויים אחרי פסקאות ותקרת התוספת לשורות */
-function columnStretchCapacity(col, lhCap = JUSTIFY_MAX_LH_EXTRA) {
-    const kids = Array.from(col.children);
-    let cap = 0;
-    kids.forEach((k, i) => {
-        if (k.tagName !== 'P') return;
-        if (i < kids.length - 1) cap += Math.max(0, JUSTIFY_MAX_GAP - (parseFloat(k.style.paddingBottom) || 0));
-        const { lh, lines } = paraLineInfo(k);
-        const base = parseFloat(k.getAttribute('data-base-lh')) || lh;
-        cap += lines * Math.max(0, lhCap - (lh - base));
-    });
-    return cap;
-}
-
-/* [חדש] קיבולת כיווץ של טור: כמה px אפשר לכווץ על-ידי הקטנת paddingBottom (עד 0) והקטנת
-   lineHeight חזרה לבסיס (data-base-lh). משמש למשיכת שורות יתומות בחזרה לעמוד הקודם.
-   זהו ההיפך של columnStretchCapacity — שם מודדים כמה אפשר למתוח, כאן כמה אפשר לכווץ.
-   פרמטר allowBelowBase: כמה px מתחת לבסיס מותר לרדת (למשיכת יתומים דחופה). */
-function columnCompressCapacity(col, allowBelowBase = 0) {
-    const kids = Array.from(col.children);
-    let cap = 0;
-    kids.forEach(k => {
-        if (k.tagName !== 'P') return;
-        // קיבולת paddingBottom (עד 0)
-        cap += parseFloat(k.style.paddingBottom) || 0;
-        // קיבולת lineHeight (עד לבסיס)
-        const baseLh = parseFloat(k.getAttribute('data-base-lh')) || 0;
-        if (baseLh > 0) {
-            const cs = getComputedStyle(k);
-            const curLh = parseFloat(cs.lineHeight) || 0;
-            if (curLh > baseLh) {
-                const { lines } = paraLineInfo(k);
-                cap += (curLh - baseLh) * lines;
-            }
-        }
-        // קיבולת מתחת לבסיס (אופציונלי — רק למשיכת יתומים)
-        if (allowBelowBase > 0) {
-            const { lines } = paraLineInfo(k);
-            cap += allowBelowBase * lines;
-        }
-    });
-    return cap;
-}
-
-/* [חדש] מכווץ טור על-ידי הקטנת paddingBottom והקטנת lineHeight עד לבסיס.
-   מחזיר את כמות הפיקסלים שכווצה בפועל. מכווץ בסדר: קודם paddingBottom (פחות חזותי)
-   ואחר כך lineHeight (יותר חזותי, אבל עדיין בתוך הבסיס).
-   פרמטר allowBelowBase: כמה px מתחת לבסיס מותר לרדת (למשיכת יתומים דחופה). */
-function compressColumnBy(col, neededPx, allowBelowBase = 0) {
-    if (!(neededPx > 0)) return 0;
-    const kids = Array.from(col.children);
-    let freed = 0;
-
-    // 0. [חדש — שלב 1] כיווץ רווח מילים (הכלי השקוף ביותר)
-    if (freed < neededPx) {
-        const wsFreed = compressByWordSpacing(col, neededPx - freed);
-        freed += wsFreed;
-    }
-
-    // 1. הקטנת paddingBottom על כל פסקה (עד 0)
-    for (const k of kids) {
-        if (freed >= neededPx) break;
-        if (k.tagName !== 'P') continue;
-        const cur = parseFloat(k.style.paddingBottom) || 0;
-        if (cur > 0) {
-            const reduce = Math.min(cur, neededPx - freed);
-            k.style.paddingBottom = (cur - reduce) + 'px';
-            freed += reduce;
-        }
-    }
-
-    // 2. הקטנת lineHeight על כל פסקה (עד לבסיס)
-    for (const k of kids) {
-        if (freed >= neededPx) break;
-        if (k.tagName !== 'P') continue;
-        const baseLh = parseFloat(k.getAttribute('data-base-lh')) || 0;
-        if (baseLh <= 0) continue;
-        const cs = getComputedStyle(k);
-        const curLh = parseFloat(cs.lineHeight) || 0;
-        if (curLh <= baseLh) continue;
-        const { lines } = paraLineInfo(k);
-        if (lines <= 0) continue;
-        const maxReduce = (curLh - baseLh) * lines;
-        if (maxReduce <= 0) continue;
-        const reduce = Math.min(maxReduce, neededPx - freed);
-        const newLh = curLh - reduce / lines;
-        k.style.lineHeight = newLh + 'px';
-        // התאמת גובה החלון של ד"ה (DropWord) באותו יחס, כדי שמספר השורות מתחתיו לא ישתנה
-        const win = k.querySelector('.first-word-window');
-        if (win) {
-            const winH = parseFloat(win.style.height) || 0;
-            if (winH > 0) {
-                win.style.height = (winH * newLh / curLh) + 'px';
-            }
-        }
-        freed += reduce;
-    }
-
-    // 3. [חדש] אם עדיין צריך עוד — הקטנת lineHeight מתחת לבסיס (עד allowBelowBase px לשורה)
-    //    זהו כיווץ "אגרסיבי" שמשמש רק למשיכת יתומים. ההקטנה מוגבלת כדי לא לפגוע בקריאות.
-    if (allowBelowBase > 0) {
-        for (const k of kids) {
-            if (freed >= neededPx) break;
-            if (k.tagName !== 'P') continue;
-            const baseLh = parseFloat(k.getAttribute('data-base-lh')) || parseFloat(getComputedStyle(k).lineHeight) || 18;
-            const cs = getComputedStyle(k);
-            const curLh = parseFloat(cs.lineHeight) || 0;
-            const { lines } = paraLineInfo(k);
-            if (lines <= 0) continue;
-            const maxReduce = allowBelowBase * lines;
-            if (maxReduce <= 0) continue;
-            const reduce = Math.min(maxReduce, neededPx - freed);
-            const newLh = curLh - reduce / lines;
-            k.style.lineHeight = newLh + 'px';
-            const win = k.querySelector('.first-word-window');
-            if (win) {
-                const winH = parseFloat(win.style.height) || 0;
-                if (winH > 0) win.style.height = (winH * newLh / curLh) + 'px';
-            }
-            freed += reduce;
-        }
-    }
-
-    return freed;
-}
-
-/* [חדש] משיכת שורות יתומות בחזרה לעמוד הקודם.
-   נקראת אחרי סיום מילוי הבלוק האחרון בעמוד, לפני stretchPageToBottom.
-   אם יש pendingWordTokens עם 1-2 שורות נשארות (הזנב היתום של פסקה שפוצלה),
-   מנסה לכווץ את הטורים של הבלוק האחרון כדי לפנות מקום ולהכניס את השורות בחזרה.
-
-   כללים (לפי הוראת המשתמש):
-   - 1 שורה יתומה: כיווץ טור שמאל בלבד → פינוי מקום לשורה אחת → העברת השורה לעמוד הקודם
-   - 2 שורות יתומות: כיווץ שני הטורים (שמאל + ימין) → פינוי מקום ל-2 שורות → העברתן לעמוד הקודם
-   - 3 שורות: טרם מיושם (דורש הרחבת ריווח-מילים בפסקה הקודמת — מקרה מורכב יותר)
-
-   פרמטרים:
-   - pageLayout: אובייקט העמוד (מכיל bodyFlow)
-   - pendingTail: האובייקט pendingWordTokens (או null) — מכיל token ו-remainingLines
-   - reservedNow: פונקציה שמחזירה את הגובה השמור להערות
-   - totalFlowH: גובה השטח הפנוי לגוף בעמוד
-
-   מחזיר true אם המשיכה הצליחה (השורות היתומות הוכנסו לעמוד הקודם).
-   הקורא אחראי לעדכן pendingWordTokens = null ו-tokenIndex++ במקרה של הצלחה. */
-function tryReclaimOrphanTail(pageLayout, pendingTail, reservedNow, totalFlowH) {
-    if (!pendingTail) {
-        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'no_pending_tail' });
-        return false;
-    }
-    const remaining = pendingTail.remainingLines;
-    const orphanLines = remaining.length;
-    if (orphanLines < 1 || orphanLines > 2) {
-        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'orphanLines_out_of_range', orphanLines });
-        return false;
-    }
-
-    const flow = pageLayout.bodyFlow;
-    const lastBlock = flow.lastElementChild;
-    if (!lastBlock) {
-        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'no_lastBlock' });
-        return false;
-    }
-    if (!lastBlock.classList.contains('block-2col')) {
-        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'lastBlock_not_2col', classList: lastBlock.className });
-        return false;
-    }
-
-    const rCol = lastBlock.querySelector('.right-col');
-    const lCol = lastBlock.querySelector('.left-col');
-    if (!rCol || !lCol) {
-        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({ reason: 'no_cols' });
-        return false;
-    }
-
-    // שטח פנוי נוכחי בתחתית העמוד (בין תחתית הבלוק האחרון לתחתית שטח הגוף, פחות עתודת הערות)
-    const flowBottom = flow.getBoundingClientRect().top + totalFlowH;
-    const currentFree = (flowBottom - reservedNow()) - lastBlock.getBoundingClientRect().bottom - 1;
-
-    // אילו טורים לכווץ? הזנב היתום נכנס לטור שמאל (הטור השני שמתמלא).
-    // כיווצנו רק את טור שמאל כדי לפנות מקום ליתום בלי להקטין את טור ימין
-    // (שמגדיר את גובה הבלוק). אם נכווץ גם את ימין, הבלוק יתקצר אבל הוספת
-    // היתום לשמאל תחזיר את שמאל לגובה המקורי ולפעמים תחרוג מהעמוד.
-    // הערה: הכלל של המשתמש אומר "2 שורות → כיווץ שני הטורים", אבל בפועל
-    // כיווץ שני הטורים והנחת היתום בשמאל בלבד גורם לחריגה. לכן כיווץ שמאל בלבד.
-    const colsToCompress = [lCol];
-
-    // בדיקת קיבולת הכיווץ (עם allowBelowBase=2 — מאפשר כיווץ עד 2px מתחת לבסיס לשורה
-    // כדי לסגור את הפער כשהמקום הפנוי לא מספיק).
-    // [Option C] יחד עם ORPHAN_RECLAIM_BUFFER=12px (ראה למטה), זה מאוזן:
-    // 12px באפר גלישה + ~40px כיווץ = ~52px — מספיק ליתום בן 1-2 שורות
-    const ALLOW_BELOW_BASE = 2;
-    let totalCap = 0;
-    colsToCompress.forEach(c => { totalCap += columnCompressCapacity(c, ALLOW_BELOW_BASE); });
-
-    // [תיקון] מודדים את הגובה האמיתי של הפסקה היתומה במקום להעריך לפי lhPx × שורות.
-    // הערכה קודמת (2 × 21 + 4 = 46px) הייתה גבוהה מדי ומנעה משיכה גם כשהמקום בפועל מספיק.
-    const orphanTok = pendingTail.token;
-    const orphanText = remaining.join(' ');
-    const pElem = document.createElement('p');
-    pElem.setAttribute('data-token-id', orphanTok.id);
-    pElem.setAttribute('data-is-cont', 'true');
-    pElem.className = 'p-end';
-    pElem.setAttribute('data-raw-text', orphanText);
-    pElem.innerHTML = createDropWord(orphanText, true, false, orphanLines);
-    applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
-    if (orphanTok.endNote) {
-        pElem.appendChild(createNoteMarkerAndQueue(orphanTok.endNote, null, 'endnote'));
-    }
-
-    // מדידה: מוסיפים זמנית ל-lCol ומודדים את התוספת האמיתית
-    const colHBefore = lCol.scrollHeight;
-    lCol.appendChild(pElem);
-    const orphanActualH = lCol.scrollHeight - colHBefore;
-    lCol.removeChild(pElem);
-
-    // צריך מקום לפסקה היתומה. currentFree שמור להערות. נשתמש בבולם קטן (2px) בלבד.
-    const neededPx = orphanActualH + 2;
-
-    // [Option C] סך המקום הפנוי = שטח פנוי נוכחי + קיבולת כיווץ + באפר גלישה (ORPHAN_RECLAIM_BUFFER).
-    // הבאפר מאפשר לבלוק לגלוש עד 12px מתחת לתחתית הרגילה — מרווח חירום שמשתלם כדי למנוע יתום.
-    // בדיקת הגלישה בפועל מתבצעת אחרי הנחת היתום (ראה newFree check למטה).
-    if (currentFree + totalCap + ORPHAN_RECLAIM_BUFFER < neededPx) {
-        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({
-            reason: 'not_enough_space',
-            currentFree: Math.round(currentFree),
-            totalCap: Math.round(totalCap),
-            buffer: ORPHAN_RECLAIM_BUFFER,
-            neededPx: Math.round(neededPx),
-            orphanActualH: Math.round(orphanActualH),
-            orphanLines,
-            rColKids: rCol.children.length,
-            lColKids: lCol.children.length
-        });
-        return false;
-    }
-
-    // הפעלת כיווץ (רק כמה שצריך)
-    const compressNeeded = Math.max(0, neededPx - currentFree);
-    let actualCompressed = 0;
-    const rColH_before = rCol.scrollHeight;
-    const lColH_before = lCol.scrollHeight;
-    if (compressNeeded > 0) {
-        const perCol = compressNeeded / colsToCompress.length;
-        colsToCompress.forEach(c => { actualCompressed += compressColumnBy(c, perCol, ALLOW_BELOW_BASE); });
-    }
-    const rColH_afterCompress = rCol.scrollHeight;
-    const lColH_afterCompress = lCol.scrollHeight;
-
-    // הנחת הזנב היתום בטור שמאל (הטור השני מתמלא אחרון, אז יש לו מקום)
-    lCol.appendChild(pElem);
-
-    // וידוא שהבלוק עדיין נכנס בעמוד (עם באפר גלישה של ORPHAN_RECLAIM_BUFFER)
-    // [Option C] מאפשרים לבלוק לגלוש עד 12px מתחת לתחתית הרגילה — זה הבאפר שהוקצה למשיכת יתומים.
-    // הגלישה הזו היא "מרווח חירום" שמתקבל כדי למנוע יתום חזותי בראש העמוד הבא.
-    const newFree = (flowBottom - reservedNow()) - lastBlock.getBoundingClientRect().bottom - 1;
-    if (newFree < -ORPHAN_RECLAIM_BUFFER) {
-        // גלש מעבר לבאפר — ביטול ההנחה והחזרת false
-        lCol.removeChild(pElem);
-        if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({
-            reason: 'overflow_after_placement',
-            newFree: Math.round(newFree),
-            orphanActualH: Math.round(orphanActualH),
-            compressNeeded: Math.round(compressNeeded),
-            actualCompressed: Math.round(actualCompressed),
-            bufferUsed: Math.round(Math.max(0, -newFree)),
-            rColH_before: Math.round(rColH_before),
-            lColH_before: Math.round(lColH_before),
-            rColH_afterCompress: Math.round(rColH_afterCompress),
-            lColH_afterCompress: Math.round(lColH_afterCompress),
-            rColH_afterOrphan: Math.round(rCol.scrollHeight),
-            lColH_afterOrphan: Math.round(lCol.scrollHeight),
-            blockBottom: Math.round(lastBlock.getBoundingClientRect().bottom),
-            flowBottom: Math.round(flowBottom),
-            reservedNow: Math.round(reservedNow())
-        });
-        return false;
-    }
-
-    // הצלחה! הקורא אחראי לעדכן pendingWordTokens = null ו-tokenIndex++
-    if (typeof window.__reclaimDebug !== 'undefined') window.__reclaimDebug.push({
-        reason: 'success',
-        orphanLines,
-        orphanActualH: Math.round(orphanActualH),
-        compressNeeded: Math.round(compressNeeded),
-        currentFree: Math.round(currentFree),
-        totalCap: Math.round(totalCap),
-        bufferUsed: Math.round(Math.max(0, -newFree))
-    });
-    return true;
-}
-
-function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, lhCap = null, useWordSpacing = true) {
-    // [חדש] בדוק הגדרות איכות עימוד אוטומטי
-    const aqEnabled = document.getElementById('aq-enabled')?.checked ?? true;
-    const aqWordSpacing = document.getElementById('aq-word-spacing')?.checked ?? true;
-    const aqParaSpacing = document.getElementById('aq-para-spacing')?.checked ?? true;
-    const aqLineHeight = document.getElementById('aq-line-height')?.checked ?? true;
-    const aqParaMax = parseInt(document.getElementById('aq-para-spacing-max')?.value) || 9;
-    const aqLhMax = parseInt(document.getElementById('aq-line-height-max')?.value) || 3;
-
-    let diff = targetHeight - col.scrollHeight;
-    if (!(diff > 0.5 && diff <= maxStretch)) return col.scrollHeight;
-
-    const kids = Array.from(col.children);
-
-    // 0. [חדש — שלב 1] רווח מילים דינמי — הכלי השקוף ביותר
-    //    רק כש-useWordSpacing=true (לא ב-stretchLastBlockToBottom שיכול לגרום לגלישה)
-    //    וכש-aq-enabled ו-aq-word-spacing מסומנים
-    //    [תיקון רגרסיה] דלג על word-spacing כשהמתיחה הדרושה קטנה (<15px) —
-    //    word-spacing פועל בקפיצות גדולות (15-30px) וגורם ל-overshoot כשצריך רק כמה פיקסלים.
-    if (useWordSpacing && aqEnabled && aqWordSpacing && diff > 15) {
-        stretchByWordSpacing(col, diff);
-        diff = targetHeight - col.scrollHeight;
-        if (!(diff > 0.5)) return col.scrollHeight;
-    }
-
-    // 1. רווחים בין פסקאות (עד התקרה הכוללת לכל רווח)
-    //    [חדש] מכובד על-ידי aq-para-spacing ו-aq-para-spacing-max
-    const effectiveMaxGap = (aqEnabled && aqParaSpacing) ? Math.min(aqParaMax, JUSTIFY_MAX_GAP) : JUSTIFY_MAX_GAP;
-    if (aqEnabled && aqParaSpacing) {
-        const gapKids = kids.filter((k, i) => k.tagName === 'P' && i < kids.length - 1);
-        if (gapKids.length) {
-            const per = diff / gapKids.length;
-            gapKids.forEach(k => {
-                const cur = parseFloat(k.style.paddingBottom) || 0;
-                const add = Math.max(0, Math.min(per, effectiveMaxGap - cur));
-                if (add > 0) k.style.paddingBottom = (cur + add) + 'px';
+function justifyColumnVertically(col, targetHeight, styleObj) {
+    const currentH = col.scrollHeight;
+    const diff = targetHeight - currentH;
+    if (diff > 2 && diff <= 60) {
+        let pElements = Array.from(col.querySelectorAll('p'));
+        if (pElements.length > 1) {
+            let extraSpacing = diff / (pElements.length - 1);
+            pElements.slice(0, -1).forEach(p => {
+                let currentMargin = parseFloat(window.getComputedStyle(p).marginBottom) || 7;
+                p.style.marginBottom = (currentMargin + extraSpacing) + 'px';
             });
-        }
-    }
-
-    // 2. שארית: מותחים את גובה השורה של כל הפסקאות באופן אחיד (עם תקרה).
-    // [חדש] מכובד על-ידי aq-line-height ו-aq-line-height-max
-    if (!aqEnabled || !aqLineHeight) {
-        // אם רווח שורות דינמי כבוי — אל תמתח
-        return col.scrollHeight;
-    }
-    const effectiveLhCap = (lhCap === null) ? Math.max(aqLhMax, 0.1) : Math.min(lhCap, aqLhMax);
-    // [תיקון] גובה פסקה אינו תמיד ליניארי בגובה השורה: בפסקה עם ד"ה/מילה ראשונה בגופן שונה, הדפדפן מעגל את
-    // חצאי-הריווח של כל גופן בנפרד, ולכן מתיחה אחת מפספסת לפעמים בכמה פיקסלים והטורים נגמרו בפער של ~3px.
-    // לכן מודדים מחדש וחוזרים על המתיחה (עד 8 מעברים בסך הכול).
-    // [תיקון רגרסיה קריטי — מניעת overshoot] הדפדפן מעגל כל שורה כלפי מעלה לפיקסל שלם.
-    // כשמוסיפים 0.3px ל-30 שורות, העלייה התיאורטית היא 9px, אבל בפועל כל שורה שמקבלת תוספת
-    // מעוגלת ל-1px, ולכן העלייה בפועל יכולה להגיע ל-30px — overshoot של 21px!
-    // הפתרון: מודדים אחרי כל פסקה, ועוצרים מיידית כשמגיעים ליעד.
-    for (let pass = 0; pass < 8; pass++) {
-        const rest = targetHeight - col.scrollHeight;
-        if (!(rest > 0.5)) break;
-        const infos = kids.filter(k => k.tagName === 'P').map(p => {
-            const { lh, lines } = paraLineInfo(p);
-            return { p, lh, lines, base: parseFloat(p.getAttribute('data-base-lh')) || lh };
-        });
-        const totalLines = infos.reduce((a, i) => a + i.lines, 0);
-        if (!(totalLines > 0)) break;
-        // [תיקון רגרסיה] חשב את המתיחה לפי ה-rest הנוכחי, אבל רק 50% ממנה
-        const e = (rest / totalLines) * 0.5;
-        let changed = false;
-        for (const i of infos) {
-            // בדוק שוב לפני כל פסקה — אולי כבר הגענו ליעד
-            const currentRest = targetHeight - col.scrollHeight;
-            if (currentRest <= 0.5) break;
-            const cap = (lhCap === null) ? Math.max(effectiveLhCap, i.base * JUSTIFY_BALANCE_LH_RATIO) : effectiveLhCap;
-            const newLh = Math.min(i.lh + e, i.base + cap);
-            if (newLh <= i.lh + 0.01) continue;
-            const win = i.p.querySelector('.first-word-window');
-            // במעבר ראשון כמו במקור (offsetHeight); במעברים נוספים נשענים על הגובה המדויק שנקבע קודם, בלי נדידת עיגול
-            const setH = win ? parseFloat(win.style.height) : NaN;
-            const winH = win ? ((pass > 0 && isFinite(setH) && setH > 0) ? setH : win.offsetHeight) : 0;
-            if (!i.p.hasAttribute('data-base-lh')) i.p.setAttribute('data-base-lh', String(i.lh));
-            i.p.style.lineHeight = newLh + 'px';
-            // החלון גדל באותו יחס, כדי שמספר השורות שמתחתיו/לצדו לא ישתנה (כולל השוליים הקבועים שלו - 1px)
-            if (win && winH > 0) win.style.height = (((winH + 1) * newLh / i.lh) - 1) + 'px';
-            changed = true;
-            i.lh = newLh; // עדכן למעבר הבא
-        }
-        if (!changed) break;
-    }
-    return col.scrollHeight;
-}
-
-/* [חדש] כיווץ טור אנכית: מסיר רווחים וגובה-שורה שנוספו על-ידי justifyColumnVertically,
-   כדי להקטין את גובה הטור חזרה אל targetHeight. משמש כשמתיחה אחת הירברה (הטור המתוח נהיה
-   גבוה מהיעד) — במקום למתוח גם את הטור השני, מכווצים את הטור המתוח חזרה.
-   - מסיר paddingBottom שנוסף על-ידי המתיחה (עד 0).
-   - מקטין lineHeight בחזרה אל data-base-lh (לא מתחתיו).
-   - החלון (first-word-window) מוקטן באותו יחס, עם רצפת מינימום של base * numLines. */
-function shrinkColumnVertically(col, targetHeight, styleObj, maxShrink = 60) {
-    let diff = col.scrollHeight - targetHeight; // חיובי = צריך לכווץ
-    if (!(diff > 0.5 && diff <= maxShrink)) return col.scrollHeight;
-
-    const kids = Array.from(col.children);
-
-    // 0. [חדש — שלב 1] כיווץ רווח מילים (הכלי השקוף ביותר)
-    if (diff > 0.5) {
-        compressByWordSpacing(col, diff);
-        diff = col.scrollHeight - targetHeight;
-        if (!(diff > 0.5)) return col.scrollHeight;
-    }
-
-    // 1. הסר paddingBottom שנוסף על-ידי מתיחה (עד 0)
-    const gapKids = kids.filter((k, i) => k.tagName === 'P' && i < kids.length - 1);
-    if (gapKids.length) {
-        const per = diff / gapKids.length;
-        gapKids.forEach(k => {
-            const cur = parseFloat(k.style.paddingBottom) || 0;
-            const take = Math.max(0, Math.min(per, cur));
-            if (take > 0) k.style.paddingBottom = (cur - take) + 'px';
-        });
-    }
-
-    // 2. הקטן lineHeight בחזרה אל base (מעברים כמו במתיחה)
-    for (let pass = 0; pass < 3; pass++) {
-        const rest = col.scrollHeight - targetHeight;
-        if (!(rest > 0.5)) break;
-        const infos = kids.filter(k => k.tagName === 'P').map(p => {
-            const { lh, lines } = paraLineInfo(p);
-            return { p, lh, lines, base: parseFloat(p.getAttribute('data-base-lh')) || lh };
-        });
-        const totalLines = infos.reduce((a, i) => a + i.lines, 0);
-        if (!(totalLines > 0)) break;
-        const e = rest / totalLines; // כמה להסיר מכל שורה
-        let changed = false;
-        infos.forEach(i => {
-            if (i.lh <= i.base + 0.01) return; // כבר ב-base, לא יכול לכווץ
-            const newLh = Math.max(i.base, i.lh - e);
-            if (newLh >= i.lh - 0.01) return;
-            const win = i.p.querySelector('.first-word-window');
-            const setH = win ? parseFloat(win.style.height) : NaN;
-            const winH = win ? ((isFinite(setH) && setH > 0) ? setH : win.offsetHeight) : 0;
-            i.p.style.lineHeight = newLh + 'px';
-            // החלון מוקטן באותו יחס, עם רצפת מינימום (לא מתחת לגובה הטבעי ב-base)
-            if (win && winH > 0) {
-                const minWinH = i.base * i.lines - 1; // רצפה: base * numLines (בערך)
-                const newWinH = Math.max(minWinH, ((winH + 1) * newLh / i.lh) - 1);
-                win.style.height = newWinH + 'px';
+        } else if (pElements.length === 1) {
+            let p = pElements[0];
+            let currentLineHeight = parseFloat(styleObj.lineHeight) || 1.34;
+            let linesInfo = getLinesFromParagraph(p.getAttribute('data-raw-text') || p.textContent, col.offsetWidth, styleObj, false);
+            let numLines = linesInfo.lines.length;
+            if (numLines > 1) {
+                let fontSizePx = parseFloat(styleObj.fontSize) * 1.333;
+                let extraLh = (diff / numLines) / fontSizePx;
+                p.style.lineHeight = (currentLineHeight + extraLh).toString();
             }
-            changed = true;
+        }
+    }
+}
+
+
+/* ============================================================
+   מדידה ויישור תחתיות טורים — ביחידות layout (בלתי תלוי בזום התצוגה),
+   וקביעת נקודת חיתוך פסקה לפי כללי יתומה/אלמנה/הערות
+   ============================================================ */
+function colContentBottom(col) {
+    const last = col.lastElementChild;
+    if (!last) return 0;
+    const cr = col.getBoundingClientRect();
+    const lr = last.getBoundingClientRect();
+    const scale = (col.offsetWidth && cr.width) ? (cr.width / col.offsetWidth) : 1;
+    return (lr.bottom - cr.top) / (scale || 1);
+}
+
+function isHeadingEl(el) {
+    return !!el && el.tagName !== 'P' && /title-level|heading/.test(el.className || '');
+}
+
+// מותח טור כך שתחתית תוכנו תגיע ל-targetBottom: מוסיף ריווח בין פסקאות
+// (לא בין כותרת לפסקה שאחריה); אם אין בין מי — מותח ריווח שורות בפסקה בודדת.
+function stretchColumnTo(col, targetBottom) {
+    for (let pass = 0; pass < 3; pass++) {
+        const diff = targetBottom - colContentBottom(col);
+        if (diff <= 0.2) return;
+        const kids = Array.from(col.children);
+        const gapIdx = [];
+        for (let i = 0; i < kids.length - 1; i++) if (!isHeadingEl(kids[i])) gapIdx.push(i);
+        if (gapIdx.length) {
+            const extra = diff / gapIdx.length;
+            gapIdx.forEach(i => {
+                const mb = parseFloat(getComputedStyle(kids[i]).marginBottom) || 0;
+                kids[i].style.marginBottom = (mb + extra) + 'px';
+            });
+        } else {
+            const p = kids.find(k => k.tagName === 'P');
+            if (!p) return;
+            const lh = parseFloat(getComputedStyle(p).lineHeight) || 20;
+            const n = Math.max(1, Math.round(p.offsetHeight / lh));
+            p.style.lineHeight = (lh + diff / n) + 'px';
+        }
+    }
+}
+
+// מיישר את תחתיות שני הטורים לאותו גובה. עדיפות ראשונה: הגדלת הרווח בין פסקאות
+// בטור הקצר. אם זה לא מספיק (למשל טור עם 2-3 פסקאות בלבד) — מגדילים בעדינות גם
+// את ריווח השורות בטור הקצר (עד ~10%). ok=false רק אם ההפרש עדיין גדול מדי.
+function alignBlockColumns(rCol, lCol, lineH) {
+    if (!rCol.children.length || !lCol.children.length) return { ok: true, diff: 0 };
+    const rB = colContentBottom(rCol), lB = colContentBottom(lCol);
+    const diff = rB - lB;
+    if (Math.abs(diff) <= 0.2) return { ok: true, diff };
+    const shorter = diff > 0 ? lCol : rCol;
+    const target = Math.max(rB, lB);
+    const kids = Array.from(shorter.children);
+    const gaps = kids.slice(0, -1).filter(k => !isHeadingEl(k)).length;
+    const spacingMax = gaps * lineH * 1.3;
+    const need = Math.abs(diff);
+    if (gaps && need <= spacingMax) {
+        stretchColumnTo(shorter, target);
+        return { ok: Math.abs(colContentBottom(rCol) - colContentBottom(lCol)) <= 0.6, diff };
+    }
+    if (gaps) stretchColumnTo(shorter, colContentBottom(shorter) + spacingMax);
+    // שלב ב': ריווח שורות בפסקאות הטור הקצר
+    for (let pass = 0; pass < 3; pass++) {
+        const remain = target - colContentBottom(shorter);
+        if (remain <= 0.2) break;
+        const paras = Array.from(shorter.children).filter(k => k.tagName === 'P');
+        const totalH = paras.reduce((acc, p) => acc + p.offsetHeight, 0);
+        const totalLines = paras.reduce((acc, p) => acc + Math.max(1, Math.round(p.offsetHeight / (parseFloat(getComputedStyle(p).lineHeight) || lineH))), 0);
+        if (!paras.length || remain > Math.max(totalH * 0.10, totalLines * 4)) return { ok: false, diff };
+        const factor = 1 + remain / totalH;
+        paras.forEach(p => {
+            const lh = parseFloat(getComputedStyle(p).lineHeight) || lineH;
+            p.style.lineHeight = (lh * factor) + 'px';
         });
-        if (!changed) break;
     }
-    return col.scrollHeight;
+    return { ok: Math.abs(colContentBottom(rCol) - colContentBottom(lCol)) <= 0.6, diff };
 }
 
-/* מתיחת הבלוק האחרון בעמוד שהפרק ממשיך אחריו עד תחתית השטח הפנוי, כך שכל העמודים נגמרים על אותו קו.
-   freeSpace = הרווח הפנוי בפועל (מדוד) בין תחתית הבלוק לתחתית השטח הפנוי בעמוד.
-   בבלוק דו-טורי שני הטורים נמתחים לאותו יעד, והיעד מוגבל ליכולת המתיחה של הטור החלש יותר -
-   כדי שתחתיות שני הטורים תמיד יישארו על אותו קו (עדיף פער קטן בתחתית העמוד מטורים לא מיושרים). */
-function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
-    if (!(freeSpace > 0.5 && freeSpace <= maxStretch)) return false;
-    const last = bodyFlow.lastElementChild;
-    if (!last) return false;
-    if (last.classList.contains('block-2col')) {
-        const rCol = last.querySelector('.right-col');
-        const lCol = last.querySelector('.left-col');
-        if (!rCol || !lCol) return false;
-        const rH = rCol.scrollHeight, lH = lCol.scrollHeight;
-        const top = Math.max(rH, lH);
-        const reach = Math.min(rH + columnStretchCapacity(rCol), lH + columnStretchCapacity(lCol));
-        // [תיקון רגרסיה — מניעת overshoot מעיגול דפדפן]
-        // הדפדפן מעגל כל שורה כלפי מעלה לפיקסל שלם. כשמותחים N שורות ב-0.3px כל אחת, העלייה בפועל יכולה להגיע ל-N פיקסלים.
-        // לכן מפחיתים את היעד ב-2px כדי לתת מרווח בטחון.
-        const target = Math.min(top + freeSpace - 2, reach);
-        if (target - top < 0.5) return false;
-        justifyColumnVertically(rCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA, false);
-        justifyColumnVertically(lCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA, false);
-        repositionBlockNotes(last, Math.max(rCol.scrollHeight, lCol.scrollHeight));
-        return true;
+// מדידת מספר השורות בפועל של פסקה בתוך הטור האמיתי (אותו CSS, אותו רוחב, אותו מבנה
+// DOM כמו ברינדור הסופי) — מדויקת יותר מתיבת המדידה, שבה עטיפה ב-span-ים נותנת
+// לעיתים תוצאה שונה במקרי גבול (שבר-פיקסל).
+function probeParagraphLines(col, html, cls) {
+    const p = document.createElement('p');
+    p.className = cls || 'p-end';
+    // בלוק רגיל (לא absolute): בדיוק כמו הפסקה האמיתית, כך שמילה-ראשונה צפה לא מנפחת את הגובה
+    p.style.cssText = 'visibility:hidden; margin:0;';
+    p.innerHTML = html;
+    try { applyDelimiterStyles(p, 'body', getBodySizePt(), true); } catch (e) { /* ignore */ }
+    col.appendChild(p);
+    const h = p.offsetHeight;
+    const lh = parseFloat(getComputedStyle(p).lineHeight) || 20;
+    col.removeChild(p);
+    return Math.max(1, Math.round(h / lh));
+}
+
+// כמה שורות להשאיר בטור הנוכחי (k) כך שלא תיווצר שורה בודדת בתחתית הטור
+// (אלמנה) או בראש הטור הבא (יתומה), ובלי לחתוך באמצע הערה. מחזירה 0 אם יש
+// להעביר את כל הפסקה לטור הבא (אם canPush), אחרת את fit המקורי.
+// אורכי הקטעים נמדדים בפועל (חיזוי השורות מהפסקה השלמה עלול לסטות מעטיפת
+// השורות האמיתית של הקטע כשהוא עומד לבדו, למשל בלי מילה-ראשונה צפה).
+function chooseSplitLines(lines, fit, avoidWidows, avoidOrphans, canPush, ctx) {
+    const total = lines.length;
+    if (fit <= 0 || fit >= total) return fit;
+    const spans = findDelimiterMatches(lines.join(' '), 'body');
+    const cutsNote = (k) => {
+        if (!spans.length) return false;
+        const off = lines.slice(0, k).join(' ').length;
+        return spans.some(m => off > m.start && off < m.end);
+    };
+    const firstN = (k) => (ctx && ctx.first) ? ctx.first(lines.slice(0, k).join(' ')) : k;
+    const restN = (k) => (ctx && ctx.rest) ? ctx.rest(lines.slice(k).join(' ')) : (total - k);
+    let k = fit;
+    for (let guard = 0; guard < total + 5 && k > 0; guard++) {
+        if (cutsNote(k)) { k--; continue; }
+        const widowBad = avoidWidows && firstN(k) < 2;
+        const orphanBad = avoidOrphans && restN(k) < 2;
+        if (!widowBad && !orphanBad) return k;
+        if (orphanBad && !widowBad) { k--; continue; }
+        k = 0; break;
     }
-    if (last.classList.contains('block-single-col')) {
-        const col = last.querySelector('.single-wide-col');
-        if (!col) return false;
-        const h = col.scrollHeight;
-        // [תיקון רגרסיה — מניעת overshoot מעיגול דפדפן]
-        const target = Math.min(h + freeSpace - 2, h + columnStretchCapacity(col));
-        if (target - h < 0.5) return false;
-        justifyColumnVertically(col, target, styleObj, maxStretch + 1, JUSTIFY_MAX_LH_EXTRA, false);
-        repositionBlockNotes(last, col.scrollHeight);   // הערות צד של ההקדמה נשארות מול הפסקאות שלהן אחרי המתיחה
-        return true;
-    }
-    return false;
-}
-
-/* [חדש] סגנון הערת צד לפי הרמה: כותרת 7 (ברירת מחדל) מעוצבת בעמודת השוליים עצמה; כותרת 5/6 במצב "כותרת צד"
-   מעוצבות בגופן ובגודל שהוגדרו לרמה שלהן, כך שהבקרים של הרמה משפיעים גם כשהכותרת עברה לשוליים. */
-function applySideNoteLevelStyle(noteElem, level) {
-    const lv = parseInt(level, 10);
-    if (!lv || lv === 7) return;
-    noteElem.style.fontFamily = 'var(--fn-h' + lv + ')';
-    noteElem.style.fontSize = 'var(--sz-h' + lv + ')';
-    noteElem.style.fontWeight = '700';
-}
-
-/* [תיקון] מפריד סוף-פרק שלא נכנס בתחתית העמוד. כשעמוד סוף הפרק מלא עד הסוף, המפריד (שמתווסף אחרי הבלוק האחרון)
-   חרג מאזור הגוף וחפף את מספר העמוד / אזור הערות השוליים (ובגרסה המקורית גם יצר גלילה בתוך העמוד).
-   limitBottom = הקו התחתון המותר (תחתית אזור הגוף פחות אזור הערות השוליים).
-   - נכנס: לא נוגעים (עמודים שבהם המפריד נכנס נשארים בדיוק כפי שהיו).
-   - נכנס אם מצמצמים את המרווח שמעליו (עד 4px): מצמצמים.
-   - אחרת: מוותרים עליו בעמוד זה - הפרק הבא מתחיל בעמוד חדש ממילא, וקישוט שחופף את תחתית העמוד גרוע מהיעדרו. */
-function fitSectionDividerToPage(divEl, limitBottom) {
-    if (!divEl || !divEl.classList || !divEl.classList.contains('sec-divider-wrap')) return;
-    const over = divEl.getBoundingClientRect().bottom - limitBottom;
-    if (over <= 0.5) return;
-    const MIN_TOP_MARGIN = 4;
-    const topMargin = parseFloat(window.getComputedStyle(divEl).marginTop) || 0;
-    if (over <= topMargin - MIN_TOP_MARGIN + 0.5) {
-        divEl.style.marginTop = Math.max(MIN_TOP_MARGIN, topMargin - over) + 'px';
-        return;
-    }
-    if (divEl.parentNode) divEl.parentNode.removeChild(divEl);
+    if (k > 0) return k;
+    return canPush ? 0 : fit;
 }
 
 
-/* מיקום מחדש של הערות הצד בבלוק (אחרי ששינינו את גובה הפסקאות בו) */
-function repositionBlockNotes(block, boundaryHeight) {
-    const list = [];
-    block.querySelectorAll('.side-note-anchor').forEach(elem => {
-        const tid = elem.getAttribute('data-for-token');
-        if (tid === null) return;
-        const pElem = block.querySelector('p[data-token-id="' + tid + '"][data-is-cont="false"]');
-        if (pElem) list.push({ elem, pElem });
-    });
-    finalizeNotePositions(list, boundaryHeight);
+// תחתית התוכן בזרימת העמוד (כולל השוליים התחתונים של האלמנט האחרון), ביחידות layout.
+// נמדד ע"י אלמנט-בדיקה בגובה אפס בסוף הזרימה — כך כל השוליים נספרים אוטומטית.
+function flowBottomOf(flow) {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'height:0;margin:0;padding:0;border:0;';
+    flow.appendChild(probe);
+    const fr = flow.getBoundingClientRect(), pr = probe.getBoundingClientRect();
+    flow.removeChild(probe);
+    const sc = (flow.offsetWidth && fr.width) ? fr.width / flow.offsetWidth : 1;
+    return (pr.top - fr.top) / sc;
+}
+// מיקום ראש אלמנט ביחס לראש הזרימה, ביחידות layout.
+function flowTopOfEl(flow, el) {
+    const fr = flow.getBoundingClientRect(), er = el.getBoundingClientRect();
+    const sc = (flow.offsetWidth && fr.width) ? fr.width / flow.offsetWidth : 1;
+    return (er.top - fr.top) / sc;
 }
 
-/* ==========================================================================
-   איזון טורים: מאחד את תוכן שני הטורים של בלוק, ובוחר מחדש את נקודת הפיצול הטובה ביותר
-   - נקודות פיצול חוקיות בלבד: אין פיצול שמשאיר שורה בודדת בתחילת/סוף חלק, אין כותרת בתחתית
-     טור הימני, ואחרי כותרת חייבות להישאר לפחות 2 שורות מהפסקה.
-   - פיצול שנכנס בגובה הפנוי (availableHeight) תמיד עדיף על פיצול שלא נכנס;
-     בין פיצולים שווי-מעמד נבחר הקרוב ביותר לגובה שווה (בשוויון: טור ימין גבוה יותר).
-   - החיפוש בינארי (diff = R-L עולה מונוטונית עם נקודת הפיצול) ולא סריקה מלאה: מהיר פי כמה.
-   - חלק פסקה שממשיך לעמוד הבא נשאר p-cut, וסימון הערת סיום מוצמד לסוף הפסקה האמיתי.
-   ========================================================================== */
-function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = Infinity) {
+function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = Infinity, lastItemContinues = false) {
     if (snapshot) {
         footnoteQueueForPage.length = snapshot.footnoteQueueLen;
         endnoteQueueForPart.length = snapshot.endnoteQueueLen;
@@ -1642,30 +797,33 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     const allChildren = [...Array.from(rCol.children), ...Array.from(lCol.children)];
     if (allChildren.length === 0) return;
 
-    // ---- 1. איחוד חלקי פסקאות רצופים של אותו טוקן ----
-    const mergedItems = [];
-    for (const child of allChildren) {
+    let mergedItems = [];
+    for (let child of allChildren) {
         if (child.tagName === 'P') {
-            const id = child.getAttribute('data-token-id');
-            const text = child.getAttribute('data-raw-text') || child.textContent;
-            const isCont = child.getAttribute('data-is-cont') === 'true';
-            const cut = child.classList.contains('p-cut'); // החלק ממשיך מעבר לבלוק (לעמוד הבא)
-            const sideNote = child.getAttribute('data-side-note');
-            const endNote = child.getAttribute('data-end-note');
-            const sideNoteStyleId = child.getAttribute('data-note-style-id');
-            const sideNoteLevel = child.getAttribute('data-note-level');
-            const lastItem = mergedItems[mergedItems.length - 1];
+            let id = child.getAttribute('data-token-id');
+            let text = child.getAttribute('data-raw-text');
+            let isCont = child.getAttribute('data-is-cont') === 'true';
+            let sideNote = child.getAttribute('data-side-note');
+            let endNote = child.getAttribute('data-end-note');
+            let sideNoteStyleId = child.getAttribute('data-note-style-id');
+            let lastItem = mergedItems[mergedItems.length - 1];
             if (lastItem && lastItem.type === 'p' && lastItem.id === id) {
                 lastItem.rawText += ' ' + text;
-                lastItem.cut = cut;
                 if (sideNote && !lastItem.sideNote) {
                     lastItem.sideNote = sideNote;
                     lastItem.sideNoteStyleId = sideNoteStyleId;
-                    lastItem.sideNoteLevel = sideNoteLevel;
                 }
                 if (endNote && !lastItem.endNote) lastItem.endNote = endNote;
             } else {
-                mergedItems.push({ type: 'p', id, rawText: text, isCont, cut, sideNote, endNote, sideNoteStyleId, sideNoteLevel });
+                mergedItems.push({
+                    type: 'p',
+                    id: id,
+                    rawText: text,
+                    isCont: isCont,
+                    sideNote: sideNote,
+                    endNote: endNote,
+                    sideNoteStyleId: sideNoteStyleId
+                });
             }
         } else {
             mergedItems.push({
@@ -1679,112 +837,143 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 
     const items = mergedItems.map(item => {
         if (item.type === 'p') {
-            // [תיקון] מעבירים willParenWrap (לא insideParen) כדי שהמדידה תחשב את הקטנת הגופן
-            // ש-paren-text יחול רק על פסקאות שתעטפנה כולן (תואם ל-applyCrossParagraphParens).
-            const _willWrap = willParenWrapTokenId(item.id);
-            const linesInfo = getLinesFromParagraph(item.rawText, colWidth, styleObj, !item.isCont, !!(item.endNote && !item.cut), _willWrap);
-            return { ...item, lines: linesInfo.lines, isSingleLine: linesInfo.lines.length <= 1, hasWindow: linesInfo.hasWindow, numLines: linesInfo.lines.length };
+            let linesInfo = getLinesFromParagraph(item.rawText, colWidth, styleObj, !item.isCont);
+            return {
+                ...item,
+                lines: linesInfo.lines,
+                isSingleLine: linesInfo.lines.length <= 1,
+                hasWindow: linesInfo.hasWindow,
+                numLines: linesInfo.lines.length,
+                noteSpans: findDelimiterMatches(item.rawText, 'body')
+            };
         }
         return item;
     });
 
-    // ---- 2. נקודות פיצול חוקיות, מסודרות לפי מיקום (יותר תוכן בטור ימין = אינדקס גבוה יותר) ----
-    // מועמד {i, l}: פריטים 0..i-1 בשלמותם בטור ימין; אם l>0 גם l שורות ראשונות של פריט i; השאר בשמאל.
-    const rules = getSplitRules();
-    const cands = [];
-    for (let i = 0; i < items.length; i++) {
-        if (items[i].type === 'p') {
-            const n = items[i].lines.length;
-            const prevIsHeading = i > 0 && items[i - 1].type === 'h';
-            for (let l = 1; l < n; l++) {
-                if (l < rules.minFirst || n - l < rules.minLast) continue; // שורה בודדת בתחילת/סוף חלק
-                if (prevIsHeading && l < 2) continue;                        // כותרת + שורה אחת בלבד
-                cands.push({ i, l });
+    const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true;
+    const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;
+
+    const splitPoints = [];
+    for (let i = 0; i <= items.length; i++) {
+        if (i < items.length && items[i].type === 'p') {
+            let lines = items[i].lines;
+            splitPoints.push({ itemIndex: i, lineIndex: 0 });
+            for (let l = 1; l < lines.length; l++) {
+                if (avoidWidows && l === 1) continue;
+                if (avoidOrphans && (lines.length - l) === 1) continue;
+                splitPoints.push({ itemIndex: i, lineIndex: l, lines: lines });
             }
-            cands.push({ i: i + 1, l: 0 }); // הטור הימני מסתיים בסוף פסקה שלמה (לא בכותרת)
+        } else {
+            splitPoints.push({ itemIndex: i, lineIndex: 0 });
         }
     }
-    if (cands.length === 0) {
-        finalizeNotePositions([], 0);
-        return;
-    }
+
+    // לא לחתוך שורה בדיוק בתוך טווח מסומן-delimiter (הערת-שוליים/סיום) —
+    // אחרת הפתיח והסיום של אותה הערה ייפלו לשני צדי החלוקה, אף חצי לא
+    // ייסגר כראוי, וההערה תיעלם בשקט בלי סימון.
+    const validSplitPoints = splitPoints.filter(sp => {
+        if (sp.lineIndex > 0) {
+            const item = items[sp.itemIndex];
+            if (item && item.noteSpans && item.noteSpans.length) {
+                const offset = sp.lines.slice(0, sp.lineIndex).join(' ').length;
+                const cutsSpan = item.noteSpans.some(m => offset > m.start && offset < m.end);
+                if (cutsSpan) return false;
+            }
+            return true;
+        }
+        if (sp.itemIndex > 0 && items[sp.itemIndex - 1].type === 'h') return false;
+        return true;
+    });
+
+    let pointsToEvaluate = validSplitPoints.length > 0 ? validSplitPoints : splitPoints;
+    if (pointsToEvaluate.length === 0) return;
 
     function renderSingleItemFast(col, item) {
         if (item.type === 'h') {
             col.insertAdjacentHTML('beforeend', item.html);
         } else {
             const p = document.createElement('p');
-            p.className = item.cut ? 'p-cut' : 'p-end';
-            // [חדש] העבר דגל insideParen ל-createDropWord (ל-balanceColumns)
-            const _insideParen = isInsideParenTokenId(item.id);
-            p.innerHTML = createDropWord(item.rawText, item.isCont, item.isSingleLine, item.numLines, _insideParen);
+            p.className = 'p-end';
+            p.innerHTML = createDropWord(item.rawText, item.isCont, item.isSingleLine, item.numLines);
             applyDelimiterStyles(p, 'body', getBodySizePt(), true);
-            if (item.endNote && !item.cut) p.appendChild(createDryEndNoteMarker());   // סימון הערת הסיום שיוצמד לסוף הפסקה
             col.appendChild(p);
         }
     }
 
-    // ---- 3. הערכת מועמד (רינדור ניסיוני של שני הטורים ומדידה) ----
-    const memo = new Map();
-    function evalCand(k) {
-        if (memo.has(k)) return memo.get(k);
-        const c = cands[k];
+    let bestSplit = pointsToEvaluate[0];
+    let minAbsDiff = Infinity;
+    let bestDiff = Infinity;
+    const candScores = [];
+
+    for (let sp of pointsToEvaluate) {
         rCol.innerHTML = '';
-        lCol.innerHTML = '';
-        for (let i = 0; i < c.i; i++) renderSingleItemFast(rCol, items[i]);
-        if (c.l > 0) {
-            const item = items[c.i];
-            const pRight = document.createElement('p');
+        for (let i = 0; i < sp.itemIndex; i++) renderSingleItemFast(rCol, items[i]);
+        if (sp.lineIndex > 0) {
+            let item = items[sp.itemIndex];
+            let pRight = document.createElement('p');
             pRight.className = 'p-cut';
-            const _insideParenR = isInsideParenTokenId(item.id);
-            pRight.innerHTML = createDropWord(item.lines.slice(0, c.l).join(' '), item.isCont, false, c.l, _insideParenR);
+            let rightText = sp.lines.slice(0, sp.lineIndex).join(' ');
+            pRight.innerHTML = createDropWord(rightText, item.isCont, false, sp.lineIndex);
             applyDelimiterStyles(pRight, 'body', getBodySizePt(), true);
             rCol.appendChild(pRight);
+        }
+        let rHeight = colContentBottom(rCol);
 
-            const pLeft = document.createElement('p');
-            pLeft.className = item.cut ? 'p-cut' : 'p-end';
-            // isContinuation=true for left part, but insideParen is the same
-            pLeft.innerHTML = createDropWord(item.lines.slice(c.l).join(' '), true, false, item.lines.length - c.l, _insideParenR);
+        lCol.innerHTML = '';
+        if (sp.lineIndex > 0) {
+            let item = items[sp.itemIndex];
+            let pLeft = document.createElement('p');
+            pLeft.className = 'p-end';
+            let leftText = sp.lines.slice(sp.lineIndex).join(' ');
+            pLeft.innerHTML = createDropWord(leftText, true, false, item.lines.length - sp.lineIndex);
             applyDelimiterStyles(pLeft, 'body', getBodySizePt(), true);
-            if (item.endNote && !item.cut) pLeft.appendChild(createDryEndNoteMarker());   // סימון הערת הסיום שיוצמד לסוף הפסקה
             lCol.appendChild(pLeft);
         }
-        for (let i = c.l > 0 ? c.i + 1 : c.i; i < items.length; i++) renderSingleItemFast(lCol, items[i]);
-        const rH = rCol.scrollHeight, lH = lCol.scrollHeight;
-        const diff = rH - lH;
-        const res = { k, rH, lH, diff, abs: Math.abs(diff), fits: Math.max(rH, lH) <= availableHeight, over: Math.max(rH, lH) };
-        memo.set(k, res);
-        return res;
-    }
-    function better(a, b) {
-        if (a.fits !== b.fits) return a.fits;
-        if (!a.fits) return a.over < b.over; // אף אחד לא נכנס: הפחות גולש
-        if (a.abs !== b.abs) return a.abs < b.abs;
-        return a.diff >= 0 && b.diff < 0; // שוויון: עדיפות לטור ימין גבוה יותר
+        for (let i = sp.lineIndex > 0 ? sp.itemIndex + 1 : sp.itemIndex; i < items.length; i++) {
+            renderSingleItemFast(lCol, items[i]);
+        }
+        let lHeight = colContentBottom(lCol);
+
+        let diff = rHeight - lHeight;
+        let absDiff = Math.abs(diff);
+
+        /* עונש גובה קשיח (x2000) במקרה של חדירה לתקציב הערות שוליים */
+        let heightPenalty = 0;
+        if (availableHeight && availableHeight < Infinity) {
+            if (rHeight > availableHeight) heightPenalty += (rHeight - availableHeight) * 2000;
+            if (lHeight > availableHeight) heightPenalty += (lHeight - availableHeight) * 2000;
+        }
+
+        let score = absDiff + heightPenalty;
+        candScores.push({ sp, score, diff });
+
+        if (score < minAbsDiff) {
+            minAbsDiff = score;
+            bestSplit = sp;
+            bestDiff = diff;
+        } else if (score === minAbsDiff && diff >= 0) {
+            bestSplit = sp;
+            bestDiff = diff;
+        }
     }
 
-    // חיפוש בינארי של נקודת החצייה (R-L הופך מחיובי לשלילי) ובדיקת סביבתה
-    const m = cands.length;
-    let lo = 0, hi = m - 1, cross = m - 1;
-    while (lo <= hi) {
-        const mid = (lo + hi) >> 1;
-        if (evalCand(mid).diff >= 0) { cross = mid; hi = mid - 1; } else lo = mid + 1;
+    // אימות בפועל של אורכי הקטעים בחיתוך שבתוך פסקה (חיזוי השורות עלול לסטות
+    // מעטיפת השורות האמיתית): בוחרים את המועמד הטוב הבא שאינו יוצר שורה בודדת.
+    {
+        const validFrag = (sp) => {
+            if (!(sp.lineIndex > 0)) return true;
+            const it = items[sp.itemIndex];
+            const na = probeParagraphLines(rCol, createDropWord(sp.lines.slice(0, sp.lineIndex).join(' '), !!it.isCont, !it.hasWindow, sp.lines.length), 'p-cut');
+            const nb = probeParagraphLines(lCol, createDropWord(sp.lines.slice(sp.lineIndex).join(' '), true, true, sp.lines.length), 'p-end');
+            return !(avoidWidows && na < 2) && !(avoidOrphans && nb < 2);
+        };
+        if (!validFrag(bestSplit)) {
+            const ordered = candScores.slice().sort((x, y) => (x.score - y.score) || (((x.diff >= 0) ? 0 : 1) - ((y.diff >= 0) ? 0 : 1)));
+            const okC = ordered.find(c => validFrag(c.sp));
+            if (okC) { bestSplit = okC.sp; bestDiff = okC.diff; }
+        }
     }
-    let best = null;
-    const consider = (k) => {
-        if (k < 0 || k >= m) return;
-        const e = evalCand(k);
-        if (!best || better(e, best)) best = e;
-    };
-    for (let k = cross - 3; k <= cross + 3; k++) consider(k);
-    // אם שום מועמד בסביבה לא נכנס בגובה הפנוי - מרחיבים החוצה עד שנמצא כזה
-    for (let d = 4; d <= 80 && !best.fits && (cross - d >= 0 || cross + d < m); d++) {
-        consider(cross - d);
-        consider(cross + d);
-    }
-    const bestSplit = cands[best.k];
 
-    // ---- 4. רינדור סופי ----
     rCol.innerHTML = '';
     lCol.innerHTML = '';
     const rMargin = block.querySelector('.right-margin');
@@ -1796,253 +985,128 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     function appendItemFinal(col, margin, item, isRight, isPartial, partialText, isCont) {
         if (item.type === 'h') {
             col.insertAdjacentHTML('beforeend', item.html);
-            return;
-        }
-        const p = document.createElement('p');
-        // חלק ימני של פסקה מפוצלת תמיד p-cut; חלק שממשיך מעבר לבלוק גם הוא p-cut (שורה אחרונה מיושרת)
-        p.className = (isPartial && isRight) ? 'p-cut' : (item.cut ? 'p-cut' : 'p-end');
-        p.setAttribute('data-token-id', item.id);
-
-        const textToRender = isPartial ? partialText : item.rawText;
-        p.setAttribute('data-raw-text', textToRender);
-        p.setAttribute('data-is-cont', isCont ? 'true' : 'false');
-        if (item.sideNote && !isCont) p.setAttribute('data-side-note', item.sideNote); // הערת צד שייכת רק לחלק הראשון של הפסקה
-        if (item.endNote) p.setAttribute('data-end-note', item.endNote);
-        if (item.sideNoteStyleId && !isCont) p.setAttribute('data-note-style-id', item.sideNoteStyleId);
-        if (item.sideNoteLevel && !isCont) p.setAttribute('data-note-level', item.sideNoteLevel);
-
-        // [חדש] העבר דגל insideParen ל-createDropWord (ל-appendItemFinal ב-balanceColumns)
-        // וגם willParenWrap ל-getLinesFromParagraph למעלה — שני דגלים שונים בכוונה.
-        const _insideParen = isInsideParenTokenId(item.id);
-        const _willWrap = willParenWrapTokenId(item.id);
-        let isSingleLine = false;
-        let currentLineCount = item.numLines || 2;
-        if (!isPartial) {
-            isSingleLine = item.isSingleLine;
         } else {
-            // [תיקון] מעבירים willParenWrap במדידה החוזרת של חלק מפוצל
-            const linesInfo = getLinesFromParagraph(textToRender, colWidth, styleObj, !isCont, false, _willWrap);
-            isSingleLine = linesInfo.lines.length <= 1;
-            currentLineCount = linesInfo.lines.length;
-        }
+            const p = document.createElement('p');
+            p.className = isPartial && isRight ? 'p-cut' : 'p-end';
+            p.setAttribute('data-token-id', item.id);
 
-        // [חדש] העבר דגל insideParen ל-createDropWord (ל-appendItemFinal ב-balanceColumns)
-        p.innerHTML = createDropWord(textToRender, isCont, isSingleLine, currentLineCount, _insideParen);
-        applyDelimiterStyles(p, 'body', getBodySizePt(), false);
+            let textToRender = isPartial ? partialText : item.rawText;
+            p.setAttribute('data-raw-text', textToRender);
+            p.setAttribute('data-is-cont', isCont ? 'true' : 'false');
+            if (item.sideNote) p.setAttribute('data-side-note', item.sideNote);
+            if (item.endNote) p.setAttribute('data-end-note', item.endNote);
+            if (item.sideNoteStyleId) p.setAttribute('data-note-style-id', item.sideNoteStyleId);
 
-        // סימון הערת סיום מוצמד לסוף הפסקה האמיתי: החלק האחרון, ורק אם הפסקה לא ממשיכה לעמוד הבא
-        const isLastChunk = !isPartial || !isRight;
-        if (item.endNote && isLastChunk && !item.cut) {
-            p.appendChild(createNoteMarkerAndQueue(item.endNote, null, 'endnote'));
-        }
-
-        col.appendChild(p);
-
-        if (item.sideNote && !isCont && margin) {
-            const noteElem = document.createElement('div');
-            noteElem.className = 'side-note-anchor';
-            noteElem.setAttribute('data-for-token', item.id);
-            noteElem.textContent = item.sideNote;
-            if (item.sideNoteStyleId) {
-                const inst = findExtTextStyle(item.sideNoteStyleId);
-                if (inst) applyExtStyleToNode(noteElem, inst.def.style, 6);
+            let isSingleLine = false;
+            let currentLineCount = item.numLines || 2;
+            if (!isPartial) {
+                isSingleLine = item.isSingleLine;
+            } else {
+                let linesInfo = getLinesFromParagraph(textToRender, colWidth, styleObj, !isCont);
+                isSingleLine = linesInfo.lines.length <= 1;
+                currentLineCount = linesInfo.lines.length;
             }
-            applySideNoteLevelStyle(noteElem, item.sideNoteLevel);
-            margin.appendChild(noteElem);
-            finalNotes.push({ elem: noteElem, pElem: p });
+
+            p.innerHTML = createDropWord(textToRender, isCont, isSingleLine, currentLineCount);
+            applyDelimiterStyles(p, 'body', getBodySizePt(), false);
+
+            if (item.endNote && !isCont) {
+                const marker = createNoteMarkerAndQueue(item.endNote, null, 'endnote');
+                p.appendChild(marker);
+            }
+
+            col.appendChild(p);
+
+            if (item.sideNote && !isCont && margin) {
+                const noteElem = document.createElement('div');
+                noteElem.className = 'side-note-anchor';
+                noteElem.textContent = item.sideNote;
+                if (item.sideNoteStyleId) {
+                    const inst = findExtTextStyle(item.sideNoteStyleId);
+                    if (inst) applyExtStyleToNode(noteElem, inst.def.style, 6);
+                }
+                margin.appendChild(noteElem);
+                finalNotes.push({ elem: noteElem, pElem: p });
+            }
         }
     }
 
-    for (let i = 0; i < bestSplit.i; i++) {
+    for (let i = 0; i < bestSplit.itemIndex; i++) {
         appendItemFinal(rCol, rMargin, items[i], true, false, null, items[i].isCont);
     }
-    if (bestSplit.l > 0) {
-        const item = items[bestSplit.i];
-        appendItemFinal(rCol, rMargin, item, true, true, item.lines.slice(0, bestSplit.l).join(' '), item.isCont);
-        appendItemFinal(lCol, lMargin, item, false, true, item.lines.slice(bestSplit.l).join(' '), true);
+    if (bestSplit.lineIndex > 0) {
+        let item = items[bestSplit.itemIndex];
+        let rightText = bestSplit.lines.slice(0, bestSplit.lineIndex).join(' ');
+        appendItemFinal(rCol, rMargin, item, true, true, rightText, item.isCont);
+        let leftText = bestSplit.lines.slice(bestSplit.lineIndex).join(' ');
+        appendItemFinal(lCol, lMargin, item, false, true, leftText, true);
     }
-    for (let i = bestSplit.l > 0 ? bestSplit.i + 1 : bestSplit.i; i < items.length; i++) {
+    for (let i = bestSplit.lineIndex > 0 ? bestSplit.itemIndex + 1 : bestSplit.itemIndex; i < items.length; i++) {
         appendItemFinal(lCol, lMargin, items[i], false, false, null, items[i].isCont);
     }
 
-    // ---- 5. יישור עדין של הבסיס התחתון ----
-    // [הערה] balanceByWordSpacing הוסר מכאן כי הוא יכול לשבור את האיזון שכבר נעשה
-    // על-ידי חלוקת פסקאות. חלוקת עומס פועלת רק ב-Branch 4 (עמוד רגיל).
-    // [תיקון רגרסיה — מניעת overshoot] אל תמתח מעבר ל-availableHeight.
-    // אם הטור הארוך כבר חורג מ-availableHeight, אל תמתח את הקצר אליו — זה רק יגרום לשניים לחרוג.
-    const maxAllowedH = Math.min(availableHeight, Math.max(rCol.scrollHeight, lCol.scrollHeight));
-    const finalDiff = rCol.scrollHeight - lCol.scrollHeight;
-    if (finalDiff > 0.5) {
-        // rCol ארוך יותר — מתח את lCol ל-min(rCol.scrollHeight, availableHeight)
-        const target = Math.min(rCol.scrollHeight, maxAllowedH);
-        if (target > lCol.scrollHeight + 1) {
-            justifyColumnVertically(lCol, target, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
-        }
-    } else if (finalDiff < -0.5) {
-        const target = Math.min(lCol.scrollHeight, maxAllowedH);
-        if (target > rCol.scrollHeight + 1) {
-            justifyColumnVertically(rCol, target, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
-        }
+    if (lastItemContinues) {
+
+        const lastColEl = lCol.children.length ? lCol : rCol;
+
+        const lastEl = lastColEl.lastElementChild;
+
+        if (lastEl && lastEl.tagName === 'P') lastEl.className = 'p-cut';
+
     }
+
+    alignBlockColumns(rCol, lCol, parseFloat(getComputedStyle(rCol).lineHeight) || 20);
 
     finalizeNotePositions(finalNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
-    return { rH: rCol.scrollHeight, lH: lCol.scrollHeight, fits: Math.max(rCol.scrollHeight, lCol.scrollHeight) <= availableHeight };
 }
 
-/* [חדש — שלב 1: רווח מילים דינמי] חלוקת עומס בין טורים.
-   אם יש פער קטן בין הטורים, כווץ את הארוך (word-spacing < 1.0) והרחב את הקצר (word-spacing > 1.0).
-   כל טור סופג 50% מהעומס — הפער נעלם בצורה הרמונית בלי לשנות line-height.
-   מקבל הגדרות מפאנל "איכות עימוד אוטומטי":
-   - aq-enabled: האם איכות עימוד אוטומטי פעילה בכלל
-   - aq-word-spacing: האם רווח מילים דינמי פעיל
-   - aq-shared-load: האם חלוקת עומס בין טורים פעילה
-   - aq-word-spacing-min/max: טווח הפקטור (0.95-1.05 כברירת מחדל)
-   - aq-word-spacing-threshold: פער מינימלי לטיפול (2px)
-   - aq-word-spacing-max-diff: פער מקסימלי לטיפול (20px) */
-function balanceByWordSpacing(rCol, lCol, diff) {
-    // בדוק הגדרות
-    const aqEnabled = document.getElementById('aq-enabled')?.checked ?? true;
-    if (!aqEnabled) return;
-    const aqWordSpacing = document.getElementById('aq-word-spacing')?.checked ?? true;
-    if (!aqWordSpacing) return;
-    const aqSharedLoad = document.getElementById('aq-shared-load')?.checked ?? true;
-    if (!aqSharedLoad) return;
-
-    const minFactor = parseFloat(document.getElementById('aq-word-spacing-min')?.value) || 0.95;
-    const maxFactor = parseFloat(document.getElementById('aq-word-spacing-max')?.value) || 1.05;
-    const threshold = parseInt(document.getElementById('aq-word-spacing-threshold')?.value) || 2;
-    const maxDiff = parseInt(document.getElementById('aq-word-spacing-max-diff')?.value) || 20;
-
-    if (Math.abs(diff) <= threshold || Math.abs(diff) > maxDiff) return;
-
-    const longCol = diff > 0 ? rCol : lCol;
-    const shortCol = diff > 0 ? lCol : rCol;
-
-    // שמור את הגבהים לפני השינוי
-    const longBefore = longCol.scrollHeight;
-    const shortBefore = shortCol.scrollHeight;
-
-    // 1. כווץ את הארוך בעדינות — פקטור ראשון
-    const compressFactor1 = 1.0 - (1.0 - minFactor) * 0.5; // אמצע בין 1.0 ל-minFactor
-    applyWordSpacing(longCol, compressFactor1);
-    const longAfter1 = longCol.scrollHeight;
-
-    // 2. הרחב את הקצר בעדינות — פקטור ראשון
-    const stretchFactor1 = 1.0 + (maxFactor - 1.0) * 0.5; // אמצע בין 1.0 ל-maxFactor
-    applyWordSpacing(shortCol, stretchFactor1);
-    const shortAfter1 = shortCol.scrollHeight;
-
-    // 3. בדוק תוצאה — אם הפער גדל, החזר את השינוי
-    const newDiff1 = Math.abs(longAfter1 - shortAfter1);
-    const oldDiff = Math.abs(longBefore - shortBefore);
-    if (newDiff1 >= oldDiff) {
-        // החזר לרגיל — השינוי לא עזר
-        applyWordSpacing(longCol, 1.0);
-        applyWordSpacing(shortCol, 1.0);
-        return;
-    }
-
-    // 4. אם עזר אבל עדיין יש פער, נסה עוד צעד עם הפקטורים הקיצוניים
-    if (newDiff1 > threshold && newDiff1 < oldDiff) {
-        applyWordSpacing(longCol, minFactor);
-        applyWordSpacing(shortCol, maxFactor);
-        // בדוק שוב — אם הרע, החזר לפקטורים הביניים
-        const finalDiff = Math.abs(longCol.scrollHeight - shortCol.scrollHeight);
-        if (finalDiff >= newDiff1) {
-            applyWordSpacing(longCol, compressFactor1);
-            applyWordSpacing(shortCol, stretchFactor1);
-        }
-    }
-}
-
-/* ==========================================================================
-   מיקום הערות צד (שוליים) בגובה הפסקה שלהן, בלי חפיפה ובלי חריגה מהבלוק
-   --------------------------------------------------------------------------
-   כל הערה רוצה לשבת מול תחילת הפסקה שלה. כשהערה ארוכה "תופסת" את מקום הערה הבאה:
-   (1) מעבר קדימה: כל הערה לא יכולה להתחיל לפני סוף הקודמת (+ מרווח), כלומר נדחפת מטה.
-   (2) מעבר אחורה: אם ההערות האחרונות חורגות מתחתית הבלוק, מעלים אותן (ואת מי שמעליהן לפי הצורך).
-   (3) הערה שעדיין לא נכנסת בשוליים הללו עוברת לשוליים של המשך הפסקה (אם קיים), ושם נפרסת מחדש.
-   ========================================================================== */
 function finalizeNotePositions(notesList, columnBoundaryHeight) {
-    const GAP = 4; // מרווח מינימלי בין הערות סמוכות (px)
-    const groups = new Map();
-
-    function addToGroup(marg, item, desired) {
-        if (!groups.has(marg)) groups.set(marg, []);
-        groups.get(marg).push({ item, desired, h: 0, top: 0, fits: true });
-    }
-
+    const byMargin = new Map();
     notesList.forEach(item => {
         if (!item.elem || !item.pElem) return;
         const marg = item.elem.parentElement;
         if (!marg) return;
-        addToGroup(marg, item, item.pElem.offsetTop);
+        if (!byMargin.has(marg)) byMargin.set(marg, []);
+        byMargin.get(marg).push(item);
     });
-
-    function layoutGroup(entries) {
-        entries.sort((a, b) => a.desired - b.desired);
-        entries.forEach(e => {
-            e.h = layoutHeightOf(e.item.elem) || e.item.elem.offsetHeight || 0;
+    byMargin.forEach(group => {
+        group.sort((a, b) => a.pElem.offsetTop - b.pElem.offsetTop);
+        group.forEach((item, idx) => {
+            const noteHeight = item.elem.getBoundingClientRect().height || item.elem.offsetHeight || 0;
+            let top = item.pElem.offsetTop;
+            if (top + noteHeight > columnBoundaryHeight) {
+                const prev = idx > 0 ? group[idx - 1] : null;
+                const prevBottom = prev ? (parseFloat(prev.elem.style.top || 0) + (prev.elem.getBoundingClientRect().height || 0)) : 0;
+                const minTop = prev ? prevBottom + 6 : 0;
+                const raisedTop = columnBoundaryHeight - noteHeight;
+                if (raisedTop >= minTop) {
+                    top = raisedTop;
+                } else {
+                    const tokenId = item.pElem.getAttribute('data-token-id');
+                    const contElem = tokenId ? document.querySelector('p[data-token-id="' + tokenId + '"][data-is-cont="true"]') : null;
+                    if (contElem && contElem !== item.pElem) {
+                        const page = contElem.closest('.a4-page');
+                        const isRightCol = !!contElem.closest('.right-col');
+                        const destMargin = page ? page.querySelector(isRightCol ? '.right-margin' : '.left-margin') : null;
+                        if (destMargin) {
+                            const next = idx < group.length - 1 ? group[idx + 1] : null;
+                            const maxTop = next ? (parseFloat(next.elem.style.top || Infinity) - noteHeight - 6) : Infinity;
+                            const contTop = contElem.offsetTop;
+                            if (contTop <= maxTop) {
+                                destMargin.appendChild(item.elem);
+                                top = contTop;
+                            }
+                        }
+                    }
+                }
+            }
+            item.elem.style.top = top + 'px';
         });
-        // (1) קדימה: דחיפה מטה למניעת חפיפה
-        let cursor = 0;
-        entries.forEach(e => {
-            e.top = Math.max(e.desired, cursor);
-            cursor = e.top + e.h + GAP;
-        });
-        // (2) אחורה: הרמה כדי לא לחרוג מתחתית הבלוק
-        let limit = columnBoundaryHeight;
-        for (let i = entries.length - 1; i >= 0; i--) {
-            const e = entries[i];
-            if (e.top + e.h > limit) e.top = limit - e.h;
-            limit = e.top - GAP;
-        }
-        // אם אין מקום לכולן (ההערה הראשונה יצאה מעל 0) - מצמידים ל-0 ודוחפים שוב מטה
-        cursor = 0;
-        entries.forEach(e => {
-            if (e.top < cursor) e.top = cursor;
-            cursor = e.top + e.h + GAP;
-            e.fits = e.top >= -0.5 && e.top + e.h <= columnBoundaryHeight + 0.5;
-        });
-    }
-
-    groups.forEach(entries => layoutGroup(entries));
-
-    // (3) העברת הערות שלא נכנסו לשוליים של המשך הפסקה (למשל פסקה שנחתכה בין הטורים)
-    for (let pass = 0; pass < 2; pass++) {
-        let moved = false;
-        const snapshot = [];
-        groups.forEach((entries, marg) => snapshot.push([marg, entries.slice()]));
-        snapshot.forEach(([marg, entries]) => {
-            entries.forEach(e => {
-                if (e.fits) return;
-                const tokenId = e.item.pElem.getAttribute('data-token-id');
-                const contElem = tokenId ? document.querySelector('p[data-token-id="' + tokenId + '"][data-is-cont="true"]') : null;
-                if (!contElem || contElem === e.item.pElem) return;
-                const page = contElem.closest('.a4-page');
-                const isRightCol = !!contElem.closest('.right-col');
-                const block = contElem.closest('.block-2col');
-                const destMargin = block ? block.querySelector(isRightCol ? '.right-margin' : '.left-margin')
-                    : (page ? page.querySelector(isRightCol ? '.right-margin' : '.left-margin') : null);
-                if (!destMargin || destMargin === marg) return;
-                const idx = groups.get(marg).indexOf(e);
-                if (idx >= 0) groups.get(marg).splice(idx, 1);
-                destMargin.appendChild(e.item.elem);
-                addToGroup(destMargin, e.item, contElem.offsetTop);
-                moved = true;
-            });
-        });
-        if (!moved) break;
-        groups.forEach(entries => layoutGroup(entries));
-    }
-
-    groups.forEach(entries => entries.forEach(e => {
-        e.item.elem.style.top = e.top + 'px';
-    }));
+    });
 }
 
 /* ==========================================================================
-   תוחמים (Delimiters) והערות שוליים
+   8. תוחמים (Delimiters), הערות שוליים וסיום
    ========================================================================== */
 function findDelimiterMatches(text, hostContextKey) {
     const activeStyles = [];
@@ -2095,6 +1159,39 @@ function findDelimiterMatches(text, hostContextKey) {
     return dedup;
 }
 
+// בודקת אם בטקסט יש פתיחת delimiter (למשל "[") שאין לה סגירה מתאימה
+// בהמשך אותו טקסט — כלומר הערת-שוליים/סיום שנפתחה אבל טרם נסגרה. משמש
+// בזמן טוקניזציה כדי לדעת אם צריך לצרף את השורה הבאה לפני שהשורה הזו
+// הופכת לטוקן סופי.
+function hasUnclosedDelimiter(text, hostContextKey) {
+    const activeStyles = [];
+    const fnOpen = document.getElementById('fn-delim-open')?.value?.trim();
+    const fnClose = document.getElementById('fn-delim-close')?.value?.trim();
+    if (fnOpen && fnClose) {
+        activeStyles.push({ def: { trigger: { type: 'delimiterPair', open: fnOpen, close: fnClose } } });
+    }
+    if (typeof importedTextStyles !== 'undefined') {
+        importedTextStyles.forEach(inst => {
+            const trig = inst.def && inst.def.trigger;
+            if (!trig || trig.type !== 'delimiterPair' || !trig.open || !trig.close) return;
+            const scope = trig.appliesWithin;
+            if (scope && scope.textStyles && scope.textStyles.length && scope.textStyles.indexOf(hostContextKey) === -1) return;
+            activeStyles.push(inst);
+        });
+    }
+    return activeStyles.some(inst => {
+        const trig = inst.def.trigger;
+        let searchFrom = 0;
+        while (true) {
+            const oIdx = text.indexOf(trig.open, searchFrom);
+            if (oIdx === -1) return false;
+            const cIdx = text.indexOf(trig.close, oIdx + trig.open.length);
+            if (cIdx === -1) return true;
+            searchFrom = cIdx + trig.close.length;
+        }
+    });
+}
+
 function applyDelimiterStyles(containerEl, hostContextKey, hostSizePt, isDryRun = false) {
     const effHostSize = hostSizePt || 12;
     const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT, null, false);
@@ -2104,204 +1201,45 @@ function applyDelimiterStyles(containerEl, hostContextKey, hostSizePt, isDryRun 
 
     textNodes.forEach(textNode => {
         const text = textNode.textContent;
-        const frag = buildStyledFragment(text, hostContextKey, effHostSize, isDryRun);
-        if (frag) textNode.parentNode.replaceChild(frag, textNode);
-    });
-}
+        const dedup = findDelimiterMatches(text, hostContextKey);
+        if (!dedup.length) return;
 
-/* [חדש] בונה DocumentFragment מטקסט, תוך כדי עיבוד delimiters + parens יחד.
-   תומך בקינון: סוגריים בתוך footnotes, footnotes בתוך סוגריים.
-   פונקציה רקורסיבית — אחרי יצירת span של paren, מעבדים את התוכן הפנימי שוב. */
-function buildStyledFragment(text, hostContextKey, hostSizePt, isDryRun, depth = 0) {
-    if (depth > 5) return null;  // מניעת לולאה אינסופית
-
-    // נרמל את ה-delimiter matches למבנה אחיד
-    const delimMatches = findDelimiterMatches(text, hostContextKey).map(m => ({
-        start: m.start,
-        end: m.end,
-        target: m.inst.def.target,
-        open: m.inst.def.trigger.open,
-        close: m.inst.def.trigger.close,
-        style: m.inst.def.style,
-        instanceId: m.inst.instanceId
-    }));
-    const parenMatches = findParenMatches(text);
-    const allMatches = mergeMatches(delimMatches, parenMatches);
-    if (!allMatches.length) return null;
-
-    const frag = document.createDocumentFragment();
-    let cursor = 0;
-    allMatches.forEach(m => {
-        if (m.start > cursor) {
-            let textBefore = text.slice(cursor, m.start);
-            if (m.target === 'footnote' || m.target === 'endnote') {
-                textBefore = textBefore.replace(/\s+$/, '');
+        const frag = document.createDocumentFragment();
+        let cursor = 0;
+        dedup.forEach(m => {
+            if (m.start > cursor) {
+                let textBefore = text.slice(cursor, m.start);
+                if (m.inst.def.target === 'footnote' || m.inst.def.target === 'endnote') {
+                    textBefore = textBefore.replace(/\s+$/, '');
+                }
+                frag.appendChild(document.createTextNode(textBefore));
             }
-            frag.appendChild(document.createTextNode(textBefore));
-        }
-        if (m.target === 'footnote' || m.target === 'endnote') {
-            const openLen = m.open.length;
-            const closeLen = m.close.length;
-            const innerText = text.slice(m.start + openLen, m.end - closeLen);
+            if (m.inst.def.target === 'footnote' || m.inst.def.target === 'endnote') {
+                const openLen = m.inst.def.trigger.open.length;
+                const closeLen = m.inst.def.trigger.close.length;
+                const innerText = text.slice(m.start + openLen, m.end - closeLen);
 
-            if (isDryRun) {
-                const dummyMarker = document.createElement('a');
-                dummyMarker.className = 'note-marker';
-                dummyMarker.textContent = 'א';
-                applyNoteMarkerStyle(dummyMarker, false);
-                frag.appendChild(dummyMarker);
+                if (isDryRun) {
+                    const dummyMarker = document.createElement('a');
+                    dummyMarker.className = 'note-marker';
+                    dummyMarker.textContent = 'א';
+                    applyNoteMarkerStyle(dummyMarker, false);
+                    frag.appendChild(dummyMarker);
+                } else {
+                    const marker = createNoteMarkerAndQueue(innerText, m.inst.instanceId, m.inst.def.target);
+                    frag.appendChild(marker);
+                }
             } else {
-                const marker = createNoteMarkerAndQueue(innerText, m.instanceId, m.target);
-                frag.appendChild(marker);
+                const span = document.createElement('span');
+                span.textContent = text.slice(m.start, m.end);
+                applyExtStyleToNode(span, m.inst.def.style, effHostSize);
+                frag.appendChild(span);
             }
-        } else if (m.target === 'paren') {
-            // [חדש] טקסט בסוגריים — עוטף ב-span עם הסגנון
-            const span = document.createElement('span');
-            span.className = 'paren-text';
-            // [תיקון חשוב] אל תשים את כל התוכן כ-textContent — במקום זאת, עבד את התוכן
-            // הפנימי רקורסיבית כדי לתפוס footnotes בתוך סוגריים.
-            // התוכן הפנימי = מ-(start+1) עד (end-1) — בלי הסוגריים עצמן (במקרה balanced).
-            // במקרה לא-balanced (חוצה עמודות), אין סוגר אחד — מתייחסים לכל התוכן כפנימי.
-            const openLen = m.balanced === false ? 0 : 1;  // אם לא מאוזן, אין סוגר פותח/סוגר בצד זה
-            const closeLen = m.balanced === false ? 0 : 1;
-            const innerText = text.slice(m.start + openLen, m.end - closeLen);
-
-            // הוסף את הסוגר הפותח (אם יש)
-            if (openLen > 0) {
-                span.appendChild(document.createTextNode(text.slice(m.start, m.start + openLen)));
-            }
-            // עבד את התוכן הפנימי רקורסיבית — כדי לתפוס footnotes בתוך סוגריים
-            const innerFrag = buildStyledFragment(innerText, hostContextKey, hostSizePt, isDryRun, depth + 1);
-            if (innerFrag) {
-                span.appendChild(innerFrag);
-            } else {
-                span.appendChild(document.createTextNode(innerText));
-            }
-            // הוסף את הסוגר הסוגר (אם יש)
-            if (closeLen > 0) {
-                span.appendChild(document.createTextNode(text.slice(m.end - closeLen, m.end)));
-            }
-            applyParenStyle(span, hostSizePt);
-            frag.appendChild(span);
-        } else {
-            const span = document.createElement('span');
-            span.textContent = text.slice(m.start, m.end);
-            if (m.style) applyExtStyleToNode(span, m.style, hostSizePt);
-            frag.appendChild(span);
-        }
-        cursor = m.end;
+            cursor = m.end;
+        });
+        if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+        textNode.parentNode.replaceChild(frag, textNode);
     });
-    if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
-    return frag;
-}
-
-/* [חדש] מוצא כל התאמות של סוגריים ( ) בטקסט.
-   תומך בסוגריים מקוננות (מונה עומק), ומתעלם מסוגריים לא מאוזנות.
-   הסוגריים עצמן נכללות ב-match (m.start עד m.end כולל הסוגר הפותח והסוגר).
-
-   [תיקון חשוב] מטפל במקרה של סוגריים שעוברות בין עמודות/עמודים:
-   כשפסקה מפוצלת, חלק אחד מכיל רק את ה- ( הפותח, והחלק השני מכיל רק את ה- ) הסוגר.
-   במקרה כזה:
-   - אם יש ( ללא ) תואם: סגנן מה- ( עד סוף הטקסט (נניח שההמשך בחלק הבא)
-   - אם יש ) ללא ( תואם: סגנן מתחילת הטקסט עד ה- ) (נניח שהתחיל בחלק הקודם)
-   כך הסגנון נשמר גם כשהסוגריים חוצות עמודות. */
-function findParenMatches(text) {
-    const matches = [];
-    const OPEN = '(';
-    const CLOSE = ')';
-    let i = 0;
-    while (i < text.length) {
-        if (text[i] === OPEN) {
-            // מצא את הסוגר הסוגר התואם (עם תמיכה בקינון)
-            let depth = 1;
-            let j = i + 1;
-            while (j < text.length && depth > 0) {
-                if (text[j] === OPEN) depth++;
-                else if (text[j] === CLOSE) depth--;
-                if (depth === 0) break;
-                j++;
-            }
-            if (depth === 0) {
-                // נמצא זוג תקין — מ-i עד j+1 (כולל הסוגר הסוגר)
-                matches.push({
-                    start: i,
-                    end: j + 1,
-                    target: 'paren',
-                    open: OPEN,
-                    close: CLOSE,
-                    balanced: true
-                });
-                i = j + 1;
-            } else {
-                // [חדש] סוגריים פותחות ללא סוגרות תואמות — סגנן מה- ( עד סוף הטקסט
-                // (ההמשך נמצא בחלק הבא של הפסקה המפוצלת)
-                matches.push({
-                    start: i,
-                    end: text.length,
-                    target: 'paren',
-                    open: OPEN,
-                    close: CLOSE,
-                    balanced: false  // סוגריים חוצות עמודות
-                });
-                i = text.length;
-            }
-        } else if (text[i] === CLOSE) {
-            // [חדש] סוגריים סוגרות ללא פותחות תואמות — סגנן מתחילת הטקסט עד ה- )
-            // (התחלה נמצאת בחלק הקודם של הפסקה המפוצלת)
-            // נבדוק שלא מדובר בסוגר של זוג תקין שכבר טופל
-            // (אם הגענו לכאן, זה אומר שאין OPEN לפניו שלא טופל)
-            matches.push({
-                start: 0,
-                end: i + 1,
-                target: 'paren',
-                open: OPEN,
-                close: CLOSE,
-                balanced: false  // סוגריים חוצות עמודות
-            });
-            i = i + 1;
-        } else {
-            i++;
-        }
-    }
-    return matches;
-}
-
-/* [חדש] מאחד שתי רשימות של matches (delimiters + parens) לרשימה אחת מסודרת, בלי חפיפה.
-   אם שני matches חופפים, הראשון (לפי start) זוכה והשני נזרק. */
-function mergeMatches(list1, list2) {
-    const all = [...list1, ...list2].sort((a, b) => a.start - b.start);
-    const result = [];
-    let lastEnd = -1;
-    all.forEach(m => {
-        if (m.start >= lastEnd) {
-            result.push(m);
-            lastEnd = m.end;
-        }
-    });
-    return result;
-}
-
-/* [חדש] מחיל סגנון "טקסט בסוגריים" על אלמנט:
-   - גופן: מ-f-paren (אם ריק — לא משנה, יורש מהורה)
-   - גודל: תלוי ב-s-paren-mode:
-     * "relative" (ברירת מחדל): hostSizePt + s-paren (למשל -2 = 2 נקודות פחות מהמארח)
-     * "fixed": s-paren (גודל קבוע בנקודות)
-   hostSizePt = גודל הטקסט המארח (כותרת/גוף/הערת שוליים) — חשוב ליחסיות.
-   נקודה חשובה: הסגנון מוחל גם ב-dry-run כדי שהמדידה תהיה מדויקת. */
-function applyParenStyle(node, hostSizePt) {
-    const fontVal = document.getElementById('f-paren')?.value?.trim() || '';
-    const mode = document.getElementById('s-paren-mode')?.value || 'relative';
-    const sVal = parseFloat(document.getElementById('s-paren')?.value);
-    const effHost = hostSizePt || 12;
-    let sizePt;
-    if (mode === 'fixed') {
-        sizePt = isFinite(sVal) ? sVal : 10;
-    } else {
-        // relative: hostSize + sVal (למשל 12 + (-2) = 10)
-        sizePt = isFinite(sVal) ? (effHost + sVal) : (effHost - 2);
-    }
-    if (fontVal) node.style.fontFamily = fontVal;
-    node.style.fontSize = sizePt + 'pt';
 }
 
 function getHostSizePt(level, customStyleId) {
@@ -2324,9 +1262,6 @@ function getNoteConfig(styleId) {
     return (inst && inst.def.noteConfig) || {};
 }
 
-/* ==========================================================================
-   עיצוב ואיפוס מונחי מספור הערות (כולל גרש, כוכביות וסוגריים)
-   ========================================================================== */
 function formatNoteMarker(n, styleId) {
     const cfg = getNoteConfig(styleId);
     const globalNumStyle = document.getElementById('note-numbering-style')?.value || 'gematria';
@@ -2375,12 +1310,6 @@ function applyNoteMarkerStyle(el, isBacklink) {
     el.style.textDecoration = 'none';
     el.style.color = 'inherit';
     el.style.cursor = 'pointer';
-    // [חדש] סוג הגופן של סימון הערת השוליים בגוף הטקסט = כמו גופן הערת השוליים (f-note-body),
-    // לא כמו גוף הטקסט. הגודל נשאר כפי שהיה (note-marker-size / note-listing-num-size).
-    const noteFontEl = document.getElementById('f-note-body');
-    if (noteFontEl && noteFontEl.value) {
-        el.style.fontFamily = noteFontEl.value;
-    }
     if (type === 'super') {
         el.style.verticalAlign = 'super';
         el.style.lineHeight = '0';
@@ -2393,18 +1322,6 @@ function applyNoteMarkerStyle(el, isBacklink) {
     if (!isBacklink && type === 'brackets') {
         el.textContent = '[' + el.textContent + ']';
     }
-}
-
-/* [חדש] סימון הערת סיום "יבש" - למדידה בלבד (לא נרשם בתור ההערות ולא מקדם את המונה).
-   סימון הערת הסיום מוצמד לסוף הפסקה רק אחרי שהיא הוצבה, ולכן קודם הוא לא נלקח בחשבון במדידת השורות: כשהמילה האחרונה
-   נחתה בדיוק בקצה השורה, הסימון דחף אותה לשורה נוספת (שורה בודדת של מילה + סימון), והפסקה נרנדרה בשורה אחת יותר ממה
-   שנמדד (פער בין המדידה לעימוד בפועל). הסימון היבש הוא באותו מספר (הבא בתור), גודל וסגנון כמו האמיתי. */
-function createDryEndNoteMarker() {
-    const m = document.createElement('a');
-    m.className = 'note-marker';
-    m.textContent = formatNoteMarker((noteCounters.endnote || 0) + 1, null);
-    applyNoteMarkerStyle(m, false);
-    return m;
 }
 
 function createNoteMarkerAndQueue(text, styleId, target) {
@@ -2434,14 +1351,10 @@ function buildNoteBlockElement(queue, columns) {
     const cols = columns || parseInt(document.getElementById('fn-columns')?.value, 10) || 1;
     wrap.className = `note-block cols-${cols}`;
 
-    // [חדש] מצב פריסת הערות: "block" (ברירת מחדל — כל הערה בשורה נפרדת) או "continuous" (רצף הערות עם רווח כפול ביניהן)
-    const layoutMode = document.getElementById('fn-layout-mode')?.value || 'block';
-    if (layoutMode === 'continuous') wrap.classList.add('continuous-mode');
-
     const sepEl = document.getElementById('note-num-separator');
     const globalSep = sepEl ? sepEl.value : '.';
 
-    queue.forEach((item, idx) => {
+    queue.forEach(item => {
         const line = document.createElement('div');
         line.className = 'note-line';
         line.id = 'note-' + item.uid;
@@ -2451,71 +1364,30 @@ function buildNoteBlockElement(queue, columns) {
         num.textContent = item.number + globalSep + ' ';
         applyNoteMarkerStyle(num, true);
         const body = document.createElement('span');
-        // [תיקון] במקום לשים את הטקסט כ-textContent, עבור אותו דרך applyDelimiterStyles
-        // כדי לתפוס סוגריים ( ) ותוחמים אחרים בתוך הערת השוליים.
-        // גודל המארח = גודל גוף ההערה (מתוך s-note-body או ברירת מחדל 9pt).
-        const noteBodySize = parseFloat(document.getElementById('s-note-body')?.value) || 9;
-        body.textContent = item.text;  // נשים זמנית, ואז נעבד
+        body.className = 'note-body-text';
+        body.textContent = item.text;
         const inst = (typeof findExtTextStyle === 'function') ? findExtTextStyle(item.styleId) : null;
         if (inst && inst.def.style) applyExtStyleToNode(body, inst.def.style, 10);
-        // [חדש] עבד delimiters + parens בתוך גוף ההערה
-        applyDelimiterStyles(body, 'body', noteBodySize, false);
         line.appendChild(num);
         line.appendChild(body);
         wrap.appendChild(line);
     });
-
-    // [חדש] במצב "רציף": מסמנים אילו .note-line נמצאים ב"שורה האחרונה" כדי שאפשר יהיה
-    // להחיל עליהם יישור מלא (text-align-last: justify) רק אם יש שם 2+ הערות.
-    // אם יש הערה אחת בודדת בשורה האחרונה — נשארת מיושרת לימין (כמו הערה חד-שורתית רגילה).
-    // הסימון נעשה על-ידי class 'last-row' שמתווסף אחרי שהבלוק מחובר ל-DOM והדפדפן מבצע layout.
-    if (layoutMode === 'continuous' && wrap.children.length > 1) {
-        // נסמן לעיבוד מאוחר יותר (אחרי חיבור ל-DOM) — הפונקציה markLastRowOfContinuousBlock נקראת חיצונית
-        wrap.setAttribute('data-mark-last-row', '1');
-    }
     return wrap;
 }
 
-/* [חדש] מסמן את ההערות ב"שורה האחרונה" של בלוק רציף על-ידי class 'last-row'.
-   נקרא אחרי שהבלוק חובר ל-DOM והדפדפן ביצע layout (כדי שאפשר למדוד Y של כל הערה).
-   אם יש 2+ הערות בשורה האחרונה — מוסיף class 'last-row-multi' לבלוק (מפעיל text-align-last: justify).
-   אם יש רק הערה אחת — לא מוסיף כלום (נשאר text-align-last: right מ-.note-block). */
-function markLastRowOfContinuousBlock(block) {
-    if (!block || !block.classList.contains('continuous-mode')) return;
-    if (block.getAttribute('data-mark-last-row') !== '1') return;
-    block.removeAttribute('data-mark-last-row');
-
-    const notes = Array.from(block.querySelectorAll('.note-line'));
-    if (notes.length < 2) return;
-
-    // מצא את ה-Y של ההערה האחרונה
-    const lastNote = notes[notes.length - 1];
-    const lastTop = lastNote.getBoundingClientRect().top;
-    // ספור כמה הערות באותו Y (אותה שורה)
-    let countInLastRow = 0;
-    for (let i = notes.length - 1; i >= 0; i--) {
-        const top = notes[i].getBoundingClientRect().top;
-        if (Math.abs(top - lastTop) < 2) {
-            countInLastRow++;
-        } else break;
+function flushFootnotesInto(pageEl) {
+    if (!footnoteQueueForPage.length) {
+        resetNoteCounterIfNeeded('footnote', 'page');
+        return;
     }
 
-    if (countInLastRow >= 2) {
-        block.classList.add('last-row-multi');
-    }
-}
-
-/* בונה את אזור הערות השוליים המלא (כותרת + קו + הערות) מתור נתון.
-   משמש גם להצבה בפועל בעמוד וגם למדידה מדויקת של השטח שהוא תופס. */
-function buildFootnoteAreaElement(queue) {
-    const cfg0 = getNoteConfig(queue[0].styleId);
+    const cfg0 = getNoteConfig(footnoteQueueForPage[0].styleId);
     const colCount = parseInt(document.getElementById('fn-columns')?.value, 10) || cfg0.columns || 1;
     const rule = buildNoteRuleElement();
-    const block = buildNoteBlockElement(queue, colCount);
+    const block = buildNoteBlockElement(footnoteQueueForPage, colCount);
     const area = document.createElement('div');
     area.className = 'footnote-area';
 
-    // כותרת מעל הערות שוליים ועיטורי צד (אם מוגדר)
     const titleText = document.getElementById('fn-title-text')?.value?.trim();
     if (titleText) {
         const titleWrap = document.createElement('div');
@@ -2550,231 +1422,6 @@ function buildFootnoteAreaElement(queue) {
         area.appendChild(rule);
     }
     area.appendChild(block);
-    return area;
-}
-
-/* גובה מדויק (כולל שוליים) שאזור הערות השוליים יתפוס בעמוד.
-   [תיקון] קודם הוא נאמד לפי גוף ההערות בלבד + 24px, בלי הקו המפריד והכותרת, ולכן נוצרה
-   חפיפה/גלישה של עד ~16px בעמודים עם הערות.
-
-   [תיקון שלב 2 — מהימנות מדידה]
-   1. ה-probe מחובר לתוך .page-content-wrapper אמיתי (ולא ל-document.body) כדי
-      להבטיח שהקשר ה-CSS (flex container, vars, font) זהה לזה שבו יוצב האזור בפועל.
-   2. משתמשים ב-scrollHeight במקום offsetHeight כדי לתפוס תוכן שגולש.
-   3. מפתח המטמון כולל גם רוחב, font-size, line-height, columns כדי להימנע מערכים ישנים.
-   4. כל קריאה נרשמת ב-window.__fnMeasureLog לצורך דיבאג והשוואה למציאות.
-   5. פונקציית auditFnMeasurement (למטה) משווה תחזית מול גובה אמיתי אחרי רינדור. */
-const __fnAreaHeightCache = new Map();
-window.__fnMeasureLog = window.__fnMeasureLog || [];
-window.__fnMeasureLogEnabled = true;
-
-function __fnMeasureLogPush(entry) {
-    if (!window.__fnMeasureLogEnabled) return;
-    if (window.__fnMeasureLog.length > 5000) {
-        // מניעת הצפת זיכרון — שומרים רק 5000 האחרונים
-        window.__fnMeasureLog = window.__fnMeasureLog.slice(-4000);
-    }
-    window.__fnMeasureLog.push(entry);
-}
-
-/* מאתר את ה-.page-content-wrapper ה"טיפוסי" (האחרון שנבנה) לשימוש כמארח מדידה.
-   אם אין עדיין עמודים ב-#book-container, מחזיר null והמודד נופל חזרה ל-document.body. */
-function __findProbeHost() {
-    // מעדיףים עמוד גוף רגיל (לא שער ולא שער-משנה)
-    const candidates = document.querySelectorAll('#book-container .a4-page .page-content-wrapper');
-    if (candidates.length === 0) return null;
-    // מחפשים את העמוד האחרון שמכיל .page-body-flow (עמוד גוף אמיתי)
-    for (let i = candidates.length - 1; i >= 0; i--) {
-        const w = candidates[i];
-        if (w.querySelector('.page-body-flow')) return w;
-    }
-    return candidates[candidates.length - 1];
-}
-
-function measureFootnoteAreaHeight(queue, opts) {
-    opts = opts || {};
-    if (!queue.length) return 0;
-
-    // חישוב גורמי הקשר CSS למפתח המטמון
-    const probeHost = __findProbeHost();
-    const probeWidth = probeHost ? probeHost.clientWidth : 0;
-    const fnColumns = parseInt(document.getElementById('fn-columns')?.value, 10) || 1;
-    const noteBodySize = parseFloat(document.getElementById('s-note-body')?.value) || 8.5;
-    const noteLineHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lh-note-body') || '1.45') || 1.45;
-    const layoutMode = document.getElementById('fn-layout-mode')?.value || 'block';
-
-    // מפתח מטמון מורחב: כולל הקשר CSS
-    const itemsKey = queue.map(i => i.uid + ':' + i.number + ':' + (i.text || '').length + ':' + (i.styleId || '')).join('|');
-    const ctxKey = `w${probeWidth}|c${fnColumns}|s${noteBodySize}|lh${noteLineHeight}|m${layoutMode}`;
-    const key = ctxKey + '||' + itemsKey;
-    if (__fnAreaHeightCache.has(key)) {
-        const cached = __fnAreaHeightCache.get(key);
-        __fnMeasureLogPush({
-            t: performance.now(),
-            fn: 'measureFootnoteAreaHeight',
-            kind: 'cache-hit',
-            queueSize: queue.length,
-            firstNumber: queue[0].number,
-            probeWidth, fnColumns, noteBodySize, layoutMode,
-            returned: cached,
-            ctxKey
-        });
-        return cached;
-    }
-
-    const area = buildFootnoteAreaElement(queue);
-
-    /* [תיקון] אם יש page-content-wrapper אמיתי — נחבר את ה-probe לתוכו (כילד אחרון
-       נסתר). כך ה-CSS context (flex, vars, font) זהה לחלוטין למה שיקרה בעמוד האמיתי.
-       אחרת — נופלים חזרה ל-document.body (כמו פעם), ומדגישים זאת בלוג. */
-    let host, attachedToBody = false;
-    const hostStyleCss = 'position:absolute;visibility:hidden;left:-99999px;top:0;display:block;width:' + (probeWidth || 180) + 'px;pointer-events:none;';
-    if (probeHost) {
-        // נחבר לתוך probeHost אבל בתור אלמנט אבסולוטי — כך שלא ישפיע על layout אמיתי
-        host = document.createElement('div');
-        host.setAttribute('data-fn-probe', '1');
-        host.style.cssText = hostStyleCss;
-        host.appendChild(area);
-        probeHost.appendChild(host);
-    } else {
-        host = document.createElement('div');
-        host.setAttribute('data-fn-probe', '1');
-        host.style.cssText = hostStyleCss;
-        host.appendChild(area);
-        document.body.appendChild(host);
-        attachedToBody = true;
-    }
-
-    // נמדיד: scrollHeight (כולל תוכן גולש) + שוליים אנכיים
-    const cs = getComputedStyle(area);
-    const marginTop = parseFloat(cs.marginTop) || 0;
-    const marginBottom = parseFloat(cs.marginBottom) || 0;
-    const blockScrollH = area.scrollHeight;
-    const blockOffsetH = area.offsetHeight;
-    // נשתמש ב-max(scrollHeight, offsetHeight) — scrollHeight תופס גלישה, offsetHeight תופס border
-    const innerH = Math.max(blockScrollH, blockOffsetH);
-    const h = Math.ceil(innerH + marginTop + marginBottom);
-
-    // ניקוי
-    if (host.parentNode) host.parentNode.removeChild(host);
-
-    __fnAreaHeightCache.set(key, h);
-
-    __fnMeasureLogPush({
-        t: performance.now(),
-        fn: 'measureFootnoteAreaHeight',
-        kind: 'fresh-measure',
-        queueSize: queue.length,
-        firstNumber: queue[0].number,
-        numbers: queue.map(q => q.number).join(','),
-        textLens: queue.map(q => (q.text || '').length).join(','),
-        probeWidth, fnColumns, noteBodySize, layoutMode,
-        attachedToBody,
-        scrollHeight: blockScrollH,
-        offsetHeight: blockOffsetH,
-        marginTop, marginBottom,
-        returned: h,
-        ctxKey
-    });
-    return h;
-}
-
-/* [חדש — בדיקת מהימנות] משווה את תחזית המדידה מול הגובה האמיתי בפועל של
-   אזורי הערות השוליים בעמודים שכבר רונדרו. מחזיר מערך פערים.
-   יש להפעיל אחרי typesetDocument(). */
-function auditFnMeasurement() {
-    const results = [];
-    const pages = document.querySelectorAll('#book-container .a4-page');
-    pages.forEach((pg, pIdx) => {
-        const area = pg.querySelector('.footnote-area');
-        if (!area) return;
-        const pNum = (pg.querySelector('.page-number-footer') || {}).textContent?.trim() || String(pIdx + 1);
-        const cs = getComputedStyle(area);
-        const realScroll = area.scrollHeight;
-        const realOffset = area.offsetHeight;
-        const marginTop = parseFloat(cs.marginTop) || 0;
-        const marginBottom = parseFloat(cs.marginBottom) || 0;
-        const realH = Math.ceil(Math.max(realScroll, realOffset) + marginTop + marginBottom);
-
-        // שחזור התור מתוך ה-DOM
-        const noteLines = area.querySelectorAll('.note-line');
-        const numbers = Array.from(noteLines).map(l => {
-            const num = l.querySelector('.note-line-num');
-            return num ? num.textContent.trim() : '?';
-        });
-
-        // חיפוש רשומת הלוג האחרונה שמתאימה ל-numbers.
-        // אנחנו משווים רק את החלק הראשון של מספר ההערה (לפני הנקודה/מפריד) כי הלוג
-        // שומר firstNumber בלי הנקודה, ואילו ה-DOM כולל את המפריד (note-num-separator).
-        const firstNumRaw = numbers[0] || '';
-        const firstNumCore = firstNumRaw.split(/[.\s,:;]/)[0].trim(); // "א." → "א"
-        const matching = window.__fnMeasureLog.filter(e =>
-            e.kind === 'fresh-measure' &&
-            e.queueSize === numbers.length &&
-            (
-                e.firstNumber === firstNumRaw ||
-                e.firstNumber === firstNumCore ||
-                (e.numbers && e.numbers.split(',')[0] === firstNumCore)
-            )
-        ).pop();
-
-        results.push({
-            pageIdx: pIdx,
-            pageLabel: pNum,
-            numbers,
-            measured: matching ? matching.returned : null,
-            measuredScrollH: matching ? matching.scrollHeight : null,
-            measuredOffsetH: matching ? matching.offsetHeight : null,
-            measuredMarginTop: matching ? matching.marginTop : null,
-            measuredMarginBottom: matching ? matching.marginBottom : null,
-            measuredAttachedToBody: matching ? matching.attachedToBody : null,
-            realH,
-            realScroll,
-            realOffset,
-            realMarginTop: marginTop,
-            realMarginBottom: marginBottom,
-            diff: matching ? (realH - matching.returned) : null,
-            // נתוני הקשר אמיתיים
-            realWidth: area.getBoundingClientRect().width,
-            realClientWidth: area.clientWidth,
-            realColCount: area.querySelectorAll('.note-block').length > 0 ?
-                (area.querySelector('.note-block').classList.contains('cols-2') ? 2 : 1) : null
-        });
-    });
-    return results;
-}
-
-// חשיפה גלובלית
-window.auditFnMeasurement = auditFnMeasurement;
-window.measureFootnoteAreaHeight = measureFootnoteAreaHeight;
-
-/* גופי הערות השוליים שמצויים בטקסט נתון ועוד לא נכנסו לתור (כדי לחשב מראש את השטח שיידרש להם) */
-function getPendingFootnoteItems(text) {
-    if (!text) return [];
-    const out = [];
-    findDelimiterMatches(text, 'body').forEach((m, idx) => {
-        if (m.inst.def.target !== 'footnote') return;
-        const openLen = m.inst.def.trigger.open.length, closeLen = m.inst.def.trigger.close.length;
-        out.push({ number: 'א', text: text.slice(m.start + openLen, m.end - closeLen), styleId: m.inst.instanceId, uid: 'pend' + idx });
-    });
-    return out;
-}
-
-/* השטח שיש לשמור לתחתית העמוד עבור הערות השוליים: ההערות שכבר בתור + (אופציונלי) הערות
-   שגלומות בטקסט שעומד להיות מוצב ועוד לא נכנסו לתור. */
-function getFootnotesReservedHeight(extraText) {
-    const extra = extraText ? getPendingFootnoteItems(extraText) : [];
-    if (!footnoteQueueForPage.length && !extra.length) return 0;
-    return measureFootnoteAreaHeight(footnoteQueueForPage.concat(extra));
-}
-
-function flushFootnotesInto(pageEl) {
-    if (!footnoteQueueForPage.length) {
-        resetNoteCounterIfNeeded('footnote', 'page');
-        return;
-    }
-
-    const area = buildFootnoteAreaElement(footnoteQueueForPage);
 
     const wrapper = pageEl.querySelector('.page-content-wrapper');
     const footer = pageEl.querySelector('.page-number-footer');
@@ -2783,41 +1430,6 @@ function flushFootnotesInto(pageEl) {
     } else {
         pageEl.appendChild(area);
     }
-
-    // [תיקון רגרסיה קריטי — כיווץ blocks אחרי הוספת fnArea]
-    // אחרי הוספת fnArea, ה-flow clientHeight קטן. אם ה-blocks חורגים עכשיו, כווץ אותם.
-    // הסיבה: balanceColumns + stretchPageToBottom פעלו לפני הוספת ה-fnArea, כשהיה יותר מקום.
-    // עכשיו, כשה-fnArea תופס מקום, ה-blocks חורגים ב-30-60px.
-    const flow = pageEl.querySelector('.page-body-flow');
-    if (flow) {
-        const flowMaxH = flow.clientHeight;
-        const blocks = flow.querySelectorAll('.block-2col');
-        // בנה styleObj מה-flow עצמו
-        const flowStyle = {
-            fontFamily: getComputedStyle(flow).fontFamily,
-            fontSize: getComputedStyle(flow).fontSize,
-            lineHeight: getComputedStyle(flow).lineHeight,
-        };
-        blocks.forEach(blk => {
-            const rC = blk.querySelector('.right-col');
-            const lC = blk.querySelector('.left-col');
-            if (!rC || !lC) return;
-            const blockH = Math.max(rC.scrollHeight, lC.scrollHeight);
-            const blockTopInFlow = blk.getBoundingClientRect().top - flow.getBoundingClientRect().top;
-            const allowedH = flowMaxH - blockTopInFlow - 2;
-            if (blockH > allowedH && allowedH > 100) {
-                const overflow = blockH - allowedH;
-                shrinkColumnVertically(rC, allowedH, flowStyle, overflow + 10);
-                shrinkColumnVertically(lC, allowedH, flowStyle, overflow + 10);
-                repositionBlockNotes(blk, Math.max(rC.scrollHeight, lC.scrollHeight));
-            }
-        });
-    }
-
-    // [חדש] אחרי שהאזור חובר ל-DOM, מסמנים את השורה האחרונה של בלוק רציף
-    // (אם יש שם 2+ הערות — מפעיל text-align-last: justify כדי שהן יתפרסו על כל הרוחב)
-    const contBlock = area.querySelector('.note-block.continuous-mode[data-mark-last-row="1"]');
-    if (contBlock) markLastRowOfContinuousBlock(contBlock);
 
     footnoteQueueForPage = [];
     resetNoteCounterIfNeeded('footnote', 'page');
@@ -2872,7 +1484,7 @@ function measureNoteBlockHeight(queue, columns) {
     const pct = 100 - 2 * (wMargin + wGap);
     probe.style.width = `calc(180mm * ${pct / 100})`;
     document.body.appendChild(probe);
-    const h = probe.getBoundingClientRect().height;
+    const h = probe.offsetHeight;
     document.body.removeChild(probe);
     return h;
 }
@@ -2890,24 +1502,6 @@ function appendMainSubParts(hostElem, mainText, subText, def) {
         subPart.style.marginTop = '3px';
         hostElem.appendChild(subPart);
     }
-}
-
-/* כותרת מובלעת בראש פסקה (run-in): כל מילה בכותרת עטופה ב-span משלה, כדי שחיתוך הפסקה לשורות/טורים/עמודים
-   (שמפצל לפי רווחים) לעולם לא יחתוך תגית באמצע. למילה האחרונה יש ריווח אחריה; לשאר hri-mid (בלי ריווח נוסף).
-   בסגנון מיובא (ext) העיצוב המוגדר בו (גופן/גודל/משקל/צבע/מסגרת) נכנס כ-style על כל span. */
-function buildRunInHeadingHTML(ri) {
-    const words = String(ri.text || '').split(/\s+/).filter(Boolean);
-    let styleAttr = '';
-    if (ri.customStyleId && typeof findExtTextStyle === 'function' && typeof applyExtStyleToNode === 'function') {
-        const inst = findExtTextStyle(ri.customStyleId);
-        if (inst) {
-            const tmp = document.createElement('span');
-            applyExtStyleToNode(tmp, inst.def.style, (typeof getBodySizePt === 'function') ? getBodySizePt() : 12);
-            const css = tmp.getAttribute('style');
-            if (css) styleAttr = ` style="${css.replace(/"/g, '&quot;')}"`;
-        }
-    }
-    return words.map((w, i) => `<span class="heading-run-in${i < words.length - 1 ? ' hri-mid' : ''} title-level-${ri.level}"${styleAttr}>${w}</span>`).join(' ');
 }
 
 function renderCustomHeadingInto(hostElem, inst, text) {
@@ -2939,7 +1533,7 @@ function renderCustomHeadingInto(hostElem, inst, text) {
 }
 
 /* ============================================================
-   בנייה ורינדור של תוכן העניינים (TOC)
+   9. תוכן עניינים (TOC) כללי ומפורט
    ============================================================ */
 function buildStructuredTOC(tokenList, showLevels, groupLevels) {
     const entries = [];
@@ -2954,7 +1548,7 @@ function buildStructuredTOC(tokenList, showLevels, groupLevels) {
     }
 
     tokenList.forEach(t => {
-        const lvl = t.type.startsWith('h') ? t.level : (t.sideNote ? (t.sideNoteLevel || 7) : null);
+        const lvl = t.type.startsWith('h') ? t.level : (t.sideNote ? 7 : null);
         const txt = t.type.startsWith('h') ? t.text : t.sideNote;
         if (lvl === null || !txt) return;
         if (!showLevels.includes(lvl)) return;
@@ -2971,7 +1565,7 @@ function buildStructuredTOC(tokenList, showLevels, groupLevels) {
     return entries;
 }
 
-function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, pageIndex, curH1, curH2, tocPrefix, showNumbering = true) {
+function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, pageIndex, curH1, curH2, tocPrefix) {
     if (entries.length === 0) return 0;
 
     let pagesCount = 0;
@@ -2979,11 +1573,20 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
     let lastRenderedGrid = null;
     let lastRenderedPage = null;
 
-    // הכותרת העליונה נבנית לכל עמוד בנפרד (buildHeaderGridHTML), כדי שגם בתוכן העניינים יחולו כותרות מתחלפות,
-    // פיצול שם ספר, חיתוך טקסט ארוך ומספר עמוד - בדיוק כמו בעמודי התוכן.
+    const hdrRType = document.getElementById('hdr-r-type')?.value || 'h1';
+    const hdrCType = document.getElementById('hdr-c-type')?.value || 'spear';
+    const hdrLType = document.getElementById('hdr-l-type')?.value || 'h2';
+    const hdrRAlign = resolveHeaderAlign(document.getElementById('hdr-r-align')?.value || 'right', 'r');
+    const hdrCAlign = resolveHeaderAlign(document.getElementById('hdr-c-align')?.value || 'center', 'c');
+    const hdrLAlign = resolveHeaderAlign(document.getElementById('hdr-l-align')?.value || 'left', 'l');
+
     const customR = document.getElementById('hdr-r-custom')?.value || '';
     const customC = document.getElementById('hdr-c-custom')?.value || '';
     const customL = document.getElementById('hdr-l-custom')?.value || '';
+
+    const hdrRHTML = renderHeaderSectionHTML(hdrRType, customR, curH1 || titleText, curH2 || titleText, '', bookTitle, titleText);
+    const hdrCHTML = renderHeaderSectionHTML(hdrCType, customC, curH1 || titleText, curH2 || titleText, '', bookTitle, titleText);
+    const hdrLHTML = renderHeaderSectionHTML(hdrLType, customL, curH1 || titleText, curH2 || titleText, '', bookTitle, titleText);
 
     function getTocStyle(level) {
         const f = document.getElementById(`f-${tocPrefix}-${level}`);
@@ -2992,31 +1595,34 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
         return '';
     }
 
+    const showNum = (tocPrefix === 'dtoc')
+        ? document.getElementById('detailed-toc-show-numbering')?.checked !== false
+        : document.getElementById('general-toc-show-numbering')?.checked !== false;
+
     while (currentEntryIdx < entries.length) {
         const isFirstTOCPage = (pagesCount === 0);
         pagesCount++;
+        const tocPNum = pageIndex + pagesCount - 1;
+        const { framedPageNum: tocFramedNum } = formatPageNumberDisplay(tocPNum);
 
         const page = document.createElement('div');
         page.className = 'a4-page toc-page';
-        page.setAttribute('data-page-index', String(pageIndex + pagesCount - 1));
+        page.setAttribute('data-page-index', String(tocPNum));
         applyContentBg(page, isFirstTOCPage ? 'tocFirst' : 'tocRegular');
         lastRenderedPage = page;
 
-        const tocHeaderHTML = buildHeaderGridHTML(pageIndex + pagesCount - 1, curH1 || titleText, curH2 || titleText, '', bookTitle, customR, customC, customL, {}, titleText);
-        // [תיקון] מספר העמוד בתחתית עמוד תוכן עניינים נגזר מאותן הגדרות מספור כמו עמודי התוכן (מיקום, פורמט, מסגרת, עמוד התחלה).
-        // בברירת המחדל (אותיות, תחתית במרכז, מתחיל מ-1) התוצאה זהה לקודמת.
-        // [תיקון נוסף] showNumbering — אם false, לא מציגים מספר עמוד (general-toc-show-numbering / detailed-toc-show-numbering).
-        const tocPN = formatPageNumberDisplay(pageIndex + pagesCount - 1);
-        const tocFooterClass = (tocPN.pageNumPos === 'bottom_outer') ? 'pos-outer' : 'pos-center';
-        const tocShowFooter = showNumbering && (tocPN.pageNumPos === 'bottom_center' || tocPN.pageNumPos === 'bottom_outer') && tocPN.displayPageNum;
         page.innerHTML = `
       <div class="page-content-wrapper">
-        ${tocHeaderHTML}
+        <div class="top-header-grid">
+          <div class="header-col-r" style="text-align:${hdrRAlign}; justify-content:${hdrRAlign};">${hdrRHTML}</div>
+          <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign};">${hdrCHTML}</div>
+          <div class="header-col-l" style="text-align:${hdrLAlign}; justify-content:${hdrLAlign};">${hdrLHTML}</div>
+        </div>
         <div class="page-body-flow">
           ${isFirstTOCPage ? `<div class="h2-spacer"></div><div class="title-level-2-standalone" style="margin-top: 0; margin-bottom: 25px;">${titleText}</div>` : ''}
           <div class="toc-grid-full"></div>
         </div>
-        <div class="page-number-footer ${tocFooterClass}">${tocShowFooter ? tocPN.framedPageNum : ''}</div>
+        <div class="page-number-footer">${showNum ? tocFramedNum : ''}</div>
       </div>
     `;
         container.appendChild(page);
@@ -3077,341 +1683,28 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
     if (lastRenderedPage) applyContentBg(lastRenderedPage, 'tocLast');
     return pagesCount;
 }
-/* ==========================================================================
-   typesetter.js - מנוע העימוד המרכזי לדפי A4
-   חלק ג'1: מנוע העימוד (typesetDocument), טוקנים, Run-in ושערים
-   (יש להדביק חלק זה מיד בהמשך חלק ב')
-   ========================================================================== */
 
 /* ==========================================================================
-   [תיקון באג קריטי שאותר בהרצה אמיתית] עימוד שתלוי בגודל חלון הדפדפן
-   --------------------------------------------------------------------------
-   #book-container מוקטן/מוגדל ב-transform:scale (זום התצוגה המקדימה, שנקבע לפי רוחב החלון).
-   getBoundingClientRect() מחזיר מידות *אחרי* הסקאלה, ולכן כל מדידה דרכו בתוך הדפים
-   (גובה כותרת פרק ועיטוריה, גובה הערות צד, גובה כותרת-רוחב) הייתה תלויה ברוחב החלון:
-   אותו מסמך יצא 99 עמודים בחלון צר, 104 בחלון רחב, ועמוד תחילת הפרק נחתך מוקדם/מאוחר מדי.
-   הפתרון הכפול:
-   (1) typesetDocument עוטפת את הליבה ומקפיאה את הסקאלה (transform:none) לאורך כל העימוד,
-       ומחזירה אותה בסיומו - כך כל מדידה היא בפיקסלי פריסה אמיתיים.
-   (2) layoutHeightOf מחלקת בסקאלה הנוכחית - רשת ביטחון לכל מדידה שתתבצע מחוץ לעטיפה.
+   10. מנוע העימוד המרכזי (performTypeset)
    ========================================================================== */
-function getPreviewScaleFactor() {
-    const host = document.getElementById('book-container');
-    if (!host) return 1;
-    const cs = getComputedStyle(host).transform;
-    if (!cs || cs === 'none') return 1;
-    const m = cs.match(/^matrix\(([^,]+),/);
-    const s = m ? parseFloat(m[1]) : 1;
-    return (s > 0 && isFinite(s)) ? s : 1;
-}
-
-function layoutHeightOf(el) {
-    return el.getBoundingClientRect().height / getPreviewScaleFactor();
-}
-
-/* [תיקון] רוחב פריסה מדויק (עם שבר) של אלמנט. offsetWidth מעגל למספר שלם (269.42 -> 269), ושימוש בו כרוחב
-   למדידת שורות יצר פער בין השורות שנמדדו לשורות שהתקבלו בפועל: שורה שנמדדה כגולשת ברוחב 269 נכנסת בפועל
-   ברוחב 269.42, ופסקה שהוחלט לחתוך 4+2 נרנדרה 4+1 (שורה בודדת בראש טור). כשהשבר מעל 0.5 הפער הפוך (גלישה).
-   getComputedStyle מחזיר את הרוחב הלא-מוקטן, ולכן גם לא תלוי בסקאלת התצוגה. */
-function exactWidthOf(el) {
-    if (!el) return 0;
-    const w = parseFloat(window.getComputedStyle(el).width);
-    return (w > 0) ? w : (el.offsetWidth || 0);
-}
-
-/* [חדש] רוחב הטקסט האמיתי של אלמנט (השורה הרחבה ביותר) ביחידות פריסה.
-   רוחב תיבת הכותרת עצמה הוא תמיד רוחב הטור, ולכן מודדים את תוכן הטקסט בעזרת Range. */
-function measureTextWidthOf(el) {
-    if (!el) return 0;
-    const rng = document.createRange();
-    rng.selectNodeContents(el);
-    return rng.getBoundingClientRect().width / getPreviewScaleFactor();
-}
-
-/* [חדש] "התאם רוחב עיטור לרוחב טקסט הכותרת" (כותרת 2): מקבע לעיטורים העליון והתחתון את רוחב הטקסט שהם מלווים.
-   תחולה "על שניהם": הרחב מבין שורת הסימן והכותרת; "רק שורת הסימן": רוחב הסימן; "רק טקסט הכותרת": רוחב הכותרת.
-   הרוחב נקבע בפיקסלים לפי מדידה אמיתית בדפדפן (ולכן מדויק לכל גופן וכל אורך כותרת). מחזיר את הרוחב שנקבע (0 = לא נקבע). */
-function fitH2OrnamentsToText(flowEl, scope, simanElem, titleEl) {
-    const wTitle = measureTextWidthOf(titleEl);
-    const wSiman = simanElem ? measureTextWidthOf(simanElem) : 0;
-
-    // [תיקון] כל עיטור יותאם לרוחב הטקסט שלו בנפרד + הוספת margin קטן (20px מכל צד)
-    // ומתיחת ה-SVG לרוחב המלא (preserveAspectRatio=none) כדי למלא את הרוחב.
-    const MARGIN_PX = 20; // תוספת רוחב מכל צד
-
-    const setWidth = (selector, w) => {
-        if (!(w > 1)) return;
-        const wRounded = Math.round((w + MARGIN_PX * 2) * 10) / 10;
-        flowEl.querySelectorAll(selector + ' .fit-heading-text .ornament-svg-inner, ' + selector + ' .fit-heading-text > img').forEach(box => {
-            box.style.width = wRounded + 'px';
-            box.style.maxWidth = '100%';
-            // [תיקון] מתח את ה-SVG הפנימי לרוחב המלא (לא יחסי)
-            const svg = box.querySelector('svg');
-            if (svg) {
-                svg.setAttribute('preserveAspectRatio', 'none');
-                svg.style.width = '100%';
-                svg.style.height = (svg.style.height || '1.25em');
-            }
-        });
-    };
-
-    if (scope === 'both') {
-        // עליון מעל סימן → רוחב סימן; תחתון מתחת כותרת → רוחב כותרת
-        setWidth('.h2-ornament-top', wSiman);
-        setWidth('.h2-ornament-bottom', wTitle);
-    } else if (scope === 'siman_only') {
-        // שניהם סביב הסימן → רוחב סימן
-        setWidth('.h2-ornament-top', wSiman);
-        setWidth('.h2-ornament-bottom', wSiman);
-    } else if (scope === 'title_only') {
-        // שניהם סביב הכותרת → רוחב כותרת
-        setWidth('.h2-ornament-top', wTitle);
-        setWidth('.h2-ornament-bottom', wTitle);
-    } else if (scope === 'separate') {
-        // עיטורי סימן → רוחב סימן; עיטורי כותרת → רוחב כותרת
-        setWidth('.h2-ornament-top', wSiman);
-        setWidth('.h2-ornament-bottom', wSiman);
-        setWidth('.h2-title-ornament-top', wTitle);
-        setWidth('.h2-title-ornament-bottom', wTitle);
-    }
-}
-
-/* [חדש] קו ההפרדה האנכי בין הטורים: מותאם בדיוק לתחום הטקסט של הבלוק - מראש השורה הראשונה ועד סוף השורה האחרונה
-   (בטור הארוך מבין השניים) - ולא לגובה כל תא ה-grid, שכולל את רווח סוף הפסקה האחרונה (כ-7px) ועוד הזחה של הקו עצמו,
-   ולכן הקו בלט כ-11px מתחת לקצה הטקסט. הקו מקבל הזחה קבועה מלמעלה ומלמטה (כמו המרווח המקורי שלו).
-   נקרא פעם אחת בסוף העימוד, אחרי שכל הבלוקים סופיים (איזון, ישור וגובה תחתון). קריאות כל המדידות לפני כל הכתיבות. */
-const COL_DIVIDER_INSET_PX = 4;
-function fitColumnDividers(container) {
-    if (!container) return 0;
-    const scale = getPreviewScaleFactor() || 1;
-    const plan = [];
-    container.querySelectorAll('.block-2col').forEach(blk => {
-        const dv = blk.querySelector(':scope > .col-gutter-divider');
-        if (!dv || dv.classList.contains('col-rule-none')) return;
-        let top = Infinity, bottom = -Infinity;
-        blk.querySelectorAll(':scope > .main-column').forEach(col => {
-            const kids = Array.from(col.children).filter(k => k.getBoundingClientRect().height > 0);
-            if (!kids.length) return;
-            top = Math.min(top, kids[0].getBoundingClientRect().top);
-            bottom = Math.max(bottom, kids[kids.length - 1].getBoundingClientRect().bottom);
-        });
-        if (!isFinite(top) || !isFinite(bottom)) return;
-        plan.push({ dv, offset: (top - blk.getBoundingClientRect().top) / scale, h: (bottom - top) / scale });
-    });
-    plan.forEach(({ dv, offset, h }) => {
-        const len = Math.max(0, h - 2 * COL_DIVIDER_INSET_PX);
-        dv.style.marginTop = (offset + COL_DIVIDER_INSET_PX).toFixed(2) + 'px';
-        dv.style.marginBottom = '0';
-        dv.style.height = len.toFixed(2) + 'px';
-    });
-    return plan.length;
-}
-
-/* תווית מספר עמוד לתוכן עניינים - זהה לתצוגה בתחתית העמוד (פורמט, מסגרת-בלי, עמוד התחלה), עם נפילה לגימטריה */
-function getTocPageLabel(pNum) {
-    const d = formatPageNumberDisplay(pNum).displayPageNum;
-    return d || toGematria(pNum);
-}
-
-/* בונה מחדש את מפת "כותרת -> מספר עמוד" לפי מה שנמצא בפועל בעמודים שנוצרו.
-   כותרת (רמות 2-6 ורוחביות) או פסקה עם הערת צד - המופע הראשון (לא המשך) קובע את העמוד. */
-function rebuildHeadingPageMapFromDOM(container, headingPageMap) {
-    const seen = new Set();
-    container.querySelectorAll('.a4-page').forEach(pg => {
-        const flow = pg.querySelector('.page-body-flow');
-        const idx = parseInt(pg.getAttribute('data-page-index'), 10);
-        if (!flow || !idx) return;
-        const label = getTocPageLabel(idx);
-        flow.querySelectorAll('[data-token-id]').forEach(el => {
-            const id = el.getAttribute('data-token-id');
-            if (seen.has(id)) return;
-            const isHeading = /(^|\s)(title-level-|h3-title-text)/.test(el.className);
-            const isSideNoteP = el.tagName === 'P' && el.hasAttribute('data-side-note') && el.getAttribute('data-is-cont') !== 'true';
-            if (isHeading || isSideNoteP) {
-                seen.add(id);
-                headingPageMap[id] = label;
-            }
-        });
-    });
-}
-
-/* ==========================================================================
-   מנגנון "עדכן ועמד מחדש"
-   עימוד מלא של מסמך ארוך אורך כחמש שניות, ולכן הגדרות שמשפיעות על חלוקת העמודים (גופנים, גדלים, ריווח,
-   מצבי כותרות, הערות, כותרות עליונות, רשת העמוד, תוכן עניינים וכו') לא מעמידות את המסמך בכל שינוי:
-   הן רק מסמנות "יש שינויים ממתינים" ומדליקות את כפתורי "עדכן ועמד מחדש".
-   הגדרות שאינן משנות את חלוקת העמודים - איור השערים, טקסטי השער ורקעי העמודים - מתעדכנות מיד ומקומית:
-   מוחלפים רק עמודי השער / מוחל מחדש הרקע, בלי לעמד את המסמך.
-   ההבחנה נעשית לפי האלמנט שיצר את האירוע (window.event.target): רק פקד הגדרות (input/select/textarea בתוך
-   #settings-pane) נחשב "שינוי הגדרה". כל קריאה אחרת - כפתור העדכון, ייבוא קובץ, אתחול, פעולות מפורשות -
-   מעמידה מיד כמו קודם.
-   ========================================================================== */
-let settingsDirty = false;
-let __typesetTimer = null;
-
-const LIVE_COVER_ID_RE = /^(active-theme-select|select-shaar-(main|back|sub)|inp-book-(title|subtitle|desc|sections|author|year)|[fs]-sh-[a-z]+)$/;
-const LIVE_BG_ID_RE = /^cbg-/;
-
-/* מסווג את פקד ההגדרות שיצר את האירוע: 'cover' / 'bg' / 'doc', או null אם זו לא "הגדרה" (כפתור, קובץ, מחוץ ללוח) */
-function classifySettingControl(el) {
-    if (!el || el.nodeType !== 1) return null;
-    const tag = el.tagName;
-    if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') return null;
-    if (tag === 'INPUT' && (el.type === 'file' || el.type === 'button' || el.type === 'submit')) return null;
-    if (!el.closest || !el.closest('#settings-pane')) return null;
-    const id = el.id || '';
-    if (LIVE_COVER_ID_RE.test(id)) return 'cover';
-    if (LIVE_BG_ID_RE.test(id)) return 'bg';
-    return 'doc';
-}
-
-/* מדליק/מכבה את חיווי "יש שינויים שטרם הוחלו" בכפתורי העדכון */
-function setSettingsDirty(flag) {
-    settingsDirty = !!flag;
-    document.body.classList.toggle('has-pending-settings', settingsDirty);
-    document.querySelectorAll('[data-retypeset-btn]').forEach(b => {
-        b.classList.toggle('has-pending', settingsDirty);
-        b.title = settingsDirty ? 'יש שינויים בהגדרות שטרם הוחלו על העימוד - לחץ להחלה' : 'עימוד מחדש של המסמך לפי ההגדרות הנוכחיות';
-    });
-}
-
-/* מצב "מעמד..." על כפתורי העדכון */
-function setTypesetBusy(flag) {
-    document.querySelectorAll('[data-retypeset-btn]').forEach(b => {
-        if (flag) {
-            if (!b.hasAttribute('data-label')) b.setAttribute('data-label', b.textContent);
-            b.textContent = '⏳ מעמד…';
-            b.disabled = true;
-        } else {
-            if (b.hasAttribute('data-label')) { b.textContent = b.getAttribute('data-label'); b.removeAttribute('data-label'); }
-            b.disabled = false;
-        }
-    });
-}
-
-/* מחליף במקום את עמודי השער (ראשי/אחורי/משנה) לפי ההגדרות הנוכחיות, בלי עימוד מחדש. מחזיר true אם נמצא מה לרענן */
-function refreshCoversInPlace() {
-    const container = document.getElementById('book-container');
-    if (!container) return false;
-    updateCoverStyles();
-    const themeId = document.getElementById('active-theme-select')?.value || 'builtin_1';
-    let found = 0;
-    const swap = (oldPage, build) => {
-        const tmp = document.createElement('div');
-        build(tmp);
-        const fresh = tmp.firstElementChild;
-        if (!fresh) return;
-        // שומרים את מאפייני העימוד שהוצמדו לעמוד אחרי יצירתו (אינדקס עמוד, שורה ראשונה בטקסט וכו')
-        for (const a of Array.from(oldPage.attributes)) {
-            if (a.name.startsWith('data-')) fresh.setAttribute(a.name, a.value);
-        }
-        oldPage.replaceWith(fresh);
-        found++;
-    };
-    container.querySelectorAll('.a4-page.main-shaar-page').forEach(p => swap(p, tmp => renderMainShaar(tmp, themeId)));
-    container.querySelectorAll('.a4-page.back-shaar-page').forEach(p => swap(p, tmp => renderBackShaar(tmp, themeId)));
-    container.querySelectorAll('.a4-page.sub-shaar-page').forEach(p => {
-        const id = p.getAttribute('data-token-id');
-        const tok = (globalTokens || []).find(x => String(x.id) === String(id));
-        if (tok) swap(p, tmp => renderSubShaar(tmp, tok, themeId));
-    });
-    return found > 0;
-}
-
-/* מחיל מחדש את רקעי העמודים (ללא עימוד): כל עמוד זוכר באיזה תפקיד רקע הוא (data-bg-role) */
-function refreshContentBackgrounds() {
-    const container = document.getElementById('book-container');
-    if (!container) return false;
-    const pages = container.querySelectorAll('.a4-page[data-bg-role]');
-    pages.forEach(p => {
-        ['backgroundColor', 'backgroundImage', 'backgroundSize', 'backgroundPosition', 'backgroundRepeat'].forEach(k => { p.style[k] = ''; });
-        (p.getAttribute('data-bg-role') || '').split(' ').filter(Boolean).forEach(role => applyContentBg(p, role));
-    });
-    return pages.length > 0;
-}
-
-/* תמונה שהועלתה מהקובץ (FileReader) - מתעדכנת מיד אם זה רקע עמוד, אחרת ממתינה ללחיצה על "עדכן ועמד מחדש" */
-function applyUploadedImageSetting(targetInputId) {
-    if (/^data-cbg-/.test(targetInputId)) {
-        if (!refreshContentBackgrounds()) setSettingsDirty(true);
-    } else if (/^data-builder-/.test(targetInputId)) {
-        // קובצי SVG של "יצירת ערכת נושא": נשמרים בשדה בלבד עד הלחיצה על "הטמע ערכת נושא"
+let typesetTimer = null;
+function typesetDocument(delay = 0) {
+    if (typesetTimer) clearTimeout(typesetTimer);
+    if (delay <= 0) {
+        performTypeset();
     } else {
-        setSettingsDirty(true);
-    }
-}
-
-/* נקודת הכניסה היחידה לעימוד - כל ה-oninput/onchange בלוח ההגדרות וכפתור העדכון קוראים לה.
-   delay (מילישניות) - רק לקריאות מפורשות (כפתור העדכון / טעינה): מצייר "מעמד..." ומעמד אחרי ההשהיה */
-function typesetDocument(delay) {
-    // במצב renderer (iframe) — עמד ישירות
-    if (window.__isRenderer) {
-        return typesetDocumentNow();
-    }
-    // בדף הראשי — הפנה ל-iframe
-    if (typeof sendTypesetToRenderer === 'function') {
-        return sendTypesetToRenderer();
-    }
-    // fallback — עמד ישירות (אמור לקרות רק אם אין iframe)
-    const ev = (typeof window !== 'undefined') ? window.event : null;
-    const src = ev && ev.target && ev.target.nodeType === 1 ? ev.target : null;
-    const kind = classifySettingControl(src);
-    if (kind === 'cover') {
-        const refreshed = refreshCoversInPlace();
-        if (!refreshed || src.id === 'inp-book-title') setSettingsDirty(true);
-        return;
-    }
-    if (kind === 'bg') {
-        if (!refreshContentBackgrounds()) setSettingsDirty(true);
-        return;
-    }
-    if (kind === 'doc') {
-        setSettingsDirty(true);
-        return;
-    }
-    if (typeof delay === 'number' && delay > 0) {
-        clearTimeout(__typesetTimer);
-        setTypesetBusy(true);
-        __typesetTimer = setTimeout(() => {
-            requestAnimationFrame(() => setTimeout(() => {
-                try { typesetDocumentNow(); } finally { setTypesetBusy(false); }
-            }, 0));
+        typesetTimer = setTimeout(() => {
+            performTypeset();
         }, delay);
-        return;
-    }
-    return typesetDocumentNow();
-}
-
-/* העימוד עצמו (עוטף את הליבה): מקפיא את סקאלת התצוגה לאורך כל העימוד ומכבה את חיווי "שינויים ממתינים" */
-function typesetDocumentNow() {
-    const host = document.getElementById('book-container');
-    const prevTransform = host ? host.style.transform : '';
-    const prevTransition = host ? host.style.transition : '';
-    if (host) {
-        host.style.transition = 'none';
-        host.style.transform = 'none';
-    }
-    try {
-        return typesetDocumentCore();
-    } finally {
-        if (host) {
-            host.style.transform = prevTransform;
-            host.offsetWidth; // כופה חישוב-סגנון לפני החזרת האנימציה, כדי שלא תתרחש אנימציית זום מיותרת
-            host.style.transition = prevTransition;
-        }
-        setSettingsDirty(false);
-        if (typeof updatePreviewScale === 'function') updatePreviewScale();
     }
 }
 
-/* הדפסה / PDF: אם יש שינויים ממתינים - מעמדים קודם, כדי שההדפסה תתאים להגדרות שמוצגות */
-function printDocument() {
-    if (settingsDirty) typesetDocumentNow();
-    window.print();
+function typesetDocumentLive(delay = 350) {
+    typesetDocument(delay);
 }
-window.addEventListener('beforeprint', () => { if (settingsDirty) typesetDocumentNow(); });
 
-function typesetDocumentCore() {
+function performTypeset() {
+    if (typeof clearPendingChanges === 'function') clearPendingChanges();
     updateGrid();
     updateStyles();
 
@@ -3422,7 +1715,6 @@ function typesetDocumentCore() {
     noteUidCounter = 0;
     footnoteQueueForPage = [];
     endnoteQueueForPart = [];
-    __fnAreaHeightCache.clear();
 
     const pageBreaks = [];
     const recordedBreakLines = new Set();
@@ -3438,15 +1730,17 @@ function typesetDocumentCore() {
         });
     }
 
-    let rawText = document.getElementById('raw-input')?.value || '';
+    let rawText = (typeof getCleanEditorText === 'function') ? getCleanEditorText() : (document.getElementById('raw-input')?.value || '');
     if (!rawText.trim()) return;
 
     rawText = stripEditorialNotes(rawText);
     rawText = parseMetadataFromText(rawText);
-    // ביטול רווחים לפני סוגר פותח של הערה כדי להדביק אותה למילה שלפניה (מונע שבירת שורה ויתמות)
+
     const fnOpen = document.getElementById('fn-delim-open')?.value?.trim() || '[';
     if (fnOpen) {
         const escO = fnOpen.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        // הערה שנכתבה (גם בשורה נפרדת) לפני סימן הפתיחה מוצמדת למילה שלפניה — תכונה מכוונת של המנוע:
+        // כך אפשר לכתוב הערה בשורה משלה מתחת לפסקה שאליה היא שייכת.
         rawText = rawText.replace(new RegExp('\\s+(' + escO + ')', 'g'), '$1');
     }
     const autoSimanH2 = document.getElementById('h2-auto-siman')?.checked ?? false;
@@ -3455,14 +1749,6 @@ function typesetDocumentCore() {
 
     const h2OrnTopStyle = document.getElementById('h2-ornament-top-style')?.value || 'none';
     const h2OrnBtmStyle = document.getElementById('h2-ornament-bottom-style')?.value || 'none';
-    const h2OrnScope = document.getElementById('h2-orn-scope')?.value || 'both';
-    // [תיקון] עיטורים נפרדים לכותרת (כש-h2-orn-scope=separate)
-    const h2TitleOrnTopStyle = document.getElementById('h2-title-ornament-top-style')?.value || 'none';
-    const h2TitleOrnBtmStyle = document.getElementById('h2-title-ornament-bottom-style')?.value || 'none';
-    // [תיקון] עיטורי צד לכותרת
-    const h2TitleOrnMode = document.getElementById('h2-title-orn-mode')?.value || 'none';
-    const h2TitleOrnR = document.getElementById('h2-title-ornament-r')?.value || 'none';
-    const h2TitleOrnL = document.getElementById('h2-title-ornament-l')?.value || 'none';
     const h3OrnR = document.getElementById('h3-ornament-r')?.value || 'none';
     const h3OrnL = document.getElementById('h3-ornament-l')?.value || 'none';
     const colDividerStyle = document.getElementById('col-divider-style')?.value || 'none';
@@ -3479,21 +1765,34 @@ function typesetDocumentCore() {
     globalTokens = tokens;
     let pendingSideNote = null;
     let pendingSideNoteStyleId = null;
-    let pendingSideNoteLevel = null;   // רמת הכותרת שהפכה להערת צד (5/6 במצב "כותרת צד"); null = כותרת 7 רגילה
     let pendingEndNote = null;
     let pendingRunInHeading = null;
     lineToTokenMap = [];
 
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-        const line = lines[lineIdx].trim();
+        let line = lines[lineIdx].trim();
         if (!line) {
             lineToTokenMap[lineIdx] = null;
             continue;
         }
 
+        // הערת-שוליים/סיום עשויה להיפתח בשורה אחת ולהיסגר רק בשורה מאוחרת
+        // יותר — מאחדים שורות רצופות עד שכל delimiter פתוח נסגר. עוצרים
+        // בשורה ריקה גם אם עדיין לא נסגר, כדי שסוגר ] ששכחו לא יבלע את כל
+        // המשך המסמך.
+        const mergedIndices = [lineIdx];
+        while (hasUnclosedDelimiter(line, 'body') && lineIdx + 1 < lines.length) {
+            const nextRaw = lines[lineIdx + 1].trim();
+            if (!nextRaw) break;
+            lineIdx++;
+            line += ' ' + nextRaw;
+            mergedIndices.push(lineIdx);
+        }
+        const mapMerged = (tokenId) => mergedIndices.forEach(idx => { lineToTokenMap[idx] = tokenId; });
+
         if (enLinePrefix && line.startsWith(enLinePrefix)) {
-            pendingEndNote = line.slice(enLinePrefix.length).replace(/^\s*[:\-–—]\s*/, '').trim();
-            lineToTokenMap[lineIdx] = null;
+            pendingEndNote = line.slice(enLinePrefix.length).replace(/^[:\-–—]\s*/, '').trim();
+            mapMerged(null);
             continue;
         }
 
@@ -3501,24 +1800,15 @@ function typesetDocumentCore() {
         if (hMatch) {
             const lvl = parseInt(hMatch[1], 10);
             const txt = hMatch[2].trim();
-            const hModeSel = document.getElementById('mode-h' + lvl)?.value;
-            if (lvl === 7 && hModeSel !== 'inline_2col') {
-                // כותרת 7 היא הערת צד, אלא אם נבחר "רציף ב-2 טורים" - אז היא כותרת רגילה בתוך הטור
+            if (lvl === 7 && (document.getElementById('mode-h7')?.value || 'side_note') === 'side_note') {
                 pendingSideNote = txt;
                 pendingSideNoteStyleId = null;
-                pendingSideNoteLevel = null;
-                lineToTokenMap[lineIdx] = null;
-            } else if ((lvl === 5 || lvl === 6) && hModeSel === 'side_note') {
-                // [חדש] כותרת 5/6 במצב "כותרת צד": עוברת לשוליים מול הפסקה שאחריה, בעיצוב של הרמה שלה
-                pendingSideNote = txt;
-                pendingSideNoteStyleId = null;
-                pendingSideNoteLevel = lvl;
-                lineToTokenMap[lineIdx] = null;
+                mapMerged(null);
             } else {
                 const hMode = document.getElementById('mode-h' + lvl)?.value;
                 if (hMode === 'run_in') {
                     pendingRunInHeading = { level: lvl, text: txt, lineIdx: lineIdx };
-                    lineToTokenMap[lineIdx] = null;
+                    mapMerged(null);
                 } else {
                     const tokenObj = {
                         id: tokens.length,
@@ -3528,7 +1818,7 @@ function typesetDocumentCore() {
                         lineIdx: lineIdx
                     };
                     tokens.push(tokenObj);
-                    lineToTokenMap[lineIdx] = tokenObj.id;
+                    mapMerged(tokenObj.id);
                 }
             }
         } else {
@@ -3539,7 +1829,7 @@ function typesetDocumentCore() {
                     if (trig && trig.type === 'linePrefix' && trig.prefix && line.startsWith(trig.prefix)) {
                         customMatch = {
                             inst,
-                            text: line.slice(trig.prefix.length).replace(/^\s*[:\-–—]\s*/, '').trim()
+                            text: line.slice(trig.prefix.length).replace(/^[:\-–—]\s*/, '').trim()
                         };
                         break;
                     }
@@ -3548,12 +1838,11 @@ function typesetDocumentCore() {
             if (customMatch) {
                 if (customMatch.inst.def.target === 'endnote') {
                     pendingEndNote = customMatch.text;
-                    lineToTokenMap[lineIdx] = null;
+                    mapMerged(null);
                 } else if (customMatch.inst.def.layoutMode === 'side_note') {
                     pendingSideNote = customMatch.text;
                     pendingSideNoteStyleId = customMatch.inst.instanceId;
-                    pendingSideNoteLevel = null;
-                    lineToTokenMap[lineIdx] = null;
+                    mapMerged(null);
                 } else if (customMatch.inst.def.layoutMode === 'run_in') {
                     pendingRunInHeading = {
                         level: customMatch.inst.syntheticLevel,
@@ -3561,7 +1850,7 @@ function typesetDocumentCore() {
                         lineIdx: lineIdx,
                         customStyleId: customMatch.inst.instanceId
                     };
-                    lineToTokenMap[lineIdx] = null;
+                    mapMerged(null);
                 } else {
                     const lvl = customMatch.inst.syntheticLevel;
                     const tokenObj = {
@@ -3573,12 +1862,12 @@ function typesetDocumentCore() {
                         customStyleId: customMatch.inst.instanceId
                     };
                     tokens.push(tokenObj);
-                    lineToTokenMap[lineIdx] = tokenObj.id;
+                    mapMerged(tokenObj.id);
                 }
             } else {
                 let paragraphText = line;
                 if (pendingRunInHeading) {
-                    paragraphText = buildRunInHeadingHTML(pendingRunInHeading) + ' ' + paragraphText;
+                    paragraphText = `<span class="heading-run-in title-level-${pendingRunInHeading.level}">${pendingRunInHeading.text}</span> ` + paragraphText;
                     pendingRunInHeading = null;
                 }
 
@@ -3588,15 +1877,13 @@ function typesetDocumentCore() {
                     text: paragraphText,
                     sideNote: pendingSideNote,
                     sideNoteStyleId: pendingSideNoteStyleId,
-                    sideNoteLevel: pendingSideNote ? pendingSideNoteLevel : null,
                     endNote: pendingEndNote,
                     lineIdx: lineIdx
                 };
                 tokens.push(tokenObj);
-                lineToTokenMap[lineIdx] = tokenObj.id;
+                mapMerged(tokenObj.id);
                 pendingSideNote = null;
                 pendingSideNoteStyleId = null;
-                pendingSideNoteLevel = null;
                 pendingEndNote = null;
             }
         }
@@ -3669,23 +1956,8 @@ function typesetDocumentCore() {
         sections.push(currentSection);
     }
 
-    // [חדש] Pre-pass: סמן כל פסקה (token מסוג 'p') שנמצאת בתוך עומק סוגריים פתוחות.
-    // ספירת העומק היא גלובלית — עוברת דרך כל ה-sections והטוקנים בסדר מסמך.
-    // פסקה שנמצאת בעומק > 0 (כלומר, יש ( פתוחות שלא נסגרו לפניה) מקבלת insideParen=true.
-    // אחר כך createDropWord משתמש בזה כדי לדלג על עיצוב מילה ראשונה.
-    window._insideParenMap = markInsideParenParagraphs(sections);
-
     const gtocShows = Array.from(document.querySelectorAll('.gtoc-show:checked')).map(cb => parseInt(cb.value, 10));
     const gtocGroups = Array.from(document.querySelectorAll('.gtoc-grp:checked')).map(cb => parseInt(cb.value, 10));
-    // [תיקון] בארכיטקטורת iframe, ה-checkboxים של תוכן העניינים לא נוצרים ב-iframe.
-    // במקום זאת, הערכים מועברים דרך hidden inputs: gtoc-shows, gtoc-groups (מופרדים בפסיקים).
-    // אם אין checkboxים (iframe), קרא מה-hidden inputs.
-    if (gtocShows.length === 0) {
-        const showsVal = document.getElementById('gtoc-shows')?.value;
-        const groupsVal = document.getElementById('gtoc-groups')?.value;
-        if (showsVal) showsVal.split(',').forEach(v => { if (v) gtocShows.push(parseInt(v, 10)); });
-        if (groupsVal) groupsVal.split(',').forEach(v => { if (v) gtocGroups.push(parseInt(v, 10)); });
-    }
     if (typeof importedTextStyles !== 'undefined') {
         importedTextStyles.forEach(inst => {
             if (inst.syntheticLevel != null && inst.def.toc && inst.def.toc.include) {
@@ -3701,8 +1973,6 @@ function typesetDocumentCore() {
     let currentH2Title = '';
     let currentH3Title = '';
     let currentH4Title = '';
-    // [חדש] מעקב אחרי הכותרת הקודמת מכל רמה — לעיטורי הפרדה
-    const lastHeadingSeen = {1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null};
 
     const bookTitle = document.getElementById('inp-book-title')?.value || "ספר";
     const showMainShaar = document.getElementById('show-main-shaar')?.checked ?? true;
@@ -3716,6 +1986,7 @@ function typesetDocumentCore() {
     const customC = document.getElementById('hdr-c-custom')?.value || '';
     const customL = document.getElementById('hdr-l-custom')?.value || '';
 
+    /* רינדור שערים וספירת מספור עמודים */
     if (showMainShaar) {
         renderExtAnchor(container, 'beforeAll', rawText);
         renderMainShaar(container, activeThemeId, pageIndex);
@@ -3730,13 +2001,11 @@ function typesetDocumentCore() {
         if (document.getElementById('back-shaar-count-numbering')?.checked) pageIndex++;
     }
 
+    /* תוכן עניינים כללי (כולל שחזור בקרת מספור מגרסה 2) */
     if (enableGeneralTOC) {
         const generalTocEntries = buildStructuredTOC(tokens, gtocShows, gtocGroups);
-        // [תיקון] general-toc-show-numbering — האם להציג מספר עמוד על תוכן כללי
-        const gtocShowNumber = document.getElementById('general-toc-show-numbering')?.checked ?? true;
-        const pagesRendered = renderPaginatedTOC(container, generalTocEntries, "תוכן עניינים כללי", bookTitle, "תוכן עניינים כללי", pageIndex, "תוכן עניינים כללי", "תוכן עניינים כללי", "gtoc", gtocShowNumber);
-        // [תיקון] general-toc-count-numbering — האם עמודי תוכן כללי נכללים ברצף המספור
-        if (document.getElementById('general-toc-count-numbering')?.checked ?? true) {
+        const pagesRendered = renderPaginatedTOC(container, generalTocEntries, "תוכן עניינים כללי", bookTitle, "תוכן עניינים כללי", pageIndex, "תוכן עניינים כללי", "תוכן עניינים כללי", "gtoc");
+        if (document.getElementById('general-toc-count-numbering')?.checked !== false) {
             pageIndex += pagesRendered;
         }
     }
@@ -3748,17 +2017,19 @@ function typesetDocumentCore() {
         lineHeight: getComputedStyle(document.documentElement).getPropertyValue('--line-height-body') || '1.34'
     };
 
-    // (getFootnotesReservedHeight מוגדרת עכשיו ברמת הקובץ ומודדת את אזור ההערות המלא בדיוק)
+    let blockReserveFloor = 0, blockRedoCount = 0, blockNoBalance = false;
+    let forceProgress = false, forceReserveCap = Infinity;
+    function getFootnotesReservedHeight() {
+        if (!footnoteQueueForPage.length) return Math.min(blockReserveFloor, forceReserveCap);
+        const cfg0 = getNoteConfig(footnoteQueueForPage[0].styleId);
+        const colCount = parseInt(document.getElementById('fn-columns')?.value, 10) || cfg0.columns || 1;
+        const titleText = document.getElementById('fn-title-text')?.value?.trim();
+        const headerH = titleText ? 24 : 0;
+        return Math.min(Math.max(measureNoteBlockHeight(footnoteQueueForPage, colCount) + 24 + headerH, blockReserveFloor), forceReserveCap);
+    }
 
     let hasOpenPart = false;
     let prevPageEl = null;
-
-    /* ניסיון חוזר ברמת עמוד: הערות שוליים שנכנסות לעמוד דרך פסקה בטור השמאלי מקטינות את הגובה הפנוי
-       לשני הטורים, אבל הטור הימני כבר מולא בגובה הגדול יותר (ההערה עוד לא הייתה ידועה).
-       בסוף העמוד בודקים אם השטח הפנוי מכסה את אזור ההערות בפועל; אם לא - בונים את העמוד מחדש
-       כשהשטח שנשמר להערות נקבע מראש כגובה האמיתי שנמצא. */
-    let pageReserveFloor = 0, redoAttempts = 0, redoPending = false;
-    const reservedNow = (txt) => Math.max(getFootnotesReservedHeight(txt), pageReserveFloor);
 
     for (let sIdx = 0; sIdx < sections.length; sIdx++) {
         const sec = sections[sIdx];
@@ -3790,10 +2061,7 @@ function typesetDocumentCore() {
                 pageIndex++;
             }
 
-            // [תיקון] שם החלק לכותרת העליונה = החלק הראשון של כותרת 1 (לפני המקף הראשון),
-            // בדיוק כמו titleMain ב-renderSubShaar (החלק העליון של שער המשנה).
-            // למשל: "כותרת 1 מספר 1 - הקדמות וכללים - יום השבת" → "כותרת 1 מספר 1".
-            currentH1Title = extractH1TitleMain(sec.token.text);
+            currentH1Title = sec.token.text.split(/[-–—]/)[0].trim();
             headingPageMap[sec.token.id] = toGematria(pageIndex);
 
             if (enableDetailedTOC) {
@@ -3807,13 +2075,6 @@ function typesetDocumentCore() {
 
                 const dtocShows = Array.from(document.querySelectorAll('.dtoc-show:checked')).map(cb => parseInt(cb.value, 10));
                 const dtocGroups = Array.from(document.querySelectorAll('.dtoc-grp:checked')).map(cb => parseInt(cb.value, 10));
-                // [תיקון] בארכיטקטורת iframe, קרא מ-hidden inputs אם אין checkboxים
-                if (dtocShows.length === 0) {
-                    const showsVal = document.getElementById('dtoc-shows')?.value;
-                    const groupsVal = document.getElementById('dtoc-groups')?.value;
-                    if (showsVal) showsVal.split(',').forEach(v => { if (v) dtocShows.push(parseInt(v, 10)); });
-                    if (groupsVal) groupsVal.split(',').forEach(v => { if (v) dtocGroups.push(parseInt(v, 10)); });
-                }
                 if (typeof importedTextStyles !== 'undefined') {
                     importedTextStyles.forEach(inst => {
                         if (inst.syntheticLevel != null && inst.def.toc && inst.def.toc.include) {
@@ -3823,12 +2084,8 @@ function typesetDocumentCore() {
                     });
                 }
                 const detailedTocEntries = buildStructuredTOC(thisH1Tokens, dtocShows, dtocGroups);
-                // [תוקן] הפרמטר הרביעי הוא שם הספר (קודם הועבר כאן שם החלק, ולכן כותרת עליונה מסוג "שם הספר" הציגה את שם החלק בתוכן המפורט)
-                // [תיקון] detailed-toc-show-numbering — האם להציג מספר עמוד על תוכן מפורט
-                const dtocShowNumber = document.getElementById('detailed-toc-show-numbering')?.checked ?? true;
-                const dtocPages = renderPaginatedTOC(container, detailedTocEntries, "תוכן עניינים מפורט", bookTitle, "תוכן עניינים מפורט", pageIndex, currentH1Title, "תוכן עניינים מפורט", "dtoc", dtocShowNumber);
-                // [תיקון] detailed-toc-count-numbering — האם עמודי תוכן מפורט נכללים ברצף המספור
-                if (document.getElementById('detailed-toc-count-numbering')?.checked ?? true) {
+                const dtocPages = renderPaginatedTOC(container, detailedTocEntries, "תוכן עניינים מפורט", bookTitle, currentH1Title, pageIndex, currentH1Title, "תוכן עניינים מפורט", "dtoc");
+                if (document.getElementById('detailed-toc-count-numbering')?.checked !== false) {
                     pageIndex += dtocPages;
                 }
             }
@@ -3840,15 +2097,6 @@ function typesetDocumentCore() {
         let rawH2Text = sec.isNewPage ? sec.hToken.text : '';
         let h2Id = sec.isNewPage ? sec.hToken.id : undefined;
         let isH0 = sec.isNewPage && sec.hToken.level === 0 && !sec.is2ColNewPage;
-
-        // [תיקון] עדכן currentH1Title כשהכותרת הפותחת של ה-section היא level 1 (במצב שאינו sub_shaar).
-        // קודם, currentH1Title התעדכן רק במקרה sub_shaar (שורה 3394). במקרה הרגיל (new_page_1col / new_page_2col),
-        // כותרת level 1 לא עודכנה ב-currentH1Title, ולכן הכותרת העליונה שמוגדרת כ-h1 הייתה ריקה.
-        // [תיקון נוסף] משתמשים ב-extractH1TitleMain כדי לקבל רק את החלק הראשון (לפני המקף הראשון),
-        // בדיוק כמו titleMain ב-renderSubShaar.
-        if (sec.isNewPage && sec.hToken && sec.hToken.level === 1) {
-            currentH1Title = extractH1TitleMain(sec.hToken.text);
-        }
 
         let simanLabel = '';
         let displayH2Text = rawH2Text;
@@ -3865,33 +2113,26 @@ function typesetDocumentCore() {
             currentH2Title = h2Text;
             headingPageMap[h2Id] = toGematria(pageIndex);
             resetNoteCounterIfNeeded('footnote', 'siman');
-            // [חדש] נקה את lastHeadingSeen עבור רמות נמוכות יותר
-            // (כותרת חדשה מרמה גבוהה סוגרת את הקטע הקודם)
-            if (sec.hToken) {
-                lastHeadingSeen[sec.hToken.level] = sec.hToken.id;
-                for (let l = sec.hToken.level + 1; l <= 7; l++) {
-                    lastHeadingSeen[l] = null;
-                }
-            }
         }
 
         let secTokens = sec.tokens.slice();
         let tokenIndex = 0;
+        let lastPageProgKey = '', stuckPages = 0;
         let pendingWordTokens = null;
+        const sectionFillRatio = (document.getElementById('balance-chapter-end')?.value === 'yes')
+            ? estimateSectionFillRatio(secTokens, headingModes) : 1;
 
         while (tokenIndex < secTokens.length || pendingWordTokens) {
             if (prevPageEl) flushFootnotesInto(prevPageEl);
+            blockReserveFloor = 0; blockRedoCount = 0; blockNoBalance = false;
+            {
+                const progKey = tokenIndex + ':' + (pendingWordTokens ? pendingWordTokens.token.id + ':' + pendingWordTokens.remainingLines.length : '-');
+                stuckPages = (progKey === lastPageProgKey) ? stuckPages + 1 : 0;
+                lastPageProgKey = progKey;
+                forceProgress = stuckPages >= 1;
+                forceReserveCap = forceProgress ? (pageLayout && pageLayout.bodyFlow ? (pageLayout.bodyFlow.clientHeight || 870) * 0.4 : 350) : Infinity;
+            }
             if (isFirstPage && h2Text && sec.hToken) ensureOddPageStart(sec.hToken.level);
-
-            if (!redoPending) { pageReserveFloor = 0; redoAttempts = 0; }
-            redoPending = false;
-            const pageState = {
-                tokenIndex, pendingWordTokens, isFirstPage, pageIndex,
-                fnQ: footnoteQueueForPage.length, enQ: endnoteQueueForPart.length,
-                cFn: noteCounters.footnote, cEn: noteCounters.endnote, uid: noteUidCounter,
-                h1: currentH1Title, h2: currentH2Title, h3: currentH3Title, h4: currentH4Title,
-                prevPageEl
-            };
 
             const pageRole = isFirstPage ? (isH0 ? 'h0Open' : (h2Text ? 'h2Open' : 'regular')) : 'regular';
             const pageContext = {
@@ -3910,7 +2151,7 @@ function typesetDocumentCore() {
                 recordPageBreak(pageIndex - 1, firstLineIdxOnPage);
             }
 
-            let totalFlowH = pageLayout.bodyFlow.clientHeight || 870;
+            let totalFlowH = (pageLayout.bodyFlow.clientHeight || 870) * sectionFillRatio;
             let used = 0;
 
             if (isFirstPage && h2Text) {
@@ -3923,8 +2164,6 @@ function typesetDocumentCore() {
                     } else if (displayH2Text) {
                         title.textContent = displayH2Text;
                     }
-                    // [חדש] עבד delimiters + parens בכותרת H2 (תומך בסוגריים בכותרת)
-                    applyDelimiterStyles(title, 'h2', getHostSizePt(2, sec.hToken.customStyleId), false);
 
                     let simanElem = null;
                     if (simanLabel) {
@@ -3934,75 +2173,74 @@ function typesetDocumentCore() {
                         title.parentNode.insertBefore(simanElem, title);
                     }
 
-                    // טיפול בתחולת עיטורי כותרת 2 (4 מצבים: both / siman_only / title_only / separate)
-                    // [תיקון מהותי] 4 אפשרויות תחולה + עיטורים נפרדים לכותרת + עיטורי צד
                     const topOrnHTML = (h2OrnTopStyle && h2OrnTopStyle !== 'none') ? getHeadingOrnamentHTML(h2OrnTopStyle, true, true) : '';
                     const btmOrnHTML = (h2OrnBtmStyle && h2OrnBtmStyle !== 'none') ? getHeadingOrnamentHTML(h2OrnBtmStyle, false, true) : '';
-                    // עיטורים נפרדים לכותרת (רק כש-separate)
-                    const titleTopOrnHTML = (h2OrnScope === 'separate' && h2TitleOrnTopStyle && h2TitleOrnTopStyle !== 'none')
-                        ? getHeadingOrnamentHTML(h2TitleOrnTopStyle, true, true) : '';
-                    const titleBtmOrnHTML = (h2OrnScope === 'separate' && h2TitleOrnBtmStyle && h2TitleOrnBtmStyle !== 'none')
-                        ? getHeadingOrnamentHTML(h2TitleOrnBtmStyle, false, true) : '';
 
-                    // פונקציית עזר — צור והכנס אלמנט עיטור
-                    function insertOrn(html, className, insertBefore) {
-                        if (!html) return;
+                    if (topOrnHTML) {
                         const ornWrap = document.createElement('div');
-                        ornWrap.className = className;
-                        ornWrap.innerHTML = html;
-                        insertBefore.parentNode.insertBefore(ornWrap, insertBefore);
+                        ornWrap.className = 'h2-ornament-top';
+                        ornWrap.innerHTML = topOrnHTML;
+                        const insertTarget = simanElem || title;
+                        insertTarget.parentNode.insertBefore(ornWrap, insertTarget);
+                    }
+                    if (btmOrnHTML) {
+                        const ornWrap = document.createElement('div');
+                        ornWrap.className = 'h2-ornament-bottom';
+                        ornWrap.innerHTML = btmOrnHTML;
+                        const insertAfter = simanElem || title;
+                        insertAfter.parentNode.insertBefore(ornWrap, insertAfter === title ? title.nextSibling : title);
                     }
 
-                    if (h2OrnScope === 'both' || !simanElem) {
-                        // על סימן וכותרת יחד: עליון מעל הסימן, תחתון מתחת לכותרת
-                        insertOrn(topOrnHTML, 'h2-ornament-top', simanElem || title);
-                        insertOrn(btmOrnHTML, 'h2-ornament-bottom', title.nextSibling);
-                    } else if (h2OrnScope === 'siman_only') {
-                        // רק על הסימן: עליון מעל הסימן, תחתון מתחת לסימן (לפני הכותרת)
-                        insertOrn(topOrnHTML, 'h2-ornament-top', simanElem);
-                        insertOrn(btmOrnHTML, 'h2-ornament-bottom', title);
-                    } else if (h2OrnScope === 'title_only') {
-                        // רק על הכותרת: עליון מעל הכותרת, תחתון מתחת לכותרת
-                        insertOrn(topOrnHTML, 'h2-ornament-top', title);
-                        insertOrn(btmOrnHTML, 'h2-ornament-bottom', title.nextSibling);
-                    } else if (h2OrnScope === 'separate') {
-                        // נפרד: עיטורי סימן סביב הסימן + עיטורי כותרת נפרדים סביב הכותרת
-                        insertOrn(topOrnHTML, 'h2-ornament-top', simanElem);
-                        insertOrn(btmOrnHTML, 'h2-ornament-bottom', title);
-                        insertOrn(titleTopOrnHTML, 'h2-title-ornament-top', title);
-                        insertOrn(titleBtmOrnHTML, 'h2-title-ornament-bottom', title.nextSibling);
-                    }
-
-                    // [חדש] עיטורי צד לכותרת (כש-h2-title-orn-mode=side)
-                    if (h2TitleOrnMode === 'side' && (h2TitleOrnR !== 'none' || h2TitleOrnL !== 'none')) {
-                        const sideWrap = document.createElement('div');
-                        sideWrap.className = 'block-h2-title-side';
-                        title.parentNode.insertBefore(sideWrap, title);
-                        sideWrap.appendChild(title);
-                        if (h2TitleOrnR !== 'none' && typeof renderSideOrnamentHTML === 'function') {
-                            const rElem = document.createElement('span');
-                            rElem.className = 'h2-title-ornament-right';
-                            rElem.innerHTML = renderSideOrnamentHTML(h2TitleOrnR, false, 'h2title');
-                            sideWrap.appendChild(rElem);
+                    const h2TitleOrnMode = document.getElementById('h2-title-orn-mode')?.value || 'none';
+                    if (h2TitleOrnMode === 'top_bottom') {
+                        const titleTopStyle = document.getElementById('h2-title-ornament-top-style')?.value || 'none';
+                        const titleBtmStyle = document.getElementById('h2-title-ornament-bottom-style')?.value || 'none';
+                        const titleTopHTML = (titleTopStyle !== 'none') ? getHeadingOrnamentHTML(titleTopStyle, true, true) : '';
+                        const titleBtmHTML = (titleBtmStyle !== 'none') ? getHeadingOrnamentHTML(titleBtmStyle, false, true) : '';
+                        if (titleTopHTML) {
+                            const ornWrap = document.createElement('div');
+                            ornWrap.className = 'h2-ornament-top';
+                            ornWrap.innerHTML = titleTopHTML;
+                            title.parentNode.insertBefore(ornWrap, title);
                         }
-                        if (h2TitleOrnL !== 'none' && typeof renderSideOrnamentHTML === 'function') {
-                            const lElem = document.createElement('span');
-                            lElem.className = 'h2-title-ornament-left';
-                            lElem.innerHTML = renderSideOrnamentHTML(h2TitleOrnL, true, 'h2title');
-                            sideWrap.appendChild(lElem);
+                        if (titleBtmHTML) {
+                            const ornWrap = document.createElement('div');
+                            ornWrap.className = 'h2-ornament-bottom';
+                            ornWrap.innerHTML = titleBtmHTML;
+                            title.parentNode.insertBefore(ornWrap, title.nextSibling);
                         }
-                    }
-
-                    // [חדש] התאמת רוחב העיטורים לרוחב טקסט הכותרת (כשהאפשרות מסומנת)
-                    if (document.getElementById('h2-orn-fit-text')?.checked && (topOrnHTML || btmOrnHTML || titleTopOrnHTML || titleBtmOrnHTML)) {
-                        fitH2OrnamentsToText(pageLayout.bodyFlow, h2OrnScope, simanElem, title);
+                    } else if (h2TitleOrnMode === 'side' && typeof renderSideOrnamentHTML === 'function') {
+                        const titleOrnR = document.getElementById('h2-title-ornament-r')?.value || 'none';
+                        const titleOrnL = document.getElementById('h2-title-ornament-l')?.value || 'none';
+                        const ornRHTML = renderSideOrnamentHTML(titleOrnR, false, 'h2title');
+                        const effectiveL = (titleOrnL !== 'none') ? titleOrnL : titleOrnR;
+                        const ornLHTML = renderSideOrnamentHTML(effectiveL, true, 'h2title');
+                        if (ornRHTML || ornLHTML) {
+                            const sideWrap = document.createElement('div');
+                            sideWrap.className = 'block-h2-title-side';
+                            title.parentNode.insertBefore(sideWrap, title);
+                            if (ornRHTML) {
+                                const ornR = document.createElement('div');
+                                ornR.className = 'h2-title-ornament-right';
+                                ornR.innerHTML = ornRHTML;
+                                sideWrap.appendChild(ornR);
+                            }
+                            sideWrap.appendChild(title);
+                            if (ornLHTML) {
+                                const ornL = document.createElement('div');
+                                ornL.className = 'h2-title-ornament-left';
+                                ornL.innerHTML = ornLHTML;
+                                sideWrap.appendChild(ornL);
+                            }
+                        }
                     }
                 }
 
-                if (spacer) used += layoutHeightOf(spacer);
-                const headerEls = pageLayout.bodyFlow.querySelectorAll('.h2-ornament-top, .h2-siman-badge, .title-level-2-standalone, .h2-ornament-bottom');
+                if (spacer) used += spacer.offsetHeight;
+                const headerEls = pageLayout.bodyFlow.querySelectorAll('.h2-ornament-top, .h2-siman-badge, .title-level-2-standalone, .h2-ornament-bottom, .block-h2-title-side');
                 headerEls.forEach(el => {
-                    used += layoutHeightOf(el);
+                    if (el.closest('.block-h2-title-side') && el.classList.contains('title-level-2-standalone')) return;
+                    used += el.offsetHeight;
                     const st = window.getComputedStyle(el);
                     used += (parseFloat(st.marginTop) || 0) + (parseFloat(st.marginBottom) || 0);
                 });
@@ -4011,51 +2249,8 @@ function typesetDocumentCore() {
             let remPageHeight = isFirstPage ? (totalFlowH - used) : totalFlowH;
             isFirstPage = false;
 
-            const redoCheck = () => {
-                const reserve = getFootnotesReservedHeight();
-                if (!reserve || remPageHeight - reserve >= -0.5 || redoAttempts >= 2) return false;
-                if (pageLayout.page.parentNode) pageLayout.page.parentNode.removeChild(pageLayout.page);
-                tokenIndex = pageState.tokenIndex;
-                pendingWordTokens = pageState.pendingWordTokens;
-                isFirstPage = pageState.isFirstPage;
-                pageIndex = pageState.pageIndex;
-                footnoteQueueForPage.length = pageState.fnQ;
-                endnoteQueueForPart.length = pageState.enQ;
-                noteCounters.footnote = pageState.cFn;
-                noteCounters.endnote = pageState.cEn;
-                noteUidCounter = pageState.uid;
-                currentH1Title = pageState.h1; currentH2Title = pageState.h2;
-                currentH3Title = pageState.h3; currentH4Title = pageState.h4;
-                prevPageEl = pageState.prevPageEl;
-                pageReserveFloor = reserve;
-                redoAttempts++;
-                redoPending = true;
-                return true;
-            };
-
-            /* [חדש] ישור תחתית העמוד: בעמוד שהפרק ממשיך אחריו, הרווח שנשאר מתחת לבלוק האחרון נפרס על הרווחים
-               שבין הפסקאות, כך שכל העמודים נגמרים על אותו קו תחתון (בלי "שיניים" בתחתית העמוד).
-               העמוד האחרון בפרק אינו נמתח (שם סיום לא-מלא הוא תקין).
-               [Option C] המתיחה נשארת מלאה (עד תחתית השטח הפנוי) — לא מפחיתים ORPHAN_RECLAIM_BUFFER
-               כאן. הבאפר ממומש ב-tryReclaimOrphanTail עצמה, שמאפשרת לבלוק לגלוש עד ORPHAN_RECLAIM_BUFFER
-               פיקסלים מתחת לתחתית הרגילה כשזה הכרחי למשיכת יתום. כך המתיחה נשארת מלאה (קצב אחיד)
-               והבאפר משמש רק כ"מרווח חירום" בעמודים שבהם יש יתום. */
-            const stretchPageToBottom = () => {
-                if (!(tokenIndex < secTokens.length || pendingWordTokens)) return;
-                const flow = pageLayout.bodyFlow;
-                const lastEl = flow.lastElementChild;
-                if (!lastEl || !(lastEl.classList.contains('block-2col') || lastEl.classList.contains('block-single-col'))) return;
-                const flowBottom = flow.getBoundingClientRect().top + totalFlowH;
-                // [תיקון רגרסיה קריטי — מניעת overshoot של 50+px]
-                // השתמש ב-flow.clientHeight במקום ב-rect.height, כי scrollHeight יכול להיות גדול יותר מ-clientHeight
-                // כשיש כבר overflow מבלוקים קודמים. אם נשתמש ב-rect.height (ששווה ל-clientHeight), נקבל יעד נכון.
-                // אבל אם ה-lastEl עצמו כבר חורג, נקבל free שלילי ולא נמתח — וזה בדיוק מה שאנחנו רוצים.
-                const lastElBottom = lastEl.getBoundingClientRect().bottom;
-                const free = (flowBottom - reservedNow()) - lastElBottom - 1;
-                if (free <= 0.5) return; // אין מקום למתיחה — אל תמתח
-                stretchLastBlockToBottom(flow, free, styleObj, PAGE_STRETCH_MAX);
-            };
-                        if (isH0) {
+            /* מקרה הקדמה (כותרת 0 - טור יחיד רחב) */
+            if (isH0) {
                 const singleBlock = document.createElement('div');
                 singleBlock.className = 'block-single-col';
                 singleBlock.innerHTML = `<div class="single-wide-col"></div>`;
@@ -4063,40 +2258,13 @@ function typesetDocumentCore() {
                 const targetCol = singleBlock.querySelector('.single-wide-col');
                 let pageHasContent = false;
 
-                /* [תיקון] מדידת השורות לפי הרוחב והגופן האמיתיים של טור ההקדמה. קודם נמדד תמיד ברוחב 580px ובגופן
-                   גוף הספר, בעוד הטור ברוחב אחר ובגופן "טקסט כותרת 0" - ולכן שורה אחרונה של חלק חתוך (בתחתית עמוד)
-                   נחתכה באמצע שורה אמיתית ו"נמתחה" על כל הרוחב. */
-                const h0RootCs = window.getComputedStyle(document.documentElement);
-                const h0Style = {
-                    fontFamily: h0RootCs.getPropertyValue('--fn-h0-body') || styleObj.fontFamily,
-                    fontSize: h0RootCs.getPropertyValue('--sz-h0-body') || styleObj.fontSize,
-                    lineHeight: styleObj.lineHeight
-                };
-                const h0ColWidth = exactWidthOf(targetCol) || 580;
-                /* [תיקון] הערות צד והערות סיום בהקדמה: קודם נעלמו בשקט. שוליים להערות נוצרים רק כשיש הערת צד,
-                   כך שהקדמה בלי הערות נשארת זהה לחלוטין. */
-                let h0Margin = null;
-                const h0PendingNotes = [];
-
                 while (tokenIndex < secTokens.length || pendingWordTokens) {
-                    const currentAvailH = remPageHeight - reservedNow();
-                    if (targetCol.scrollHeight >= currentAvailH - 10 && targetCol.children.length > 0) {
-                        tokenIndex -= rollbackTrailingHeadings(targetCol);
-                        break;
-                    }
+                    const currentAvailH = remPageHeight - getFootnotesReservedHeight();
+                    if (targetCol.scrollHeight >= currentAvailH - 10 && targetCol.children.length > 0) break;
 
                     let currentTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
 
                     if (currentTok.type.startsWith('h')) {
-                        // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה (ואין כותרת גבוהה יותר בינתיים)
-                        const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
-                        if (dividerHTML) {
-                            const divEl = document.createElement('div');
-                            divEl.innerHTML = dividerHTML;
-                            const divChild = divEl.firstElementChild;
-                            if (divChild) targetCol.appendChild(divChild);
-                        }
-
                         if (currentTok.level === 3) currentH3Title = currentTok.text;
                         if (currentTok.level === 4) currentH4Title = currentTok.text;
                         const hElem = document.createElement('div');
@@ -4112,93 +2280,85 @@ function typesetDocumentCore() {
                         applyDelimiterStyles(hElem, 'h' + currentTok.level, getHostSizePt(currentTok.level, currentTok.customStyleId), false);
                         targetCol.appendChild(hElem);
 
-                        if (targetCol.scrollHeight > (remPageHeight - reservedNow()) && targetCol.children.length > 1) {
+                        if (targetCol.scrollHeight > (remPageHeight - getFootnotesReservedHeight()) && targetCol.children.length > 1) {
                             targetCol.removeChild(hElem);
-                            // [חדש] הסר גם את עיטור ההפרדה אם הוכנס
-                            const lastDiv = targetCol.lastElementChild;
-                            if (lastDiv && lastDiv.classList.contains('heading-divider-wrap')) {
-                                targetCol.removeChild(lastDiv);
-                            }
-                            tokenIndex -= rollbackTrailingHeadings(targetCol);
                             break;
                         }
                         headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
-                        // [חדש] עדכן את הכותרת הקודמת מרמה זו, ונקה כותרות נמוכות יותר
-                        // (כי כותרת נמוכה יותר כבר לא באותו קטע)
-                        lastHeadingSeen[currentTok.level] = currentTok.id;
-                        for (let l = currentTok.level + 1; l <= 7; l++) {
-                            lastHeadingSeen[l] = null;
-                        }
                         tokenIndex++;
                         continue;
                     }
 
                     if (currentTok.type === 'p') {
-                        // [חדש] lastHeadingSeen נשמר כדי לזהות את הכותרת הבאה מאותה רמה
-                        // [תיקון] מעבירים willParenWrap (למדידה) — לא insideParen
-                        let linesInfo = getLinesFromParagraph(currentTok.text, h0ColWidth, h0Style, true, false, willParenWrapToken(currentTok));
+                        let linesInfo = getLinesFromParagraph(currentTok.text, 580, styleObj, true);
                         let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
                         let isContinuation = !!pendingWordTokens;
                         let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
 
                         const pElem = document.createElement('p');
                         pElem.setAttribute('data-token-id', currentTok.id);
-                        pElem.setAttribute('data-is-cont', isContinuation ? 'true' : 'false');
-                        if (currentTok.endNote) pElem.setAttribute('data-end-note', currentTok.endNote);
                         targetCol.appendChild(pElem);
 
-                        if (currentTok.sideNote && !headingPageMap[currentTok.id]) {
-                            headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
+                        let bestFitLine = 0;
+                        for (let i = 1; i <= lines.length; i++) {
+                            let testText = lines.slice(0, i).join(' ');
+                            pElem.className = (i === lines.length) ? 'p-end' : 'p-cut';
+                            pElem.innerHTML = createDropWord(testText, isContinuation, !hasWindow, lines.length);
+                            // כמו ברינדור הסופי: הערות מוצגות כסימון קטן (ולא כטקסט ההערה המלא) — אחרת הגובה המדוד מנופח
+                            // וההערה נספרת פעמיים (גם בגוף וגם בתקציב ההערות), והעמוד נחתך מוקדם מדי
+                            applyDelimiterStyles(pElem, 'body', getBodySizePt(), true);
+
+                            const availH = remPageHeight - getFootnotesReservedHeight();
+                            if (targetCol.scrollHeight <= availH) bestFitLine = i;
+                            else break;
                         }
 
-                        let bestFitLine = computeBestFitLine(pElem, targetCol, lines, isContinuation, hasWindow,
-                            (txt) => remPageHeight - reservedNow(txt));
-
-                        // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
-                        const placeLines = resolveParagraphSplit(lines.length, bestFitLine, !pageHasContent);
-                        if (placeLines === 0) {
+                        if (bestFitLine === 0 && forceProgress && !Array.from(pageLayout.bodyFlow.querySelectorAll('p')).some(x => x !== pElem)) {
+                            bestFitLine = 1;   // התקדמות מאולצת: שורה אחת לפחות, גם אם חורגת
+                        } else if (bestFitLine === 0) {
                             targetCol.removeChild(pElem);
-                            tokenIndex -= rollbackTrailingHeadings(targetCol);
-                            break;
+                            if (targetCol.children.length > 0) {
+                                let lastEl = targetCol.lastElementChild;
+                                while (lastEl && isHeadingEl(lastEl)) {
+                                    targetCol.removeChild(lastEl);
+                                    tokenIndex--;
+                                    lastEl = targetCol.lastElementChild;
+                                }
+                                break;
+                            } else if (!pageHasContent && !pageLayout.bodyFlow.querySelector('p')) {
+                                // עמוד ריק לגמרי ושורה אחת לא נכנסת: חייבים להתקדם — מציבים שורה אחת
+                                // (ומחזירים את האלמנט ל-DOM; בלי זה השורה נעלמת מהפלט)
+                                bestFitLine = 1;
+                                targetCol.appendChild(pElem);
+                            } else {
+                                break;   // יש כבר טקסט בעמוד: הפסקה עוברת לטור/עמוד הבא, בלי לצרוך אותה
+                            }
                         }
-                        bestFitLine = placeLines;
 
-                        pageHasContent = true;
+                        const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true;
+                        const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;
+                        if (bestFitLine > 0 && bestFitLine < lines.length) {
+                            const remainingAfterSplit = lines.length - bestFitLine;
+                            if (avoidWidows && bestFitLine === 1 && pageHasContent) {
+                                targetCol.removeChild(pElem);
+                                break;
+                            } else if (avoidOrphans && remainingAfterSplit === 1) {
+                                if (bestFitLine > 1) bestFitLine -= 1;
+                                else if (pageHasContent) {
+                                    targetCol.removeChild(pElem);
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (bestFitLine > 0) pageHasContent = true;
 
                         const chunk = lines.slice(0, bestFitLine).join(' ');
                         const isEndOfP = (bestFitLine === lines.length);
                         pElem.className = isEndOfP ? 'p-end' : 'p-cut';
                         pElem.setAttribute('data-raw-text', chunk);
-                        // [חדש] העבר דגל insideParen ל-createDropWord (לדילוג על מילה ראשונה בתוך סוגריים)
-                        const _insideParen = isInsideParenToken(currentTok);
-                        pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length, _insideParen);
+                        pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length);
                         applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
-
-                        if (currentTok.endNote && isEndOfP) {
-                            pElem.appendChild(createNoteMarkerAndQueue(currentTok.endNote, null, 'endnote'));
-                        }
-
-                        if (!isContinuation && currentTok.sideNote) {
-                            pElem.setAttribute('data-side-note', currentTok.sideNote);
-                            if (currentTok.sideNoteStyleId) pElem.setAttribute('data-note-style-id', currentTok.sideNoteStyleId);
-                            if (currentTok.sideNoteLevel) pElem.setAttribute('data-note-level', currentTok.sideNoteLevel);
-                            if (!h0Margin) {
-                                h0Margin = document.createElement('div');
-                                h0Margin.className = 'margin-notes-column right-margin';
-                                singleBlock.insertBefore(h0Margin, targetCol);
-                            }
-                            const noteElem = document.createElement('div');
-                            noteElem.className = 'side-note-anchor';
-                            noteElem.setAttribute('data-for-token', currentTok.id);
-                            noteElem.textContent = currentTok.sideNote;
-                            if (currentTok.sideNoteStyleId) {
-                                const inst = findExtTextStyle(currentTok.sideNoteStyleId);
-                                if (inst) applyExtStyleToNode(noteElem, inst.def.style, 6);
-                            }
-                            applySideNoteLevelStyle(noteElem, currentTok.sideNoteLevel);
-                            h0Margin.appendChild(noteElem);
-                            h0PendingNotes.push({ elem: noteElem, pElem: pElem });
-                        }
 
                         if (isEndOfP) {
                             pendingWordTokens = null;
@@ -4212,32 +2372,20 @@ function typesetDocumentCore() {
                         }
                     }
                 }
-                if (h0PendingNotes.length) finalizeNotePositions(h0PendingNotes, targetCol.scrollHeight);
-                if (redoCheck()) continue;
-                stretchPageToBottom();
                 continue;
             }
 
-            let pagePendingNotes = [];  // מתאפס בתחילת כל בלוק (הערות של בלוקים קודמים כבר מוקמו)
-            let pageBodyHasContent = false; // האם כבר הוצב תוכן גוף בעמוד (כדי לדעת מתי חייבים להציב ואי אפשר לדחות)
+            let pagePendingNotes = [];
 
-            while ((tokenIndex < secTokens.length || pendingWordTokens) && (remPageHeight - reservedNow()) > 45) {
+            /* מקרה שני טורים (גוף הספר) */
+            while ((tokenIndex < secTokens.length || pendingWordTokens) && (remPageHeight - getFootnotesReservedHeight()) > 45) {
                 let peekTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
                 const peekMode = peekTok && peekTok.type.startsWith('h') ? headingModes[peekTok.level] : 'inline_2col';
 
+                /* כותרת 3 רוחבית (Span 1 Column) */
                 if (peekMode === 'span_1col' && !pendingWordTokens) {
-                    const currentAvailH = remPageHeight - reservedNow();
+                    const currentAvailH = remPageHeight - getFootnotesReservedHeight();
                     if (currentAvailH < 60) break;
-
-                    // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה
-                    const dividerHTML = maybeGetHeadingDivider(peekTok.level, lastHeadingSeen);
-                    if (dividerHTML) {
-                        const divEl = document.createElement('div');
-                        divEl.innerHTML = dividerHTML;
-                        const divChild = divEl.firstElementChild;
-                        if (divChild) pageLayout.bodyFlow.appendChild(divChild);
-                    }
-
                     if (peekTok.level === 3) currentH3Title = peekTok.text;
                     if (peekTok.level === 4) currentH4Title = peekTok.text;
                     const spanBlock = document.createElement('div');
@@ -4273,34 +2421,28 @@ function typesetDocumentCore() {
                         spanBlock.appendChild(ornL);
                     }
 
+                    const spanU0 = flowBottomOf(pageLayout.bodyFlow);
                     pageLayout.bodyFlow.appendChild(spanBlock);
 
-                    const spanHeight = layoutHeightOf(spanBlock) + 4;
-                    /* [תיקון] כותרת רוחבית לא נשארת יתומה בתחתית העמוד: אחרי הצבתה חייב להישאר מקום לשתי שורות תוכן לפחות
-                       (הלולאה הזו לא פותחת בלוק חדש כשנשארו 45px או פחות - ואז הכותרת הייתה נשארת אחרונה בעמוד בלי טקסט אחריה).
-                       בעמוד שעוד אין בו תוכן גוף הכותרת מוצבת בכל מקרה (אחרת העמוד היה נשאר ריק לנצח). */
-                    const spanFree = remPageHeight - reservedNow();
-                    if (spanHeight > spanFree || (pageBodyHasContent && spanFree - spanHeight <= 45)) {
+                    const spanHeight = Math.max(spanBlock.offsetHeight + 4, flowBottomOf(pageLayout.bodyFlow) - spanU0);
+                    if (spanHeight > (remPageHeight - getFootnotesReservedHeight())) {
                         pageLayout.bodyFlow.removeChild(spanBlock);
-                        // [חדש] הסר גם את עיטור ההפרדה אם הוכנס
-                        const lastDiv = pageLayout.bodyFlow.lastElementChild;
-                        if (lastDiv && lastDiv.classList.contains('heading-divider-wrap')) {
-                            pageLayout.bodyFlow.removeChild(lastDiv);
-                        }
                         break;
                     }
 
                     headingPageMap[peekTok.id] = toGematria(pageIndex - 1);
-                    // [חדש] עדכן את הכותרת הקודמת מרמה זו, ונקה כותרות נמוכות יותר
-                    lastHeadingSeen[peekTok.level] = peekTok.id;
-                    for (let l = peekTok.level + 1; l <= 7; l++) {
-                        lastHeadingSeen[l] = null;
-                    }
                     remPageHeight -= spanHeight;
                     tokenIndex++;
                     continue;
                 }
 
+                const blockStartState = {
+                    tokenIndex,
+                    pendingWordTokens: pendingWordTokens ? Object.assign({}, pendingWordTokens) : null,
+                    pendingNotesLen: pagePendingNotes.length,
+                    h3: currentH3Title, h4: currentH4Title,
+                    headingKeys: new Set(Object.keys(headingPageMap))
+                };
                 const block2Col = document.createElement('div');
                 block2Col.className = 'block-2col';
                 block2Col.innerHTML = `
@@ -4313,7 +2455,7 @@ function typesetDocumentCore() {
           <div class="margin-notes-column left-margin"></div>
         `;
                 pageLayout.bodyFlow.appendChild(block2Col);
-                pagePendingNotes = [];
+                remPageHeight = totalFlowH - flowTopOfEl(pageLayout.bodyFlow, block2Col);
 
                 const blockNoteSnapshot = {
                     footnoteQueueLen: footnoteQueueForPage.length,
@@ -4327,7 +2469,7 @@ function typesetDocumentCore() {
                 const lCol = block2Col.querySelector('.left-col');
                 const rMargin = block2Col.querySelector('.right-margin');
                 const lMargin = block2Col.querySelector('.left-margin');
-                const colWidth = exactWidthOf(rCol) || 272;   // רוחב מדויק (שבר) - ראו exactWidthOf
+                const colWidth = rCol.offsetWidth || 272;
                 let pageHasContent = false;
 
                 ['right', 'left'].forEach((colName) => {
@@ -4340,35 +2482,10 @@ function typesetDocumentCore() {
 
                         if (curMode === 'span_1col' && !pendingWordTokens) break;
 
-                        const currentAvailH = remPageHeight - reservedNow();
-                        if (targetCol.scrollHeight >= currentAvailH - 10 && targetCol.children.length > 0) {
-                            tokenIndex -= rollbackTrailingHeadings(targetCol);
-                            break;
-                        }
+                        const currentAvailH = remPageHeight - getFootnotesReservedHeight();
+                        if (targetCol.scrollHeight >= currentAvailH - 10 && targetCol.children.length > 0) break;
 
                         if (currentTok.type.startsWith('h')) {
-                            // [חדש] הכנס עיטור הפרדה אם יש כותרת קודמת מאותה רמה
-                            // [תיקון קריטי] מודד גובה עיטור לפני הכנסה — מונע לולאה אינסופית
-                            const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
-                            let insertedDivider = null;
-                            if (dividerHTML) {
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = dividerHTML;
-                                const tempChild = tempDiv.firstElementChild;
-                                if (tempChild) {
-                                    tempChild.style.visibility = 'hidden';
-                                    targetCol.appendChild(tempChild);
-                                    const divH = tempChild.offsetHeight + 20; // +20 ל-margin
-                                    targetCol.removeChild(tempChild);
-                                    // הכנס רק אם יש מקום לעיטור + כותרת
-                                    if (targetCol.scrollHeight + divH <= remPageHeight - reservedNow()) {
-                                        tempChild.style.visibility = '';
-                                        targetCol.appendChild(tempChild);
-                                        insertedDivider = tempChild;
-                                    }
-                                }
-                            }
-
                             if (currentTok.level === 3) currentH3Title = currentTok.text;
                             if (currentTok.level === 4) currentH4Title = currentTok.text;
                             const hElem = document.createElement('div');
@@ -4385,30 +2502,20 @@ function typesetDocumentCore() {
                             applyDelimiterStyles(hElem, 'h' + currentTok.level, getHostSizePt(currentTok.level, currentTok.customStyleId), false);
                             targetCol.appendChild(hElem);
 
-                            if (targetCol.scrollHeight > (remPageHeight - reservedNow()) && targetCol.children.length > 1) {
+                            if (targetCol.scrollHeight > (remPageHeight - getFootnotesReservedHeight()) && targetCol.children.length > 1) {
                                 targetCol.removeChild(hElem);
-                                if (insertedDivider && insertedDivider.parentNode) {
-                                    targetCol.removeChild(insertedDivider);
-                                }
-                                tokenIndex -= rollbackTrailingHeadings(targetCol);
                                 break;
                             }
 
                             if (!headingPageMap[currentTok.id]) {
                                 headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
                             }
-                            // [חדש] עדכן את הכותרת הקודמת מרמה זו, ונקה כותרות נמוכות יותר
-                            lastHeadingSeen[currentTok.level] = currentTok.id;
-                            for (let l = currentTok.level + 1; l <= 7; l++) {
-                                lastHeadingSeen[l] = null;
-                            }
                             tokenIndex++;
                             continue;
                         }
 
                         if (currentTok.type === 'p') {
-                            // [תיקון] מעבירים willParenWrap (למדידה) — לא insideParen
-                            let linesInfo = getLinesFromParagraph(currentTok.text, colWidth, styleObj, true, false, willParenWrapToken(currentTok));
+                            let linesInfo = getLinesFromParagraph(currentTok.text, colWidth, styleObj, true);
                             let lines = pendingWordTokens ? pendingWordTokens.remainingLines : linesInfo.lines;
                             let isContinuation = !!pendingWordTokens;
                             let hasWindow = pendingWordTokens ? false : linesInfo.hasWindow;
@@ -4423,27 +2530,86 @@ function typesetDocumentCore() {
                                 headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
                             }
 
-                            let bestFitLine = computeBestFitLine(pElem, targetCol, lines, isContinuation, hasWindow,
-                                (txt) => remPageHeight - reservedNow(txt));
+                            /* שריון גובה מקדים להערות שוליים הנמצאות בפסקה זו */
+                            const fullRemainingText = lines.join(' ');
+                            const pendingFnMatches = findDelimiterMatches(fullRemainingText, 'body').filter(m => m.inst.def.target === 'footnote');
+                            const pendingFnColumns = pendingFnMatches.length ? (getNoteConfig(pendingFnMatches[0].inst.instanceId).columns || 1) : 1;
+                            let lastFnCount = -1;
+                            let cachedAvailH = remPageHeight - getFootnotesReservedHeight();
 
-                            // [תיקון] החלטת חיתוך אחת לכל הכללים: אין שורה בודדת בתחילת/סוף חיתוך, וכותרות לא נשארות לבדן
-                            const placeLines = resolveParagraphSplit(lines.length, bestFitLine, !pageHasContent && !pageBodyHasContent);
-                            if (placeLines === 0) {
-                                targetCol.removeChild(pElem);
-                                tokenIndex -= rollbackTrailingHeadings(targetCol);
-                                break;
+                            let bestFitLine = 0;
+                            for (let i = 1; i <= lines.length; i++) {
+                                let testText = lines.slice(0, i).join(' ');
+                                pElem.className = (i === lines.length) ? 'p-end' : 'p-cut';
+                                pElem.innerHTML = createDropWord(testText, isContinuation, !hasWindow, lines.length);
+                                // כמו ברינדור הסופי: הערות מוצגות כסימון קטן (ולא כטקסט ההערה המלא) — אחרת הגובה המדוד מנופח
+                                // וההערה נספרת פעמיים (גם בגוף וגם בתקציב ההערות), והעמוד נחתך מוקדם מדי
+                                applyDelimiterStyles(pElem, 'body', getBodySizePt(), true);
+
+                                if (pendingFnMatches.length) {
+                                    const newOnes = pendingFnMatches.filter(m => m.end <= testText.length);
+                                    if (newOnes.length !== lastFnCount) {
+                                        lastFnCount = newOnes.length;
+                                        cachedAvailH = remPageHeight - Math.max(blockReserveFloor, (newOnes.length
+                                            ? measureNoteBlockHeight(footnoteQueueForPage.concat(newOnes.map((m, idx) => ({
+                                                number: 'א', uid: 'probe' + idx, styleId: m.inst.instanceId,
+                                                text: fullRemainingText.slice(m.start + m.inst.def.trigger.open.length, m.end - m.inst.def.trigger.close.length)
+                                            }))), pendingFnColumns) + 24
+                                            : getFootnotesReservedHeight()));
+                                    }
+                                }
+
+                                if ((pElem.offsetTop + pElem.offsetHeight) <= cachedAvailH) bestFitLine = i;
+                                else break;
                             }
-                            bestFitLine = placeLines;
 
-                            pageHasContent = true;
+                            if (bestFitLine === 0 && forceProgress && !Array.from(pageLayout.bodyFlow.querySelectorAll('p')).some(x => x !== pElem)) {
+                                bestFitLine = 1;   // התקדמות מאולצת: שורה אחת לפחות, גם אם חורגת
+                            } else if (bestFitLine === 0) {
+                                targetCol.removeChild(pElem);
+                                if (targetCol.children.length > 0) {
+                                    let lastEl = targetCol.lastElementChild;
+                                    while (lastEl && isHeadingEl(lastEl)) {
+                                    const hid0 = lastEl.getAttribute('data-token-id');
+                                        targetCol.removeChild(lastEl);
+                                    if (hid0 !== null && !blockStartState.headingKeys.has(hid0)) delete headingPageMap[hid0];
+                                        tokenIndex--;
+                                        lastEl = targetCol.lastElementChild;
+                                    }
+                                    break;
+                                } else if (!pageHasContent && !pageLayout.bodyFlow.querySelector('p')) {
+                                    // עמוד ריק לגמרי ושורה אחת לא נכנסת: חייבים להתקדם — מציבים שורה אחת
+                                    // (ומחזירים את האלמנט ל-DOM; בלי זה השורה נעלמת מהפלט)
+                                    bestFitLine = 1;
+                                    targetCol.appendChild(pElem);
+                                } else {
+                                    break;   // יש כבר טקסט בעמוד: הפסקה עוברת לטור/עמוד הבא, בלי לצרוך אותה
+                                }
+                            }
+
+                            const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true;
+                            const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;
+                            if (bestFitLine > 0 && bestFitLine < lines.length) {
+                                const canPush = pageHasContent || (colName === 'left' && rCol.children.length > 0)
+                                    || Array.from(pageLayout.bodyFlow.querySelectorAll('p')).some(x => x !== pElem);
+                                const nextColEl = colName === 'right' ? lCol : rCol;
+                                    const kSplit = chooseSplitLines(lines, bestFitLine, avoidWidows, avoidOrphans, canPush, {
+                                        first: (txt) => probeParagraphLines(targetCol, createDropWord(txt, isContinuation, !hasWindow, lines.length), 'p-cut'),
+                                        rest: (txt) => probeParagraphLines(nextColEl, createDropWord(txt, true, true, lines.length), 'p-end')
+                                    });
+                                if (kSplit === 0) {
+                                    targetCol.removeChild(pElem);
+                                    break;
+                                }
+                                bestFitLine = kSplit;
+                            }
+                            if (bestFitLine > 0) pageHasContent = true;
 
                             const chunk = lines.slice(0, bestFitLine).join(' ');
                             const isEndOfP = (bestFitLine === lines.length);
                             pElem.className = isEndOfP ? 'p-end' : 'p-cut';
                             pElem.setAttribute('data-raw-text', chunk);
-                            // [חדש] העבר דגל insideParen ל-createDropWord
-                            const _insideParen = isInsideParenToken(currentTok);
-                            pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length, _insideParen);
+                            pElem.innerHTML = createDropWord(chunk, isContinuation, !hasWindow, lines.length);
                             applyDelimiterStyles(pElem, 'body', getBodySizePt(), false);
 
                             if (currentTok.endNote && isEndOfP) {
@@ -4454,16 +2620,13 @@ function typesetDocumentCore() {
                             if (!isContinuation && currentTok.sideNote) {
                                 pElem.setAttribute('data-side-note', currentTok.sideNote);
                                 if (currentTok.sideNoteStyleId) pElem.setAttribute('data-note-style-id', currentTok.sideNoteStyleId);
-                                if (currentTok.sideNoteLevel) pElem.setAttribute('data-note-level', currentTok.sideNoteLevel);
                                 const noteElem = document.createElement('div');
                                 noteElem.className = 'side-note-anchor';
-                                noteElem.setAttribute('data-for-token', currentTok.id);
                                 noteElem.textContent = currentTok.sideNote;
                                 if (currentTok.sideNoteStyleId) {
                                     const inst = findExtTextStyle(currentTok.sideNoteStyleId);
                                     if (inst) applyExtStyleToNode(noteElem, inst.def.style, 6);
                                 }
-                                applySideNoteLevelStyle(noteElem, currentTok.sideNoteLevel);
                                 targetMargin.appendChild(noteElem);
                                 pagePendingNotes.push({ elem: noteElem, pElem: pElem });
                             }
@@ -4480,9 +2643,24 @@ function typesetDocumentCore() {
                             }
                         }
                     }
+
+                    // שמירת כותרת עם הטקסט שאחריה: טור לא מסתיים בכותרת. כותרות שנשארו בסוף
+                    // הטור חוזרות לזרם ויוצבו בראש הטור הבא / בעמוד הבא יחד עם הפסקה שלהן.
+                    const nxtTokAfterHeads = pendingWordTokens ? null : secTokens[tokenIndex];
+                    const nextIsSpanHeading = !!(nxtTokAfterHeads && nxtTokAfterHeads.type.startsWith('h') && headingModes[nxtTokAfterHeads.level] === 'span_1col');
+                    while (!nextIsSpanHeading && targetCol.lastElementChild && isHeadingEl(targetCol.lastElementChild)
+                           && (targetCol.children.length > 1 || colName === 'left' || pageLayout.bodyFlow.querySelector('p'))) {
+                        const hLast = targetCol.lastElementChild;
+                        const hLastId = hLast.getAttribute('data-token-id');
+                        targetCol.removeChild(hLast);
+                        if (hLastId !== null && !blockStartState.headingKeys.has(hLastId)) delete headingPageMap[hLastId];
+                        tokenIndex--;
+                    }
                 });
 
                 if (rCol.children.length === 0 && lCol.children.length === 0) {
+                    tokenIndex = blockStartState.tokenIndex;
+                    pendingWordTokens = blockStartState.pendingWordTokens ? Object.assign({}, blockStartState.pendingWordTokens) : null;
                     if (blockNoteSnapshot) {
                         footnoteQueueForPage.length = blockNoteSnapshot.footnoteQueueLen;
                         endnoteQueueForPart.length = blockNoteSnapshot.endnoteQueueLen;
@@ -4500,118 +2678,104 @@ function typesetDocumentCore() {
                     break;
                 }
 
-                // חישוב הגובה המותר האמיתי לשני הטורים (לאחר שכל הערות העמוד ידועות!)
-                const actualAvailH = remPageHeight - reservedNow();
+                // ===== בדיקת התאמה סופית — אחרי שכל ההערות של הבלוק (גם מהטור השמאלי) כבר ידועות =====
+                const sectionEnded = tokenIndex >= secTokens.length && !pendingWordTokens;
+                const nextPeekTok0 = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
+                const nextPeekMode0 = nextPeekTok0 && nextPeekTok0.type.startsWith('h') ? headingModes[nextPeekTok0.level] : 'inline_2col';
+                const nextIsSpan = !sectionEnded && nextPeekMode0 === 'span_1col' && !pendingWordTokens;
+                const lineH0 = parseFloat(getComputedStyle(rCol).lineHeight) || 20;
+                const willBalance = (sectionEnded || nextIsSpan) && !blockNoBalance;
+                const bottomNow = () => Math.max(colContentBottom(rCol), colContentBottom(lCol));
 
-                // 1. סיום פרק
-                if (tokenIndex >= secTokens.length && !pendingWordTokens) {
-                    // "איזון סוף-פרק": ברירת המחדל (כן, וגם כל ערך ישן/ריק מתבניות שמורות) מאזנת את שני הטורים בסוף הפרק.
-                    // רק הערך 'fill' ("לא - מילוי עמוד") משאיר את מילוי הטורים כפי שנוצר (ימין מלא ואז שמאל),
-                    // ורק כשהבלוק נכנס בגובה הפנוי - אחרת מאזנים כרגיל כדי לא לחרוג מהעמוד.
-                    const keepChapterEndUnbalanced =
-                        document.getElementById('balance-chapter-end')?.value === 'fill' &&
-                        Math.max(rCol.scrollHeight, lCol.scrollHeight) <= actualAvailH;
-                    if (!keepChapterEndUnbalanced) {
-                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                    } else {
-                        // בלי איזון: הערות הצד שנוצרו במילוי הרגיל עדיין לא מוקמו (balanceColumns מקים את שלו בעצמו, וה-break שלמטה מדלג על ההקמה הרגילה)
-                        finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
+                const rollbackBlock = () => {
+                    if (blockNoteSnapshot) {
+                        footnoteQueueForPage.length = blockNoteSnapshot.footnoteQueueLen;
+                        endnoteQueueForPart.length = blockNoteSnapshot.endnoteQueueLen;
+                        noteCounters.footnote = blockNoteSnapshot.footnoteCounter;
+                        noteCounters.endnote = blockNoteSnapshot.endnoteCounter;
+                        noteUidCounter = blockNoteSnapshot.noteUid;
                     }
+                    if (block2Col.parentNode) block2Col.parentNode.removeChild(block2Col);
+                    tokenIndex = blockStartState.tokenIndex;
+                    pendingWordTokens = blockStartState.pendingWordTokens ? Object.assign({}, blockStartState.pendingWordTokens) : null;
+                    pagePendingNotes.length = blockStartState.pendingNotesLen;
+                    currentH3Title = blockStartState.h3;
+                    currentH4Title = blockStartState.h4;
+                    Object.keys(headingPageMap).forEach(k => { if (!blockStartState.headingKeys.has(k)) delete headingPageMap[k]; });
+                };
 
+                let actualAvailH = remPageHeight - getFootnotesReservedHeight();
+
+                // גלישה: הערות שנוספו בטור השמאלי הגדילו את התקציב השמור אחרי שהטור הימני כבר מולא.
+                // מחזירים את הבלוק לתחילתו ומנסים שוב עם רצפת תקציב-הערות מעודכנת.
+                const ovFill = bottomNow() - actualAvailH;
+                if (ovFill > 0.5 && blockRedoCount < 6) {
+                    blockReserveFloor = Math.max(blockReserveFloor, getFootnotesReservedHeight()) + (blockRedoCount > 0 ? ovFill + 1 : 0);
+                    blockRedoCount++;
+                    rollbackBlock();
+                    continue;
+                }
+
+                if (willBalance) {
+                    balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, false);
+                    actualAvailH = remPageHeight - getFootnotesReservedHeight();
+                    const ovBal = bottomNow() - actualAvailH;
+                    if (ovBal > 0.5 && blockRedoCount < 6) {
+                        blockNoBalance = true;
+                        blockReserveFloor = Math.max(blockReserveFloor, getFootnotesReservedHeight());
+                        blockRedoCount++;
+                        rollbackBlock();
+                        continue;
+                    }
+                    alignBlockColumns(rCol, lCol, lineH0);
+                } else {
+                    const al = alignBlockColumns(rCol, lCol, lineH0);
+                    if (!al.ok) {
+                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, !!pendingWordTokens);
+                        alignBlockColumns(rCol, lCol, lineH0);
+                    }
+                }
+
+                blockReserveFloor = 0; blockRedoCount = 0; blockNoBalance = false;
+
+                if (sectionEnded) {
                     const divHTML = getSectionDividerHTML(secDivStyle);
                     if (divHTML) {
                         const divContainer = document.createElement('div');
                         divContainer.innerHTML = divHTML;
-                        const divEl = divContainer.firstElementChild;
-                        pageLayout.bodyFlow.appendChild(divEl);
-                        // המפריד חייב להיכנס בגוף העמוד (מעל אזור הערות השוליים) - ראו fitSectionDividerToPage
-                        fitSectionDividerToPage(divEl, pageLayout.bodyFlow.getBoundingClientRect().top + totalFlowH - reservedNow());
+                        pageLayout.bodyFlow.appendChild(divContainer.firstElementChild);
                     }
-                    /* [תיקון] גם בבלוק האחרון של הפרק מנכים את גובהו מהנותר בעמוד: בלי זה בדיקת עתודת הערות השוליים (redoCheck)
-                       ראתה את העמוד כאילו ריק, ולא זיהתה הערה מאוחרת בטור השמאלי שהגדילה את אזור ההערות אחרי שהטור הימני כבר מולא
-                       (בהערות שוליים ב-2 טורים הטקסט חרג אל תוך אזור ההערות). כשהכול נכנס - אין שום שינוי. */
-                    remPageHeight -= Math.max(rCol.scrollHeight, lCol.scrollHeight);
                     break;
-                } else {
-                    let nextPeekTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
-                    const nextPeekMode = nextPeekTok && nextPeekTok.type.startsWith('h') ? headingModes[nextPeekTok.level] : 'inline_2col';
-
-                    // 2. לפני כותרת 3 רוחבית
-                    if (nextPeekMode === 'span_1col' && !pendingWordTokens) {
-                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                    } 
-                    // 3. הטור הימני גלש לתוך שטח ההערה (כי ההערה הייתה בטור שמאל) או שיש פער משמעותי
-                    else if (rCol.scrollHeight > actualAvailH || Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 60) {
-                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                    } 
-                    // 4. עמוד רגיל מאוזן שדורש רק יישור שורות עדין
-                    else {
-                        let usedBlockH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
-                        let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
-                        if (usedBlockH <= remPageHeight) {
-                            // [חדש — שלב 1] חלוקת עומס בין טורים לפני justifyColumnVertically
-                            if (Math.abs(finalDiff) > 2 && Math.abs(finalDiff) <= 20) {
-                                balanceByWordSpacing(rCol, lCol, finalDiff);
-                                finalDiff = rCol.scrollHeight - lCol.scrollHeight;
-                            }
-                            if (finalDiff > 2 && finalDiff <= 60) {
-                                justifyColumnVertically(lCol, rCol.scrollHeight, styleObj);
-                            } else if (finalDiff < -2 && Math.abs(finalDiff) <= 60) {
-                                justifyColumnVertically(rCol, lCol.scrollHeight, styleObj);
-                            }
-                        }
-                    }
                 }
 
-                remPageHeight -= Math.max(rCol.scrollHeight, lCol.scrollHeight);
-                pageBodyHasContent = true;
+                remPageHeight = totalFlowH - flowBottomOf(pageLayout.bodyFlow);
                 finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
             }
-            if (redoCheck()) continue;
-            // [חדש] מותחים קודם את העמוד לתחתית (stretchPageToBottom), ואז מנסים למשוך
-            // זנב יתום (1-2 שורות) על-ידי כיווץ המתיחה שזה עתה נוספה. אם המשיכה מצליחה,
-            // השורות היתומות תופסות את מקום המתיחה במקום לעבור לעמוד הבא.
-            stretchPageToBottom();
-            const reclaimed = tryReclaimOrphanTail(pageLayout, pendingWordTokens, reservedNow, totalFlowH);
-            if (reclaimed) {
-                pendingWordTokens = null;
-                tokenIndex++;
-            }
-            // [תיקון] אחרי כל העימוד והמתיחה של העמוד, עבור על כל הבלוקים וסגור
-            // פערים שנותרו. balanceColumns כבר קרא ל-justifyColumnVertically,
-            // אבל stretchPageToBottom יכול לשנות את הגבהים של הבלוק האחרון, וה
-            // פערים בבלוקים הקודמים (שלא עברו stretchPageToBottom) נשארו.
-            // זהירות: רק על block-2col, רק פער 2-100px, רק על הטור הקצר.
-            // [תיקון רגרסיה — מניעת overshoot] אל תמתח את הטור הקצר מעבר ל-flowMaxH.
-            // הגובה המקסימלי המותר הוא flow.clientHeight פחות המיקום של ה-block ב-flow.
+
+            // כותרת span שנשארה בסוף העמוד בלי טקסט אחריה — חוזרת לזרם ותוצב בעמוד הבא
             {
-                const flow = pageLayout.bodyFlow;
-                const flowMaxH = flow.clientHeight;
-                const allBlocks = flow.querySelectorAll('.block-2col');
-                allBlocks.forEach(blk => {
-                    const rC = blk.querySelector('.right-col');
-                    const lC = blk.querySelector('.left-col');
-                    if (!rC || !lC) return;
-                    const fDiff = rC.scrollHeight - lC.scrollHeight;
-                    if (Math.abs(fDiff) <= 2 || Math.abs(fDiff) > 100) return;
-                    // חשב את הגובה המקסימלי המותר ל-block הזה
-                    const blockTopInFlow = blk.getBoundingClientRect().top - flow.getBoundingClientRect().top;
-                    const allowedH = flowMaxH - blockTopInFlow - 2;
-                    if (allowedH <= 100) return; // בלוק קרוב לתחתית — דלג
-                    const longH = Math.max(rC.scrollHeight, lC.scrollHeight);
-                    // אל תמתח מעבר ל-allowedH
-                    const target = Math.min(longH - 2, allowedH);
-                    if (fDiff > 0) {
-                        // rC ארוך, מתח את lC ל-target (אבל לא מעבר ל-allowedH)
-                        if (target > lC.scrollHeight + 1) {
-                            justifyColumnVertically(lC, target, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
-                        }
-                    } else {
-                        if (target > rC.scrollHeight + 1) {
-                            justifyColumnVertically(rC, target, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+                let tailEl = pageLayout.bodyFlow.lastElementChild;
+                while (tailEl && tailEl.classList.contains('block-h3-span') && tailEl.previousElementSibling) {
+                    const tailTok = tailEl.querySelector('[data-token-id]');
+                    const tailId = tailTok ? tailTok.getAttribute('data-token-id') : null;
+                    pageLayout.bodyFlow.removeChild(tailEl);
+                    if (tailId !== null) delete headingPageMap[tailId];
+                    tokenIndex--;
+                    // כותרות inline שנשארו בסוף הבלוק שלפניה (בטור האחרון שיש בו תוכן) — גם הן חוזרות לזרם
+                    const prevBlk = pageLayout.bodyFlow.lastElementChild;
+                    if (prevBlk && prevBlk.classList.contains('block-2col')) {
+                        const colsRev = [prevBlk.querySelector('.left-col'), prevBlk.querySelector('.right-col')];
+                        const lastCol = colsRev.find(c => c && c.children.length);
+                        while (lastCol && lastCol.lastElementChild && isHeadingEl(lastCol.lastElementChild) && (lastCol.children.length > 1 || prevBlk.previousElementSibling)) {
+                            const hh = lastCol.lastElementChild;
+                            const hhId = hh.getAttribute('data-token-id');
+                            lastCol.removeChild(hh);
+                            if (hhId !== null) delete headingPageMap[hhId];
+                            tokenIndex--;
                         }
                     }
-                });
+                    tailEl = pageLayout.bodyFlow.lastElementChild;
+                }
             }
         }
     }
@@ -4627,13 +2791,6 @@ function typesetDocumentCore() {
         flushEndnotesForPart(container, pageIndex);
     }
     renderExtAnchor(container, 'afterAll', rawText);
-
-    // [חדש] קווי ההפרדה בין הטורים מותאמים לקצוות הטקסט בפועל (אחרי שכל הבלוקים סופיים)
-    fitColumnDividers(container);
-
-    // [תיקון] מספרי העמודים בתוכן העניינים נגזרים מהמיקום הסופי בפועל ב-DOM (ולא מהרישום תוך כדי מילוי),
-    // כי כותרת שהוחזרה לעמוד הבא יחד עם הפסקה שאחריה השאירה ברישום את העמוד הישן.
-    rebuildHeadingPageMapFromDOM(container, headingPageMap);
 
     document.querySelectorAll('.toc-page-num[data-target-id], .grp-page[data-target-id]').forEach(span => {
         const targetId = span.getAttribute('data-target-id');
@@ -4654,181 +2811,15 @@ function typesetDocumentCore() {
         applyHeadingOrnamentTextFit();
     }
 
-    // [חדש] טיפול בסוגריים שחוצות פסקאות — עדכון גלובלי אחרי כל העימוד.
-    // כש- ( נפתח בפסקה אחת ו- ) נסגר בפסקה אחרת, הפסקאות שביניהן צריכות גם לקבל סגנון טקסט-מוסגר.
-    // הפונקציה הזו עוברת על כל הפסקאות בסדר מסמך, עוקבת אחרי עומק הסוגריים, ועוטפת פסקאות
-    // שלמות ב-span של paren-text כשהן בתוך סוגריים פתוחות.
-    applyCrossParagraphParens(container);
-
-    // [תיקון קריטי] אחרי applyCrossParagraphParens, עבור על כל הבלוקים בכל העמודים
-    // וסגור פערים שנוצרו. applyCrossParagraphParens עוטף פסקאות שלמות ב-span עם גופן
-    // קטן יותר, מה שמשנה את גובה הטורים ופוגע באיזון ש-balanceColumns עשה לפני כן.
-    // זה הסיבה העיקרית לאי-איזון טורים עם paren-text!
-    // חשוב: משתמשים ב-lhCap=null כדי לאפשר מתיחה גם כשיש paren-text span פנימי
-    // שמקטין את גובה השורה — ה-cap הרגיל מונע מתיחה מספקת במקרה זה.
-    //
-    // [תיקון נוסף] אחרי המתיחה:
-    // 1) repositionBlockNotes — כדי שהערות הצד בשוליים יישארו מול הפסקאות שלהן.
-    // 2) בדיקת יירוס: אם המתיחה הירברה (הטור המתוח נהיה גבוה מהיעד), מכווצים אותו חזרה
-    //    במקום למתוח גם את הטור השני. כך שני הטורים נשארים מאוזנים בלי מתיחה כפולה.
-    {
-        const styleObj = { fontFamily: document.getElementById('font-body')?.value || 'Frank Ruhl Libre, serif',
-                           fontSize: (parseFloat(document.getElementById('size-body')?.value) || 12) + 'pt',
-                           lineHeight: document.getElementById('line-height-body')?.value || '1.45' };
-        const allBlocks = container.querySelectorAll('.block-2col');
-        allBlocks.forEach(blk => {
-            const rC = blk.querySelector('.right-col');
-            const lC = blk.querySelector('.left-col');
-            if (!rC || !lC) return;
-            let rH = rC.scrollHeight, lH = lC.scrollHeight;
-            const fDiff = rH - lH;
-            if (Math.abs(fDiff) <= 2 || Math.abs(fDiff) > 150) return;
-
-            if (fDiff > 2) {
-                // טור ימין גבוה יותר — מותחים את שמאל להגיע אליו
-                justifyColumnVertically(lC, rH, styleObj, 150, null);
-                // בדיקת יירוס: אם שמאל הירבר ונהיה גבוה מימין — מכווצים חזרה
-                const lHafter = lC.scrollHeight;
-                if (lHafter > rH + 1.5) {
-                    shrinkColumnVertically(lC, rH, styleObj, 150);
-                }
-            } else {
-                // טור שמאל גבוה יותר — מותחים את ימין להגיע אליו
-                justifyColumnVertically(rC, lH, styleObj, 150, null);
-                // בדיקת יירוס: אם ימין הירבר ונהיה גבוה משמאל — מכווצים חזרה
-                const rHafter = rC.scrollHeight;
-                if (rHafter > lH + 1.5) {
-                    shrinkColumnVertically(rC, lH, styleObj, 150);
-                }
-            }
-
-            // [תיקון] החזרת הערות הצד למקומן אחרי המתיחה/כיווץ
-            repositionBlockNotes(blk, Math.max(rC.scrollHeight, lC.scrollHeight));
-        });
-    }
-}
-
-/* [חדש] טיפול בסוגריים שחוצות פסקאות.
-   עובר על כל הפסקאות (<p>) בסדר מסמך, עוקב אחרי עומק הסוגריים (count של ( פתוחות),
-   ועוטף פסקאות שלמות ב-span של paren-text כשהן בתוך סוגריים פתוחות (עומק > 0)
-   ואין להן כבר span של paren-text.
-
-   חשוב: הפונקציה הזו פועלת אחרי כל העימוד, כולל איזון טורים. היא לא משפיעה על מדידה
-   כי הסוגריים החוצות-פסקאות נדירות יחסית, והשינוי בגודל הגופן קטן (בד"כ -2pt). */
-function applyCrossParagraphParens(container) {
-    const allP = Array.from(container.querySelectorAll('p[data-raw-text]'));
-    if (allP.length === 0) return;
-
-    let parenDepth = 0;  // עומק סוגריים פתוחות (מצטבר על פני פסקאות)
-
-    allP.forEach(p => {
-        const rawText = p.getAttribute('data-raw-text') || '';
-        // ספור ( ו- ) בטקסט הגולמי של הפסקה — אבל התעלם מסוגריים שבתוך [...] (הערות שוליים)
-        let openCount = 0, closeCount = 0;
-        let inBracket = false;
-        for (const ch of rawText) {
-            if (ch === '[') { inBracket = true; continue; }
-            if (ch === ']') { inBracket = false; continue; }
-            if (inBracket) continue;
-            if (ch === '(') openCount++;
-            else if (ch === ')') closeCount++;
-        }
-
-        // אם הפסקה מתחילה בתוך סוגריים פתוחות (עומק > 0 לפני הפסקה הזו)
-        // ואין לה כבר span של paren-text — עטוף את כל התוכן ב-span
-        if (parenDepth > 0 && !p.querySelector('.paren-text') && openCount === 0 && closeCount === 0) {
-            // הפסקה שלמה בתוך סוגריים פתוחות — עטוף הכל
-            wrapEntireParagraphInParenStyle(p);
-        }
-
-        // עדכן עומק
-        parenDepth += openCount - closeCount;
-        if (parenDepth < 0) parenDepth = 0;  // הגנה מפני חוסר איזון
+    /* תיקון מדויק לגובה קו המפריד האנכי בין הטורים (Math.min מגרסה 3) */
+    document.querySelectorAll('.block-2col').forEach(block => {
+        const divider = block.querySelector('.col-gutter-divider');
+        const rCol = block.querySelector('.right-col');
+        const lCol = block.querySelector('.left-col');
+        if (!divider || !rCol || !lCol) return;
+        const minH = Math.min(colContentBottom(rCol), colContentBottom(lCol));
+        divider.style.alignSelf = 'start';
+        divider.style.height = minH + 'px';
     });
 }
 
-/* [חדש] עוטף את כל תוכן הפסקה ב-span אחד של paren-text. */
-function wrapEntireParagraphInParenStyle(p) {
-    // מצא את גודל המארח (גוף הטקסט)
-    const hostSize = getBodySizePt();
-    const span = document.createElement('span');
-    span.className = 'paren-text';
-    // העבר את כל הילדים לתוך ה-span
-    while (p.firstChild) {
-        span.appendChild(p.firstChild);
-    }
-    p.appendChild(span);
-    applyParenStyle(span, hostSize);
-}
-
-/* [חדש] Pre-pass: עובר על כל הטוקנים של כל ה-sections בסדר מסמך, עוקב אחרי עומק הסוגריים
-   (count מצטבר של ( פתוחות), ובונה שתי מפות:
-   1) insideParenMap: token.id → boolean — האם הפסקה מתחילה בתוך סוגריים פתוחות (parenDepth > 0).
-      משמש את createDropWord כדי לדלג על עיצוב מילה ראשונה לפסקאות שהן המשך בתוך סוגריים.
-   2) willParenWrapMap: token.id → boolean — האם הפסקה תעטף כולה ב-span של paren-text על-ידי
-      applyCrossParagraphParens (parenDepth > 0 **ואין לה ( או ) משלה**). משמש את getLinesFromParagraph
-      כדי למדוד עם גודל הגופן הקטן שיוחל בפועל.
-
-   [הסבר] שתי המפות שונות בכוונה:
-   - פסקת סגירה (יש לה ) אבל אין לה ( ): היא המשך בתוך סוגריים, אז insideParen=true (דלג על מילה ראשונה).
-     אבל applyCrossParagraphParens לא תעטוף אותה כולה (יש לה סוגר משלה), אז willParenWrap=false (מדוד בגופן רגיל).
-   - פסקת פתיחה (יש לה ( ): הטקסט לפני ה( הוא רגיל, אז insideParen=false (אפשר מילה ראשונה אם לא מתחיל ב().
-     וגם willParenWrap=false (לא תעטף כולה).
-   - פסקה אמצעית (אין לה ( או )): insideParen=true וגם willParenWrap=true. */
-function markInsideParenParagraphs(sections) {
-    const insideParenMap = {};  // token.id → insideParen (ל-createDropWord)
-    const willParenWrapMap = {};  // token.id → willParenWrap (למדידה)
-    let parenDepth = 0;
-
-    sections.forEach(sec => {
-        if (!sec.tokens) return;
-        sec.tokens.forEach(tok => {
-            if (tok.type !== 'p') return;
-            const text = tok.text || '';
-            let openCount = 0, closeCount = 0;
-            let inBracket = false;
-            for (const ch of text) {
-                if (ch === '[') { inBracket = true; continue; }
-                if (ch === ']') { inBracket = false; continue; }
-                if (inBracket) continue;
-                if (ch === '(') openCount++;
-                else if (ch === ')') closeCount++;
-            }
-            // insideParen: הפסקה מתחילה בתוך סוגריים פתוחות → דלג על מילה ראשונה
-            insideParenMap[tok.id] = (parenDepth > 0);
-            // willParenWrap: הפסקה תעטף כולה ב-paren-text → מדוד בגופן קטן
-            willParenWrapMap[tok.id] = (parenDepth > 0 && openCount === 0 && closeCount === 0);
-            parenDepth += openCount - closeCount;
-            if (parenDepth < 0) parenDepth = 0;
-        });
-    });
-
-    window._willParenWrapMap = willParenWrapMap;
-    return insideParenMap;
-}
-
-/* [חדש] בודק אם טוקן נתון נמצא בתוך עומק סוגריים פתוחות.
-   משתמש במפה שנבנתה על-ידי markInsideParenParagraphs. */
-function isInsideParenToken(tok) {
-    if (!tok || !window._insideParenMap) return false;
-    return !!window._insideParenMap[tok.id];
-}
-
-/* [חדש] בודק אם טוקן (לפי מזהה) נמצא בתוך עומק סוגריים פתוחות. */
-function isInsideParenTokenId(tokId) {
-    if (tokId == null || !window._insideParenMap) return false;
-    return !!window._insideParenMap[tokId];
-}
-
-/* [חדש] בודק אם טוקן יעטף כולו ב-span של paren-text על-ידי applyCrossParagraphParens.
-   משמש את getLinesFromParagraph כדי למדוד עם גודל הגופן הקטן שיוחל בפועל.
-   קריטריון: parenDepth > 0 **ואין לפסקה ( או ) משלה** (תואם ל-applyCrossParagraphParens). */
-function willParenWrapToken(tok) {
-    if (!tok || !window._willParenWrapMap) return false;
-    return !!window._willParenWrapMap[tok.id];
-}
-
-function willParenWrapTokenId(tokId) {
-    if (tokId == null || !window._willParenWrapMap) return false;
-    return !!window._willParenWrapMap[tokId];
-}
