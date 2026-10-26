@@ -3198,3 +3198,10 @@ The latest 601-page deterministic audit (commit `48bddf07784866bc85d5a65b520f0dc
 - The remaining medium bracket-scope findings occur on pages 505, 514, and 629; these are cross-paragraph/cross-column or cross-page editorial spans, not automatically pagination defects. Do not change layout policy until their rendered text and source scope are reviewed.
 - The current report still has one medium sparse page (page index 501, estimated text capacity 7%). This needs context-aware inspection before choosing between a valid structural page and a layout regression.
 - V23 only. V21 remains untouched and separate.
+
+## 2026-10-26 — phased roadmap added (V23)
+
+- Added `V23/PLAN_STABILITY_COMPLETENESS_TRANSPARENCY.md` in commit `b93beba627c59956f92e97b0c6741fb6b2bb03da`.
+- The plan defines nine staged phases with explicit exit gates, current verified baseline, GitHub Actions run/artifact/log workflow, and a no-merge rule for V21.
+- Next action is Stage 0: re-confirm current V23 HEAD and both latest Smoke/long runs before trusting any prior metrics. Then Stage 1 inventories all current findings from the matching artifacts.
+- This commit adds a plan only; it does not itself change the layout algorithm or establish new test results.
