@@ -32,6 +32,29 @@ jobs:
         run: node tools/geometry-audit-cli.js --help
       - name: Run geometry audit smoke test
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/smoke-report.json --summary ./artifacts/smoke-summary.md --fail-on none --repeat-check
+      - name: Run no-legal-two-column-split regression fixture
+        run: node tools/geometry-audit-cli.js --input ./tests/fixtures/no-legal-two-column-split.txt --report ./artifacts/no-legal-split-report.json --summary ./artifacts/no-legal-split-summary.md --fail-on none
+      - name: Assert no-legal-split decision is explicit and complete
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('./artifacts/no-legal-split-report.json', 'utf8'));
+          const records = report.geometry?.layoutDecisionRecords || [];
+          const matches = records.filter(record => {
+            const selection = record.decision?.selection;
+            return selection?.status === 'skipped' &&
+              selection?.routing === 'balanceColumns' &&
+              selection?.skipReason === 'no-legal-two-column-split' &&
+              selection?.fallback === 'preserve-existing-flow-no-legal-split' &&
+              selection?.candidateCount === 0 &&
+              selection?.selectedCandidateIndex === null;
+          });
+          if (matches.length === 0) {
+            console.error('Expected a complete explicit no-legal-two-column-split decision with zero candidates and no selected candidate. Records:', records.map(record => ({pageLabel: record.pageLabel, decision: record.decision?.selection})));
+            process.exit(1);
+          }
+          console.log(JSON.stringify({ explicitNoLegalSplitDecisions: matches.length, decisionContract: 'PASS' }));
+          NODE
       - name: Run completely empty column balance regression
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/empty-column-report.json --summary ./artifacts/empty-column-summary.md --fail-on none --test-empty-column-balance
       - name: Assert completely empty column is reported as imbalance
