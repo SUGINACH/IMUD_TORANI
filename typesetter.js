@@ -1528,6 +1528,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     block.setAttribute('data-layout-balance-input-height', String(block.getBoundingClientRect().height));
     block.setAttribute('data-layout-balance-status', 'started');
     block.setAttribute('data-layout-balance-skip-reason', '');
+    block.setAttribute('data-layout-balance-fallback', 'none');
     if (snapshot) {
         footnoteQueueForPage.length = snapshot.footnoteQueueLen;
         endnoteQueueForPart.length = snapshot.endnoteQueueLen;
@@ -1615,12 +1616,19 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
                 if (prevIsHeading && l < 2) continue;                        // כותרת + שורה אחת בלבד
                 cands.push({ i, l });
             }
-            cands.push({ i: i + 1, l: 0 }); // הטור הימני מסתיים בסוף פסקה שלמה (לא בכותרת)
+            // A terminal candidate that places every item in the right column and nothing
+            // in the left is not a valid two-column split. If the paragraph is the final
+            // item, omit that candidate; the no-candidate path below preserves the existing
+            // DOM and records an explicit structural fallback instead of claiming success.
+            if (i + 1 < items.length) {
+                cands.push({ i: i + 1, l: 0 }); // סוף פסקה; נותר תוכן לטור השמאלי
+            }
         }
     }
     if (cands.length === 0) {
         block.setAttribute('data-layout-balance-status', 'skipped');
-        block.setAttribute('data-layout-balance-skip-reason', 'no-legal-candidates');
+        block.setAttribute('data-layout-balance-skip-reason', 'no-legal-two-column-split');
+        block.setAttribute('data-layout-balance-fallback', 'preserve-existing-flow-no-legal-split');
         block.setAttribute('data-layout-balance-candidates', '0');
         block.setAttribute('data-layout-balance-items', String(items.length));
         block.setAttribute('data-layout-balance-fits', 'false');
