@@ -761,7 +761,18 @@ async function main() {
                     block.querySelector('.main-column.left-col'));
                 if (!target) throw new Error('Missing-column regression fixture requires at least one two-column block');
                 target.setAttribute('data-geometry-audit-test-missing-column', 'true');
-                target.querySelector('.main-column.left-col').remove();
+                const leftColumn = target.querySelector('.main-column.left-col');
+                // Preserve source paragraph nodes for the independent content-conservation
+                // audit while removing the column from the rendered layout tree.
+                const preservationBin = document.createElement('div');
+                preservationBin.setAttribute('data-geometry-audit-test-preservation-bin', 'true');
+                Object.assign(preservationBin.style, {
+                    position: 'absolute', width: '0px', height: '0px',
+                    overflow: 'hidden', visibility: 'hidden', pointerEvents: 'none'
+                });
+                while (leftColumn.firstChild) preservationBin.appendChild(leftColumn.firstChild);
+                document.getElementById('book-container').appendChild(preservationBin);
+                leftColumn.remove();
                 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
             }
             const model = window.__geomAudit.extract();
