@@ -1700,11 +1700,17 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             const fullWidth = activeColumn.getBoundingClientRect().width;
             if (residualParagraph.classList.contains('p-cut') &&
                 residualLinesAtWidth(fullWidth) < rules.minLast) {
-                for (let width = Math.floor(fullWidth); width >= Math.floor(colWidth); width -= 1) {
-                    if (residualLinesAtWidth(width) >= rules.minLast) {
-                        chosenWidth = width;
-                        break;
+                // Line count is monotone non-increasing as the measure widens, so find
+                // the widest widow-safe measure with a deterministic integer binary search.
+                let low = Math.floor(colWidth);
+                let high = Math.floor(fullWidth);
+                if (residualLinesAtWidth(low) >= rules.minLast) {
+                    while (low < high) {
+                        const mid = Math.ceil((low + high) / 2);
+                        if (residualLinesAtWidth(mid) >= rules.minLast) low = mid;
+                        else high = mid - 1;
                     }
+                    chosenWidth = low;
                 }
                 if (chosenWidth === null) {
                     block.classList.remove('layout-full-width-terminal-residual');
