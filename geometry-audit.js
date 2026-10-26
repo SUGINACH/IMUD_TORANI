@@ -1575,7 +1575,7 @@ function auditSparsePage(page, issues) {
                 .filter(item => item.rect.width > 0 && item.rect.height > 0 && item.rect.bottom > contentStartY)
                 .sort((a, b) => a.rect.top - b.rect.top)[0]?.node;
             return (el?.getAttribute('data-raw-text') || el?.textContent || '')
-                .replace(/\\s+/g, ' ').trim().slice(0, 180) || null;
+                .replace(/\s+/g, ' ').trim().slice(0, 180) || null;
         })(),
         lastVisibleTextPreview: (() => {
             const el = textEls
@@ -1584,7 +1584,7 @@ function auditSparsePage(page, issues) {
                 .filter(item => item.rect.width > 0 && item.rect.height > 0 && item.rect.bottom > contentStartY)
                 .sort((a, b) => a.rect.bottom - b.rect.bottom).at(-1)?.node;
             return (el?.getAttribute('data-raw-text') || el?.textContent || '')
-                .replace(/\\s+/g, ' ').trim().slice(-180) || null;
+                .replace(/\s+/g, ' ').trim().slice(-180) || null;
         })(),
         textElementClasses: textEls
             .filter(node => {
