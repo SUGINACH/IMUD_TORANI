@@ -951,7 +951,7 @@ function auditColumnBalance(node, issues) {
                 const summarizeElement = el => {
                     if (!el) return null;
                     const rawText = (el.getAttribute?.('data-raw-text') || el.textContent || '')
-                        .replace(/\\s+/g, ' ').trim();
+                        .replace(/\s+/g, ' ').trim();
                     const r = rectOf(el);
                     return {
                         tag: String(el.tagName || '').toLowerCase(),
@@ -977,7 +977,7 @@ function auditColumnBalance(node, issues) {
                         tokenId: el.getAttribute?.('data-token-id') || null,
                         height: Math.round(Number.isFinite(r?.h) ? r.h : 0),
                         textPreview: (el.getAttribute?.('data-raw-text') || el.textContent || '')
-                            .replace(/\\s+/g, ' ').trim().slice(0, 180)
+                            .replace(/\s+/g, ' ').trim().slice(0, 180)
                     };
                 };
                 const bodyFlow = blockEl?.parentElement || null;
