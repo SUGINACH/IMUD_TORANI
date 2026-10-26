@@ -43,7 +43,7 @@ function parseArgs(argv) {
 function help() {
     process.stdout.write('Geometry audit CLI\nRequired: --input <text-file>\n' +
       'Options: --settings <json-file>, --report <json-file>, --summary <md-file>, --full-model, --repeat-check,\n' +
-      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>, --require-ornaments, --require-geometry-features, --require-note-marker-line-diagnostics\n');
+      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>, --require-ornaments, --require-geometry-features, --require-note-marker-line-diagnostics,\n' +\n      '  --test-empty-column-balance, --test-missing-column-element (regression tests only)\n');
 }
 function abs(p) { return path.resolve(process.cwd(), p); }
 function ensureParent(p) { fs.mkdirSync(path.dirname(p), { recursive: true }); }
@@ -78,7 +78,22 @@ function instrumentationIntegrityFailures(report) {
     if ((a.missingOrMalformedCount ?? 0) !== 0) failures.push('missing or malformed decision records');
     if ((a.missingCrossParenDiagnosticCount ?? 0) !== 0) failures.push('missing/incomplete parenthesis diagnostics');
     if ((a.crossParenDiagnosticErrorCount ?? 0) !== 0) failures.push('parenthesis diagnostic capture errors');
-    if ((a.crossParenFinalSnapshotMismatchCount ?? 0) !== 0) failures.push('final parenthesis snapshot differs from exported geometry');
+    const finalParenSnapshotMismatches = a.crossParenFinalSnapshotMismatchCount ?? 0;
+    // The missing-column regression intentionally removes one rendered column after
+    // the layout engine has captured its canonical paragraph geometry. That mutation
+    // can produce exactly one expected final-snapshot mismatch; do not waive any
+    // additional mismatch, and keep this exception restricted to the explicit test mode.
+    const expectedMissingColumnMutationMismatch =
+        report.run?.testMissingColumnElement === true &&
+        finalParenSnapshotMismatches === 1;
+    if (finalParenSnapshotMismatches !== 0 && !expectedMissingColumnMutationMismatch) {
+        failures.push('final parenthesis snapshot differs from exported geometry');
+    }
+    if (expectedMissingColumnMutationMismatch) {
+        report.run.expectedTestMutationIntegrityExceptions = [
+            'one final parenthesis snapshot mismatch caused by --test-missing-column-element DOM mutation'
+        ];
+    }
     if ((a.missingParenthesisScopeDiagnosticCount ?? 0) !== 0) failures.push('missing parenthesis-scope diagnostics');
     if ((a.parenthesisScopeDiagnosticErrorCount ?? 0) !== 0) failures.push('parenthesis-scope diagnostic capture error');
     if (report.geometry?.parenthesisScopeSummary == null) failures.push('missing document-level parenthesis-scope summary');
@@ -1424,7 +1439,7 @@ async function main() {
             run:{ input:path.relative(root,inputPath).split(path.sep).join('/'), inputBytes:Buffer.byteLength(inputText,'utf8'),
               generatedAt:new Date().toISOString(), branch:process.env.GITHUB_REF_NAME || null,
               gitCommit:process.env.GITHUB_SHA || null, viewport:{width:args.viewportWidth,height:args.viewportHeight,deviceScaleFactor:1},
-              renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, externalHeaderAssetsLoaded:registeredExternalHeaderAssets, failOn:args.failOn, browser:'Chromium headless' },
+              renderMs:Date.now()-started, renderResult, determinismCheck, settings, settingsSource, externalHeaderAssetsLoaded:registeredExternalHeaderAssets, failOn:args.failOn, testEmptyColumnBalance:args.testEmptyColumnBalance, testMissingColumnElement:args.testMissingColumnElement, browser:'Chromium headless' },
             pageCount:data.pageCount,
             geometry:{stats:data.stats,ornamentDomCoverage:data.ornamentDomCoverage,headerTypeSelection:data.headerTypeSelection,versoHeaderTypeSelection:data.versoHeaderTypeSelection,headerPageSelectionAudit:data.headerPageSelectionAudit,decorativeGeometryDomCoverage:data.decorativeGeometryDomCoverage,headerOrnamentGeometryAudit:data.headerOrnamentGeometryAudit,fontsStatus:data.fontsStatus,fontPreflight:data.fontPreflight,footnoteReflowDiagnostics:data.footnoteReflowDiagnostics,layoutDiagnostics:data.layoutDiagnostics,layoutDecisionRecords:data.layoutDecisionRecords,layoutDecisionRecordAudit,parenthesisScopeSummary:data.parenthesisScopeSummary,parenthesisScopeDiagnosticError:data.parenthesisScopeDiagnosticError,parenFontCounterfactualSummary:data.parenFontCounterfactualSummary,parenFontCounterfactualError:data.parenFontCounterfactualError,textConservationAudit:data.textConservationAudit,sideNoteFitCorrections:data.sideNoteFitCorrections,bodyScrollHeight:data.bodyScrollHeight,bookContainerScrollHeight:data.bookContainerScrollHeight},
             audit:{summary:data.summary,issues:data.issues},
