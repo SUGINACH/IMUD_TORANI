@@ -1,6 +1,5 @@
 /* ==========================================================================
    decorations.js - מאגר עיטורים, שערים ואלמנטים גרפיים (SVG)
-   גרסה מעודכנת עם שליטה מלאה במידות, Full-Bleed וסנכרון ערכות
    ========================================================================== */
 
 const CBG_TEXTURE_SVG = "data:image/svg+xml,%3Csvg width='32' height='55' viewBox='0 0 32 55' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M16,27 C10,22 5,14 5,5 C5,0 10,0 16,5 C22,0 27,0 27,5 C27,14 22,22 16,27 Z M16,27 C10,32 5,40 5,49 C5,55 10,55 16,49 C22,55 27,55 27,49 C27,40 22,32 16,27 Z M16,14 A3.5,3.5 0 1,0 16,21 A3.5,3.5 0 1,0 16,14 Z' fill='%239e9e9e' fill-opacity='0.18'/%3E%3C/svg%3E";
@@ -35,83 +34,17 @@ function registerExternalAllOrnament(id, svgContent) {
     EXTERNAL_ALL_ORNAMENTS[id] = svgContent;
 }
 
-/* מקדים תחילית ייחודית (לפי תוכן ה-SVG) לכל מזהה (id) ולכל ההפניות אליו.
-   כל קובצי השער מגדירים למשל filter id="ds"; כשכמה שערים שונים נמצאים באותו מסמך, ההפניה url(#ds)
-   נפתרת למזהה הראשון במסמך - ולכן ערכה אחת הייתה "שואלת" מסננים/גרדיאנטים מערכה אחרת.
-   אותו SVG (למשל שער משנה שחוזר בכל חלק) מקבל תמיד אותה תחילית, ו-SVG שונה מקבל תחילית שונה. */
-function scopeSvgIds(svg) {
-    if (!svg || typeof svg !== 'string') return svg;
-    const ids = [];
-    svg.replace(/\sid=(["'])([^"']+)\1/g, (m, q, id) => { if (!ids.includes(id)) ids.push(id); return m; });
-    if (!ids.length) return svg;
-    let h = 5381;
-    for (let i = 0; i < svg.length; i++) h = (((h << 5) + h) + svg.charCodeAt(i)) | 0;
-    const pre = 'sv' + (h >>> 0).toString(36) + '_';
-    let out = svg;
-    ids.forEach(id => {
-        const e = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        out = out
-            .replace(new RegExp('(\\sid=)(["\'])' + e + '\\2', 'g'), '$1$2' + pre + id + '$2')
-            .replace(new RegExp('url\\(\\s*(["\']?)#' + e + '\\1\\s*\\)', 'g'), 'url($1#' + pre + id + '$1)')
-            .replace(new RegExp('((?:xlink:)?href=)(["\'])#' + e + '\\2', 'g'), '$1$2#' + pre + id + '$2');
-        if (!/^[0-9a-f]{3,8}$/i.test(id)) {
-            // בוררי #id בתוך בלוקי <style> (נדיר)
-            out = out.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, blk => blk.replace(new RegExp('#' + e + '(?![\\w-])', 'g'), '#' + pre + id));
-        }
-    });
-    return out;
-}
-
-/* מחזיר את ה-SVG בלבד: חותך פרולוג <?xml ...?>, DOCTYPE, הערות ורווחים שלפני התג, ומתאים את המזהים */
-function normalizeSvgMarkup(svg) {
-    if (!svg || typeof svg !== 'string') return svg || '';
-    const at = svg.search(/<svg\b/i);
-    if (at < 0) return svg;
-    return scopeSvgIds(svg.slice(at));
-}
-
-function wrapSvgAsShaarBg(svg) {
-    if (!svg) return '';
-    if (svg.includes('class="custom-bg-img"')) return svg;
-    if (svg.search(/<svg\b/i) < 0) return svg;
-    // קובצי SVG רבים מתחילים ב-<?xml ...?> - לפני התיקון הם לא נעטפו, ולכן השער הופיע ריק או בגודל מקורי
-    return normalizeSvgMarkup(svg).replace(/<svg\b([^>]*)>/i, '<svg class="custom-bg-img" preserveAspectRatio="none" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5;" $1>');
-}
-
-/* ==========================================================================
-   כיוונון תיבת הטקסט לכל שער בנפרד
-   המפתח הוא סוג השער + זהות השער בפועל: איור שנבחר ידנית לשער, או (בברירת "לפי ערכה") הערכה הפעילה.
-   כיוונון (גרירה/שינוי גודל בעכבר) נשמר לשער הזה בלבד ומשוחזר בכל פעם שהוא נבחר מחדש,
-   ונשמר בתבנית (ext-imports-data) ובדפדפן (localStorage).
-   ========================================================================== */
-let shaarBoxCalib = {};   // { 'sub|cover:sub_2': {top,bottom,right,left}, 'main|theme:builtin_1': {...} }
-
-function getShaarCoverKey(type, themeId) {
-    const sel = document.getElementById('select-shaar-' + type)?.value || 'theme_default';
-    return type + '|' + (sel !== 'theme_default' ? 'cover:' + sel : 'theme:' + (themeId || document.getElementById('active-theme-select')?.value || ''));
-}
-
-function shaarBoxStyleFromMargins(m) {
-    return `position:absolute; top:${m.top}mm; bottom:${m.bottom}mm; right:${m.right}mm; left:${m.left}mm;`;
-}
-
-function applyShaarBoxCalib(type, themeId, defaultStyle) {
-    const cal = shaarBoxCalib[getShaarCoverKey(type, themeId)];
-    if (!cal) return defaultStyle;
-    const ok = ['top', 'bottom', 'right', 'left'].every(k => typeof cal[k] === 'number' && isFinite(cal[k]));
-    return ok ? shaarBoxStyleFromMargins(cal) : defaultStyle;
-}
-
 /* ==========================================================================
    1. עיטורי כותרת עליונה ומקורות תוכן מורחבים
    ========================================================================== */
 const HEADER_ORNAMENTS = {
-    diamonds: '<span style="letter-spacing:3px; font-size:9pt;">◈ ❖ ◈</span>',
-    spear: '<svg viewBox="0 0 400 40"><circle cx="200" cy="20" r="10" fill="none" stroke="#444" stroke-width="4.5"/><circle cx="200" cy="20" r="4.5" fill="#444"/><path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#444"/><path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#444"/></svg>',
-    swash: '<svg viewBox="0 0 320 28" fill="#444"><path d="M10,14 C60,14 85,4 125,4 C145,4 152,11 160,17 C168,11 175,4 195,4 C235,4 260,14 310,14 C260,14 235,24 195,24 C175,24 168,17 160,11 C152,17 145,24 125,24 C85,24 60,14 10,14 Z M160,7 A5,5 0 1,0 160,21 A5,5 0 1,0 160,7 Z"/></svg>',
-    pen: '<svg viewBox="0 0 280 80"><g stroke="#444" fill="none" stroke-linecap="round"><path d="M30,55 C12,42 22,22 38,28 C50,32 55,48 45,58 C35,68 18,60 14,46 C10,32 25,18 42,22 C65,28 85,65 118,68 C128,69 135,62 135,50 C135,38 124,32 115,38" stroke-width="3"/><path d="M250,55 C268,42 258,22 242,28 C230,32 225,48 235,58 C245,68 262,60 266,46 C270,32 255,18 238,22 C215,28 195,65 162,68 C152,69 145,62 145,50 C145,38 156,32 165,38" stroke-width="3"/></g></svg>'
+    diamonds: '<span style="letter-spacing:3px;">◈ ❖ ◈</span>',
+    spear: '<svg style="height:9px; width:48px;" viewBox="0 0 400 40"><circle cx="200" cy="20" r="10" fill="none" stroke="#444" stroke-width="4.5"/><circle cx="200" cy="20" r="4.5" fill="#444"/><path d="M182,20 C182,24 165,27 140,27 C90,27 40,22 5,20 C40,18 90,13 140,13 C165,13 182,16 182,20 Z" fill="#444"/><path d="M218,20 C218,24 235,27 260,27 C310,27 360,22 395,20 C360,18 310,13 260,13 C235,13 218,16 218,20 Z" fill="#444"/></svg>',
+    swash: '<svg style="height:12px; width:44px; fill:#444;" viewBox="0 0 320 28"><path d="M10,14 C60,14 85,4 125,4 C145,4 152,11 160,17 C168,11 175,4 195,4 C235,4 260,14 310,14 C260,14 235,24 195,24 C175,24 168,17 160,11 C152,17 145,24 125,24 C85,24 60,14 10,14 Z M160,7 A5,5 0 1,0 160,21 A5,5 0 1,0 160,7 Z"/></svg>',
+    pen: '<svg style="height:12px; width:44px;" viewBox="0 0 280 80"><g stroke="#444" fill="none" stroke-linecap="round"><path d="M30,55 C12,42 22,22 38,28 C50,32 55,48 45,58 C35,68 18,60 14,46 C10,32 25,18 42,22 C65,28 85,65 118,68 C128,69 135,62 135,50 C135,38 124,32 115,38" stroke-width="3"/><path d="M250,55 C268,42 258,22 242,28 C230,32 225,48 235,58 C245,68 262,60 266,46 C270,32 255,18 238,22 C215,28 195,65 162,68 C152,69 145,62 145,50 C145,38 156,32 165,38" stroke-width="3"/></g></svg>'
 };
 
+// פיצול מחרוזת מילים לשני חצאים (עבור פיצול שם הספר בין ימין לשמאל)
 function splitTextInHalf(text, part) {
     if (!text) return '';
     const words = text.trim().split(/\s+/);
@@ -134,22 +67,13 @@ function renderHeaderSectionHTML(type, customText, h1Title, h2Title, h3Title, bo
     if (type === 'book_title_split_r') return splitTextInHalf(bookTitle, 'first');
     if (type === 'book_title_split_l') return splitTextInHalf(bookTitle, 'second');
     if (type === 'page_number') return pageNum ? String(pageNum) : '';
-    // [תיקון] בקובץ המקורי firstLastWords לא חושב בשום מקום והאפשרות נשארה ריקה תמיד. כעת מוחזר סימון מקום (hdr-firstlast)
-    // שמתמלא ב-fillHeaderFirstLastWords (typesetter.js) אחרי שכל העמודים סופיים, כי רק אז ידועות המילה הראשונה והאחרונה בעמוד.
-    if (type === 'first_word_last_word') return firstLastWords || '<span class="hdr-firstlast"></span>';
+    if (type === 'first_word_last_word') return firstLastWords || '';
     if (type === 'custom') return customText || '';
-
-    let rawSvg = '';
-    if (HEADER_ORNAMENTS[type]) rawSvg = HEADER_ORNAMENTS[type];
-    else if (EXTERNAL_ALL_ORNAMENTS[type]) rawSvg = EXTERNAL_ALL_ORNAMENTS[type];
-    else if (type === 'custom_img') {
-        const imgSrc = document.getElementById('data-hdr-c-img')?.value || '';
-        if (imgSrc) rawSvg = `<img src="${imgSrc}" alt="עיטור" />`;
-    }
-
-    if (rawSvg) {
-        // prepareOrnamentSvg: מוסיף viewBox כשחסר (כדי שהעיטור יתכווץ ל-16px במקום להיחתך/להיראות ענק) ומבודד מזהי id
-        return `<span class="header-ornament-wrap">${prepareOrnamentSvg(rawSvg, false)}</span>`;
+    if (HEADER_ORNAMENTS[type]) return HEADER_ORNAMENTS[type];
+    if (EXTERNAL_ALL_ORNAMENTS[type]) return EXTERNAL_ALL_ORNAMENTS[type];
+    if (type === 'custom_img') {
+        const imgSrc = document.getElementById('data-hdr-c-img') ? document.getElementById('data-hdr-c-img').value : '';
+        return imgSrc ? `<img src="${imgSrc}" style="max-height: 18px; max-width: 100%; object-fit: contain; vertical-align: middle;" />` : '';
     }
     return '';
 }
@@ -185,59 +109,33 @@ function getSectionDividerHTML(type) {
     return `<div class="sec-divider-wrap" style="grid-column: 3 / 6; text-align: center; margin: 16px auto 6px auto; ${dimStyle ? 'display:flex; justify-content:center; align-items:center;' : ''}">${content}</div>`;
 }
 
-/* מכין SVG של עיטור לשימוש בתיבה בגודל מוגדר מבחוץ (CSS):
-   1. חותך פרולוג/הערות שלפני התג (קובצי SVG רבים מתחילים ב-<?xml ...?>) ומבודד מזהי id כדי שעיטורים שונים לא יתנגשו.
-   2. אם אין viewBox אבל יש width/height מספריים - משלים viewBox מהם. בלי viewBox אי אפשר לכווץ/למתוח את הציור ב-CSS:
-      הוא נחתך או מוצג בגודלו המקורי ("ענק").
-   3. stretch=true מוסיף preserveAspectRatio="none" (מתיחה מלאה לתיבה - למצב "התאם לרוחב הטקסט"). */
-function prepareOrnamentSvg(svg, stretch) {
-    if (!svg || typeof svg !== 'string') return svg || '';
-    if (svg.search(/<svg\b/i) < 0) return svg;          // לא SVG (למשל תווים בתוך span) - נשאר כמות שהוא
-    let out = normalizeSvgMarkup(svg);
-    out = out.replace(/<svg\b([^>]*)>/i, (all, attrs) => {
-        const getAttr = n => { const r = attrs.match(new RegExp('\\s' + n + '\\s*=\\s*(["\'])(.*?)\\1', 'i')); return r ? r[2] : null; };
-        const num = v => { if (v == null) return NaN; const r = String(v).trim().match(/^(\d*\.?\d+)\s*(?:px)?$/i); return r ? parseFloat(r[1]) : NaN; };
-        let a = attrs;
-        if (getAttr('viewBox') == null) {
-            const w = num(getAttr('width')), h = num(getAttr('height'));
-            if (isFinite(w) && isFinite(h) && w > 0 && h > 0) a += ` viewBox="0 0 ${w} ${h}"`;
-        }
-        if (stretch && getAttr('preserveAspectRatio') == null) a += ' preserveAspectRatio="none"';
-        else if (stretch) a = a.replace(/(\spreserveAspectRatio\s*=\s*)(["'])[^"']*\2/i, '$1"none"');
-        return '<svg' + a + '>';
-    });
-    return out;
-}
-
 function getHeadingOrnamentHTML(type, isTop = false, isH2 = true) {
     if (!type || type === 'none') return '';
     const flipStyle = isTop ? 'transform: scaleY(-1);' : '';
-
+    
+    // שליטה במידות מותאמות אישית
     const prefix = isH2 ? (isTop ? 'dim-h2-top' : 'dim-h2-btm') : 'dim-generic';
-    const userW = (document.getElementById(prefix + '-w')?.value || '').trim();
-    const userH = (document.getElementById(prefix + '-h')?.value || '').trim();
+    const userW = document.getElementById(`${prefix}-w`)?.value;
+    const userH = document.getElementById(`${prefix}-h`)?.value;
     const fitToText = isH2 && document.getElementById('h2-orn-fit-text')?.checked;
-
-    /* [תוקן] תיבת העיטור (ornament-svg-inner) מקבלת את המידות שהמשתמש הגדיר והציור ממלא אותה (ראו style.css).
-       גובה: השדה (ברירת מחדל 1.25em). רוחב: השדה (ברירת מחדל 65%), ובמצב "התאם לרוחב טקסט הכותרת" - הרוחב נקבע
-       ב-typesetter.js (fitH2OrnamentsToText) לפי מדידת הטקסט האמיתי; עד אז (או אם אי אפשר למדוד) - רוחב מלא. */
-    const hVal = userH || '1.25em';
-    const wVal = fitToText ? '100%' : (userW || '65%');
-    const sizeStyle = `width: ${wVal}; max-width: 100%; height: ${hVal}; max-height: ${hVal}; `;
+    
+    let sizeStyle = '';
+    if (userW) sizeStyle += `width: ${userW}; `;
+    if (userH) sizeStyle += `height: ${userH}; max-height: ${userH}; `;
+    if (fitToText) sizeStyle += `width: 100% !important; max-width: 100% !important; `;
 
     let inner = '';
     if (ORNAMENTS_UD[type]) {
-        const svg = prepareOrnamentSvg(ORNAMENTS_UD[type].svg, !!fitToText);
-        inner = `<div class="ornament-svg-inner" style="display:flex; align-items:center; justify-content:center; ${flipStyle} ${sizeStyle}">${svg}</div>`;
+        inner = `<div class="ornament-svg-inner" style="display:inline-flex; align-items:center; justify-content:center; ${flipStyle} ${sizeStyle}">${ORNAMENTS_UD[type].svg}</div>`;
     } else if (type === 'custom_img') {
         const imgSrc = document.getElementById('data-sec-div-img')?.value || '';
         if (imgSrc) {
-            inner = `<img src="${imgSrc}" style="max-width: 100%; max-height: 35px; margin: auto; display: block; object-fit: contain; ${flipStyle} ${sizeStyle}" />`;
+            inner = `<img src="${imgSrc}" style="max-width: 200px; max-height: 35px; margin: auto; display: block; object-fit: contain; ${flipStyle} ${sizeStyle}" />`;
         }
     }
     if (!inner) return '';
     const fitClass = fitToText ? ' fit-heading-text' : '';
-    return `<div class="heading-ornament-wrap${fitClass}" style="text-align:center; width:100%; margin: 4px auto;">${inner}</div>`;
+    return `<div class="heading-ornament-wrap${fitClass}" style="text-align:center; margin: 6px auto;">${inner}</div>`;
 }
 
 function renderSideOrnamentHTML(styleKey, isLeft = false, context = 'h3') {
@@ -245,9 +143,8 @@ function renderSideOrnamentHTML(styleKey, isLeft = false, context = 'h3') {
     const flipStyle = isLeft ? 'transform: scaleX(-1);' : '';
     
     const prefix = context === 'note' ? 'dim-note-side' : 'dim-h3-side';
-// שורות 167-168 (בתוך renderSideOrnamentHTML):
-    const userW = document.getElementById(prefix + '-w')?.value;
-    const userH = document.getElementById(prefix + '-h')?.value;
+    const userW = document.getElementById(`${prefix}-w`)?.value;
+    const userH = document.getElementById(`${prefix}-h`)?.value;
     let sizeStyle = '';
     if (userW) sizeStyle += `width: ${userW}; `;
     if (userH) sizeStyle += `height: ${userH}; max-height: ${userH}; `;
@@ -262,7 +159,7 @@ function renderSideOrnamentHTML(styleKey, isLeft = false, context = 'h3') {
 }
 
 /* ==========================================================================
-   3. קווי מפריד להערות שוליים
+   3. קווי מפריד להערות שוליים (כולל "ללא", קו קצר, קו חצי וקו כפול)
    ========================================================================== */
 const NOTE_RULE_GLYPHS = {
     dots: '◦◦◦',
@@ -367,7 +264,7 @@ function getShaarBoxEditorHTML(shaarType) {
 }
 
 /* ============================================================
-   5. פונקציות יצירת דפי השער
+   5. פונקציות יצירת דפי השער (כולל שליטה בממדים אישיים)
    ============================================================ */
 function renderMainShaar(container, themeId) {
     const page = document.createElement('div');
@@ -389,24 +286,35 @@ function renderMainShaar(container, themeId) {
 
     if (selMain !== 'theme_default') {
         if (EXTERNAL_SHAAR_ASSETS.main[selMain]) {
-            frameHTML = wrapSvgAsShaarBg(EXTERNAL_SHAAR_ASSETS.main[selMain]);
+            frameHTML = EXTERNAL_SHAAR_ASSETS.main[selMain];
         } else if (BUILTIN_SHAAR_THEMES[selMain]) {
-            frameHTML = wrapSvgAsShaarBg(BUILTIN_SHAAR_THEMES[selMain].mainHTML);
+            frameHTML = BUILTIN_SHAAR_THEMES[selMain].mainHTML;
         }
     } else if (customTheme && customTheme.mainShaar && customTheme.mainShaar.svgData) {
         frameHTML = `<img class="custom-bg-img" src="${customTheme.mainShaar.svgData}" alt="שער ראשי">`;
     } else if (BUILTIN_SHAAR_THEMES[themeId]) {
-        frameHTML = wrapSvgAsShaarBg(BUILTIN_SHAAR_THEMES[themeId].mainHTML);
+        frameHTML = BUILTIN_SHAAR_THEMES[themeId].mainHTML;
     }
 
-    // תיבת הטקסט: כיוונון אישי שנשמר לשער הזה > מידות הערכה המותאמת > ברירת מחדל.
-    // (שדות המידות בפאנל "יצירת ערכה" משמשים ליצירת ערכה חדשה בלבד - הם כבר לא דורסים את כל השערים)
-    if (customTheme && customTheme.mainShaar) {
-        boxStyle = shaarBoxStyleFromMargins(customTheme.mainShaar);
+    // קריאת שולי תיבת הטקסט: קודם כל כיוונון שמור ספציפית לתמונה הזו, אחר-כך
+    // השדות הגלובליים של בונה-הערכות (למי שבתהליך יצירת ערכה חדשה), ורק
+    // לבסוף ברירת המחדל של הערכה/הכללית.
+    const savedStyle = getSavedShaarBoxStyle('main');
+    const uTop = document.getElementById('builder-main-top')?.value;
+    const uBottom = document.getElementById('builder-main-bottom')?.value;
+    const uRight = document.getElementById('builder-main-right')?.value;
+    const uLeft = document.getElementById('builder-main-left')?.value;
+
+    if (savedStyle) {
+        boxStyle = savedStyle;
+    } else if (uTop || uBottom || uRight || uLeft) {
+        boxStyle = `position:absolute; top:${uTop || 20}mm; bottom:${uBottom || 16}mm; right:${uRight || 15}mm; left:${uLeft || 15}mm;`;
+    } else if (customTheme && customTheme.mainShaar) {
+        const m = customTheme.mainShaar;
+        boxStyle = `position:absolute; top:${m.top}mm; bottom:${m.bottom}mm; right:${m.right}mm; left:${m.left}mm;`;
     } else {
         boxStyle = `position:absolute; top:20mm; bottom:16mm; right:15mm; left:15mm;`;
     }
-    boxStyle = applyShaarBoxCalib('main', themeId, boxStyle);
 
     page.innerHTML = `
     ${frameHTML}
@@ -450,27 +358,36 @@ function renderBackShaar(container, themeId) {
 
     if (selBack !== 'theme_default') {
         if (EXTERNAL_SHAAR_ASSETS.back[selBack]) {
-            bgHTML = wrapSvgAsShaarBg(EXTERNAL_SHAAR_ASSETS.back[selBack]);
+            bgHTML = EXTERNAL_SHAAR_ASSETS.back[selBack];
         } else if (BUILTIN_SHAAR_THEMES[selBack]) {
-            bgHTML = wrapSvgAsShaarBg(BUILTIN_SHAAR_THEMES[selBack].backHTML);
+            bgHTML = BUILTIN_SHAAR_THEMES[selBack].backHTML;
         }
     } else if (customTheme && customTheme.backShaar && customTheme.backShaar.svgData) {
         bgHTML = `<img class="custom-bg-img" src="${customTheme.backShaar.svgData}" alt="שער אחורי">`;
     } else if (BUILTIN_SHAAR_THEMES[themeId]) {
-        bgHTML = wrapSvgAsShaarBg(BUILTIN_SHAAR_THEMES[themeId].backHTML);
+        bgHTML = BUILTIN_SHAAR_THEMES[themeId].backHTML;
     } else {
         bgHTML = `<div class="back-shaar-bg-left"></div>`;
     }
 
-    // תיבת הטקסט: כיוונון אישי שנשמר לשער הזה > מידות הערכה > ברירת מחדל (ראו הערה בשער הראשי)
-    if (customTheme && customTheme.backShaar) {
-        boxStyle = shaarBoxStyleFromMargins(customTheme.backShaar);
+    const savedStyleBack = getSavedShaarBoxStyle('back');
+    const uTop = document.getElementById('builder-back-top')?.value;
+    const uBottom = document.getElementById('builder-back-bottom')?.value;
+    const uRight = document.getElementById('builder-back-right')?.value;
+    const uLeft = document.getElementById('builder-back-left')?.value;
+
+    if (savedStyleBack) {
+        boxStyle = savedStyleBack;
+    } else if (uTop || uBottom || uRight || uLeft) {
+        boxStyle = `position:absolute; top:${uTop || 22}mm; bottom:${uBottom || 18}mm; right:${uRight || 15}mm; left:${uLeft || 95}mm;`;
+    } else if (customTheme && customTheme.backShaar) {
+        const m = customTheme.backShaar;
+        boxStyle = `position:absolute; top:${m.top}mm; bottom:${m.bottom}mm; right:${m.right}mm; left:${m.left}mm;`;
     } else if (BUILTIN_SHAAR_THEMES[themeId]) {
         boxStyle = BUILTIN_SHAAR_THEMES[themeId].backStyle;
     } else {
         boxStyle = `position:absolute; top:22mm; bottom:18mm; right:15mm; left:95mm;`;
     }
-    boxStyle = applyShaarBoxCalib('back', themeId, boxStyle);
 
     page.innerHTML = `
     ${bgHTML}
@@ -516,27 +433,36 @@ function renderSubShaar(container, token, themeId) {
 
     if (selSub !== 'theme_default') {
         if (EXTERNAL_SHAAR_ASSETS.sub[selSub]) {
-            bgHTML = wrapSvgAsShaarBg(EXTERNAL_SHAAR_ASSETS.sub[selSub]);
+            bgHTML = EXTERNAL_SHAAR_ASSETS.sub[selSub];
         } else if (BUILTIN_SHAAR_THEMES[selSub]) {
-            bgHTML = wrapSvgAsShaarBg(BUILTIN_SHAAR_THEMES[selSub].subHTML);
+            bgHTML = BUILTIN_SHAAR_THEMES[selSub].subHTML;
         }
     } else if (customTheme && customTheme.subShaar && customTheme.subShaar.svgData) {
         bgHTML = `<img class="custom-bg-img" src="${customTheme.subShaar.svgData}" alt="שער משנה">`;
     } else if (BUILTIN_SHAAR_THEMES[themeId]) {
-        bgHTML = wrapSvgAsShaarBg(BUILTIN_SHAAR_THEMES[themeId].subHTML);
+        bgHTML = BUILTIN_SHAAR_THEMES[themeId].subHTML;
     } else {
         bgHTML = `<div class="sub-shaar-bg-right"></div>`;
     }
 
-    // תיבת הטקסט: כיוונון אישי שנשמר לשער הזה > מידות הערכה > ברירת מחדל (ראו הערה בשער הראשי)
-    if (customTheme && customTheme.subShaar) {
-        boxStyle = shaarBoxStyleFromMargins(customTheme.subShaar);
+    const savedStyleSub = getSavedShaarBoxStyle('sub');
+    const uTop = document.getElementById('builder-sub-top')?.value;
+    const uBottom = document.getElementById('builder-sub-bottom')?.value;
+    const uRight = document.getElementById('builder-sub-right')?.value;
+    const uLeft = document.getElementById('builder-sub-left')?.value;
+
+    if (savedStyleSub) {
+        boxStyle = savedStyleSub;
+    } else if (uTop || uBottom || uRight || uLeft) {
+        boxStyle = `position:absolute; top:${uTop || 20}mm; bottom:${uBottom || 20}mm; right:${uRight || 95}mm; left:${uLeft || 15}mm;`;
+    } else if (customTheme && customTheme.subShaar) {
+        const m = customTheme.subShaar;
+        boxStyle = `position:absolute; top:${m.top}mm; bottom:${m.bottom}mm; right:${m.right}mm; left:${m.left}mm;`;
     } else if (BUILTIN_SHAAR_THEMES[themeId]) {
         boxStyle = BUILTIN_SHAAR_THEMES[themeId].subStyle;
     } else {
         boxStyle = `position:absolute; top:20mm; bottom:20mm; right:95mm; left:15mm;`;
     }
-    boxStyle = applyShaarBoxCalib('sub', themeId, boxStyle);
 
     page.innerHTML = `
     ${bgHTML}
@@ -581,13 +507,13 @@ function getContentBgCSS(roleKey) {
 }
 
 function applyContentBg(pageEl, roleKey) {
-    // כל עמוד זוכר באילו תפקידי רקע הוא (למשל "tocFirst tocLast"), כדי שאפשר יהיה להחיל מחדש בלי עימוד
-    const prev = pageEl.getAttribute('data-bg-role') || '';
-    if (!prev.split(' ').includes(roleKey)) pageEl.setAttribute('data-bg-role', (prev + ' ' + roleKey).trim());
     const css = getContentBgCSS(roleKey);
     if (css) pageEl.style.cssText += css;
 }
 
+/* ==========================================================================
+   רישום דינמי עבור קובצי JSON חיצוניים
+   ========================================================================== */
 function registerExternalShaar(typeKey, id, name, svgContent) {
     registerExternalShaarAsset(typeKey, id, name, svgContent);
     if (!BUILTIN_SHAAR_THEMES[id]) {

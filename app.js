@@ -42,6 +42,21 @@ if (resizer && sidebar) {
 /* ==========================================================================
    כיווץ והרחבה של לוח ההגדרות
    ========================================================================== */
+// מסמנת חזותית שיש שינויים בהגדרות שמשפיעות על העימוד (גופנים, גדלים, מרווחים,
+// עיטורים שמשפיעים על גובה, הערות, כותרות עליונות, TOC וכו') שעדיין לא הוחלו —
+// בלי להריץ עימוד-מחדש מלא על כל מקש/שינוי. העימוד בפועל קורה רק בלחיצה על
+// "עדכן ועמד מחדש" (typesetDocument, שמנקה את הסימון בתחילתה). הגדרות שער/רקע
+// (שלא משפיעות על זרימת הטקסט) ממשיכות לקרוא ל-typesetDocument ישירות ולעדכן מיידית.
+function markPendingChanges() {
+    const btn = document.getElementById('btn-retypeset');
+    if (btn) btn.classList.add('has-pending-changes');
+}
+
+function clearPendingChanges() {
+    const btn = document.getElementById('btn-retypeset');
+    if (btn) btn.classList.remove('has-pending-changes');
+}
+
 function toggleSettingsPane() {
     const sp = document.getElementById('settings-pane');
     if (!sp) return;
@@ -309,6 +324,35 @@ if (window.ResizeObserver && document.getElementById('preview-pane')) {
    ============================================================ */
 let customThemes = [];
 
+// שמירת כיוונון תיבת-טקסט (מיקום/גודל) בנפרד לכל תמונת-שער ספציפית (ראשי/
+// משנה/אחורי), כך שכל תמונה "זוכרת" את הכיוונון שלה ולא "דולפת" לתמונה
+// אחרת שנבחרה אחריה. המפתח: "main:<מזהה-תמונה>" וכדומה.
+let shaarBoxPositions = {};
+
+function getShaarBoxKey(shaarType) {
+    const selEl = document.getElementById('select-shaar-' + shaarType);
+    const themeSel = document.getElementById('active-theme-select');
+    const specific = selEl ? selEl.value : '';
+    const id = (specific && specific !== 'theme_default') ? specific : ('theme:' + (themeSel ? themeSel.value : 'default'));
+    return shaarType + ':' + id;
+}
+
+function saveCurrentShaarBoxPosition(shaarType, pos) {
+    shaarBoxPositions[getShaarBoxKey(shaarType)] = pos;
+}
+
+// מחזירה סגנון-CSS שמור לתמונה הנוכחית של shaarType, אם קיים, אחרת null.
+function getSavedShaarBoxStyle(shaarType) {
+    const pos = shaarBoxPositions[getShaarBoxKey(shaarType)];
+    if (!pos) return null;
+    return `position:absolute; top:${pos.top}mm; bottom:${pos.bottom}mm; right:${pos.right}mm; left:${pos.left}mm;`;
+}
+
+function resetCurrentShaarBoxPosition(shaarType) {
+    delete shaarBoxPositions[getShaarBoxKey(shaarType)];
+    typesetDocument();
+}
+
 function addNewCustomTheme() {
     const nameInput = document.getElementById('builder-theme-name');
     const name = nameInput?.value.trim();
@@ -352,10 +396,6 @@ function addNewCustomTheme() {
 
     const select = document.getElementById('active-theme-select');
     if (select) select.value = themeObj.id;
-    // תיקון: אחרי בחירת ערכה מובנית שלושת בוררי השערים נשארו על אותה ערכה מובנית ולכן הערכה החדשה לא הוצגה.
-    // מחזירים אותם ל"לפי ערכה" ומרעננים את הבורר החזותי (תווית + רשימת הכרטיסים כוללת את הערכה החדשה)
-    syncThemeToIndividualShaars();
-    refreshVisualPicker('active-theme-select');
 
     alert(`ערכת הנושא "${name}" הוטמעה בהצלחה!`);
     typesetDocument();
@@ -363,16 +403,8 @@ function addNewCustomTheme() {
 
 function deleteCustomTheme(themeId) {
     if (!confirm('האם ברצונך למחוק ערכת נושא זו?')) return;
-    const activeSel = document.getElementById('active-theme-select');
-    const wasActive = !!activeSel && activeSel.value === themeId;
     customThemes = customThemes.filter(t => t.id !== themeId);
     refreshCustomThemesUI();
-    // תיקון: מחיקת הערכה הפעילה השאירה את הבורר בלי בחירה (ערך ריק) - חוזרים לערכה המובנית הראשונה
-    if (wasActive && activeSel) {
-        activeSel.value = 'builtin_1';
-        syncThemeToIndividualShaars();
-    }
-    refreshVisualPicker('active-theme-select');
     typesetDocument();
 }
 
@@ -506,13 +538,13 @@ function buildExtPanel(kind, instanceId, name, def) {
     const icon = kind === 'pageType' ? '📄' : kind === 'textStyle' ? '🅰️' : '🖼️';
     let triggerInfo = '';
     if (kind === 'textStyle' && def && def.trigger) {
-        triggerInfo = (def.trigger.type === 'delimiterPair') ? `<div style="font-size:7.5pt;color:#888;overflow-wrap:anywhere;">טריגר: בין "${def.trigger.open}" ל-"${def.trigger.close}"</div>` : `<div style="font-size:7.5pt;color:#888;overflow-wrap:anywhere;">קידומת: "${def.trigger.prefix}"</div>`;
+        triggerInfo = (def.trigger.type === 'delimiterPair') ? `<div style="font-size:7.5pt;color:#888;">טריגר: בין "${def.trigger.open}" ל-"${def.trigger.close}"</div>` : `<div style="font-size:7.5pt;color:#888;">קידומת: "${def.trigger.prefix}"</div>`;
     }
     const anchorRow = (kind !== 'textStyle') ? `<div class="inline-cfg-row"><label>מיקום:</label><select id="${instanceId}-anchor" onchange="updateExtAnchor('${kind}','${instanceId}', this.value)">${EXT_ANCHOR_OPTIONS.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>` : '';
     panel.innerHTML = `
-    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-      <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${String(name).replace(/"/g, '&quot;')}">${icon} ${name}</span>
-      <span style="cursor:pointer;color:#a33;font-weight:700;flex-shrink:0;" onclick="removeExtInstance('${kind}','${instanceId}')">✕ הסר</span>
+    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>${icon} ${name}</span>
+      <span style="cursor:pointer;color:#a33;font-weight:700;" onclick="removeExtInstance('${kind}','${instanceId}')">✕ הסר</span>
     </div>
     ${triggerInfo}
     ${anchorRow}
@@ -542,38 +574,12 @@ function removeExtInstance(kind, instanceId) {
     typesetDocument();
 }
 
-/* [חדש] מקור הטקסט שממנו עמודים מיובאים קוראים את שורות הקידומת שלהם (נקבע בכל עימוד, לפני הסרת שורות המטא-דאטה של השער,
-   כדי שאלמנט של עמוד מיובא יוכל להיקשר גם לשורה כמו "שם המחבר - ..."). */
-let extPageSourceText = '';
-
-/* [חדש] שורות שמזינות אלמנטים של סוגי עמוד מיובאים (השורה הראשונה שמתחילה בקידומת האלמנט - בדיוק זו ש-findPrefixLineInSource מוצאת)
-   הן נתוני העמוד המיובא ולא טקסט גוף. לפני פירוק הטקסט לאסימונים מרוקנים אותן, כדי שלא יודפסו בנוסף גם כפסקה בספר
-   (קודם שורה כמו "הקדשה - ..." הודפסה פעמיים: בעמוד המיובא וכפסקה בגוף).
-   מרוקנים ולא מוחקים, כדי שמספרי השורות של שאר הטקסט לא יזוזו. שורה שהיא גם מטא-דאטה של השער (שם המחבר וכו') כבר הוסרה
-   מהטקסט ולכן אין מה לרוקן. בלי סוגי עמוד מיובאים - אין שום שינוי. */
-function blankExtPageTypeLines(text, extSource) {
-    if (typeof importedPageTypes === 'undefined' || !importedPageTypes.length) return text;
-    const prefixes = [];
-    importedPageTypes.forEach(inst => ((inst.def && inst.def.elements) || []).forEach(el => { if (el && el.prefix) prefixes.push(el.prefix); }));
-    if (!prefixes.length) return text;
-    const lines = text.split('\n');
-    const srcLines = String(extSource || text).split('\n').map(l => l.trim());
-    let changed = false;
-    prefixes.forEach(prefix => {
-        const used = srcLines.find(t => t.startsWith(prefix));
-        if (used === undefined) return;
-        const idx = lines.findIndex(l => l.trim() === used);
-        if (idx >= 0) { lines[idx] = ''; changed = true; }
-    });
-    return changed ? lines.join('\n') : text;
-}
-
 function findPrefixLineInSource(rawText, prefix) {
     if (!prefix) return null;
     const lines = rawText.split('\n');
     for (const line of lines) {
         const t = line.trim();
-        if (t.startsWith(prefix)) return t.slice(prefix.length).replace(/^\s*[:\-–—]\s*/, '').trim();
+        if (t.startsWith(prefix)) return t.slice(prefix.length).replace(/^[:\-–—]\s*/, '').trim();
     }
     return null;
 }
@@ -646,7 +652,6 @@ function renderImportedImagePage(container, inst) {
 }
 
 function renderExtAnchor(container, anchorKey, rawSourceText) {
-    rawSourceText = extPageSourceText || rawSourceText;
     importedPageTypes.filter(p => p.anchor === anchorKey).forEach(inst => renderImportedPage(container, inst, rawSourceText));
     importedImagePages.filter(p => p.anchor === anchorKey).forEach(inst => renderImportedImagePage(container, inst));
 }
@@ -676,7 +681,7 @@ function handleImageUpload(event, targetInputId) {
             if (targetInput) {
                 targetInput.value = dataUrl;
                 targetInput.setAttribute('value', dataUrl);
-                applyUploadedImageSetting(targetInputId);
+                typesetDocument();
             }
         };
         reader.readAsText(file);
@@ -686,7 +691,7 @@ function handleImageUpload(event, targetInputId) {
             if (targetInput) {
                 targetInput.value = e.target.result;
                 targetInput.setAttribute('value', e.target.result);
-                applyUploadedImageSetting(targetInputId);
+                typesetDocument();
             }
         };
         reader.readAsDataURL(file);
@@ -709,7 +714,7 @@ function saveAsDefaultTemplate() {
         textStyles: importedTextStyles,
         imagePages: importedImagePages,
         customThemes: customThemes,
-        shaarBoxCalib: shaarBoxCalib
+        shaarBoxPositions: shaarBoxPositions
     });
 
     document.querySelectorAll('input[type="text"], input[type="number"], input[type="hidden"], input[type="color"], input[type="range"]').forEach(input => {
@@ -755,31 +760,20 @@ async function loadSystemFonts() {
             if (fontFamilies.length > 0) {
                 document.querySelectorAll('.font-picker').forEach(select => {
                     const currentVal = select.value;
-                    // לא מוחקים את הרשימה: גופני הרשת המובנים והגופנים המקומיים נשארים (ובהם ברירות המחדל),
-                    // ורק קבוצת "גופני מחשב" מתווספת/מתחדשת. (קודם הרשימה נמחקה כולה, ולכן כל ברירות המחדל נעלמו)
-                    select.querySelectorAll('optgroup[data-sys-fonts]').forEach(g => g.remove());
+                    select.innerHTML = '';
 
                     const sysGroup = document.createElement('optgroup');
                     sysGroup.label = `גופני מחשב (${fontFamilies.length} נמצאו)`;
-                    sysGroup.setAttribute('data-sys-fonts', '1');
 
                     fontFamilies.forEach(family => {
                         const opt = document.createElement('option');
                         opt.value = `'${family}', serif`;
                         opt.textContent = family;
+                        if (currentVal.includes(family)) opt.selected = true;
                         sysGroup.appendChild(opt);
                     });
 
                     select.appendChild(sysGroup);
-                    // משחזרים את הבחירה הקודמת; אם הערך לא קיים ברשימה - מוסיפים אותו כדי שלא ייעלם
-                    select.value = currentVal;
-                    if (currentVal && select.value !== currentVal) {
-                        const keep = document.createElement('option');
-                        keep.value = currentVal;
-                        keep.textContent = currentVal.split(',')[0].replace(/['"]/g, '');
-                        select.insertBefore(keep, select.firstChild);
-                        select.value = currentVal;
-                    }
                 });
                 alert(`נטענו בהצלחה ${fontFamilies.length} גופנים מהמחשב!`);
             }
@@ -799,10 +793,6 @@ function rehydrateExtImports() {
     if (!island || !island.textContent.trim()) return;
     let data;
     try { data = JSON.parse(island.textContent); } catch (e) { return; }
-    // [תיקון] תבנית שמורה כוללת גם את פאנלי ההרחבות שהיו פתוחים ברגע השמירה (הם חלק מה-DOM שנשמר).
-    // בלי ניקוי, כל טעינה בנתה אותם שוב: פאנלים כפולים עם אותו מזהה, ולחיצה על "הסר" הסירה רק אחד מהם.
-    const extContainer = document.getElementById('ext-imports-container');
-    if (extContainer) extContainer.innerHTML = '';
     (data.pageTypes || []).forEach(inst => {
         importedPageTypes.push(inst);
         buildExtPanel('pageType', inst.instanceId, inst.def.name, inst.def);
@@ -819,8 +809,8 @@ function rehydrateExtImports() {
         customThemes = data.customThemes;
         refreshCustomThemesUI();
     }
-    if (data.shaarBoxCalib && typeof data.shaarBoxCalib === 'object') {
-        shaarBoxCalib = data.shaarBoxCalib;
+    if (data.shaarBoxPositions && typeof data.shaarBoxPositions === 'object') {
+        shaarBoxPositions = data.shaarBoxPositions;
     }
     let maxCounter = 0;
     let maxSynth = 7;
@@ -839,74 +829,8 @@ function rehydrateExtImports() {
    ========================================================================== */
 
 /* ==========================================================================
-   מאגר גופנים מובנה להזנה ראשונית לכל בוררי הגופנים
-   ========================================================================== */
-const BUILTIN_DEFAULT_FONTS = [
-    { value: "'David Libre', serif", label: "דוד ליברה (David Libre)" },
-    { value: "'Frank Ruhl Libre', serif", label: "פרנק-ריהל (Frank Ruhl)" },
-    { value: "'Noto Serif Hebrew', serif", label: "נוטו סריף (Noto Serif Hebrew)" },
-    { value: "'Bellefair', serif", label: "בלפייר (Bellefair)" },
-    { value: "'Guttman Rashi', 'Frank Ruhl Libre', serif", label: "כתב רש\"י (Rashi)" },
-    { value: "'Assistant', sans-serif", label: "אסיסטנט (Assistant)" },
-    { value: "'Rubik', sans-serif", label: "רוביק (Rubik)" }
-];
-
-function initDefaultFonts() {
-    document.querySelectorAll('.font-picker').forEach(select => {
-        if (select.querySelector('optgroup[label="גופני רשת מובנים"]')) return;
-        const currentVal = select.value;
-        const grp = document.createElement('optgroup');
-        grp.label = 'גופני רשת מובנים';
-        BUILTIN_DEFAULT_FONTS.forEach(f => {
-            const opt = document.createElement('option');
-            opt.value = f.value;
-            opt.textContent = f.label;
-            grp.appendChild(opt);
-        });
-        select.prepend(grp);
-
-        const id = select.id;
-        if (currentVal) {
-            select.value = currentVal;
-        } else if (id === 'font-body') {
-            select.value = "'Frank Ruhl Libre', serif";
-        } else if (id === 'font-first-word' || id === 'f-sh-title' || id === 'f-h1') {
-            select.value = "'Bellefair', serif";
-        } else if (id.startsWith('f-h3') || id.startsWith('f-gtoc-3')) {
-            select.value = "'Noto Serif Hebrew', serif";
-        } else {
-            select.value = "'David Libre', serif";
-        }
-    });
-}
-
-/* ==========================================================================
    טעינה דינמית של קובצי JSON חיצוניים ואיחוד ערכות לפי מספר
    ========================================================================== */
-const jsonShaarSets = {}; // לאיחוד שערים לפי מספר ערכה
-
-/* מזהה לאיזו ערכה שייך שער מ-JSON, לפי השם (ואם אין - לפי ה-id). עובד בכל מוסכמות השמות הנפוצות:
-   "1 שער ראשי" / "1 - שער ראשי" / "2_-_שער_אחורי" (מספר בהתחלה), "שער ראשי 3" / "שער משנה (3)" (מספר בסוף),
-   "ערכה 4 - שער אחורי" (מספר באמצע), ובמקרה האחרון אות עברית בודדת ("ערכה א - ...").
-   (הזיהוי הקודם לקח "ספרה או אות עברית ראשונה", ולכן "שער ראשי 2" זוהה לפי האות ש ולא לפי המספר 2,
-    והשערים של אותה ערכה לא התאחדו - נטען רק השער הראשי.) */
-function detectThemeSetKey(item) {
-    const pickNumber = (s) => {
-        s = String(s || '').trim();
-        if (!s) return null;
-        let m = s.match(/^[^\dא-ת]*?(\d+)/);              // מספר בהתחלה (אחרי סימני פיסוק/רווחים בלבד)
-        if (!m) m = s.match(/(\d+)[^\d]*$/);               // מספר בסוף
-        if (!m) m = s.match(/(\d+)/);                       // מספר כלשהו
-        return m ? String(parseInt(m[1], 10)) : null;
-    };
-    const fromName = pickNumber(item && item.name);
-    if (fromName) return fromName;
-    const fromId = pickNumber(item && item.id);
-    if (fromId) return fromId;
-    const letter = String((item && item.name) || '').match(/(?:^|[\s\-_(])([א-ת])(?=$|[\s\-_.):])/);
-    return letter ? letter[1] : null;
-}
-
 async function loadExternalJSONAssets() {
     const assetsToLoad = [
         { file: 'shaar_main.json', type: 'shaar_main' },
@@ -919,6 +843,8 @@ async function loadExternalJSONAssets() {
         { file: 'ornaments_up_down.json', type: 'ornaments_ud' }
     ];
 
+    const jsonShaarSets = {}; // לאיחוד שערים לפי מספר ערכה
+
     for (const asset of assetsToLoad) {
         try {
             const response = await fetch(asset.file);
@@ -927,50 +853,53 @@ async function loadExternalJSONAssets() {
             if (!Array.isArray(items)) continue;
 
             items.forEach(item => {
-                const setNum = detectThemeSetKey(item);
-                const rawSvg = item.svg || item.svgContent || item.content || item.svgData || item.data || '';
+                // זיהוי מספר הערכה (למשל "1 שער ראשי" או "shaar_1")
+                // זיהוי מספר הערכה מכל מקום בשם
+                const numMatch = (item.name && item.name.match(/(\d+)/)) || (item.id && item.id.match(/(\d+)/));
+                const setNum = numMatch ? numMatch[1] : null;
 
                 if (asset.type === 'shaar_main') {
-                    registerExternalShaar('main', item.id, item.name, rawSvg);
+                    registerExternalShaar('main', item.id, item.name, item.svg);
                     appendOptionToSelect('select-shaar-main', item.id, item.name, 'שערים ראשיים מ-JSON', 'shaar-main-json-optgroup');
                     if (setNum) {
                         if (!jsonShaarSets[setNum]) jsonShaarSets[setNum] = {};
-                        jsonShaarSets[setNum].main = { ...item, svg: rawSvg };
+                        jsonShaarSets[setNum].main = item;
                     }
                 } else if (asset.type === 'shaar_sub') {
-                    registerExternalShaar('sub', item.id, item.name, rawSvg);
+                    registerExternalShaar('sub', item.id, item.name, item.svg);
                     appendOptionToSelect('select-shaar-sub', item.id, item.name, 'שערי משנה מ-JSON', 'shaar-sub-json-optgroup');
                     if (setNum) {
                         if (!jsonShaarSets[setNum]) jsonShaarSets[setNum] = {};
-                        jsonShaarSets[setNum].sub = { ...item, svg: rawSvg };
+                        jsonShaarSets[setNum].sub = item;
                     }
                 } else if (asset.type === 'shaar_back') {
-                    registerExternalShaar('back', item.id, item.name, rawSvg);
+                    registerExternalShaar('back', item.id, item.name, item.svg);
                     appendOptionToSelect('select-shaar-back', item.id, item.name, 'שערים אחוריים מ-JSON', 'shaar-back-json-optgroup');
                     if (setNum) {
                         if (!jsonShaarSets[setNum]) jsonShaarSets[setNum] = {};
-                        jsonShaarSets[setNum].back = { ...item, svg: rawSvg };
+                        jsonShaarSets[setNum].back = item;
                     }
                 } else if (asset.type === 'header') {
-                    registerExternalHeader(item.id, rawSvg);
+                    registerExternalHeader(item.id, item.svg);
                     appendOptionToSelect('hdr-c-type', item.id, item.name, 'עיטורי כותרת מ-JSON', 'hdr-c-json-optgroup');
                     appendOptionToSelect('hdr-r-type', item.id, item.name, 'עיטורי כותרת מ-JSON', 'hdr-r-json-optgroup');
                     appendOptionToSelect('hdr-l-type', item.id, item.name, 'עיטורי כותרת מ-JSON', 'hdr-l-json-optgroup');
                 } else if (asset.type === 'divider') {
-                    registerExternalDivider(item.id, rawSvg);
+                    registerExternalDivider(item.id, item.svg);
                     appendOptionToSelect('section-divider-style', item.id, item.name, 'עיטורי סיום מ-JSON', 'sec-div-json-optgroup');
                 } else if (asset.type === 'note_rule') {
-                    registerExternalNoteRule(item.id, rawSvg);
+                    registerExternalNoteRule(item.id, item.svg);
                     appendOptionToSelect('note-rule-style', item.id, item.name, 'מפרידים מ-JSON', 'note-rules-json-optgroup');
                 } else if (asset.type === 'ornaments_lr') {
-                    registerOrnamentsLR(item.id, item.name, rawSvg);
+                    registerOrnamentsLR(item.id, item.name, item.svg);
                     appendOptionToSelect('h3-ornament-set', item.id, item.name, 'סטים שלמים מ-JSON', 'h3-set-json-optgroup');
                     appendOptionToSelect('h3-ornament-r', item.id, item.name, 'עיטורי ימין מ-JSON', 'h3-r-json-optgroup');
                     appendOptionToSelect('h3-ornament-l', item.id, item.name, 'עיטורי שמאל מ-JSON', 'h3-l-json-optgroup');
+                    // עיטורי צד לכותרת הערות שוליים
                     appendOptionToSelect('note-header-orn-r', item.id, item.name, 'מתוך ornaments_left_right.json', 'note-orn-r-json');
                     appendOptionToSelect('note-header-orn-l', item.id, item.name, 'מתוך ornaments_left_right.json', 'note-orn-l-json');
                 } else if (asset.type === 'ornaments_ud') {
-                    registerOrnamentsUD(item.id, item.name, rawSvg);
+                    registerOrnamentsUD(item.id, item.name, item.svg);
                     appendOptionToSelect('h2-ornament-set', item.id, item.name, 'סטים שלמים מ-JSON', 'h2-set-json-optgroup');
                     appendOptionToSelect('h2-ornament-top-style', item.id, item.name, 'עיטורים עליונים מ-JSON', 'h2-top-json-optgroup');
                     appendOptionToSelect('h2-ornament-bottom-style', item.id, item.name, 'עיטורים תחתונים מ-JSON', 'h2-btm-json-optgroup');
@@ -979,10 +908,8 @@ async function loadExternalJSONAssets() {
         } catch (e) {}
     }
 
-    Object.keys(jsonShaarSets).sort((a, b) => {
-        const na = parseInt(a, 10), nb = parseInt(b, 10);
-        return (!isNaN(na) && !isNaN(nb)) ? na - nb : a.localeCompare(b, 'he');
-    }).forEach(num => {
+    // איחוד שערי JSON לפי מספר ערכה לרשימת active-theme-select
+    Object.keys(jsonShaarSets).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).forEach(num => {
         const set = jsonShaarSets[num];
         const themeId = 'json_theme_' + num;
         const themeName = `ערכה ${num} (מ-JSON)`;
@@ -1004,31 +931,12 @@ async function loadExternalJSONAssets() {
 }
 
 function syncThemeToIndividualShaars() {
-    const activeSel = document.getElementById('active-theme-select');
-    const activeVal = activeSel ? activeSel.value : '';
     const m = document.getElementById('select-shaar-main');
     const b = document.getElementById('select-shaar-back');
     const s = document.getElementById('select-shaar-sub');
-
-    if (activeVal.startsWith('json_theme_') && typeof jsonShaarSets !== 'undefined') {
-        const num = activeVal.replace('json_theme_', '');
-        const set = jsonShaarSets[num];
-        if (set) {
-            // ערכה חלקית (למשל בלי שער אחורי): השער החסר חוזר ל"לפי ערכה" ולא נשאר שער מערכה קודמת
-            if (m) m.value = set.main ? set.main.id : 'theme_default';
-            if (s) s.value = set.sub ? set.sub.id : 'theme_default';
-            if (b) b.value = set.back ? set.back.id : 'theme_default';
-        }
-    } else if (activeVal.startsWith('builtin_')) {
-        if (m) m.value = activeVal;
-        if (s) s.value = activeVal;
-        if (b) b.value = activeVal;
-    } else {
-        if (m) m.value = 'theme_default';
-        if (b) b.value = 'theme_default';
-        if (s) s.value = 'theme_default';
-    }
-
+    if (m) m.value = 'theme_default';
+    if (b) b.value = 'theme_default';
+    if (s) s.value = 'theme_default';
     refreshVisualPicker('select-shaar-main');
     refreshVisualPicker('select-shaar-back');
     refreshVisualPicker('select-shaar-sub');
@@ -1051,27 +959,6 @@ function appendOptionToSelect(selectId, value, text, groupLabel, optgroupId) {
     opt.value = value;
     opt.textContent = text;
     optgroup.appendChild(opt);
-}
-
-/* ============================================================
-   ניהול לחצני טוגל לכותרות עליונות (Mutual Exclusivity)
-   ============================================================ */
-function onHdrSplitTitleChange() {
-    const splitCb = document.getElementById('hdr-split-title');
-    const altCb = document.getElementById('hdr-alternating');
-    if (splitCb && splitCb.checked && altCb) {
-        altCb.checked = false;
-    }
-    typesetDocument();
-}
-
-function onHdrAlternatingChange() {
-    const splitCb = document.getElementById('hdr-split-title');
-    const altCb = document.getElementById('hdr-alternating');
-    if (altCb && altCb.checked && splitCb) {
-        splitCb.checked = false;
-    }
-    typesetDocument();
 }
 
 async function loadExternalFonts() {
@@ -1161,7 +1048,6 @@ function initShaarBoxResizer() {
         if (!activeDrag) return;
         const dx_mm = ((e.clientX - activeDrag.startX) / activeDrag.pageW) * 210;
         const dy_mm = ((e.clientY - activeDrag.startY) / activeDrag.pageH) * 297;
-        if (Math.abs(e.clientX - activeDrag.startX) + Math.abs(e.clientY - activeDrag.startY) > 1) activeDrag.moved = true;
 
         let { initTop, initBottom, initRight, initLeft, isMove, handleType, box, shaarType } = activeDrag;
         let nTop = initTop, nBottom = initBottom, nRight = initRight, nLeft = initLeft;
@@ -1195,7 +1081,14 @@ function initShaarBoxResizer() {
 
     window.addEventListener('mouseup', () => {
         if (activeDrag) {
-            if (activeDrag.moved) saveShaarBoxCalibration(activeDrag.shaarType, activeDrag.box);
+            const { box, shaarType } = activeDrag;
+            const style = box.style;
+            saveCurrentShaarBoxPosition(shaarType, {
+                top: parseFloat(style.top) || 0,
+                bottom: parseFloat(style.bottom) || 0,
+                right: parseFloat(style.right) || 0,
+                left: parseFloat(style.left) || 0
+            });
             activeDrag = null;
             document.body.style.userSelect = '';
         }
@@ -1203,107 +1096,6 @@ function initShaarBoxResizer() {
 }
 
 initShaarBoxResizer();
-
-/* ============================================================
-   כיוונון תיבת הטקסט לכל שער בנפרד - שמירה, שחזור, רשימה ואיפוס
-   (המפתח והחישוב נמצאים ב-decorations.js: getShaarCoverKey / applyShaarBoxCalib)
-   ============================================================ */
-const SHAAR_CALIB_STORAGE_KEY = 'torani_shaarBoxCalib_v1';
-const SHAAR_TYPE_LABELS = { main: 'שער ראשי', back: 'שער אחורי', sub: 'שער משנה' };
-
-function persistShaarCalibToStorage() {
-    try { localStorage.setItem(SHAAR_CALIB_STORAGE_KEY, JSON.stringify(shaarBoxCalib)); } catch (e) {}
-}
-
-/* משלים מ-localStorage רק מפתחות שאינם קיימים כבר (התבנית השמורה היא מקור האמת) */
-function loadShaarCalibFromStorage() {
-    try {
-        const raw = localStorage.getItem(SHAAR_CALIB_STORAGE_KEY);
-        if (!raw) return;
-        const stored = JSON.parse(raw);
-        if (stored && typeof stored === 'object') {
-            Object.keys(stored).forEach(k => { if (!(k in shaarBoxCalib)) shaarBoxCalib[k] = stored[k]; });
-        }
-    } catch (e) {}
-}
-
-function showToast(msg) {
-    let t = document.getElementById('app-toast');
-    if (!t) {
-        t = document.createElement('div');
-        t.id = 'app-toast';
-        t.setAttribute('role', 'status');
-        document.body.appendChild(t);
-    }
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => t.classList.remove('show'), 2600);
-}
-
-function readBoxMargins(box) {
-    const num = v => Math.round(parseFloat(v) * 10) / 10;
-    return { top: num(box.style.top), bottom: num(box.style.bottom), right: num(box.style.right), left: num(box.style.left) };
-}
-
-function saveShaarBoxCalibration(type, box) {
-    const m = readBoxMargins(box);
-    if (!['top', 'bottom', 'right', 'left'].every(k => isFinite(m[k]))) return;
-    const themeId = document.getElementById('active-theme-select')?.value || '';
-    shaarBoxCalib[getShaarCoverKey(type, themeId)] = m;
-    persistShaarCalibToStorage();
-    refreshShaarCalibList();
-    showToast('כיוונון תיבת הטקסט נשמר לשער הזה (' + (SHAAR_TYPE_LABELS[type] || type) + ')');
-}
-
-function describeShaarCalibKey(key) {
-    const [type, rest] = key.split('|');
-    let label = rest || '';
-    if (rest && rest.startsWith('cover:')) {
-        const sel = document.getElementById('select-shaar-' + type);
-        const opt = sel ? Array.from(sel.options).find(o => o.value === rest.slice(6)) : null;
-        label = opt ? opt.textContent : rest.slice(6);
-    } else if (rest && rest.startsWith('theme:')) {
-        const sel = document.getElementById('active-theme-select');
-        const opt = sel ? Array.from(sel.options).find(o => o.value === rest.slice(6)) : null;
-        label = 'ערכה: ' + (opt ? opt.textContent : rest.slice(6));
-    }
-    return (SHAAR_TYPE_LABELS[type] || type) + ' — ' + label;
-}
-
-function refreshShaarCalibList() {
-    const wrap = document.getElementById('shaar-calib-panel');
-    const list = document.getElementById('shaar-calib-list');
-    if (!wrap || !list) return;
-    const keys = Object.keys(shaarBoxCalib);
-    wrap.style.display = keys.length ? 'block' : 'none';
-    list.innerHTML = '';
-    keys.forEach(key => {
-        const m = shaarBoxCalib[key];
-        const row = document.createElement('div');
-        row.className = 'calib-row';
-        const lab = document.createElement('span');
-        lab.className = 'calib-label';
-        lab.textContent = describeShaarCalibKey(key);
-        lab.title = `עליון ${m.top} · תחתון ${m.bottom} · ימין ${m.right} · שמאל ${m.left} (מ"מ)`;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'calib-reset';
-        btn.textContent = '↺ אפס';
-        btn.onclick = () => resetShaarCalibration(key);
-        row.appendChild(lab);
-        row.appendChild(btn);
-        list.appendChild(row);
-    });
-}
-
-function resetShaarCalibration(key) {
-    if (key) delete shaarBoxCalib[key];
-    else shaarBoxCalib = {};
-    persistShaarCalibToStorage();
-    refreshShaarCalibList();
-    if (!refreshCoversInPlace()) setSettingsDirty(true);
-}
 
 /* ============================================================
    סנכרון סטים של עיטורים (כותרת 2 וכותרת 3)
@@ -1369,10 +1161,10 @@ function getItemPreviewHTML(selectId, value, text) {
         if (typeof BUILTIN_SHAAR_THEMES !== 'undefined' && BUILTIN_SHAAR_THEMES[value]) {
             const t = BUILTIN_SHAAR_THEMES[value];
             const html = (type === 'back' ? t.backHTML : type === 'sub' ? t.subHTML : t.mainHTML) || t.mainHTML || '';
-            return '<div class="vp-shaar-thumb">' + normalizeSvgMarkup(html) + '</div>';
+            return '<div class="vp-shaar-thumb">' + html + '</div>';
         }
         if (typeof EXTERNAL_SHAAR_ASSETS !== 'undefined' && EXTERNAL_SHAAR_ASSETS[type] && EXTERNAL_SHAAR_ASSETS[type][value]) {
-            return '<div class="vp-shaar-thumb">' + normalizeSvgMarkup(EXTERNAL_SHAAR_ASSETS[type][value]) + '</div>';
+            return '<div class="vp-shaar-thumb">' + EXTERNAL_SHAAR_ASSETS[type][value] + '</div>';
         }
         return '<div class="vp-badge-theme">🏛️ שער</div>';
     }
@@ -1461,16 +1253,6 @@ function refreshVisualPicker(selectId) {
         drop.id = 'vp-drop-' + selectId;
         wrap.appendChild(drop);
     }
-    // [תיקון] בתבנית שמורה מבנה הבורר (עטיפה, כפתור, תפריט) כבר קיים ב-HTML שנשמר, אך מאזין הלחיצה של הכפתור הוגדר כתכונה
-    // (onclick) ולכן לא נשמר בקובץ: אחרי טעינת תבנית כל הבוררים החזותיים (ערכות נושא, שערים, עיטורים) לא נפתחו.
-    // משלימים את המאזין גם למבנה קיים (במבנה חדש הוא כבר מוגדר, ולכן אין שום שינוי בפתיחה רגילה).
-    const trigExisting = document.getElementById('vp-trig-' + selectId);
-    if (trigExisting && !trigExisting.onclick) {
-        trigExisting.onclick = (e) => {
-            e.stopPropagation();
-            toggleVisualPickerDropdown(selectId);
-        };
-    }
 
     const selectedOpt = select.options[select.selectedIndex] || select.options[0];
     const curVal = selectedOpt ? selectedOpt.value : '';
@@ -1536,20 +1318,8 @@ document.addEventListener('click', (e) => {
    אירוע טעינת הדף הראשי (Window Onload)
    ============================================================ */
 window.onload = async function() {
-    initDefaultFonts();
-    // [תיקון] בתבנית שמורה ערכת הנושא הפעילה יכולה להיות ערכה מותאמת: האפשרות שלה נמחקת ונבנית מחדש מנתוני התבנית
-    // (refreshCustomThemesUI / rehydrateExtImports), ובדרך הבחירה הלכה לאיבוד וחזרה לערכה המובנית הראשונה.
-    // לכן שומרים את הערך לפני בניית הרשימה ומחזירים אותו אחרי שהאפשרויות נבנו.
-    const savedActiveTheme = document.getElementById('active-theme-select')?.value || '';
     refreshCustomThemesUI();
     rehydrateExtImports();
-    {
-        const themeSel = document.getElementById('active-theme-select');
-        if (themeSel && savedActiveTheme && themeSel.value !== savedActiveTheme &&
-            Array.from(themeSel.options).some(o => o.value === savedActiveTheme)) {
-            themeSel.value = savedActiveTheme;
-        }
-    }
 
     await loadExternalJSONAssets();
     await loadExternalFonts();
@@ -1596,8 +1366,6 @@ window.onload = async function() {
 גוף הטקסט המכיל הערות צד בשולי הדף. הערות אלו ממוקמות בדיוק מול הפסקה אליה הן מתייחסות, ובכך מאפשרות ללומד לעיין במקורות תוך כדי לימודו הרציף בגוף הספר.`;
     }
 
-    loadShaarCalibFromStorage();
-    refreshShaarCalibList();
-    typesetDocument(50);
+    typesetDocument();
     initVisualPickers();
 };
