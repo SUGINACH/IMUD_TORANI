@@ -5351,6 +5351,7 @@ function typesetDocumentCore() {
             selection: {
                 status: blk.getAttribute('data-layout-balance-status') || 'not-recorded',
                 skipReason: blk.getAttribute('data-layout-balance-skip-reason') || null,
+                fallback: blk.getAttribute('data-layout-balance-fallback') || null,
                 policy: blk.getAttribute('data-layout-balance-selection-policy') || null,
                 candidateCount: numericAttr('data-layout-balance-candidates'),
                 selectedCandidateIndex: numericAttr('data-layout-balance-selected-candidate'),
