@@ -741,6 +741,7 @@ async function main() {
                     block.querySelector('.main-column.left-col'));
                 if (!target) throw new Error('Empty-column regression fixture requires at least one two-column block');
                 const empty = target.querySelector('.main-column.right-col');
+                target.setAttribute('data-geometry-audit-test-empty-column', 'true');
                 empty.style.setProperty('height', '0px', 'important');
                 empty.style.setProperty('min-height', '0px', 'important');
                 empty.style.setProperty('max-height', '0px', 'important');
