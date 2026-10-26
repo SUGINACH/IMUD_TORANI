@@ -1526,6 +1526,10 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     block.setAttribute('data-layout-balance-routing', 'balanceColumns');
     block.setAttribute('data-layout-balance-available', String(availableHeight));
     block.setAttribute('data-layout-balance-input-height', String(block.getBoundingClientRect().height));
+    block.classList.remove('layout-full-width-terminal-residual');
+    block.removeAttribute('data-layout-balance-fallback-side');
+    block.removeAttribute('data-layout-balance-fallback-height-before');
+    block.removeAttribute('data-layout-balance-fallback-height-after');
     block.setAttribute('data-layout-balance-status', 'started');
     block.setAttribute('data-layout-balance-skip-reason', '');
     block.setAttribute('data-layout-balance-fallback', 'none');
@@ -1657,8 +1661,41 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         block.setAttribute('data-layout-balance-left', String(lCol.scrollHeight));
         block.setAttribute('data-layout-balance-over', String(Math.max(rCol.scrollHeight, lCol.scrollHeight)));
         block.setAttribute('data-layout-balance-diff', String(rCol.scrollHeight - lCol.scrollHeight));
-        // Do not call finalizeNotePositions([], 0): this branch preserves the existing
-        // column DOM, so an empty note list would incorrectly skip/misplace its side notes.
+
+        // A short, already-rendered terminal fragment cannot always be legally split
+        // across two columns. Promote only a single visible paragraph fragment to the
+        // full text width; never widen a multi-item block or reconstruct its source text.
+        const rightOnlyParagraph = rCol.children.length === 1 &&
+            rCol.firstElementChild?.tagName === 'P' && lCol.children.length === 0;
+        const leftOnlyParagraph = lCol.children.length === 1 &&
+            lCol.firstElementChild?.tagName === 'P' && rCol.children.length === 0;
+        const residualParagraph = rightOnlyParagraph ? rCol.firstElementChild
+            : (leftOnlyParagraph ? lCol.firstElementChild : null);
+        const residualText = residualParagraph?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+        const residualLines = residualText
+            ? getLinesFromParagraph(residualText, colWidth, styleObj, false, false,
+                willParenWrapTokenId(residualParagraph.getAttribute('data-token-id'))).lines.length
+            : Infinity;
+        const isShortTerminalResidual = items.length === 1 && items[0].type === 'p' &&
+            !!residualParagraph && residualLines > 0 && residualLines <= (rules.minFirst + rules.minLast - 1);
+
+        if (isShortTerminalResidual) {
+            const side = rightOnlyParagraph ? 'right' : 'left';
+            const beforeHeight = Math.max(rCol.scrollHeight, lCol.scrollHeight);
+            block.setAttribute('data-layout-balance-fallback', 'full-width-terminal-residual');
+            block.setAttribute('data-layout-balance-fallback-side', side);
+            block.classList.add('layout-full-width-terminal-residual');
+            // Recompute side-note positions against the new width/height geometry.
+            const activeColumn = side === 'right' ? rCol : lCol;
+            repositionBlockNotes(block, activeColumn.scrollHeight);
+            block.setAttribute('data-layout-balance-fallback-height-before', String(beforeHeight));
+            block.setAttribute('data-layout-balance-fallback-height-after',
+                String(Math.max(rCol.scrollHeight, lCol.scrollHeight)));
+        } else {
+            // Preserve the original flow for non-terminal/non-single-item cases.
+            // Do not call finalizeNotePositions([], 0): there is no reconstructed note list.
+            block.setAttribute('data-layout-balance-fallback', 'preserve-existing-flow-no-legal-split');
+        }
         return;
     }
 
@@ -5372,6 +5409,9 @@ function typesetDocumentCore() {
                 status: blk.getAttribute('data-layout-balance-status') || 'not-recorded',
                 skipReason: blk.getAttribute('data-layout-balance-skip-reason') || null,
                 fallback: blk.getAttribute('data-layout-balance-fallback') || null,
+                fallbackSide: blk.getAttribute('data-layout-balance-fallback-side') || null,
+                fallbackHeightBefore: numericAttr('data-layout-balance-fallback-height-before'),
+                fallbackHeightAfter: numericAttr('data-layout-balance-fallback-height-after'),
                 policy: blk.getAttribute('data-layout-balance-selection-policy') || null,
                 candidateCount: numericAttr('data-layout-balance-candidates'),
                 selectedCandidateIndex: numericAttr('data-layout-balance-selected-candidate'),
