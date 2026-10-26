@@ -5694,23 +5694,26 @@ function captureParenthesisScopeDiagnostics(container) {
     const stack = [];
     const pairs = [];
     const blockParagraphs = new Map();
-    const countChars = text => {
-        let open = 0, close = 0, inBracket = false;
+    const countChars = (text, initialBracketDepth = 0) => {
+        let open = 0, close = 0, bracketDepth = initialBracketDepth;
         for (const ch of text) {
-            if (ch === '[') { inBracket = true; continue; }
-            if (ch === ']') { inBracket = false; continue; }
-            if (inBracket) continue;
+            if (ch === '[') { bracketDepth++; continue; }
+            if (ch === ']') { bracketDepth = Math.max(0, bracketDepth - 1); continue; }
+            if (bracketDepth > 0) continue;
             if (ch === '(') open++;
             else if (ch === ')') close++;
         }
-        return { open, close };
+        return { open, close, bracketDepth };
     };
+    let squareBracketDepth = 0;
     paragraphs.forEach((p, paragraphIndex) => {
         const rawText = p.getAttribute('data-raw-text') || '';
+        const bracketDepthBefore = squareBracketDepth;
+        const counts = countChars(rawText, bracketDepthBefore);
+        squareBracketDepth = counts.bracketDepth;
         const block = p.closest('.block-2col');
         const page = p.closest('.a4-page');
         const side = p.closest('.right-col') ? 'right' : p.closest('.left-col') ? 'left' : 'other';
-        const counts = countChars(rawText);
         const context = {
             paragraphIndex, tokenId: p.getAttribute('data-token-id') || null,
             pageIdx: pageIndex.has(page) ? pageIndex.get(page) : null,
@@ -5724,12 +5727,12 @@ function captureParenthesisScopeDiagnostics(container) {
             if (!blockParagraphs.has(block)) blockParagraphs.set(block, []);
             blockParagraphs.get(block).push(context);
         }
-        let inBracket = false;
+        let inBracketDepth = bracketDepthBefore;
         for (let charIndex = 0; charIndex < rawText.length; charIndex++) {
             const ch = rawText[charIndex];
-            if (ch === '[') { inBracket = true; continue; }
-            if (ch === ']') { inBracket = false; continue; }
-            if (inBracket) continue;
+            if (ch === '[') { inBracketDepth++; continue; }
+            if (ch === ']') { inBracketDepth = Math.max(0, inBracketDepth - 1); continue; }
+            if (inBracketDepth > 0) continue;
             if (ch === '(') {
                 stack.push({ paragraphIndex, charIndex, context });
             } else if (ch === ')' && stack.length) {
@@ -5760,16 +5763,16 @@ function captureParenthesisScopeDiagnostics(container) {
         preview: open.context.rawText.slice(Math.max(0, open.charIndex - 45), Math.min(open.context.rawText.length, open.charIndex + 100))
     }));
     const unmatchedCloseContexts = [];
-    // Recount unmatched closes separately, preserving the same square-bracket exclusion.
+    // Recount unmatched closes separately, preserving square-bracket state across paragraphs.
     let depthForUnmatched = 0;
+    let bracketDepthForUnmatched = 0;
     paragraphs.forEach((p, paragraphIndex) => {
         const rawText = p.getAttribute('data-raw-text') || '';
-        let inBracket = false;
         for (let charIndex = 0; charIndex < rawText.length; charIndex++) {
             const ch = rawText[charIndex];
-            if (ch === '[') { inBracket = true; continue; }
-            if (ch === ']') { inBracket = false; continue; }
-            if (inBracket) continue;
+            if (ch === '[') { bracketDepthForUnmatched++; continue; }
+            if (ch === ']') { bracketDepthForUnmatched = Math.max(0, bracketDepthForUnmatched - 1); continue; }
+            if (bracketDepthForUnmatched > 0) continue;
             if (ch === '(') depthForUnmatched++;
             else if (ch === ')') {
                 if (depthForUnmatched > 0) depthForUnmatched--;
@@ -5944,16 +5947,17 @@ function applyCrossParagraphParens(container) {
     if (allP.length === 0) return;
 
     let parenDepth = 0;  // עומק סוגריים פתוחות (מצטבר על פני פסקאות)
+    let squareBracketDepth = 0; // הערות בסוגריים מרובעים עשויות לחצות פסקאות/עמודים
 
     allP.forEach(p => {
         const rawText = p.getAttribute('data-raw-text') || '';
-        // ספור ( ו- ) בטקסט הגולמי של הפסקה — אבל התעלם מסוגריים שבתוך [...] (הערות שוליים)
+        // ספור ( ו- ) בטקסט הגולמי; מצב [...] נשמר בין פסקאות כדי לא לפרש
+        // סוגר בתוך הערה מרובת-פסקאות כסוגר שסוגר סוגריים עגולים חיצוניים.
         let openCount = 0, closeCount = 0;
-        let inBracket = false;
         for (const ch of rawText) {
-            if (ch === '[') { inBracket = true; continue; }
-            if (ch === ']') { inBracket = false; continue; }
-            if (inBracket) continue;
+            if (ch === '[') { squareBracketDepth++; continue; }
+            if (ch === ']') { squareBracketDepth = Math.max(0, squareBracketDepth - 1); continue; }
+            if (squareBracketDepth > 0) continue;
             if (ch === '(') openCount++;
             else if (ch === ')') closeCount++;
         }
@@ -6003,6 +6007,7 @@ function markInsideParenParagraphs(sections) {
     const insideParenMap = {};  // token.id → insideParen (ל-createDropWord)
     const willParenWrapMap = {};  // token.id → willParenWrap (למדידה)
     let parenDepth = 0;
+    let squareBracketDepth = 0; // מצב הערת [...] נשמר בין טוקנים ופסקאות
 
     sections.forEach(sec => {
         if (!sec.tokens) return;
@@ -6010,11 +6015,10 @@ function markInsideParenParagraphs(sections) {
             if (tok.type !== 'p') return;
             const text = tok.text || '';
             let openCount = 0, closeCount = 0;
-            let inBracket = false;
             for (const ch of text) {
-                if (ch === '[') { inBracket = true; continue; }
-                if (ch === ']') { inBracket = false; continue; }
-                if (inBracket) continue;
+                if (ch === '[') { squareBracketDepth++; continue; }
+                if (ch === ']') { squareBracketDepth = Math.max(0, squareBracketDepth - 1); continue; }
+                if (squareBracketDepth > 0) continue;
                 if (ch === '(') openCount++;
                 else if (ch === ')') closeCount++;
             }
