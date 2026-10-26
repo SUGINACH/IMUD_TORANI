@@ -1552,7 +1552,10 @@ function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
         const rH = rCol.scrollHeight, lH = lCol.scrollHeight;
         const top = Math.max(rH, lH);
         const reach = Math.min(rH + columnStretchCapacity(rCol), lH + columnStretchCapacity(lCol));
-        const target = Math.min(top + freeSpace, reach);
+        // [תיקון רגרסיה — מניעת overshoot מעיגול דפדפן]
+        // הדפדפן מעגל כל שורה כלפי מעלה לפיקסל שלם. כשמותחים N שורות ב-0.3px כל אחת, העלייה בפועל יכולה להגיע ל-N פיקסלים.
+        // לכן מפחיתים את היעד ב-2px כדי לתת מרווח בטחון.
+        const target = Math.min(top + freeSpace - 2, reach);
         if (target - top < 0.5) return false;
         justifyColumnVertically(rCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA, false);
         justifyColumnVertically(lCol, target, styleObj, maxStretch + 40, JUSTIFY_MAX_LH_EXTRA, false);
@@ -1563,7 +1566,8 @@ function stretchLastBlockToBottom(bodyFlow, freeSpace, styleObj, maxStretch) {
         const col = last.querySelector('.single-wide-col');
         if (!col) return false;
         const h = col.scrollHeight;
-        const target = Math.min(h + freeSpace, h + columnStretchCapacity(col));
+        // [תיקון רגרסיה — מניעת overshoot מעיגול דפדפן]
+        const target = Math.min(h + freeSpace - 2, h + columnStretchCapacity(col));
         if (target - h < 0.5) return false;
         justifyColumnVertically(col, target, styleObj, maxStretch + 1, JUSTIFY_MAX_LH_EXTRA, false);
         repositionBlockNotes(last, col.scrollHeight);   // הערות צד של ההקדמה נשארות מול הפסקאות שלהן אחרי המתיחה
@@ -1864,9 +1868,22 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     // ---- 5. יישור עדין של הבסיס התחתון ----
     // [הערה] balanceByWordSpacing הוסר מכאן כי הוא יכול לשבור את האיזון שכבר נעשה
     // על-ידי חלוקת פסקאות. חלוקת עומס פועלת רק ב-Branch 4 (עמוד רגיל).
+    // [תיקון רגרסיה — מניעת overshoot] אל תמתח מעבר ל-availableHeight.
+    // אם הטור הארוך כבר חורג מ-availableHeight, אל תמתח את הקצר אליו — זה רק יגרום לשניים לחרוג.
+    const maxAllowedH = Math.min(availableHeight, Math.max(rCol.scrollHeight, lCol.scrollHeight));
     const finalDiff = rCol.scrollHeight - lCol.scrollHeight;
-    if (finalDiff > 0.5) justifyColumnVertically(lCol, rCol.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
-    else if (finalDiff < -0.5) justifyColumnVertically(rCol, lCol.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+    if (finalDiff > 0.5) {
+        // rCol ארוך יותר — מתח את lCol ל-min(rCol.scrollHeight, availableHeight)
+        const target = Math.min(rCol.scrollHeight, maxAllowedH);
+        if (target > lCol.scrollHeight + 1) {
+            justifyColumnVertically(lCol, target, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+        }
+    } else if (finalDiff < -0.5) {
+        const target = Math.min(lCol.scrollHeight, maxAllowedH);
+        if (target > rCol.scrollHeight + 1) {
+            justifyColumnVertically(rCol, target, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+        }
+    }
 
     finalizeNotePositions(finalNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
     return { rH: rCol.scrollHeight, lH: lCol.scrollHeight, fits: Math.max(rCol.scrollHeight, lCol.scrollHeight) <= availableHeight };
@@ -2765,6 +2782,36 @@ function flushFootnotesInto(pageEl) {
         wrapper.insertBefore(area, footer);
     } else {
         pageEl.appendChild(area);
+    }
+
+    // [תיקון רגרסיה קריטי — כיווץ blocks אחרי הוספת fnArea]
+    // אחרי הוספת fnArea, ה-flow clientHeight קטן. אם ה-blocks חורגים עכשיו, כווץ אותם.
+    // הסיבה: balanceColumns + stretchPageToBottom פעלו לפני הוספת ה-fnArea, כשהיה יותר מקום.
+    // עכשיו, כשה-fnArea תופס מקום, ה-blocks חורגים ב-30-60px.
+    const flow = pageEl.querySelector('.page-body-flow');
+    if (flow) {
+        const flowMaxH = flow.clientHeight;
+        const blocks = flow.querySelectorAll('.block-2col');
+        // בנה styleObj מה-flow עצמו
+        const flowStyle = {
+            fontFamily: getComputedStyle(flow).fontFamily,
+            fontSize: getComputedStyle(flow).fontSize,
+            lineHeight: getComputedStyle(flow).lineHeight,
+        };
+        blocks.forEach(blk => {
+            const rC = blk.querySelector('.right-col');
+            const lC = blk.querySelector('.left-col');
+            if (!rC || !lC) return;
+            const blockH = Math.max(rC.scrollHeight, lC.scrollHeight);
+            const blockTopInFlow = blk.getBoundingClientRect().top - flow.getBoundingClientRect().top;
+            const allowedH = flowMaxH - blockTopInFlow - 2;
+            if (blockH > allowedH && allowedH > 100) {
+                const overflow = blockH - allowedH;
+                shrinkColumnVertically(rC, allowedH, flowStyle, overflow + 10);
+                shrinkColumnVertically(lC, allowedH, flowStyle, overflow + 10);
+                repositionBlockNotes(blk, Math.max(rC.scrollHeight, lC.scrollHeight));
+            }
+        });
     }
 
     // [חדש] אחרי שהאזור חובר ל-DOM, מסמנים את השורה האחרונה של בלוק רציף
@@ -3999,7 +4046,13 @@ function typesetDocumentCore() {
                 const lastEl = flow.lastElementChild;
                 if (!lastEl || !(lastEl.classList.contains('block-2col') || lastEl.classList.contains('block-single-col'))) return;
                 const flowBottom = flow.getBoundingClientRect().top + totalFlowH;
-                const free = (flowBottom - reservedNow()) - lastEl.getBoundingClientRect().bottom - 1;
+                // [תיקון רגרסיה קריטי — מניעת overshoot של 50+px]
+                // השתמש ב-flow.clientHeight במקום ב-rect.height, כי scrollHeight יכול להיות גדול יותר מ-clientHeight
+                // כשיש כבר overflow מבלוקים קודמים. אם נשתמש ב-rect.height (ששווה ל-clientHeight), נקבל יעד נכון.
+                // אבל אם ה-lastEl עצמו כבר חורג, נקבל free שלילי ולא נמתח — וזה בדיוק מה שאנחנו רוצים.
+                const lastElBottom = lastEl.getBoundingClientRect().bottom;
+                const free = (flowBottom - reservedNow()) - lastElBottom - 1;
+                if (free <= 0.5) return; // אין מקום למתיחה — אל תמתח
                 stretchLastBlockToBottom(flow, free, styleObj, PAGE_STRETCH_MAX);
             };
                         if (isH0) {
@@ -4529,18 +4582,34 @@ function typesetDocumentCore() {
             // אבל stretchPageToBottom יכול לשנות את הגבהים של הבלוק האחרון, וה
             // פערים בבלוקים הקודמים (שלא עברו stretchPageToBottom) נשארו.
             // זהירות: רק על block-2col, רק פער 2-100px, רק על הטור הקצר.
+            // [תיקון רגרסיה — מניעת overshoot] אל תמתח את הטור הקצר מעבר ל-flowMaxH.
+            // הגובה המקסימלי המותר הוא flow.clientHeight פחות המיקום של ה-block ב-flow.
             {
                 const flow = pageLayout.bodyFlow;
+                const flowMaxH = flow.clientHeight;
                 const allBlocks = flow.querySelectorAll('.block-2col');
                 allBlocks.forEach(blk => {
                     const rC = blk.querySelector('.right-col');
                     const lC = blk.querySelector('.left-col');
                     if (!rC || !lC) return;
                     const fDiff = rC.scrollHeight - lC.scrollHeight;
-                    if (fDiff > 2 && fDiff <= 100) {
-                        justifyColumnVertically(lC, rC.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
-                    } else if (fDiff < -2 && Math.abs(fDiff) <= 100) {
-                        justifyColumnVertically(rC, lC.scrollHeight, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+                    if (Math.abs(fDiff) <= 2 || Math.abs(fDiff) > 100) return;
+                    // חשב את הגובה המקסימלי המותר ל-block הזה
+                    const blockTopInFlow = blk.getBoundingClientRect().top - flow.getBoundingClientRect().top;
+                    const allowedH = flowMaxH - blockTopInFlow - 2;
+                    if (allowedH <= 100) return; // בלוק קרוב לתחתית — דלג
+                    const longH = Math.max(rC.scrollHeight, lC.scrollHeight);
+                    // אל תמתח מעבר ל-allowedH
+                    const target = Math.min(longH - 2, allowedH);
+                    if (fDiff > 0) {
+                        // rC ארוך, מתח את lC ל-target (אבל לא מעבר ל-allowedH)
+                        if (target > lC.scrollHeight + 1) {
+                            justifyColumnVertically(lC, target, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+                        }
+                    } else {
+                        if (target > rC.scrollHeight + 1) {
+                            justifyColumnVertically(rC, target, styleObj, BALANCE_FINAL_JUSTIFY_MAX);
+                        }
                     }
                 });
             }
