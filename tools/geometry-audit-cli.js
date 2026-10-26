@@ -186,6 +186,9 @@ function decisionDiagnosticFailures(report) {
             if (selection.skipReason !== 'no-legal-two-column-split') {
                 failures.push(where + ': skipped selection has unknown/missing skip reason');
             }
+            if (selection.fallback !== 'preserve-existing-flow-no-legal-split') {
+                failures.push(where + ': no-legal-split selection has unknown/missing fallback contract');
+            }
             if (selection.candidateCount !== 0) {
                 failures.push(where + ': no-legal-split selection must report zero candidates');
             }
