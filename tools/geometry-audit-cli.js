@@ -97,7 +97,32 @@ function instrumentationIntegrityFailures(report) {
     }
     if ((a.missingParenthesisScopeDiagnosticCount ?? 0) !== 0) failures.push('missing parenthesis-scope diagnostics');
     if ((a.parenthesisScopeDiagnosticErrorCount ?? 0) !== 0) failures.push('parenthesis-scope diagnostic capture error');
-    if (report.geometry?.parenthesisScopeSummary == null) failures.push('missing document-level parenthesis-scope summary');
+    const parenthesisScopeSummary = report.geometry?.parenthesisScopeSummary;
+    if (parenthesisScopeSummary == null) {
+        failures.push('missing document-level parenthesis-scope summary');
+    } else {
+        for (const [countKey, examplesKey] of [
+            ['unmatchedOpenCountAtDocumentEnd', 'unmatchedOpenExamples'],
+            ['unmatchedCloseCount', 'unmatchedCloseExamples']
+        ]) {
+            const count = parenthesisScopeSummary[countKey];
+            const examples = parenthesisScopeSummary[examplesKey];
+            const expectedExamples = Number.isInteger(count) && count >= 0 ? Math.min(count, 20) : null;
+            if (expectedExamples === null || !Array.isArray(examples) || examples.length !== expectedExamples) {
+                failures.push('parenthesis-scope summary must expose up to 20 source examples for ' + countKey);
+                continue;
+            }
+            if (examples.some(example =>
+                !Number.isInteger(example.paragraphIndex) ||
+                !Number.isInteger(example.charIndex) ||
+                typeof example.preview !== 'string' ||
+                !('tokenId' in example) ||
+                !('pageIdx' in example) ||
+                !('side' in example))) {
+                failures.push('parenthesis-scope delimiter examples must include paragraph/character position, token, page, side, and preview for ' + countKey);
+            }
+        }
+    }
     if ((a.missingParenFontCounterfactualDiagnosticCount ?? 0) !== 0) failures.push('missing local paren-font counterfactual diagnostics');
     if ((a.parenFontCounterfactualRestoreMismatchCount ?? 0) !== 0) failures.push('counterfactual changed geometry after restoring original styles');
     if ((a.parenFontCounterfactualErrorCount ?? 0) !== 0) failures.push('local paren-font counterfactual diagnostic error');
