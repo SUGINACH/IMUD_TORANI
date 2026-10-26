@@ -1402,7 +1402,9 @@ function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, l
     // 0. [חדש — שלב 1] רווח מילים דינמי — הכלי השקוף ביותר
     //    רק כש-useWordSpacing=true (לא ב-stretchLastBlockToBottom שיכול לגרום לגלישה)
     //    וכש-aq-enabled ו-aq-word-spacing מסומנים
-    if (useWordSpacing && aqEnabled && aqWordSpacing && diff > 0.5) {
+    //    [תיקון רגרסיה] דלג על word-spacing כשהמתיחה הדרושה קטנה (<15px) —
+    //    word-spacing פועל בקפיצות גדולות (15-30px) וגורם ל-overshoot כשצריך רק כמה פיקסלים.
+    if (useWordSpacing && aqEnabled && aqWordSpacing && diff > 15) {
         stretchByWordSpacing(col, diff);
         diff = targetHeight - col.scrollHeight;
         if (!(diff > 0.5)) return col.scrollHeight;
@@ -1432,9 +1434,12 @@ function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, l
     const effectiveLhCap = (lhCap === null) ? Math.max(aqLhMax, 0.1) : Math.min(lhCap, aqLhMax);
     // [תיקון] גובה פסקה אינו תמיד ליניארי בגובה השורה: בפסקה עם ד"ה/מילה ראשונה בגופן שונה, הדפדפן מעגל את
     // חצאי-הריווח של כל גופן בנפרד, ולכן מתיחה אחת מפספסת לפעמים בכמה פיקסלים והטורים נגמרו בפער של ~3px.
-    // לכן מודדים מחדש וחוזרים על המתיחה (עד 3 מעברים בסך הכול). המעבר הראשון זהה למקור, ומעברים נוספים
-    // מתבצעים רק כשנשאר פער של יותר מחצי פיקסל וגם נשארה יכולת למתוח - כך עימוד שכבר מיושר לא משתנה.
-    for (let pass = 0; pass < 3; pass++) {
+    // לכן מודדים מחדש וחוזרים על המתיחה (עד 8 מעברים בסך הכול).
+    // [תיקון רגרסיה קריטי — מניעת overshoot] הדפדפן מעגל כל שורה כלפי מעלה לפיקסל שלם.
+    // כשמוסיפים 0.3px ל-30 שורות, העלייה התיאורטית היא 9px, אבל בפועל כל שורה שמקבלת תוספת
+    // מעוגלת ל-1px, ולכן העלייה בפועל יכולה להגיע ל-30px — overshoot של 21px!
+    // הפתרון: מודדים אחרי כל פסקה, ועוצרים מיידית כשמגיעים ליעד.
+    for (let pass = 0; pass < 8; pass++) {
         const rest = targetHeight - col.scrollHeight;
         if (!(rest > 0.5)) break;
         const infos = kids.filter(k => k.tagName === 'P').map(p => {
@@ -1443,12 +1448,16 @@ function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, l
         });
         const totalLines = infos.reduce((a, i) => a + i.lines, 0);
         if (!(totalLines > 0)) break;
-        const e = rest / totalLines;
+        // [תיקון רגרסיה] חשב את המתיחה לפי ה-rest הנוכחי, אבל רק 50% ממנה
+        const e = (rest / totalLines) * 0.5;
         let changed = false;
-        infos.forEach(i => {
+        for (const i of infos) {
+            // בדוק שוב לפני כל פסקה — אולי כבר הגענו ליעד
+            const currentRest = targetHeight - col.scrollHeight;
+            if (currentRest <= 0.5) break;
             const cap = (lhCap === null) ? Math.max(effectiveLhCap, i.base * JUSTIFY_BALANCE_LH_RATIO) : effectiveLhCap;
             const newLh = Math.min(i.lh + e, i.base + cap);
-            if (newLh <= i.lh + 0.01) return;
+            if (newLh <= i.lh + 0.01) continue;
             const win = i.p.querySelector('.first-word-window');
             // במעבר ראשון כמו במקור (offsetHeight); במעברים נוספים נשענים על הגובה המדויק שנקבע קודם, בלי נדידת עיגול
             const setH = win ? parseFloat(win.style.height) : NaN;
@@ -1458,7 +1467,8 @@ function justifyColumnVertically(col, targetHeight, styleObj, maxStretch = 60, l
             // החלון גדל באותו יחס, כדי שמספר השורות שמתחתיו/לצדו לא ישתנה (כולל השוליים הקבועים שלו - 1px)
             if (win && winH > 0) win.style.height = (((winH + 1) * newLh / i.lh) - 1) + 'px';
             changed = true;
-        });
+            i.lh = newLh; // עדכן למעבר הבא
+        }
         if (!changed) break;
     }
     return col.scrollHeight;
