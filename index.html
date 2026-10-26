@@ -1,3 +1,4 @@
+
 <!-- 
 ================================================================================
 מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
@@ -32,7 +33,7 @@
   <title>מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="tabs-not-ready">
+<body>
   <!-- סרגל צד ראשי המפוצל לשני טורים: אזור טקסט + לוח הגדרות -->
   <div id="sidebar">
     <!-- טור 1: אזור הדבקת ועריכת הטקסט -->
@@ -45,9 +46,7 @@
         <div class="text-actions-bar">
           <button type="button" id="btn-retypeset" class="btn-tool btn-primary" onclick="typesetDocument()">⚡ עדכן ועמד מחדש</button>
           <button type="button" class="btn-tool btn-import" onclick="document.getElementById('file-txt-import').click()">📄 ייבוא טקסט</button>
-          <button type="button" class="btn-tool btn-secondary" onclick="printRendered()">🖨️ הדפסה / PDF</button>
-          <button type="button" id="btn-load-extended-fonts" class="btn-tool btn-secondary" onclick="loadExtendedFonts()">📚 טען גופנים נוספים</button>
-          <button type="button" id="btn-export-html" class="btn-tool btn-secondary" onclick="exportRenderedHTML()">💾 ייצוא HTML</button>
+          <button type="button" class="btn-tool btn-secondary" onclick="window.print()">🖨️ הדפסה / PDF</button>
           <input type="file" id="file-txt-import" accept=".txt,.text,.md" style="display:none" onchange="handleTxtFileImport(event)">
         </div>
       </div>
@@ -406,15 +405,6 @@
               <!-- עיטורי שורת הסימן בכותרת 2 -->
               <div class="panel-sub-header">כותרת 2 — עיטור שורת הסימן (עליון/תחתון)</div>
               <div class="inline-cfg-row">
-                <label>תחולת עיטורים:</label>
-                <select id="h2-orn-scope" style="flex:1;" onchange="onH2OrnScopeChange()">
-                  <option value="both" selected="selected">על סימן וכותרת יחד</option>
-                  <option value="siman_only">רק על הסימן</option>
-                  <option value="title_only">רק על הכותרת</option>
-                  <option value="separate">נפרד לסימן ולכותרת</option>
-                </select>
-              </div>
-              <div class="inline-cfg-row">
                 <label>סט שלם (ע+ת):</label>
                 <select id="h2-ornament-set" style="flex:1;" onchange="onH2OrnamentSetChange(this.value)">
                   <option value="none" selected="selected">ללא עיטורים</option>
@@ -453,26 +443,26 @@
               <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">עיטורים אלו חלים על שורת הסימן בלבד. אם מיספור הסימנים כבוי, הם יחולו על הכותרת עצמה.</div>
 
               <!-- עיטור עצמאי לטקסט כותרת 2 (גרסה 4) -->
-              <div class="panel-sub-header">כותרת 2 — עיטורי צד לטקסט הכותרת</div>
+              <div class="panel-sub-header">כותרת 2 — עיטור עצמאי לטקסט הכותרת</div>
               <div class="inline-cfg-row">
-                <label>עיטורי צד:</label>
+                <label>סוג עיטור לכותרת:</label>
                 <select id="h2-title-orn-mode" style="flex:1;" onchange="onH2TitleOrnamentModeChange()">
-                  <option value="none" selected="selected">ללא עיטורי צד</option>
+                  <option value="none" selected="selected">ללא עיטור נפרד לכותרת</option>
+                  <option value="top_bottom">עליון/תחתון (סביב טקסט הכותרת)</option>
                   <option value="side">צדדי (ימין/שמאל - כמו כותרת 3)</option>
                 </select>
               </div>
               <div id="h2-title-orn-tb-rows" style="display:none;">
-                <!-- [תיקון] עיטורי עליון/תחתון נפרדים לכותרת מוצגים כעת דרך h2-orn-scope=separate -->
                 <div class="inline-cfg-row">
                   <label>עיטור עליון לכותרת:</label>
-                  <select id="h2-title-ornament-top-style" style="flex:1;" onchange="typesetDocument()">
+                  <select id="h2-title-ornament-top-style" style="flex:1;">
                     <option value="none" selected="selected">ללא עיטור עליון</option>
                     <optgroup id="h2-title-top-json-optgroup" label="עיטורים עליונים מ-JSON"></optgroup>
                   </select>
                 </div>
                 <div class="inline-cfg-row">
                   <label>עיטור תחתון לכותרת:</label>
-                  <select id="h2-title-ornament-bottom-style" style="flex:1;" onchange="typesetDocument()">
+                  <select id="h2-title-ornament-bottom-style" style="flex:1;">
                     <option value="none" selected="selected">ללא עיטור תחתון</option>
                     <optgroup id="h2-title-btm-json-optgroup" label="עיטורים תחתונים מ-JSON"></optgroup>
                   </select>
@@ -586,121 +576,13 @@
                 <label>רוחב:</label><input type="text" id="dim-note-side-w" value="40px">
                 <label>גובה:</label><input type="text" id="dim-note-side-h" value="0.9em">
               </div>
-
-              <!-- [חדש] עיטורי הפרדה בין קטעי כותרות -->
-              <div class="panel-sub-header">עיטורי הפרדה בין קטעי כותרות</div>
-              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">עיטור שיופיע בסוף קטע של כותרת, לפני כותרת חדשה מאותה רמה. לא כולל כותרות 1 (שער), 2 (סיום פרק) ו-7 (צד).</div>
-              <div class="inline-cfg-row">
-                <label>כותרת 3:</label>
-                <select id="heading-divider-h3" style="flex:1;">
-                  <option value="none" selected="selected">ללא</option>
-                  <optgroup id="h3-divider-json-optgroup" label="עיטורי הפרדה מ-JSON"></optgroup>
-                </select>
+              <!-- עיטור כותרת עליונה -->
+              <div class="panel-sub-header">כותרת עליונה — עיטור (ימין / מרכז / שמאל)</div>
+              <div class="dim-box">
+                <label>ממדי עיטור כותרת עליונה:</label>
+                <label>רוחב:</label><input type="text" id="dim-hdr-w" value="46px">
+                <label>גובה:</label><input type="text" id="dim-hdr-h" value="12px">
               </div>
-              <div class="inline-cfg-row">
-                <label>כותרת 4:</label>
-                <select id="heading-divider-h4" style="flex:1;">
-                  <option value="none" selected="selected">ללא</option>
-                  <optgroup id="h4-divider-json-optgroup" label="עיטורי הפרדה מ-JSON"></optgroup>
-                </select>
-              </div>
-              <div class="inline-cfg-row">
-                <label>כותרת 5:</label>
-                <select id="heading-divider-h5" style="flex:1;">
-                  <option value="none" selected="selected">ללא</option>
-                  <optgroup id="h5-divider-json-optgroup" label="עיטורי הפרדה מ-JSON"></optgroup>
-                </select>
-              </div>
-              <div class="inline-cfg-row">
-                <label>כותרת 6:</label>
-                <select id="heading-divider-h6" style="flex:1;">
-                  <option value="none" selected="selected">ללא</option>
-                  <optgroup id="h6-divider-json-optgroup" label="עיטורי הפרדה מ-JSON"></optgroup>
-                </select>
-              </div>
-
-              <!-- [חדש] עיטורי שער ראשי ומשנה -->
-              <div class="panel-sub-header">עיטורי שער ראשי ומשנה</div>
-              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">עיטור שיופיע במרכז השער הראשי והמשנה (מקור: section_dividers.json).</div>
-              <div class="inline-cfg-row">
-                <label>עיטור שער ראשי:</label>
-                <select id="shaar-main-divider" style="flex:1;">
-                  <option value="none" selected="selected">ללא</option>
-                  <optgroup id="shaar-main-divider-json-optgroup" label="עיטורים מ-JSON"></optgroup>
-                </select>
-              </div>
-              <div class="inline-cfg-row">
-                <label>עיטור שער משנה:</label>
-                <select id="shaar-sub-divider" style="flex:1;">
-                  <option value="none" selected="selected">ללא</option>
-                  <optgroup id="shaar-sub-divider-json-optgroup" label="עיטורים מ-JSON"></optgroup>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- פאנל 4.5: איכות עימוד אוטומטי -->
-          <div class="panel-static">
-            <div class="panel-header clickable-header" onclick="togglePanelBody('panel-autoquality-body')">
-              <span>⚖️ איכות עימוד אוטומטי (איזון דינמי)</span>
-              <span class="panel-toggle-indicator">▼ פתח</span>
-            </div>
-            <div id="panel-autoquality-body" style="display:none;">
-
-              <div class="panel-sub-header">כללי</div>
-              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">הגדרות איזון טורים דינמי. המנוע משתמש בכלים שונים כדי לאזן טורים ללא שינוי line-height קיצוני.</div>
-              <label class="btn-toggle full-width" title="הפעל איזון דינמי מלא">
-                <input type="checkbox" id="aq-enabled" checked="checked" onchange="typesetDocument()">
-                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל איכות עימוד אוטומטי</span>
-              </label>
-
-              <div class="panel-sub-header" style="margin-top:8px;">כלי 1: רווח מילים דינמי</div>
-              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">כיווץ/הרחבת רווח בין מילים בטווח בטוח. הכלי השקוף ביותר לעין.</div>
-              <label class="btn-toggle full-width">
-                <input type="checkbox" id="aq-word-spacing" checked="checked" onchange="typesetDocument()">
-                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל רווח מילים דינמי</span>
-              </label>
-              <div class="inline-cfg-row" style="margin-top:4px;">
-                <label>עוצמה מינימלית:</label>
-                <input type="number" id="aq-word-spacing-min" value="0.95" step="0.01" min="0.80" max="1.00" class="size-input" onchange="typesetDocument()">
-                <label>עוצמה מקסימלית:</label>
-                <input type="number" id="aq-word-spacing-max" value="1.05" step="0.01" min="1.00" max="1.20" class="size-input" onchange="typesetDocument()">
-              </div>
-              <div class="inline-cfg-row">
-                <label>פער מינימלי לטיפול (px):</label>
-                <input type="number" id="aq-word-spacing-threshold" value="2" step="1" min="1" max="20" class="size-input" onchange="typesetDocument()">
-                <label>פער מקסימלי לטיפול (px):</label>
-                <input type="number" id="aq-word-spacing-max-diff" value="20" step="1" min="5" max="100" class="size-input" onchange="typesetDocument()">
-              </div>
-
-              <div class="panel-sub-header" style="margin-top:8px;">כלי 2: רווח פסקאות דינמי</div>
-              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">הרחבה/כיווץ של רווח בין פסקאות (padding-bottom). כבר פעיל חלקית דרך justifyColumnVertically.</div>
-              <label class="btn-toggle full-width">
-                <input type="checkbox" id="aq-para-spacing" checked="checked" onchange="typesetDocument()">
-                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל רווח פסקאות דינמי</span>
-              </label>
-              <div class="inline-cfg-row" style="margin-top:4px;">
-                <label>מקסימום רווח נוסף (px):</label>
-                <input type="number" id="aq-para-spacing-max" value="9" step="1" min="0" max="30" class="size-input" onchange="typesetDocument()">
-              </div>
-
-              <div class="panel-sub-header" style="margin-top:8px;">כלי 3: רווח שורות דינמי</div>
-              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">מתיחת/כיווץ גובה שורה. הכלי האחרון בסדר העדיפות — השפעה קריטית.</div>
-              <label class="btn-toggle full-width">
-                <input type="checkbox" id="aq-line-height" checked="checked" onchange="typesetDocument()">
-                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל רווח שורות דינמי</span>
-              </label>
-              <div class="inline-cfg-row" style="margin-top:4px;">
-                <label>מקסימום תוספת (px):</label>
-                <input type="number" id="aq-line-height-max" value="3" step="1" min="0" max="10" class="size-input" onchange="typesetDocument()">
-              </div>
-
-              <div class="panel-sub-header" style="margin-top:8px;">חלוקת עומס בין טורים</div>
-              <div style="font-size:7.2pt; color:#64748b; margin-bottom:6px;">כאשר יש פער בין הטורים, כיווץ הארוך והרחבת הקצר במקביל — כל טור סופג 50% מהעומס.</div>
-              <label class="btn-toggle full-width">
-                <input type="checkbox" id="aq-shared-load" checked="checked" onchange="typesetDocument()">
-                <span class="btn-toggle-box"><span class="check-icon">✓</span>הפעל חלוקת עומס בין טורים</span>
-              </label>
 
             </div>
           </div>
@@ -747,15 +629,6 @@
                 <label>גופן מילה ראשונה:</label>
                 <select id="font-first-word" class="font-picker"></select>
                 <input type="number" id="size-first-word" class="size-input" value="1.5" step="0.1">
-              </div>
-              <div class="inline-cfg-row">
-                <label title="טקסט המופיע בסוגריים ( ) בגוף הטקסט, בכותרות ובהערות שוליים. ברירת מחדל: גופן זהה לשאר הטקסט, גודל יחסי -2pt מהטקסט המארח.">טקסט בסוגריים ( ):</label>
-                <select id="f-paren" class="font-picker" title="גופן לטקסט בסוגריים (ריק = כמו שאר הטקסט)"></select>
-                <select id="s-paren-mode" style="flex:0 0 auto; min-width:90px;" title="מצב גודל: יחסי = X נקודות פחות מהטקסט המארח (כותרת/גוף/הערה). קבוע = גודל קבוע.">
-                  <option value="relative" selected="selected">יחסי</option>
-                  <option value="fixed">קבוע</option>
-                </select>
-                <input type="number" id="s-paren" class="size-input" value="-2" step="0.5" title="גודל/דלתא (יחסי: דלתא מהטקסט המארח, קבוע: גודל קבוע בנקודות)">
               </div>
               <div class="inline-cfg-row">
                 <label>מילים להדגשה:</label>
@@ -914,13 +787,6 @@
                 </select>
               </div>
               <div class="inline-cfg-row">
-                <label title="רציף — כל ההערות ברצף, מופרדות ברווח כפול (ללא שורה חדשה ביניהן).">פריסת הערות:</label>
-                <select id="fn-layout-mode" style="flex:1;" title="רציף — כל ההערות ברצף, מופרדות ברווח כפול (ללא שורה חדשה ביניהן).">
-                  <option value="block" selected="selected">שורות נפרדות (ברירת מחדל)</option>
-                  <option value="continuous">רציף — רווח כפול בין הערות</option>
-                </select>
-              </div>
-              <div class="inline-cfg-row">
                 <label>איפוס מונה הערות:</label>
                 <select id="fn-reset-mode" style="flex:1;">
                   <option value="page" selected="selected">בכל עמוד מחדש</option>
@@ -1003,12 +869,14 @@
                   <input type="checkbox" id="avoid-widows" checked="checked">
                   <span class="btn-toggle-box"><span class="check-icon">✓</span>מנע שורות בודדות בסוף עמוד (יתומות)</span>
                 </label>
-                <label class="btn-toggle" title="מניעת מילה בודדת בשורה האחרונה של פסקה: שתי המילים האחרונות נשארות תמיד יחד (לא משנה את מספר השורות)">
-                  <input type="checkbox" id="avoid-runt-word" checked="checked">
-                  <span class="btn-toggle-box"><span class="check-icon">✓</span>מנע מילה בודדת בשורה האחרונה של פסקה</span>
-                </label>
               </div>
-              <div class="hint">איזון טורים בסוף פרק ולפני כותרות שפורשות טור יחיד מתבצע אוטומטית לפי הצורך בפועל (אין צורך בהגדרה נפרדת).</div>
+              <div class="inline-cfg-row">
+                <label>איזון סוף-פרק:</label>
+                <select id="balance-chapter-end">
+                  <option value="no" selected="selected">לא</option>
+                  <option value="yes">כן (איזון טורים שווה בסוף פרק)</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1456,12 +1324,12 @@
 
   <div id="resizer"></div>
   <div id="preview-pane">
-    <iframe id="render-frame" src="renderer.html" style="width:100%;height:100%;border:none;"></iframe>
+    <div id="book-container"></div>
   </div>
+  <div id="measuring-box"></div>
 
   <script src="decorations.js"></script>
   <script src="typesetter.js"></script>
-  <script src="settings-manager.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

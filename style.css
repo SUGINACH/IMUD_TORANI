@@ -1,3 +1,4 @@
+
 /* ==========================================================================
    מערכת עימוד תורנית מקצועית לדפי A4 — גרסת העל המושלמת (Master Edition)
    קובץ: style.css
@@ -23,29 +24,6 @@
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Rubik:wght@400;500;600;700&family=Bellefair&family=David+Libre:wght@400;500;700&family=Frank+Ruhl+Libre:wght@400;700;900&family=Noto+Serif+Hebrew:wght@400;700;900&display=swap');
-
-/* ==========================================================================
-   טעינת גופנים מקומיים — הוספה לשמירת ברירת המחדל של עדכון_ממשק_9
-   ==========================================================================
-   עדכון_ממשק_9 מתייחס לגופנים המקומיים בשמות אנגליים (AlphaBlack, Guttman Rashi,
-   Livorna, וכו'), אבל ב-Windows הם מותקנים במערכת ההפעלה ולכן נטענים אוטומטית.
-   ב-Linux/CI הם לא מותקנים, והדפדפן נופל ל-serif גנרי — מה שגורם להבדלי עימוד.
-   פתרון: @import של fonts-def.css + @font-face עם השמות האנגליים.
-   ========================================================================== */
-@import url('fonts-def.css');
-
-@font-face { font-family: 'AlphaBlack'; src: url('fonts/Alpha-Black.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: 'Alpha'; src: url('fonts/Alpha-Regular.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: 'Alpha'; src: url('fonts/Alpha-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
-@font-face { font-family: 'AlphaLight'; src: url('fonts/Alpha-Light.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: 'Guttman Rashi'; src: url('fonts/Guttman-Rashi-Normal.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: 'Guttman Rashi'; src: url('fonts/Guttman-Rashi-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
-@font-face { font-family: 'Hadassah Friedlaender'; src: url('fonts/Hadassah-Friedlaender-Regular.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: 'Hadassah Friedlaender'; src: url('fonts/Hadassah-Friedlaender-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
-@font-face { font-family: 'Livorna'; src: url('fonts/Livorna-Regular.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: 'Livorna'; src: url('fonts/Livorna-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
-@font-face { font-family: 'FrankReal'; src: url('fonts/FrankReal-Regular.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: 'FrankReal'; src: url('fonts/FrankReal-Bold.woff2') format('woff2'); font-weight: bold; font-display: swap; }
 
 :root {
     --preview-scale: 1;
@@ -196,8 +174,7 @@ body {
 
 .text-actions-bar {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
     align-items: center;
 }
 
@@ -215,13 +192,12 @@ body {
     justify-content: center;
     gap: 5px;
     white-space: nowrap;
-    min-width: 0;
 }
 
 .btn-primary {
     background: #0f172a;
     color: #ffffff;
-    flex: 1 1 auto;
+    flex: 1.2;
     box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15);
 }
 .btn-primary:hover { background: #1e293b; transform: translateY(-1px); }
@@ -243,14 +219,14 @@ body {
     50% { box-shadow: 0 0 0 6px rgba(180, 83, 9, 0.12); }
 }
 
-.btn-import { background: #2563eb; color: #ffffff; flex: 1 1 auto; }
+.btn-import { background: #2563eb; color: #ffffff; flex: 1; }
 .btn-import:hover { background: #1d4ed8; transform: translateY(-1px); }
 
 .btn-secondary {
     background: #ffffff;
     color: #334155;
     border: 1px solid #cbd5e1;
-    flex: 0 1 auto;
+    flex: 0.8;
 }
 .btn-secondary:hover { background: #f1f5f9; border-color: #94a3b8; }
 
@@ -377,26 +353,6 @@ body {
     min-width: 30px !important;
     background: #1e293b;
     border-left: 1px solid #0f172a;
-}
-
-/* תיקון (2026-10-16): הסתרת פאנלים ישנים עד שמערכת הכרטיסיות נטענת.
-   המחלקה 'tabs-not-ready' מוסרת על-ידי initTabSystem כשהיא מסיימת. */
-body.tabs-not-ready #settings-pane {
-    display: none !important;
-}
-body.tabs-not-ready #text-pane {
-    width: 100% !important;
-}
-body.tabs-not-ready #sidebar::before {
-    content: "⏳ טוען מערכת עימוד...";
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    font-size: 11pt;
-    color: #64748b;
-    font-family: 'Assistant', sans-serif;
 }
 
 .collapse-strip {
@@ -1069,7 +1025,7 @@ body.tabs-not-ready #sidebar::before {
     font-size: var(--sz-h2);
     font-weight: 700;
     text-align: center;
-    margin-top: var(--flow-mt-h2, 0);
+    margin-top: 0;
     margin-bottom: 20px;
     width: 100%;
     line-height: 1.25;
@@ -1108,7 +1064,7 @@ body.tabs-not-ready #sidebar::before {
     width: 100%;
     display: flex;
     justify-content: center;
-    align-items: stretch;
+    align-items: start;
     pointer-events: none;
 }
 
@@ -1158,14 +1114,16 @@ body.tabs-not-ready #sidebar::before {
     align-items: center !important;
     justify-content: center !important;
     flex-shrink: 0 !important;
+    vertical-align: middle !important;
+    height: 1em !important;
+    max-height: 1.1em !important;
     margin-top: -0.05em;
 }
 .h3-ornament-right svg, .h3-ornament-left svg,
 .h3-ornament-right img, .h3-ornament-left img {
-    width: 100% !important;
-    height: 100% !important;
-    max-width: 100% !important;
+    height: 0.95em !important;
     max-height: 100% !important;
+    width: auto !important;
     object-fit: contain !important;
 }
 
@@ -1195,13 +1153,6 @@ body.tabs-not-ready #sidebar::before {
     margin-top: -0.08em;
 }
 
-/* [תיקון] עיטורים עליון/תחתון נפרדים לכותרת (h2-orn-scope=separate) */
-.h2-title-ornament-top,
-.h2-title-ornament-bottom {
-    text-align: center;
-    margin: 4px auto;
-}
-
 .title-level-4 {
     font-family: var(--fn-h4); font-size: var(--sz-h4); font-weight: 900;
     text-align: center; margin: 9px 0 4px 0; line-height: 1.22;
@@ -1215,23 +1166,6 @@ body.tabs-not-ready #sidebar::before {
     text-align: center; margin: 6px 0 3px 0; line-height: 1.22;
 }
 .title-level-custom { margin: 9px 0 4px 0; line-height: 1.3; }
-
-/* [תיקון חוזר] ביטול margin-top של כותרות 4/5/6/custom כשהן ראשונות בטור.
-   מקרים שמכוסים:
-   1. כותרת 4-6 בראש עמוד חדש (היא הראשונה ב-.right-col של הבלוק הראשון)
-   2. כותרת 4-6 בראש טור (ימין או שמאל) של בלוק חדש שנפתח אחרי כותרת 3 רוחבית
-   3. כותרת 4-6 בראש טור שמאל של בלוק שבו הטור הימני כבר מולא
-   הרווח העליון נשמר רק כשהכותרת באמצע טור (לא ראשונה). */
-.right-col > .title-level-4:first-child,
-.right-col > .title-level-5:first-child,
-.right-col > .title-level-6:first-child,
-.left-col > .title-level-4:first-child,
-.left-col > .title-level-5:first-child,
-.left-col > .title-level-6:first-child,
-.right-col > .title-level-custom:first-child,
-.left-col > .title-level-custom:first-child {
-    margin-top: 0 !important;
-}
 
 /* כותרת מובלעת ברצף הפסקה (Run-In) */
 .heading-run-in {
@@ -1295,14 +1229,6 @@ p {
 }
 p.p-end { text-align-last: var(--last-line-align, center); }
 p.p-cut { text-align-last: justify; }
-
-/* [תיקון] ביטול margin-bottom של p-cut כשהוא מלווה מיד ב-p-end עם is-cont=true.
-   זה קורה כשפסקה מפוצלת בין טור לטור (או עמוד לעמוד) — החלק הראשון (p-cut) והחלק השני (p-end, is-cont=true)
-   צריכים להיות צמודים בלי רווח פסקה, כי הם בעצם אותה פסקה.
-   בלי תיקון זה, נוצר רווח של 7px בין החלקים שנראה כמו רווח פסקה במקום רווח שורה. */
-p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
-    margin-bottom: 0 !important;
-}
 
 /* ============================================================
    מילה ראשונה (Drop Word) ודיבור המתחיל (ד"ה)
@@ -1396,54 +1322,18 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
 .note-block {
     font-size: 8.5pt;
     line-height: 1.45;
-    /* [תיקון] יישור לשני הצדדים ברמת המכל — חל על כל התוכן ה-inline בפנים
-       (חשוב במיוחד למצב "רציף", שבו .note-line הם inline ו-text-align שלהם לא חל). */
-    text-align: justify;
-    text-justify: inter-word;
-    text-align-last: var(--note-last-line-align, right);
 }
 .note-block.cols-2 {
     column-count: 2; column-gap: 16px; column-rule: 1px solid #e2e8f0;
 }
 .note-block.cols-1 { column-count: 1; }
 
-/* [חדש] מצב "רציף" — הערות שוליים ברצף, ללא שורה חדשה ביניהן.
-   במצב זה כל .note-line הופך לאיבר inline, ובין הערות מופיע רווח כפול.
-   היתרונות: חיסכון במקום אנכי, מראה רציף יותר להערות קצרות.
-   החסרונות: פחות נוח לקריאה כשיש הערות ארוכות.
-
-   [הערה על יישור] text-align: justify מיישר רק שורות שעוברות wrap.
-   שורה אחת בודדת של הערות קצרות מקבלת text-align-last: right (מ-.note-block)
-   ומצטברת לימין. כדי לפתור את זה, markLastRowOfContinuousBlock (ב-typesetter.js)
-   מוסיף class 'last-row-multi' לבלוק כשיש 2+ הערות בשורה האחרונה.
-   במקרה זה, מפעילים text-align-last: justify כדי לפזר את ההערות על כל הרוחב.
-   אם יש רק הערה אחת בודדת בשורה האחרונה — לא מוסיפים את הclass, והיא נשארת
-   מיושרת לימין (התנהגות סטנדרטית של הערה חד-שורתית). */
-.note-block.continuous-mode {
-    column-count: 1;  /* במצב רציף לא משתמשים בריבוי טורים */
-    /* text-align: justify + text-align-last: right inherited from .note-block */
-}
-/* כשיש 2+ הערות בשורה האחרונה — מפעילים יישור מלא גם לשורה האחרונה */
-.note-block.continuous-mode.last-row-multi {
-    text-align-last: justify;
-}
-.note-block.continuous-mode .note-line {
-    display: inline;
-    margin-bottom: 0;
-    break-inside: auto;
-}
-/* רווח כפול בין הערות */
-.note-block.continuous-mode .note-line + .note-line {
-    margin-right: 1em;
-}
-.note-block.continuous-mode .note-line .note-line-num {
-    margin-left: 0;
-}
-
 .note-line {
     break-inside: avoid;
     margin-bottom: 3px;
-    /* text-align, text-justify, text-align-last inherited from .note-block (justify) */
+    text-align: justify;
+    text-justify: inter-word;
+    text-align-last: var(--note-last-line-align, right);
 }
 
 .note-body-text {
@@ -1535,6 +1425,16 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     margin-right: auto !important;
 }
 
+.h2-ornament-top,
+.h2-ornament-bottom {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 6px auto !important;
+    line-height: 1 !important;
+    width: 100% !important;
+}
+
 .h2-ornament-top svg,
 .h2-ornament-bottom svg,
 .heading-ornament-wrap svg,
@@ -1549,20 +1449,6 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     display: inline-block;
 }
 
-/* [תיקון] כש-h2-orn-fit-text פעיל, ה-SVG נמתח לרוחב המלא של העיטור */
-.h2-ornament-top .fit-heading-text svg,
-.h2-ornament-bottom .fit-heading-text svg,
-.h2-title-ornament-top .fit-heading-text svg,
-.h2-title-ornament-bottom .fit-heading-text svg,
-.h2-ornament-top .fit-heading-text img,
-.h2-ornament-bottom .fit-heading-text img,
-.h2-title-ornament-top .fit-heading-text img,
-.h2-title-ornament-bottom .fit-heading-text img {
-    width: 100% !important;
-    max-width: 100% !important;
-    object-fit: fill !important;
-}
-
 .sec-divider-wrap svg,
 .sec-divider-wrap img {
     width: 100% !important;
@@ -1572,44 +1458,24 @@ p.p-cut:has(+ p.p-end[data-is-cont="true"]) {
     object-fit: contain;
 }
 
-/* [תיקון] מרחק סימטרי בין עיטורים לטקסט — 6px מכל צד.
-   גישה פשוטה: margin שווה + line-height:1 על העיטור עצמו (לא על הכותרת).
-   העיטור מתייחס לטקסט כאילו הוא באותה שורה, וה-margin יוצר רווח אחיד. */
-.h2-ornament-top,
-.h2-ornament-bottom,
-.h2-title-ornament-top,
-.h2-title-ornament-bottom {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    line-height: 1 !important;
-    margin: 6px auto !important;
+.title-level-2-standalone:has(+ .h2-ornament-bottom),
+.h2-siman-badge:has(+ .title-level-2-standalone) {
+    margin-bottom: 6px !important;
 }
 
-.h2-ornament-top:first-child,
-.h2-title-ornament-top:first-child {
+/* תיקון אופטי קריטי: ביטול כפל המרווח שנוצר מתחת לכותרת 2 */
+.title-level-2-standalone:has(+ .h2-ornament-bottom) + .h2-ornament-bottom {
     margin-top: 0 !important;
 }
 
-.h2-ornament-bottom:last-child,
-.h2-title-ornament-bottom:last-child {
-    margin-bottom: 25px !important;
+.h2-ornament-top {
+    margin-top: 0 !important;
+    margin-bottom: 6px !important;
 }
 
-/* [תיקון] בטל את margin הפנימי של heading-ornament-wrap — הוא גרם ל-margin-collapse */
-.heading-ornament-wrap {
-    text-align: center;
-    margin: 0 auto !important;
-    line-height: 0;
-}
-
-/* [תיקון] איזון descenders — padding-bottom קטן על הכותרת/סימן כשיש עיטור תחתון.
-   זה מפצה על כך ש-descenders (כמו ן סופית) מאריכים את הטקסט כלפי מטה. */
-.h2-siman-badge:has(+ .h2-ornament-bottom),
-.title-level-2-standalone:has(+ .h2-ornament-bottom),
-.h2-siman-badge:has(+ .h2-title-ornament-bottom),
-.title-level-2-standalone:has(+ .h2-title-ornament-bottom) {
-    padding-bottom: 0.1em !important;
+.h2-ornament-bottom {
+    margin-top: 6px !important;
+    margin-bottom: 15px !important;
 }
 
 /* כוונון אינטראקטיבי של תיבות שער בעכבר */
@@ -1748,13 +1614,3 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
     .shaar-drag-bar, .shaar-resize-handle { display: none !important; }
     .theme-bounded-content { border: none !important; box-shadow: none !important; }
 }
-
-
-/* מניעת מילה יתומה בכותרות רב-שורתיות: איזון אורך השורות בכותרת (לא משנה את מספר השורות,
-   ולכן גם לא את חישובי הגובה של מנוע העימוד). נתמך ב-Chrome/Edge 114+; בדפדפנים אחרים מתעלמים. */
-.title-level-0, .title-level-1, .title-level-2-standalone, .title-level-3, .title-level-4,
-.title-level-5, .title-level-6, .title-level-7, .title-level-custom,
-.h3-title-text, .h2-siman-badge {
-    text-wrap: balance;
-}
-
