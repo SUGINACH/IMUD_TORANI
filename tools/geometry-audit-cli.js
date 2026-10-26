@@ -43,7 +43,8 @@ function parseArgs(argv) {
 function help() {
     process.stdout.write('Geometry audit CLI\nRequired: --input <text-file>\n' +
       'Options: --settings <json-file>, --report <json-file>, --summary <md-file>, --full-model, --repeat-check,\n' +
-      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>, --require-ornaments, --require-geometry-features, --require-note-marker-line-diagnostics,\n' +\n      '  --test-empty-column-balance, --test-missing-column-element (regression tests only)\n');
+      '--fail-on <high|medium|low|none>, --timeout-ms <number>, --viewport-width <number>, --viewport-height <number>, --require-ornaments, --require-geometry-features, --require-note-marker-line-diagnostics,\n' +
+      '--test-empty-column-balance, --test-missing-column-element (regression tests only)\n');
 }
 function abs(p) { return path.resolve(process.cwd(), p); }
 function ensureParent(p) { fs.mkdirSync(path.dirname(p), { recursive: true }); }
