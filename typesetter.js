@@ -1531,6 +1531,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     block.removeAttribute('data-layout-balance-fallback-height-before');
     block.removeAttribute('data-layout-balance-fallback-height-after');
     block.removeAttribute('data-layout-balance-fallback-width');
+    block.removeAttribute('data-layout-balance-fallback-sparse-line');
     block.setAttribute('data-layout-balance-status', 'started');
     block.setAttribute('data-layout-balance-skip-reason', '');
     block.setAttribute('data-layout-balance-fallback', 'none');
@@ -1739,13 +1740,114 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 
                 activeColumn.style.setProperty('--layout-residual-width', chosenWidth + 'px');
                 block.setAttribute('data-layout-balance-fallback-width', String(chosenWidth));
-                if (measureRenderedLines() < minRenderedLines) {
-                    // Guard against non-monotone font/layout metrics or a measurement
-                    // discrepancy at the final selected width.
+
+                // Widow/orphan line count alone is insufficient: a legal two-line p-cut
+                // can still end in a one-word line after widening (e.g. a 469px measure
+                // whose final line is only 42px). Measure the actual inline fragments,
+                // then seek the widest narrower measure that removes that sparse line
+                // without increasing the pre-fallback column height.
+                const measureRenderedLineMetrics = () => {
+                    const range = document.createRange();
+                    const walker = document.createTreeWalker(residualParagraph, NodeFilter.SHOW_TEXT);
+                    const fragments = [];
+                    let textNode;
+                    while ((textNode = walker.nextNode())) {
+                        range.selectNodeContents(textNode);
+                        for (const rect of Array.from(range.getClientRects())) {
+                            if (rect.width <= 0 || rect.height <= 0) continue;
+                            fragments.push({
+                                left: rect.left, right: rect.right,
+                                top: rect.top, bottom: rect.bottom,
+                                center: (rect.top + rect.bottom) / 2
+                            });
+                        }
+                    }
+                    range.detach();
+                    fragments.sort((a, b) => a.center - b.center || a.left - b.left);
+                    const lines = [];
+                    for (const fragment of fragments) {
+                        let match = null;
+                        let bestDistance = Infinity;
+                        for (const line of lines) {
+                            const lineHeight = line.bottom - line.top;
+                            const fragmentHeight = fragment.bottom - fragment.top;
+                            const tolerance = Math.max(9, Math.min(11, Math.max(lineHeight, fragmentHeight) * 0.45));
+                            const distance = Math.abs(line.center - fragment.center);
+                            if (distance <= tolerance && distance < bestDistance) {
+                                match = line;
+                                bestDistance = distance;
+                            }
+                        }
+                        if (!match) {
+                            lines.push({
+                                left: fragment.left, right: fragment.right,
+                                top: fragment.top, bottom: fragment.bottom,
+                                center: fragment.center
+                            });
+                        } else {
+                            match.left = Math.min(match.left, fragment.left);
+                            match.right = Math.max(match.right, fragment.right);
+                            match.top = Math.min(match.top, fragment.top);
+                            match.bottom = Math.max(match.bottom, fragment.bottom);
+                            match.center = (match.top + match.bottom) / 2;
+                        }
+                    }
+                    return lines.sort((a, b) => a.top - b.top)
+                        .map(line => ({ width: line.right - line.left, top: line.top, bottom: line.bottom }));
+                };
+                const lastLineContainsParenthetical = line => {
+                    if (!line) return false;
+                    const lineCenter = (line.top + line.bottom) / 2;
+                    for (const span of residualParagraph.querySelectorAll('.paren-text')) {
+                        for (const rect of Array.from(span.getClientRects())) {
+                            const center = (rect.top + rect.bottom) / 2;
+                            if (Math.abs(center - lineCenter) < 8) return true;
+                        }
+                    }
+                    return false;
+                };
+                const hasSparseLastLine = metrics => {
+                    if (!metrics || metrics.length < 2) return false;
+                    const first = metrics[0];
+                    const last = metrics[metrics.length - 1];
+                    return first.width > 0 && last.width < first.width * 0.5 &&
+                        !lastLineContainsParenthetical(last);
+                };
+
+                let renderedMetrics = measureRenderedLineMetrics();
+                let sparseLineStatus = 'not-needed';
+                if (hasSparseLastLine(renderedMetrics)) {
+                    sparseLineStatus = 'unresolved';
+                    const initialWidth = chosenWidth;
+                    for (let width = initialWidth - 1; width >= Math.max(1, Math.floor(colWidth)); width -= 1) {
+                        activeColumn.style.setProperty('--layout-residual-width', width + 'px');
+                        const candidateMetrics = measureRenderedLineMetrics();
+                        const candidateHeight = Math.max(rCol.scrollHeight, lCol.scrollHeight);
+                        if (candidateMetrics.length >= minRenderedLines &&
+                            !hasSparseLastLine(candidateMetrics) &&
+                            candidateHeight <= beforeHeight + 0.5 &&
+                            measureRenderedLines() >= minRenderedLines) {
+                            chosenWidth = width;
+                            renderedMetrics = candidateMetrics;
+                            sparseLineStatus = 'corrected';
+                            break;
+                        }
+                    }
+                    // If no narrower measure satisfies both density and height constraints,
+                    // keep the widow-safe measure and expose the unresolved sparse line.
+                    activeColumn.style.setProperty('--layout-residual-width', chosenWidth + 'px');
+                }
+
+                block.setAttribute('data-layout-balance-fallback-width', String(chosenWidth));
+                block.setAttribute('data-layout-balance-fallback-sparse-line', sparseLineStatus);
+                if (measureRenderedLines() < minRenderedLines ||
+                    measureRenderedLineMetrics().length < minRenderedLines) {
+                    // Guard against non-monotone font/layout metrics or a measurement discrepancy at the final selected width.
                     activeColumn.style.removeProperty('--layout-residual-width');
                     block.classList.remove('layout-full-width-terminal-residual');
                     block.removeAttribute('data-layout-balance-fallback-side');
                     block.removeAttribute('data-layout-balance-fallback-width');
+                    block.removeAttribute('data-layout-balance-fallback-sparse-line');
                     block.setAttribute('data-layout-balance-fallback', 'preserve-existing-flow-no-legal-split');
                     return;
                 }
@@ -5478,6 +5580,7 @@ function typesetDocumentCore() {
                 fallbackHeightBefore: numericAttr('data-layout-balance-fallback-height-before'),
                 fallbackHeightAfter: numericAttr('data-layout-balance-fallback-height-after'),
                 fallbackWidth: numericAttr('data-layout-balance-fallback-width'),
+                fallbackSparseLine: blk.getAttribute('data-layout-balance-fallback-sparse-line') || null,
                 policy: blk.getAttribute('data-layout-balance-selection-policy') || null,
                 candidateCount: numericAttr('data-layout-balance-candidates'),
                 selectedCandidateIndex: numericAttr('data-layout-balance-selected-candidate'),
