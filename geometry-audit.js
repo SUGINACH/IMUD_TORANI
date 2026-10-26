@@ -951,7 +951,7 @@ function auditColumnBalance(node, issues) {
 
                 issues.push({
                     kind: 'imbalance',
-                    severity: diff > 30 ? 'high' : (diff > 10 ? 'medium' : 'low'),
+                    severity: isCompletelyEmpty ? 'high' : (diff > 30 ? 'high' : (diff > 10 ? 'medium' : 'low')),
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
                     rightH: Math.round(rightHeight),
