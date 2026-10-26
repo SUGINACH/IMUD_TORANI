@@ -1,3 +1,9 @@
+## 2026-10-26 — Documentation consolidation
+
+Created `V23/CONSOLIDATED_ENGINEERING_HISTORY.md` from the six conversation exports and supplemented it with documented findings from the worklog, dependency map, stability plan, and technical history. Added sections 9–10 to `V23/TECHNICAL_HISTORY_AND_ARCHITECTURE.md` covering source provenance, code responsibility, geometry/test coverage, decision-ledger invariants, CI gates, and open findings. Updated `V23/TRANSCRIPT_DELETION_AUDIT.md`. Documentation only; no engine code changes and no V21 changes. Keep original transcripts until attachment review and an independent archive are complete.
+
+---
+
 ## 2026-10-26 — Final transcript coverage audit (documentation-only; V23)
 
 ### Scope
