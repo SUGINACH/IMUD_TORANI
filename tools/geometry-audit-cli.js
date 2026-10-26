@@ -771,7 +771,7 @@ async function main() {
                     overflow: 'hidden', visibility: 'hidden', pointerEvents: 'none'
                 });
                 while (leftColumn.firstChild) preservationBin.appendChild(leftColumn.firstChild);
-                document.getElementById('book-container').appendChild(preservationBin);
+                target.appendChild(preservationBin);
                 leftColumn.remove();
                 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
             }
