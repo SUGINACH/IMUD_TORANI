@@ -186,8 +186,13 @@ function decisionDiagnosticFailures(report) {
             if (selection.skipReason !== 'no-legal-two-column-split') {
                 failures.push(where + ': skipped selection has unknown/missing skip reason');
             }
-            if (selection.fallback !== 'preserve-existing-flow-no-legal-split') {
+            const preserveFlowFallback = selection.fallback === 'preserve-existing-flow-no-legal-split';
+            const fullWidthResidualFallback = selection.fallback === 'full-width-terminal-residual';
+            if (!preserveFlowFallback && !fullWidthResidualFallback) {
                 failures.push(where + ': no-legal-split selection has unknown/missing fallback contract');
+            }
+            if (fullWidthResidualFallback && !['left', 'right'].includes(selection.fallbackSide)) {
+                failures.push(where + ': full-width terminal residual must declare its active side');
             }
             if (selection.candidateCount !== 0) {
                 failures.push(where + ': no-legal-split selection must report zero candidates');
