@@ -43,9 +43,10 @@ jobs:
           const emptyColumn = issues.filter(issue =>
             issue.kind === 'imbalance' &&
             issue.balanceOutcome === 'one-column-empty' &&
-            (issue.rightH < 1 || issue.leftH < 1));
+            issue.injectedEmptyColumnTest === true &&
+            issue.rightH < 1 && issue.leftH > 1);
           if (emptyColumn.length === 0) {
-            console.error('Expected an imbalance finding when one column is forced to zero height. Findings:', issues.filter(issue => issue.kind === 'imbalance'));
+            console.error('Expected the specifically tagged test block to report rightH < 1 and leftH > 1 after the right column is forced to zero height. Findings:', issues.filter(issue => issue.kind === 'imbalance'));
             process.exit(1);
           }
           if (!emptyColumn.some(issue => issue.columnGeometrySource?.right === 'live-dom-including-zero-height' ||
