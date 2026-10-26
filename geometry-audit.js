@@ -947,19 +947,27 @@ function auditColumnBalance(node, issues) {
                 });
                 const emptySide = rightHeight <= leftHeight ? 'right' : 'left';
                 const emptyHeight = emptySide === 'right' ? rightHeight : leftHeight;
-                const isCompletelyEmpty = emptyHeight < 1;
+                const emptySideGeometry = emptySide === 'right' ? right : left;
+                const isCompletelyEmpty = emptyHeight < 1 && emptySideGeometry.elementPresent;
+                const hasMissingColumnElement = !right.elementPresent || !left.elementPresent;
+                const missingSide = !right.elementPresent ? 'right' : (!left.elementPresent ? 'left' : null);
+                const isStructuralColumnFailure = isCompletelyEmpty || hasMissingColumnElement;
+                const classifiedOutcome = hasMissingColumnElement
+                    ? 'missing-column-element'
+                    : (isCompletelyEmpty ? 'one-column-empty' : balanceOutcome);
 
                 issues.push({
                     kind: 'imbalance',
-                    severity: isCompletelyEmpty ? 'high' : (diff > 30 ? 'high' : (diff > 10 ? 'medium' : 'low')),
+                    severity: isStructuralColumnFailure ? 'high' : (diff > 30 ? 'high' : (diff > 10 ? 'medium' : 'low')),
                     pageIdx: getPageIdx(node),
                     location: describePath(node),
                     rightH: Math.round(rightHeight),
                     leftH: Math.round(leftHeight),
                     diff: Math.round(diff),
-                    balanceOutcome: isCompletelyEmpty ? 'one-column-empty' : balanceOutcome,
+                    balanceOutcome: classifiedOutcome,
                     acceptedResidualLimitPx,
                     emptyColumnSide: isCompletelyEmpty ? emptySide : null,
+                    missingColumnSide: missingSide,
                     columnGeometrySource: {
                         right: right.source,
                         left: left.source
@@ -980,9 +988,11 @@ function auditColumnBalance(node, issues) {
                         decisionRecord: decision,
                         stageGeometryDiagnostic: metrics.stageGeometryDiagnostic || null
                     } : null,
-                    message: isCompletelyEmpty
-                        ? `אי-איזון חמור: הטור ${emptySide === 'right' ? 'הימני' : 'השמאלי'} ריק לחלוטין (גובה ${Math.round(emptyHeight)}px); הטור השני בגובה ${Math.round(emptySide === 'right' ? leftHeight : rightHeight)}px; פער=${Math.round(diff)}px`
-                        : `אי-איזון טורים: ימין=${Math.round(rightHeight)}px שמאל=${Math.round(leftHeight)}px פער=${Math.round(diff)}px [${balanceOutcome}]`
+                    message: hasMissingColumnElement
+                        ? `כשל מבני חמור: רכיב הטור ${missingSide === 'right' ? 'הימני' : 'השמאלי'} חסר ב-DOM; לא ניתן לקבוע שהוא טור קיים וריק. גובה גיאומטרי חלופי=0px; הטור השני בגובה ${Math.round(missingSide === 'right' ? leftHeight : rightHeight)}px; פער=${Math.round(diff)}px`
+                        : (isCompletelyEmpty
+                            ? `אי-איזון חמור: הטור ${emptySide === 'right' ? 'הימני' : 'השמאלי'} קיים אך ריק לחלוטין (גובה ${Math.round(emptyHeight)}px); הטור השני בגובה ${Math.round(emptySide === 'right' ? leftHeight : rightHeight)}px; פער=${Math.round(diff)}px`
+                            : `אי-איזון טורים: ימין=${Math.round(rightHeight)}px שמאל=${Math.round(leftHeight)}px פער=${Math.round(diff)}px [${balanceOutcome}]`)
                 });
             }
         }
