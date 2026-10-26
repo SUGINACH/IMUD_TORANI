@@ -153,7 +153,28 @@ jobs:
             console.error('Square-bracket scope diagnostics must include DOM fragment indexes:', brackets);
             process.exit(1);
           }
-          console.log(JSON.stringify({ sparsePageFindings: sparse.length, squareBracketScopeFindings: brackets.length, sourceParagraphIdentityCheck: 'PASS' }));
+          const parenthesisScope = report.geometry?.parenthesisScopeSummary;
+          if (!parenthesisScope ||
+              parenthesisScope.pairedParenthesisCount < 1 ||
+              parenthesisScope.unmatchedOpenCountAtDocumentEnd !== 0 ||
+              parenthesisScope.unmatchedCloseCount !== 0) {
+            console.error('A parenthesis pair surrounding a multi-paragraph square-bracket note must remain paired; a closing parenthesis inside the bracketed note must not close the outer scope:', parenthesisScope);
+            process.exit(1);
+          }
+          const continuationStyled = (report.geometry?.layoutDecisionRecords || []).some(record =>
+            ['right', 'left'].some(side =>
+              (record.parenScopeDiagnostic?.[side]?.samples || []).some(sample =>
+                sample.hasParenTextStyle && sample.preview.includes('ולאחריה מעט טקסט נוסף'))));
+          if (!continuationStyled) {
+            console.error('The paragraph after a cross-paragraph square-bracket note must retain the enclosing parenthesis style:', (report.geometry?.layoutDecisionRecords || []).map(record => record.parenScopeDiagnostic));
+            process.exit(1);
+          }
+          console.log(JSON.stringify({
+            sparsePageFindings: sparse.length,
+            squareBracketScopeFindings: brackets.length,
+            crossParagraphBracketExclusion: 'PASS',
+            enclosingParenthesisContinuation: 'PASS'
+          }));
           NODE
       - name: Run active-ornament geometry smoke test
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/ornament-geometry-smoke.txt --settings ./tests/fixtures/ornament-geometry-settings.json --report ./artifacts/ornament-smoke-report.json --summary ./artifacts/ornament-smoke-summary.md --fail-on none --require-geometry-features
