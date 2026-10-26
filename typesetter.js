@@ -1343,6 +1343,19 @@ function flushEndnotesForPart(container, pIdx) {
     return pagesUsed;
 }
 
+/* שטח שמור להערות שוליים - נוסחה אחת משותפת למדידה בזמן התאמת שורות (probe) ולשמירת המקום בפועל
+   (getFootnotesReservedHeight). קודם הפרוב השמיט את גובה כותרת בלוק ההערות (24px) ולא כיבד את
+   בקרת fn-columns, ולכן שמר פחות מקום ממה שנדרש בפועל והערות יכלו לגלוש מעבר לתחתית העמוד. */
+function getFootnoteColCount(styleId) {
+    const cfg = getNoteConfig(styleId);
+    return parseInt(document.getElementById('fn-columns')?.value, 10) || cfg.columns || 1;
+}
+function footnoteReserveFor(queue, colCount) {
+    const titleText = document.getElementById('fn-title-text')?.value?.trim();
+    const headerH = titleText ? 24 : 0;
+    return measureNoteBlockHeight(queue, colCount) + 24 + headerH;
+}
+
 function measureNoteBlockHeight(queue, columns) {
     if (!queue.length) return 0;
     const probe = buildNoteBlockElement(queue, columns);
@@ -1864,11 +1877,7 @@ function performTypeset() {
 
     function getFootnotesReservedHeight() {
         if (!footnoteQueueForPage.length) return 0;
-        const cfg0 = getNoteConfig(footnoteQueueForPage[0].styleId);
-        const colCount = parseInt(document.getElementById('fn-columns')?.value, 10) || cfg0.columns || 1;
-        const titleText = document.getElementById('fn-title-text')?.value?.trim();
-        const headerH = titleText ? 24 : 0;
-        return measureNoteBlockHeight(footnoteQueueForPage, colCount) + 24 + headerH;
+        return footnoteReserveFor(footnoteQueueForPage, getFootnoteColCount(footnoteQueueForPage[0].styleId));
     }
 
     let hasOpenPart = false;
@@ -2346,7 +2355,7 @@ function performTypeset() {
                             /* שריון גובה מקדים להערות שוליים הנמצאות בפסקה זו */
                             const fullRemainingText = lines.join(' ');
                             const pendingFnMatches = findDelimiterMatches(fullRemainingText, 'body').filter(m => m.inst.def.target === 'footnote');
-                            const pendingFnColumns = pendingFnMatches.length ? (getNoteConfig(pendingFnMatches[0].inst.instanceId).columns || 1) : 1;
+                            const pendingFnColumns = pendingFnMatches.length ? getFootnoteColCount(pendingFnMatches[0].inst.instanceId) : 1;
                             let lastFnCount = -1;
                             let cachedAvailH = remPageHeight - getFootnotesReservedHeight();
 
@@ -2361,10 +2370,10 @@ function performTypeset() {
                                     if (newOnes.length !== lastFnCount) {
                                         lastFnCount = newOnes.length;
                                         cachedAvailH = remPageHeight - (newOnes.length
-                                            ? measureNoteBlockHeight(footnoteQueueForPage.concat(newOnes.map((m, idx) => ({
+                                            ? footnoteReserveFor(footnoteQueueForPage.concat(newOnes.map((m, idx) => ({
                                                 number: 'א', uid: 'probe' + idx, styleId: m.inst.instanceId,
                                                 text: fullRemainingText.slice(m.start + m.inst.def.trigger.open.length, m.end - m.inst.def.trigger.close.length)
-                                            }))), pendingFnColumns) + 24
+                                            }))), pendingFnColumns)
                                             : getFootnotesReservedHeight());
                                     }
                                 }
