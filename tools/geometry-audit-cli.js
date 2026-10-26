@@ -13,7 +13,7 @@ const crypto = require('node:crypto');
 function parseArgs(argv) {
     const o = { input: null, settings: null, report: './artifacts/geometry-audit.json',
         summary: './artifacts/geometry-audit-summary.md', fullModel: false, failOn: 'high',
-        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, requireOrnaments: false, requireGeometryFeatures: false, requireNoteMarkerLineDiagnostics: false, help: false };
+        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, requireOrnaments: false, requireGeometryFeatures: false, requireNoteMarkerLineDiagnostics: false, testEmptyColumnBalance: false, help: false };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         const take = () => { if (i + 1 >= argv.length) throw new Error('Missing value for ' + arg); return argv[++i]; };
@@ -27,6 +27,7 @@ function parseArgs(argv) {
             case '--require-ornaments': o.requireOrnaments = true; break;
             case '--require-geometry-features': o.requireGeometryFeatures = true; break;
             case '--require-note-marker-line-diagnostics': o.requireNoteMarkerLineDiagnostics = true; break;
+            case '--test-empty-column-balance': o.testEmptyColumnBalance = true; break;
             case '--fail-on': o.failOn = take(); break;
             case '--timeout-ms': o.timeoutMs = Number(take()); break;
             case '--viewport-width': o.viewportWidth = Number(take()); break;
@@ -1182,7 +1183,7 @@ async function main() {
                 bodyScrollHeight:document.body.scrollHeight,
                 bookContainerScrollHeight:document.getElementById('book-container')?.scrollHeight ?? null
             };
-        }, { includeFullModel: args.fullModel });
+        }, { includeFullModel: args.fullModel, testEmptyColumnBalance: args.testEmptyColumnBalance });
 
         if (args.requireOrnaments || args.requireGeometryFeatures) {
             const ornamentCoverage = data.ornamentDomCoverage || {};
