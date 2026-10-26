@@ -1,3 +1,30 @@
+## 2026-10-26 — Final transcript coverage audit (documentation-only; V23)
+
+### Scope
+- Compared all six root-level transcript files `שיחה_מספר_1.md`–`שיחה_מספר_6.md` against `V23/TECHNICAL_HISTORY_AND_ARCHITECTURE.md`, this worklog, `LAYOUT_DEPENDENCY_MAP.md`, and `V23/PLAN_STABILITY_COMPLETENESS_TRANSPARENCY.md`.
+- Captured source blob SHAs, character counts, and line counts in `V23/TRANSCRIPT_DELETION_AUDIT.md`.
+- Added the final audit to `V23/TECHNICAL_HISTORY_AND_ARCHITECTURE.md`, including the user-proposed Baseline=100% optimization spec and why its numeric ranges/accumulative-step strategy are not accepted as a global policy.
+
+### Main findings retained
+- Transcript 1: cross-column/page and nested-parenthesis requirements; global source-order delimiter state as target architecture.
+- Transcript 2: historical long audit with 601 pages and 216 findings (15 HIGH, 56 MEDIUM, 145 LOW); 13 body-flow overflows and 2 side-note boundary findings; CLI success did not imply long-audit success.
+- Transcript 3: historical p. 95 column heights around 464/421px; late justification rollback diagnostics; distinction between interim and final geometry.
+- Transcript 4: render-path mismatch, decision-record completeness, determinism signature, and diagnostic example 293/307px predicted versus 314/307px final; functions to trace include `renderSingleItemFast()`, `appendItemFinal()`, `applyDelimiterStyles()`, `createDropWord()`.
+- Transcript 5: parenthesis-font counterfactual eligibility false positive (eligible cases existed but 0 actually tested in an earlier run); later 4/4 tested; external SVG ornament needed explicit loading from `header_ornaments.json`; smoke and long are separate gates.
+- Transcript 6: optimization-spec rejection rationale; six empty-column cases; explicit distinction between decision-contract fixes and a visually validated structural fallback; four decision-contract fixes.
+
+### Evidence and status distinctions
+- The worklog head audit entry remains the 629-page run at engine/CLI commit `27e40d6713d2ee9702349f4bfad2fb3cb30c30c0`; transcript 6 also reports later run states including 643 pages and 859 decisions. Do not merge these numbers into a single baseline. Verify V23 HEAD and same-SHA workflow artifacts before asserting current status.
+- No engine code was changed by this transcript audit; documentation only.
+- Decision: **do not delete the six transcripts yet**. Keep them until the audit report's deletion gates are met and an independent archive exists.
+- Branch policy preserved: V23 only; no merge or change to V21.
+
+### Artifacts
+- `V23/TRANSCRIPT_DELETION_AUDIT.md` — per-transcript coverage, source identities, chronology conflicts, deletion gates.
+- `V23/TECHNICAL_HISTORY_AND_ARCHITECTURE.md` — section 8 added for final audit findings.
+
+---
+
 # Worklog
 
 ## 2026-10-25 — V23 geometry audit: validated counterfactual eligibility and remaining findings
