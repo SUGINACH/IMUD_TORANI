@@ -45,15 +45,30 @@ jobs:
             return selection?.status === 'skipped' &&
               selection?.routing === 'balanceColumns' &&
               selection?.skipReason === 'no-legal-two-column-split' &&
-              selection?.fallback === 'preserve-existing-flow-no-legal-split' &&
+              selection?.fallback === 'full-width-terminal-residual' &&
+              ['left', 'right'].includes(selection?.fallbackSide) &&
               selection?.candidateCount === 0 &&
-              selection?.selectedCandidateIndex === null;
+              selection?.selectedCandidateIndex === null &&
+              Number.isFinite(selection?.fallbackHeightBefore) &&
+              Number.isFinite(selection?.fallbackHeightAfter);
           });
           if (matches.length === 0) {
-            console.error('Expected a complete explicit no-legal-two-column-split decision with zero candidates and no selected candidate. Records:', records.map(record => ({pageLabel: record.pageLabel, decision: record.decision?.selection})));
+            console.error('Expected an explicit full-width terminal-residual fallback with zero candidates, declared side, before/after heights, and no selected candidate. Records:', records.map(record => ({pageLabel: record.pageLabel, decision: record.decision?.selection})));
             process.exit(1);
           }
-          console.log(JSON.stringify({ explicitNoLegalSplitDecisions: matches.length, decisionContract: 'PASS' }));
+          const fallbacks = (report.audit?.issues || []).filter(issue =>
+            issue.kind === 'structural-fallback' &&
+            issue.balanceOutcome === 'full-width-terminal-residual');
+          if (!fallbacks.some(issue => issue.fallbackValid === true && issue.severity === 'low')) {
+            console.error('Expected the geometry audit to validate the full-width residual structure:', fallbacks);
+            process.exit(1);
+          }
+          if ((report.audit?.issues || []).some(issue =>
+              issue.kind === 'imbalance' && issue.balanceOutcome === 'one-column-empty' && issue.severity === 'high')) {
+            console.error('The dedicated terminal-residual fixture must not retain a high-severity empty-column finding:', report.audit.issues.filter(issue => issue.kind === 'imbalance'));
+            process.exit(1);
+          }
+          console.log(JSON.stringify({ explicitNoLegalSplitDecisions: matches.length, validatedStructuralFallbacks: fallbacks.length, decisionContract: 'PASS' }));
           NODE
       - name: Run completely empty column balance regression
         run: node tools/geometry-audit-cli.js --input ./tests/fixtures/geometry-audit-smoke.txt --report ./artifacts/empty-column-report.json --summary ./artifacts/empty-column-summary.md --fail-on none --test-empty-column-balance
@@ -154,6 +169,8 @@ jobs:
           path: |
             artifacts/smoke-report.json
             artifacts/smoke-summary.md
+            artifacts/no-legal-split-report.json
+            artifacts/no-legal-split-summary.md
             artifacts/diagnostics-smoke-report.json
             artifacts/diagnostics-smoke-summary.md
             artifacts/ornament-smoke-report.json
