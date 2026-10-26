@@ -5946,6 +5946,9 @@ function applyCrossParagraphParens(container) {
     const allP = Array.from(container.querySelectorAll('p[data-raw-text]'));
     if (allP.length === 0) return;
 
+    // Square-bracket notes may span paragraphs, columns, or pages. Keep their depth
+    // across the ordered paragraph stream so a ')' inside such a note cannot close
+    // an outer parenthesis or change the styling of following paragraph fragments.
     let parenDepth = 0;  // עומק סוגריים פתוחות (מצטבר על פני פסקאות)
     let squareBracketDepth = 0; // הערות בסוגריים מרובעים עשויות לחצות פסקאות/עמודים
 
