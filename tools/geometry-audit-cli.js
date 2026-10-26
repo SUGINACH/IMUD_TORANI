@@ -732,8 +732,26 @@ async function main() {
             if (document.fonts && document.fonts.ready) await document.fonts.ready;
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
-        const data = await page.evaluate(({ includeFullModel }) => {
+        const data = await page.evaluate(async ({ includeFullModel, testEmptyColumnBalance }) => {
             if (!window.__geomAudit) throw new Error('Geometry audit API unavailable');
+            if (testEmptyColumnBalance) {
+                const blocks = Array.from(document.querySelectorAll('#book-container .block-2col'));
+                const target = blocks.find(block =>
+                    block.querySelector('.main-column.right-col') &&
+                    block.querySelector('.main-column.left-col'));
+                if (!target) throw new Error('Empty-column regression fixture requires at least one two-column block');
+                const empty = target.querySelector('.main-column.right-col');
+                empty.style.setProperty('height', '0px', 'important');
+                empty.style.setProperty('min-height', '0px', 'important');
+                empty.style.setProperty('max-height', '0px', 'important');
+                empty.style.setProperty('padding-top', '0px', 'important');
+                empty.style.setProperty('padding-bottom', '0px', 'important');
+                empty.style.setProperty('border-top-width', '0px', 'important');
+                empty.style.setProperty('border-bottom-width', '0px', 'important');
+                empty.style.setProperty('flex', '0 0 0px', 'important');
+                empty.style.setProperty('overflow', 'hidden', 'important');
+                await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            }
             const model = window.__geomAudit.extract();
             const audit = window.__geomAudit.audit(model);
             // The full per-page export can be large. Build it only when explicitly requested;
