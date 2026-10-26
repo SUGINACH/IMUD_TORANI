@@ -22,6 +22,7 @@
 ### Artifacts
 - `V23/TRANSCRIPT_DELETION_AUDIT.md` — per-transcript coverage, source identities, chronology conflicts, deletion gates.
 - `V23/TECHNICAL_HISTORY_AND_ARCHITECTURE.md` — section 8 added for final audit findings.
+- `LAYOUT_DEPENDENCY_MAP.md` — section 12 added to link the audit and preserve the no-deletion decision.
 
 ---
 
