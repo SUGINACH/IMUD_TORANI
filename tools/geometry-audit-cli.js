@@ -13,7 +13,7 @@ const crypto = require('node:crypto');
 function parseArgs(argv) {
     const o = { input: null, settings: null, report: './artifacts/geometry-audit.json',
         summary: './artifacts/geometry-audit-summary.md', fullModel: false, failOn: 'high',
-        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, requireOrnaments: false, requireGeometryFeatures: false, requireNoteMarkerLineDiagnostics: false, testEmptyColumnBalance: false, help: false };
+        timeoutMs: 180000, viewportWidth: 1440, viewportHeight: 1000, repeatCheck: false, requireOrnaments: false, requireGeometryFeatures: false, requireNoteMarkerLineDiagnostics: false, testEmptyColumnBalance: false, testMissingColumnElement: false, help: false };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         const take = () => { if (i + 1 >= argv.length) throw new Error('Missing value for ' + arg); return argv[++i]; };
@@ -28,6 +28,7 @@ function parseArgs(argv) {
             case '--require-geometry-features': o.requireGeometryFeatures = true; break;
             case '--require-note-marker-line-diagnostics': o.requireNoteMarkerLineDiagnostics = true; break;
             case '--test-empty-column-balance': o.testEmptyColumnBalance = true; break;
+            case '--test-missing-column-element': o.testMissingColumnElement = true; break;
             case '--fail-on': o.failOn = take(); break;
             case '--timeout-ms': o.timeoutMs = Number(take()); break;
             case '--viewport-width': o.viewportWidth = Number(take()); break;
@@ -732,7 +733,7 @@ async function main() {
             if (document.fonts && document.fonts.ready) await document.fonts.ready;
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
-        const data = await page.evaluate(async ({ includeFullModel, testEmptyColumnBalance }) => {
+        const data = await page.evaluate(async ({ includeFullModel, testEmptyColumnBalance, testMissingColumnElement }) => {
             if (!window.__geomAudit) throw new Error('Geometry audit API unavailable');
             if (testEmptyColumnBalance) {
                 const blocks = Array.from(document.querySelectorAll('#book-container .block-2col'));
@@ -751,6 +752,16 @@ async function main() {
                 empty.style.setProperty('border-bottom-width', '0px', 'important');
                 empty.style.setProperty('flex', '0 0 0px', 'important');
                 empty.style.setProperty('overflow', 'hidden', 'important');
+                await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            }
+            if (testMissingColumnElement) {
+                const blocks = Array.from(document.querySelectorAll('#book-container .block-2col'));
+                const target = blocks.find(block =>
+                    block.querySelector('.main-column.right-col') &&
+                    block.querySelector('.main-column.left-col'));
+                if (!target) throw new Error('Missing-column regression fixture requires at least one two-column block');
+                target.setAttribute('data-geometry-audit-test-missing-column', 'true');
+                target.querySelector('.main-column.left-col').remove();
                 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
             }
             const model = window.__geomAudit.extract();
@@ -1202,7 +1213,7 @@ async function main() {
                 bodyScrollHeight:document.body.scrollHeight,
                 bookContainerScrollHeight:document.getElementById('book-container')?.scrollHeight ?? null
             };
-        }, { includeFullModel: args.fullModel, testEmptyColumnBalance: args.testEmptyColumnBalance });
+        }, { includeFullModel: args.fullModel, testEmptyColumnBalance: args.testEmptyColumnBalance, testMissingColumnElement: args.testMissingColumnElement });
 
         if (args.requireOrnaments || args.requireGeometryFeatures) {
             const ornamentCoverage = data.ornamentDomCoverage || {};
