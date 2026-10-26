@@ -1,0 +1,4075 @@
+# V20.3 - מערכת עימוד תורני - הגדרות הערות ומזהים
+
+**Created:** 9/6/2026 18:56:39  
+**Updated:** 10/26/2026 14:54:25  
+**Exported:** 10/26/2026 17:32:13  
+**Link:** [https://claude.ai/chat/5a1998c5-66f8-4d60-b35d-ac81031a7944](https://claude.ai/chat/5a1998c5-66f8-4d60-b35d-ac81031a7944)  
+
+## User:
+
+> 9/6/2026 18:56:40
+
+> File: ai_studio_code__52_.html
+
+לפניך מערכת עימוד תורני בA4 כקובץ HTML, שעזרת לי לפתח ופיתחתי עוד קצת,
+והייתי רוצה שתעזור לי עוד קצת,
+הוסף לפאנל של הגדרות הערות (שוליים\סיום) את הגדרת הסימונים\מזהה  (התחלה\התחלה וסוף) של שני סוגי ההערות (מזהה בתחילת שורה (ברירת מחדל "הערה - ") להערת סיום, וסימון תחילה וסוף (ברירת מחדל "[" "]") להערת שוליים), ובדוק שוב שמיקום הערות השוליים נלקח בחשבון העימוד (כחלק מגוף הטקסט, שחלקו העליון לא יעלה על סוף הטקסט, וחלקו התחתון לא יפלוש לאזור מספר העמוד), שלא יגרום לטורים לא שווים\כותרות יתומות וכו' וכו'.
+
+## Assistant:
+
+> 9/6/2026 19:06:47
+
+> בונה הערכה מקורבת לגובה תוך פישוט המספור.
+>
+> - בוחנת את מבנה הקובץ הקיים לפני הוספת השינויים.
+> - Check file size and line count
+> - Exploring a large document to understand its structure.
+> - Search for note-related terms in the file
+> - מתכננת הוספת שדות הגדרה לשני סוגי ההערות.
+> - View overall file structure start
+> - Search for panel/settings structure
+> - View notes settings panel HTML
+> - מבררת כיצד מוצגות ההערות ברשימה הקיימת.
+> - View end of file for context text about footnote/margin note design
+> - חוקרת את מנגנון החישוב של גובה עמודה עם הערות.
+> - View CSS for footnote-area, endnote-page-block and surrounding rules
+> - Reviewing note styling and script structure in the codebase.
+> - Find all references to the note settings input fields
+> - View notes JS logic: counters, marker rendering, queueing
+> - מתכננת עיצוב שונה להערות שוליים מול הערות סיום.
+> - Find all call sites of note functions
+> - Checking how footnote and endnote targets are distinguished.
+> - Find calls to measureNoteBlockHeight specifically
+> - Investigating why footnote height logic appears unused.
+> - View pagination margin note position logic near line 1578
+> - Untangling margin notes from footnote placement logic.
+> - Find margin-notes-column usage and finalizeNotePositions callers
+> - מיפוי הזיקה בין מערכת השוליים למערכות ההערות האחרות.
+> - View pagination core loop with margin columns and notes handling
+> - מבררת אילו הגדרות סימון שייכות לפאנל ההערות.
+> - Find all footnote flush calls and page number references
+> - Working out how footnotes get placed across pages.
+> - View a4-page and page-number-footer CSS
+> - View page-number-footer CSS and surrounding rules
+> - Checking whether the footnote area overlaps the page footer.
+> - Find page-content-wrapper usages
+> - View the page template around line 2260-2310 for content page structure
+> - Analyzing flex-shrink behavior for overflow handling.
+> - View pagination main loop 2800-3000
+> - Continue viewing pagination main loop 3010-3230
+> - Investigating layout sizing for available page body space.
+> - Find page-body-flow CSS definition and usages
+> - View CSS for top-header-grid and page-body-flow
+> - Checking whether footnote space is reserved during column height budgeting.
+> - Continue viewing pagination loop 3230-3430
+> - בודקת שההערות אינן נכללות עבור פסקאות שנדחו.
+> - Find all remPageHeight references
+> - Confirming whether balancing moves existing nodes or rebuilds them.
+> - View balanceColumns function from its start
+> - View start of balanceColumns to see items construction
+> - בונה הערכה מקורבת לגובה תוך פישוט המספור.
+> - Check available tools for possible headless browser testing
+> - **Done**
+
+## User:
+
+> 9/6/2026 19:27:58
+
+המשך!!
+
+## Assistant:
+
+> 9/6/2026 19:40:12
+
+> עוברת לכתיבת שינויי הקוד בפועל.
+>
+> - ממשיכה בבדיקת תצוגת הדף שנבנה.
+> - Try installing puppeteer to test in headless browser
+> - Check if chrome binary was downloaded with puppeteer
+> - Setting up a browser automation environment for the task.
+> - Test that puppeteer can actually launch chrome headlessly
+> - Investigating a Chrome version mismatch in the cache.
+> - Locate actual chrome executable
+> - Investigating a missing chrome cache directory.
+> - Find chrome binary location and check HOME env
+> - Locating the browser executable and checking environment settings.
+> - Check playwright availability for python and node, and env vars
+> - Checking the available Playwright setup for the task.
+> - Set up working copy and clean up unused puppeteer install
+> - View init/demo text loading logic near end of file
+> - Reviewing a document typesetting script's default content.
+> - Find where importedTextStyles get created and the def shape
+> - Exploring import handling code for a template example.
+> - View import handling code and def structure
+> - Building a test harness to stress-test footnote pagination.
+> - Run Playwright test to check for footnote/page-number overlap
+> - Estimating page height to spot a fill-ratio setting.
+> - View estimateSectionFillRatio function
+> - Investigating how content gets distributed across estimated pages.
+> - Re-test with balance-chapter-end disabled to stress-test boundary overlap
+> - בודקת מתי בפועל מתבצע איזון הטורים.
+> - Check for duplicate footnote numbering caused by balanceColumns re-processing
+> - מנסחת שדות הגדרות חדשים בפאנל בעברית.
+> - Check inline-cfg-row CSS definition
+> - Styling a form layout with flexible input fields.
+> - View inline-cfg-row full CSS
+> - עוברת לכתיבת שינויי הקוד בפועל.
+> - **Done**
+
+Now I have a clear, empirically-confirmed picture of what needs fixing. Let me implement the changes. I'll start with the settings panel additions, then the deeper pagination fixes, testing each step.
+
+> Refactoring footnote height measurement and rendering logic.
+>
+> - Add endnote-prefix and footnote-wrap marker settings to the notes settings panel
+> - Add target param to buildNoteBlockElement to apply endnote prefix / footnote wrap markers
+> - Updating each call site with the new parameter.
+> - Locate remaining call sites to update
+> - View measureNoteBlockHeight and flushFootnotesInto current code
+> - Refactoring footnote height measurement and rendering logic.
+> - Replace unused measureNoteBlockHeight with a full-area measurer including rule line, used for reserving pagination space
+> - **Done**
+
+## User:
+
+> 9/7/2026 0:35:05
+
+המשך!
+
+## Assistant:
+
+> 9/7/2026 0:48:25
+
+> Restructuring footnote handling to insert directly into the page.
+>
+> - Restructuring footnote handling to insert directly into the page.
+> - Update flushFootnotesInto to pass target and insert in-flow (before page-number footer) instead of absolute overlay
+> - View flushEndnotesForPart function in full
+> - **Done**
+
+Now let me fix the endnote pagination — pass the target and fix the off-by-one rendering bug where a rejected/oversized test block could stay displayed:
+
+> Edited file
+>
+> - Pass 'endnote' target and fix off-by-one bug where wrap could retain an oversized rejected block
+> - **Done**
+
+Now the CSS restructure — making `.footnote-area` an in-flow part of the page (so it structurally can never sit behind the page number) rather than an absolutely-positioned overlay:
+
+> Drafting the marker-queuing logic with a dry-run mode.
+>
+> - Locate footnote-area CSS block
+> - View footnote-area and note styling CSS block in full context
+> - Restructure footnote-area from absolute overlay to in-flow flex child, add identifier styling and top margin
+> - Reworking pagination state management in the JS code.
+> - Find note state declarations and createNoteMarkerAndQueue location
+> - View note state declarations and createNoteMarkerAndQueue function
+> - Setting up state variables for pagination and footnote handling.
+> - List all remPageHeight occurrences with current line numbers
+> - Untangling two similar loops handling separate column layouts.
+> - View pagination loop context around first occurrence block (H0 section?)
+> - Tracing how a specific code branch handles column layout.
+> - Continue viewing H0 paragraph handling to check for delimiter/sidenote processing
+> - Drafting the marker-queuing logic with a dry-run mode.
+> - Promote remPageHeight/footnoteReserveHeight to shared state and add suppressNoteQueueing flag for safe re-rendering during column balancing
+> - **Done**
+
+Now update `createNoteMarkerAndQueue` for the dry-run mode and centralized space reservation:
+
+> Weighing a simpler bug fix before tackling the harder trim logic.
+>
+> - Implement dry-run mode and centralized footnote space reservation in createNoteMarkerAndQueue
+> - Fixing function ordering in the code file.
+> - Remove local let so remPageHeight/footnoteReserveHeight refer to shared top-level state, reset reservation per page
+> - Fixing footnote overlap and testing panel rendering.
+> - Re-run overlap test against updated file
+> - Weighing a simpler bug fix before tackling the harder trim logic.
+> - **Done**
+
+Good — the page-number overlap is now fully resolved. Now let's tackle the balanceColumns duplication bug (which is likely causing the remaining, larger overlaps) and the marker-loss issue. Let me view the current state of that function:
+
+> Tracing a missing property assignment in item merging logic.
+>
+> - Find current line numbers for balanceColumns and related functions
+> - View full balanceColumns function from start through mergedItems construction
+> - View rest of balanceColumns: renderSingleItemFast, evaluation loop, and appendItemFinal
+> - Tracing a missing property assignment in item merging logic.
+> - Find Path B main loop code location and colWidth declaration
+> - View Path B note handling in main pagination loop
+> - View Path B sideNote handling block precisely
+> - **Done**
+
+Now let me fix the marker-loss bug by also recording note metadata for footnote/endnote paragraphs, so `balanceColumns` can correctly reconstruct them instead of silently dropping the reference:
+
+> Wiring snapshot rollback into the column-balancing function.
+>
+> - Record note-target metadata as data attributes for footnote/endnote paragraphs too, so balanceColumns can correctly rebuild them instead of dropping the marker
+> - Read note-target metadata attributes when merging DOM fragments back into logical items
+> - Verifying continuation fragments and rebuild logic stay consistent.
+> - Also persist note-target metadata attributes when appendItemFinal rebuilds a paragraph, for consistency if rebalanced again
+> - Wiring snapshot rollback into the column-balancing function.
+> - Find block2Col creation points
+> - View block2Col creation and where colWidth/forEach begins
+> - **Done**
+
+Now let me add the snapshot capture right here, before the fill loop begins:
+
+> Fixing duplicate code by editing with a shell command.
+>
+> - Capture note-state snapshot before this block2Col's fill begins, for later rollback if balanceColumns rebuilds it
+> - Find balanceColumns call sites
+> - View both balanceColumns call sites with context
+> - Count exact occurrences before doing a targeted sed-like replace
+> - Fixing duplicate code by editing with a shell command.
+> - Update both balanceColumns call sites to pass the note snapshot
+> - **Done**
+
+Now let's update `balanceColumns` itself to accept the snapshot, roll back state, and suppress note-queueing during trial rendering:
+
+> Tracing the overlap to an unmeasured margin value.
+>
+> - Add snapshot rollback at top of balanceColumns to prevent duplicate note queueing on rebuild
+> - Suppress note queueing during trial rendering of candidate split points to prevent duplicate/bogus queue entries
+> - Debugging how the final pass handles note queueing behavior.
+> - Re-check for duplicate footnote numbering after balanceColumns fix
+> - Fixing duplicate footnote entries in the document.
+> - Re-check overlap test after balanceColumns dedup fix
+> - Tracing the overlap to an unmeasured margin value.
+> - **Done**
+
+I found the source of the residual ~10px gap — the `margin-top` I added to `.footnote-area` isn't captured by `getBoundingClientRect()`. Let me fix the measurement to include it:
+
+> Fixing overlapping footnote and page number display bugs.
+>
+> - Include the footnote-area's own margin in the reserved height measurement, not just its border-box
+> - Re-test overlap after margin-inclusive measurement fix
+> - Fixing overlapping footnote and page number display bugs.
+> - **Done**
+
+Both issues are now resolved in this scenario. Let me stress-test with more variation — multiple notes per paragraph, 2-column footnote layout, and endnotes — to make sure the fix is robust, not just tuned to one test case:
+
+> משחזרת קטע שבירה שהושמט בטעות בעריכה.
+>
+> - Comprehensive stress test with randomized note placement and 2-column footnote layout
+> - משחזרת קטע שבירה שהושמט בטעות בעריכה.
+> - **Done**
+
+This edge case (multiple notes on one paragraph) needs a tighter fix. Let me add a self-correcting retry so a paragraph that overflows because of its *own* footnote gets trimmed back, reusing the same rollback pattern I built for column balancing:
+
+> Ran command, viewed 2 files
+>
+> - Locate both occurrences (H0 and main 2-col) of the chunk-finalize point
+> - View main 2-col chunk finalize block precisely (current line numbers)
+> - View a bit more to see the end of this block (isEndOfP handling)
+> - **Done**
+
+Now let me replace this whole block with the retry-aware version:
+
+> Deciding against a complex cross-column reflow fix.
+>
+> - Add self-correcting retry loop so a chunk that overflows due to its own newly-triggered footnote(s) gets trimmed back by a line and retried, instead of silently overlapping the footnote area
+> - Re-run stress test after adding retry-shrink correction
+> - Settling on a smaller, lower-risk mitigation over a full rebuild.
+> - Diagnose whether overlap is caused by cross-column asymmetry
+> - Deciding against a complex cross-column reflow fix.
+> - **Done**
+
+Let me check `justifyColumnVertically` (the cosmetic column-equalizing step) since it may be compounding the cross-column timing gap I just found:
+
+> Ran command
+>
+> - View justifyColumnVertically function
+> - **Done**
+
+## User:
+
+> 9/7/2026 5:30:42
+
+המשך!
+
+## Assistant:
+
+> 9/7/2026 5:42:42
+
+> Fixing a cross-column timing issue with page layout.
+>
+> - Fixing vertical justification and its column-height call site.
+> - Find justifyColumnVertically call sites
+> - View justifyColumnVertically call site in balanceColumns context
+> - Assessing whether the same overflow risk applies internally.
+> - View justifyColumnVertically call site in main pagination loop
+> - Guarding column stretching against unsafe height overflow.
+> - Guard cosmetic column-height equalization from stretching a column past the page's remaining safe budget (main pagination loop)
+> - Refactoring shared state across another function call site.
+> - Apply the same safety guard to the cosmetic equalization inside balanceColumns
+> - Fixing a cross-column timing issue with page layout.
+> - View current state of remPageHeight initialization to add safety buffer
+> - Find current location of remPageHeight page init
+> - Locate measureFootnoteAreaHeight to add the buffer helper nearby
+> - View measureFootnoteAreaHeight full body to insert helper right after it
+> - Add a helper that estimates a modest proactive safety cushion for pages that may contain footnotes, mitigating the residual cross-column timing gap (right column filled before left column's later not…
+> - **Done**
+
+Now wire it into the per-page `remPageHeight` initialization:
+
+> Stress-testing a layout fix against random content variations.
+>
+> - Apply the proactive safety buffer when initializing each page's available height
+> - Re-run stress test after proactive buffer + justify guard
+> - Stress-testing a layout fix against random content variations.
+> - **Done**
+
+Excellent — zero problems now. Let me verify this holds across multiple random seeds and content patterns, not just one lucky case:
+
+> Tracing the exact timing of the height reset.
+>
+> - Run 12 varied random-seed stress tests to validate robustness
+> - Tracing the exact timing of the height reset.
+> - **Done**
+
+The high-density stress test found the fixed "one note" buffer isn't enough for heavily-annotated pages. Let me make it adaptive — learning the actual footnote density from earlier pages in the same document:
+
+> Tracing footnote boundaries across document sections.
+>
+> - Find all call sites of flushFootnotesInto to verify footnoteReserveHeight validity at each
+> - Tracing footnote height resets across page layout logic.
+> - Check context around line 3051 flush call
+> - Tracing footnote boundaries across document sections.
+> - Add rolling history of actual per-page footnote-area heights, recorded whenever a page's footnotes are flushed
+> - Make the safety buffer adaptive: use the median of actual recent per-page footnote heights once we have history, falling back to a one-note estimate for the first page
+> - **Done**
+
+Now let's record actual per-page heights when flushing, so the estimate adapts as pagination proceeds:
+
+> Fixing footnote spacing across varied page configurations.
+>
+> - Record the actual footnote-area height achieved for this page into the rolling history, feeding the adaptive buffer for subsequent pages
+> - Debugging the footnote height calculation order in pagination logic.
+> - Re-run 12-seed stress test with adaptive buffer
+> - Fixing footnote spacing across varied page configurations.
+> - **Done**
+
+Let's improve the cold-start case too, since the adaptive estimate needs a page or two of history before it kicks in — a more conservative initial guess helps close that gap:
+
+> Testing layout fixes across multiple seeds and configurations.
+>
+> - Use a more conservative multi-note cold-start estimate before any real per-page history exists, since under-reserving is worse than a little wasted space
+> - Re-run stress test with improved cold-start estimate
+> - Testing layout fixes across multiple seeds and configurations.
+> - **Done**
+
+Let me broaden the seed range further to be confident this generalizes, and re-verify the earlier tests still pass:
+
+> Analyzing test results to pinpoint patterns in remaining issues.
+>
+> - Run 40-seed stress test for stronger confidence
+> - Analyzing test results to pinpoint patterns in remaining issues.
+> - **Done**
+
+Strong result — 37/40 configs are perfectly clean, and residual cases are small and confined to early "cold start" pages. Now let me run broader regression checks: default content (no footnotes), Path B (line-prefix) notes, endnotes, and the settings panel itself:
+
+> Verifying test results across multiple generated pages.
+>
+> - Test default content regression and Path B + endnote functionality
+> - Verifying test results across multiple generated pages.
+> - **Done**
+
+Everything checks out. Let me verify the settings panel controls actually take effect with custom (non-default) values, and take a visual screenshot for a final sanity check:
+
+> Designing a contained split-point check to protect delimiter spans.
+>
+> - Verify panel settings take effect and capture a visual screenshot
+> - Debugging why the footnote line value is missing.
+> - Debug why footnote area wasn't found in the panel test
+> - Suspecting the footnote never queued, tracing a different render path.
+> - View full applyDelimiterStyles function to debug multi-match handling
+> - Chasing why the footnote queue empties before final flush.
+> - Trace note creation and flush calls to find the bug
+> - Suspecting a duplicate call mutates text before final processing.
+> - Trace exactly what text applyDelimiterStyles receives at each call
+> - Designing a contained split-point check to protect delimiter spans.
+> - **Done**
+
+Found a real, subtle bug — column balancing can pick a line-split point that falls *inside* a `{...}` delimiter span, silently destroying the note. Let me fix the split-point selection to avoid that:
+
+> Verified custom panel settings and footnote formatting worked correctly.
+>
+> - Locate splitPoints construction in balanceColumns
+> - View splitPoints and validSplitPoints construction
+> - Building logic to filter split points within delimiter spans.
+> - Extract delimiter-span matching into a reusable helper function shared by applyDelimiterStyles and the balance split-point logic
+> - Reworking the filter to preserve original heading-split logic.
+> - Compute note-delimiter spans per item and exclude any candidate split point that would cut through one, preventing balance from silently destroying a note that straddles a line boundary
+> - Debugging a text-splitting edge case with empty results.
+> - Re-run the specific debug case to verify the split-point fix works
+> - Verifying the split point avoids breaking footnote formatting.
+> - Re-run panel settings test to confirm the footnote now appears correctly
+> - Verified custom panel settings and footnote formatting worked correctly.
+> - **Done**
+
+Let's view the screenshot for a visual sanity check, then re-run the full regression battery:
+
+> Debugging a page-detection error in the code.
+>
+> - View screenshot of a page with a footnote to visually verify layout
+> - Isolating the correct page element for a clean screenshot.
+> - Retake screenshot with a wider viewport and precise clipping to the page element
+> - Debugging a page-detection error in the code.
+> - Retry screenshot with scroll-into-view and fresh bounding box
+> - **Done**
+
+## User:
+
+> 9/7/2026 12:55:40
+
+המשך!
+
+## Assistant:
+
+> 9/7/2026 13:01:06
+
+> בוחנת את פריסת העמוד לצורך צילום מסך.
+>
+> - View the properly-clipped screenshot of the footnote page
+> - בוחנת את פריסת העמוד לצורך צילום מסך.
+> - **Done**
+
+This looks clean and correct. Now let's run the full regression suite one more time to confirm everything still holds after the delimiter-span fix:
+
+> Reviewing test results across multiple validation cases.
+>
+> - Re-run full regression suite after the delimiter-span split fix
+> - Reviewing test results across multiple validation cases.
+> - **Done**
+
+Let me verify the "unequal columns" cases in test4 are pre-existing behavior (not something I introduced) by comparing against the original file:
+
+> Deciding to document the trade-off and verify visually.
+>
+> - Run same stress test against the pristine original file to check if column imbalance is pre-existing
+> - Diagnosing a bug by comparing original and modified file behavior.
+> - Check specifically for unequal-columns problems in the original file
+> - Comparing test output against the original file's behavior.
+> - Directly compare column-height differences between original and updated file for the same content
+> - Deciding to document the trade-off and verify visually.
+> - **Done**
+
+Let me do a final performance sanity check, then wrap up with a summary of the trade-off I found regarding column balance:
+
+> Weighing a final tweak to column balancing before wrapping up.
+>
+> - Performance sanity check with a larger document
+> - Compare performance against original file
+> - Weighing a final tweak to column balancing before wrapping up.
+> - **Done**
+
+Let me do final validation — syntax check and one more full regression pass with default content before finalizing:
+
+> Verifying default settings and generated output work correctly.
+>
+> - Extract and syntax-check all JS in the file
+> - Final check: default page load with no interaction, verify panel fields exist with correct defaults
+> - Verifying default settings and generated output work correctly.
+> - **Done**
+
+Let me take one final screenshot of the settings panel to confirm the new UI controls look right:
+
+> מסדר תצוגת פקדי סימון בטקסט בפאנל.
+>
+> - Screenshot the notes settings panel UI
+> - View the notes settings panel screenshot
+> - מסדר תצוגת פקדי סימון בטקסט בפאנל.
+> - **Done**
+
+The panel looks clean and well-integrated. Let me do one final check for any leftover debug artifacts, then finalize the file:
+
+> Checking test.html for leftover debug logging statements.
+>
+> - Check for leftover debug code and get overall change size
+> - Checking test.html for leftover debug logging statements.
+> - **Done**
+
+All checks pass. Let me finalize and deliver the file:
+
+> מסכם את השינויים והתיקונים שבוצעו בפאנל.
+>
+> - Copy final validated file to outputs
+> - Presenting file(s)...
+> - מסכם את השינויים והתיקונים שבוצעו בפאנל.
+> - **Done**
+
+הקובץ מוכן. הנה מה שעשיתי, בשני חלקים כמו שביקשת:
+
+## 1. הגדרות סימון/מזהה בפאנל ההערות
+
+הוספתי לפאנל "הגדרות הערות (שוליים / סיום)" שתי הגדרות חדשות:
+- **מזהה בתחילת שורה** (ברירת מחדל: `הערה - `) — נוסף בתחילת כל שורה ברשימת **הערות הסיום**, לפני מספר ההערה.
+- **סימון התחלה/סוף** (ברירת מחדל: `[` `]`) — עוטף את טקסט ההערה ברשימת **הערות השוליים** בתחתית העמוד.
+
+שתי ההגדרות פועלות בפועל על הפלט (בדקתי עם ערכים מותאמים אישית — למשל `הע"פ: ` ו־`(` `)` — והפלט השתנה בהתאם).
+
+## 2. בדיקת מיקום הערות השוליים בעימוד — מה שמצאתי ותיקנתי
+
+בדקתי את זה לעומק (כולל טעינת הקובץ בדפדפן אמיתי ומדידת קואורדינטות בפועל, לא רק קריאת קוד), ומצאתי כמה בעיות אמיתיות, לא רק אחת:
+
+1. **חפיפה מוחלטת עם מספר העמוד** — ה-CSS מיקם את `.footnote-area` בעמדה מוחלטת שתמיד חפפה בדיוק את `.page-number-footer`. **תיקנתי**: אזור ההערות הפך לאיבר-flow רגיל שנכנס ממש לפני מספר העמוד, כך שהוא מבנית לא יכול לחפוף אותו יותר.
+2. **אין שריון מקום כלל** — מנוע העימוד (`remPageHeight`) מעולם לא הביא בחשבון שהערות שוליים יתפסו מקום, כך שטקסט התמלא עד הסוף ואז ההערות "נחתו" עליו. במקרה אחד שבדקתי זה הגיע לחפיפה של יותר מ־6000 פיקסלים. **תיקנתי**: המקום נשמר באופן חי, ברגע שהערה נוספת לתור.
+3. **הערות שנרשמו כפול/משולש** — כשהמנוע מאזן טורים בסוף פרק (`balanceColumns`), הוא בנה מחדש את הטקסט וקרא שוב ל־`applyDelimiterStyles`, מה שרשם את אותה הערה עשרות פעמים (ראיתי הערה אחת מופיעה 13 פעם עם מספור שונה). **תיקנתי** עם מנגנון "תמונת מצב ושחזור" סביב תהליך האיזון.
+4. **סימון שנעלם בשקט** — הערות שוליים/סיום שהוצמדו לתחילת פסקה (לא בתוך הטקסט) איבדו את הסימון שלהן בטקסט הרץ אחרי איזון טורים. **תיקנתי**.
+5. **הערה שנחתכת באמצע** — אם נקודת חלוקת הטורים נפלה בדיוק בתוך `{...}` של הערה, ההערה נעלמה לגמרי (אף חצי לא זוהה). **תיקנתי** ע"י פסילת נקודות חלוקה כאלה.
+6. גם תיקנתי תקלת "מרוץ תוצאות" דומה בעימוד **הערות הסיום** (עמודי "הערות" בסוף חלק) שיכלה להשאיר הערה חורגת מהעמוד.
+
+אחרי כל התיקונים הרצתי כ־50 תרחישי בדיקה אקראיים (צפיפות הערות שונה, הערה בודדת/כמה הערות בפסקה, טור אחד/שני טורים להערות, נתיב "קידומת שורה" ונתיב "תוך-טקסט", הערות סיום) — כמעט כולם נקיים לחלוטין מחפיפה, ובמקרי-הקצה שנותרו (עמודים מוקדמים מאוד, לפני שהמנוע "למד" את צפיפות ההערות בספר) מדובר בחפיפה של פיקסלים בודדים, לא שורות.
+
+**נקודה אחת לשקיפות מלאה**: מכיוון שטור ימין מתמלא במלואו לפני שטור שמאל מתחיל, במקרי-קיצון של הרבה הערות שמצטברות דווקא בטור שמאל, טור ימין "לא יודע" על כך מראש — זה יכול (לעיתים רחוקות, בעיקר בצפיפות הערות גבוהה) ליצור פער גובה בין הטורים גדול יותר משהיה קודם. זה לא גורם לחפיפה או לתוכן פגום, רק לחוסר-סימטריה חזותי; תיקון מלא שלו ידרוש שינוי ארכיטקטוני עמוק יותר (מילוי מקביל של שני הטורים במקום ברצף).
+
+> File: [/mnt/user-data/outputs/ai_studio_code__52_.html](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fai_studio_code__52_.html)
+
+## User:
+
+> 9/7/2026 13:26:31
+
+לא הבנת אותי בכלל... המזהה והסימון הם אלה שמגדרים טקסט כהערת שוליים\סיום (זאת אומרת שכמו שהגדרת טקסט ככותרת 7 נעשית ע"י קידומת של "כותרת 7 - " בתחילת שורה, כך במידה ושורה מתחילה ב "הערה - " הרי שהטקסט שבשורה הופך להיות הערת סיום, ובמידה ובאמצע שורת טקסט יש קטע המוסגר בסוגריים כאלו "[""]" הרי שהטקסט שבין הסוגריים (בלי הסוגריים עצמם) הופך להיות הערת שוליים), ולא שהם אמורים להתווסף להערה במסמך הסופי.
+
+## Assistant:
+
+> 9/7/2026 13:33:04
+
+> Coding the endnote prefix and footnote wrap detection.
+>
+> - מתכננת שילוב שדות הממשק הקיימים בזיהוי החדש.
+> - Locate tokenizer logic for line-prefix headings and pending side notes
+> - View the full tokenizer section handling line prefixes, headings, and pending side notes
+> - Coding the endnote prefix and footnote wrap detection.
+> - **Done**
+
+This is a fundamentally different feature than what I built — thank you for the correction. Let me look at how `כותרת 7` is implemented (a line-prefix that triggers a pending note) and how the existing custom-style trigger system works, so I can build the same mechanism natively for these two panel settings:
+
+> Cleaning up call sites after removing the unused parameter.
+>
+> - Check how styleId=null would be handled by these helper functions
+> - Tracing how a null identifier matches text style lookups.
+> - View resetNoteCounterIfNeeded to understand reset-timing logic for native notes
+> - Cleaning up call sites after removing the unused parameter.
+> - **Done**
+
+Now I understand correctly. Let me rebuild this properly. First, revert the output-decoration I incorrectly added to `buildNoteBlockElement`:
+
+> Ran 3 commands, viewed file, edited file
+>
+> - Locate buildNoteBlockElement for reverting
+> - View current buildNoteBlockElement to revert precisely
+> - Revert buildNoteBlockElement to plain rendering — no output decoration, since the identifier/wrap settings are actually input triggers, not output formatting
+> - Find all call sites needing the target arg removed
+> - Remove target argument from all call sites
+> - **Done**
+
+Now let's update the settings panel to correctly describe this as an input trigger, not output formatting:
+
+> Implementing a tokenizer change for endnote prefixes.
+>
+> - Locate the panel HTML section to update
+> - View the panel section to update precisely
+> - Rewrite panel labels and helper text to correctly describe these as input triggers (detection patterns in the raw text) rather than output formatting
+> - Implementing a tokenizer change for endnote prefixes.
+> - **Done**
+
+Now the core logic. Let's add native line-prefix detection for endnotes in the tokenizer:
+
+> Adjusting where the endnote-prefix check fits in the logic.
+>
+> - Re-locate tokenizer section after panel edits shifted line numbers
+> - View current tokenizer else-branch to edit precisely
+> - Adjusting where the endnote-prefix check fits in the logic.
+> - Add native endnote line-prefix detection as a fallback when no custom imported style matches, mirroring the exact "כותרת 7" pending-note mechanism
+> - **Done**
+
+Now let's add native bracket-based footnote detection to `findDelimiterMatches`:
+
+> Checking marker handling for null instance IDs in delimiter styling.
+>
+> - Locate findDelimiterMatches
+> - View current findDelimiterMatches
+> - Restructuring style logic to include native trigger checks.
+> - Add native footnote bracket-pair as a synthetic always-available trigger alongside custom imported delimiterPair styles
+> - Checking marker handling for null instance IDs in delimiter styling.
+> - **Done**
+
+Now let's fix the counter-reset logic, since it currently only checks `importedTextStyles` — meaning notes created purely via the native triggers would never renumber per page/part:
+
+> Reviewing footnote safety buffer logic in the code.
+>
+> - Make counter reset also account for the native triggers' default reset policy (footnote resets per page, endnote per part), independent of whether any custom style is imported
+> - Reviewing footnote safety buffer logic in the code.
+> - **Done**
+
+I also need to check `estimateFootnoteSafetyBuffer` — it currently only checks for a custom imported style, which would miss documents using only the native trigger:
+
+> Tracing how footnote height gets computed for missing style data.
+>
+> - View estimateFootnoteSafetyBuffer to fix the detection condition
+> - Detect footnote usage via either a custom imported style OR the native bracket trigger, using null styleId for the native-only case
+> - Tracing how footnote height gets computed for missing style data.
+> - **Done**
+
+Let me check for any other places that gate footnote/endnote behavior on `importedTextStyles` existing, which would now miss the native-only case:
+
+> Fixing delimiter matching and reviewing related code sections.
+>
+> - Find all places that check importedTextStyles for footnote/endnote presence
+> - Fixing delimiter matching and reviewing related code sections.
+> - **Done**
+
+Now let's test the corrected, native-trigger behavior thoroughly:
+
+> בודקת התנהגות עם ערכים מותאמים אישית ואיפוס מספור.
+>
+> - Test pure native trigger behavior with no custom imported styles
+> - בודקת התנהגות עם ערכים מותאמים אישית ואיפוס מספור.
+> - **Done**
+
+Excellent — this now works exactly as described. Let me test the edge cases: disabling native triggers, custom values, and reset-per-page behavior:
+
+> Ran command
+>
+> - Test disabling triggers via empty fields and custom trigger values
+> - **Done**
+
+## User:
+
+> 9/7/2026 18:09:01
+
+המשך!
+
+## Assistant:
+
+> 9/7/2026 18:09:21
+
+> Investigating why a text-preservation test unexpectedly failed.
+>
+> - Investigating why a text-preservation test unexpectedly failed.
+> - Debug what actually rendered when triggers are disabled
+> - **Done**
+
+## User:
+
+> 9/7/2026 23:37:17
+
+המשך!!!
+
+## Assistant:
+
+> 9/7/2026 23:40:24
+
+> בודקת מדוע הערה מסוימת נותרה כטקסט גלוי.
+>
+> - בודקת מדוע הערה מסוימת נותרה כטקסט גלוי.
+> - **Done**
+
+That confirms it actually worked correctly — my test assertion was just too strict (the "drop word" first-letter styling splits text with a line break in `innerText`). Let me fix the test and continue:
+
+> Verifying footnote and trigger tests all pass correctly.
+>
+> - Re-run edge case tests with corrected assertions
+> - Verifying footnote and trigger tests all pass correctly.
+> - **Done**
+
+Now let's re-run the full positioning-robustness stress test using **native syntax only** (no injected custom styles), to confirm all my earlier pagination fixes still hold with the real trigger mechanism:
+
+> Reviewing test results across configurations for lingering discrepancies.
+>
+> - Full stress test using pure native trigger syntax
+> - Reviewing test results across configurations for lingering discrepancies.
+> - **Done**
+
+Consistent, solid results. Let me verify native and custom-imported triggers can coexist without conflict, then do a final full regression pass:
+
+> Ran command
+>
+> - Test coexistence of native trigger with a differently-configured custom imported style
+> - **Done**
+
+Both mechanisms work together correctly. Let me finish with final regression checks — default demo, syntax validation, and the panel screenshot:
+
+> Debugging a screenshot capture issue despite correct panel content.
+>
+> - Final default-content regression and syntax validation
+> - Re-capture panel screenshot with updated labels
+> - View updated panel screenshot
+> - Reviewing a screenshot of document formatting settings.
+> - Recapture full panel screenshot with correct height
+> - Debugging why the panel selector isn't capturing full content.
+> - View recaptured panel screenshot
+> - Diagnosing why a panel's bounding box appears cut off.
+> - Verify panel text content directly instead of fighting screenshot cropping
+> - Debugging a screenshot capture issue despite correct panel content.
+> - **Done**
+
+Content confirmed correct — the screenshot cropping was a headless-viewport artifact, not a real issue. Let me run one final comprehensive regression pass, then deliver:
+
+> Verifying footnote rendering across multiple test scenarios.
+>
+> - Final comprehensive regression pass
+> - Verifying footnote rendering across multiple test scenarios.
+> - **Done**
+
+Everything checks out. Let me finalize the file:
+
+> Ran command, presented file
+>
+> - Copy final corrected file to outputs
+> - Presenting file(s)...
+> - **Done**
+
+צודק, סליחה על אי-ההבנה — עכשיו זה עובד בדיוק כמו שתיארת. תיקנתי:
+
+## מה שהוספתי בפועל
+
+בפאנל "הגדרות הערות" נוסף אזור חדש **"🔖 זיהוי הערות בטקסט הגולמי"**:
+
+- **מזהה שורת סיום** (ברירת מחדל `הערה - `) — שורה שמתחילה במחרוזת הזו **הופכת אוטומטית להערת סיום**, ומצטמדת לפסקה הבאה — בדיוק אותו מנגנון כמו "כותרת 7 - " (טוקן ממתין שלא נכנס כפסקה/כותרת בפני עצמו, אלא מצורף לזה שאחריו).
+- **סימון הערת שוליים** (ברירת מחדל `[` `]`) — קטע טקסט **בתוך** פסקה, בין שני הסימנים, הופך אוטומטית להערת שוליים; הסימנים עצמם נעלמים והתוכן שביניהם עובר לרשימת ההערות בתחתית העמוד עם סימון-מספר במקומו בטקסט.
+
+שני השדות פועלים בדיוק כמו הטריגרים הקיימים של "ייבוא תוספים" (linePrefix / delimiterPair עם target), רק שהם **מובנים ופעילים תמיד** בלי צורך לייבא כלום — ואם משאירים שדה ריק, המנגנון המתאים כבוי לגמרי (הטקסט נשאר מילולי, כולל הסוגריים).
+
+בדקתי (כולל בדפדפן אמיתי, לא רק קריאת קוד):
+- הטריגרים עובדים גם ללא כל ייבוא, וגם **יחד** עם סגנונות מיובאים בעלי טריגר שונה, בלי התנגשות.
+- ערכים מותאמים אישית (למשל מזהה `מקור:` או סימון `<` `>`) עובדים.
+- מספור הערות-השוליים באמת מתאפס בכל עמוד גם כשאין שום סגנון מיובא (זה דרש תיקון נפרד — הפונקציה שמאפסת את המונה בדקה במקור רק סגנונות מיובאים).
+- כל תיקוני המיקום/חפיפה שעשיתי בסבב הקודם (שריון מקום, מניעת חפיפה עם מספר העמוד, מניעת רישום כפול באיזון טורים וכו') ממשיכים לעבוד נכון גם כשההערות מגיעות מהמנגנון המובנה הזה — הרצתי מחדש את כל בדיקות העומס (~60 תרחישים אקראיים, צפיפויות שונות) והתוצאות עקביות עם מה שדיווחתי קודם.
+
+הסרתי לגמרי את מה שהוספתי בטעות בסבב הקודם (הוספת "הערה - " / סוגריים לפלט הרשימה עצמה) — הרשימה חוזרת להיות "1. טקסט" נקי, כפי שהייתה.
+
+> File: [/mnt/user-data/outputs/ai_studio_code__52_.html](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fai_studio_code__52_.html)
+
+## User:
+
+> 9/8/2026 0:07:09
+
+> File: app.js
+
+> File: decorations.js
+
+> File: index.html
+
+> File: style.css
+
+> File: typesetter.js
+
+יש לי כאן גרסה מחולקת שעברתי עליה בינתיים, אשמח שתעבור עליה ותצביע על שינויים וכו'
+
+## Assistant:
+
+> 9/8/2026 0:07:24
+
+> בוחנת קבצים מפוצלים של פרויקט קיים.
+>
+> - בוחנת קבצים מפוצלים של פרויקט קיים.
+> - Check sizes of all uploaded files
+> - **Done**
+
+## User:
+
+> 9/8/2026 7:30:59
+
+המשך!!!
+
+## Assistant:
+
+> 9/8/2026 7:39:21
+
+> Planning a systematic review of the split-out files.
+>
+> - Comparing the original file against the edited version.
+> - List all files in uploads directory
+> - Sorting out which files belong to the latest upload.
+> - View index.html start
+> - Reviewing a webpage's structure and linked project files.
+> - Check script tags and whether my note-trigger panel changes are present
+> - Comparing file changes to verify earlier edits.
+> - View the notes settings panel section in the new index.html
+> - Planning a systematic review of the split-out files.
+> - **Done**
+
+This is a different codebase than what I edited — the user has built their own version of the note-trigger system in parallel, from an earlier baseline. Let me do a proper review from scratch rather than assume continuity. Let me start by understanding the overall structure:
+
+> Comparing endnote handling and marker placement across versions.
+>
+> - Get overview of typesetter.js structure
+> - השוואת הקובץ המפוצל לגרסת התיקון המקורית שלי.
+> - View note-related core functions in typesetter.js
+> - Comparing numbering and reset logic changes across versions.
+> - View applyDelimiterStyles with its isDryRun parameter
+> - Comparing refactored code against original fix for regressions.
+> - Find all references to the reservation mechanism
+> - Assessing the flat height buffer's precision against real rule styles.
+> - View balanceColumns in the new typesetter.js
+> - Comparing endnote handling and marker placement across versions.
+> - **Done**
+
+This reveals real, important findings. Let me trace how the new `endNote` field (separate from `sideNote`) is populated in the tokenizer:
+
+> Locating how note rules control display styling.
+>
+> - Trace the endNote/sideNote mechanism through the tokenizer
+> - View the tokenizer section handling the endnote prefix trigger
+> - Comparing footnote and endnote trigger pathways for edge cases.
+> - View main pagination loop's paragraph/note handling section
+> - Building a checklist to verify remaining code review points.
+> - Check footnote-area CSS in the new style.css
+> - Check footnote-area and surrounding CSS
+> - Checking decorative rule styles for height estimation gaps.
+> - Find buildNoteRuleElement to check decorative rule heights
+> - Locating how note rules control display styling.
+> - **Done**
+
+Let me check app.js and decorations.js structure, then move to empirical testing:
+
+> מאתרת חסר הגנה דומה בפונקציית האיזון הפנימית.
+>
+> - Overview of app.js and decorations.js
+> - Exploring the codebase to understand how files interrelate.
+> - Check if new note-trigger fields are included in save/load template logic
+> - Confirming load-side compatibility before planning test scenarios.
+> - Find all justifyColumnVertically call sites to check for the safety guard
+> - Tracking down inconsistent line references in the code.
+> - Check main loop's justifyColumnVertically call for the safety guard
+> - מאתרת חסר הגנה דומה בפונקציית האיזון הפנימית.
+> - **Done**
+
+This confirms a real regression from the refactor. Let me check every `remPageHeight` comparison site systematically to find all the places that should — but don't — account for the footnote reservation:
+
+> Building a Hebrew numeral conversion function.
+>
+> - View the full typesetDocument main loop to audit every remPageHeight usage
+> - Reviewing footnote height checks for consistency across code branches.
+> - Continue viewing to see span_1col heading handling and block2Col creation
+> - Checking whether the height guard is actually a real bug.
+> - Check for adaptive buffer mechanism and blockNoteSnapshot construction
+> - Searching the codebase for an adaptive-buffer mechanism.
+> - View the section from 1700-1755 to understand the pre-balanceColumns rollback and the two call sites
+> - Checking custom footnote style handling for silent mishandling.
+> - Check toGematria implementation for robustness with larger numbers
+> - Building a Hebrew numeral conversion function.
+> - **Done**
+
+Let me verify these findings empirically. First, set up a working copy and confirm the basic system loads:
+
+> Testing footnote and endnote formatting in Hebrew documents.
+>
+> - Set up working copy of the split files
+> - Test basic load of the split file version
+> - Investigating how site data files load.
+> - Test native trigger functionality in the split version
+> - Testing footnote and endnote formatting in Hebrew documents.
+> - **Done**
+
+Basic functionality confirmed. Now let's verify the two bugs I found in the code review. First, the delimiter mid-split issue during column balancing:
+
+> Constructing a direct test to confirm the split-point flaw.
+>
+> - Attempt to reproduce the delimiter mid-split bug
+> - Reproducing a reported bug involving note creation.
+> - Systematic sweep to find a paragraph length that triggers the mid-bracket split bug
+> - Investigating why the bug isn't reproducing as expected.
+> - Wider systematic sweep with balanceColumns invocation tracking
+> - Constructing a direct test to confirm the split-point flaw.
+> - **Done**
+
+Let me test this more directly by calling the internal functions to construct a precise scenario:
+
+> Ran command
+>
+> - Directly enumerate candidate split points that fall inside a delimiter span
+> - **Done**
+
+## User:
+
+> 9/9/2026 21:31:17
+
+> File: typesetter.js
+
+> File: app.js
+
+> File: style.css
+
+> File: index.html
+
+> File: decorations.js
+
+המשך! מצורף להודעה 5 קבצים מעודכנים יותר
+
+כמו כן אני מדביק פה את עיקרי השיחה שהיתה לי עם AI אחר
+
+עבור על הקבצים, ועל השיחה היטיב,
+
+ואני רוצה שתבצע את הבקשה האחרונה בשיחה (בדיקת 5 הקבצים, ורשימת הצ'קליסט).
+
+אנא ואנא שים למגבלות האאוטפוט והקריאות שיש לך כך שאם צריך תחלק את העבודה לכמה הודעות, מאשר להיתקע באמצע סתם.
+
+בנתיים מצאתי בעצמי כמה בעיות....
+1. כותרות מתחלפות עובד, אבל המיקום מתחרבש (כותרת ימנית (ושמוגדרת להיות מוצמדת לימין) בעמוד השני נמצאת בשמאל אבל עדיין מוצמדת לימין (צריך שבמקרה ומגדירים כותרות מתחלפות 2 הכותרות החיצוניות, יהיו מוגדרות ביישור חיצוני\פנימי\מרכזי), עוד בעיה שיש בכותרות העליונות היא הכותרת האמצעית שלמרות שהוגדרה ליישור ממורכז, היא נמצאת בצד ימין.
+2. שם ספר בכותרות העליונות חצי\חצי עובד. (אבל היה עדיף שהבחירה באפשרות זו תהיה באמצעות לחצן טוגל (במקום לבחור ידנית כל כותרת בחצי שלה), שיבטל את אופציית כותרות מתחלפות אוטומטי.
+3. התאמת רוחב עיטור לרוחב טקסט כותרת 2, לא עובד.
+4. קו מפריד בין טורים עובד, אבל הקצה התחתון מתארך יותר מקצה הטקסט.
+ויש כמה בעיות...
+איחוד שערי JSON: בחירה בסט טוענת רק את השער הראשי ושאר השערים רקים
+כל הגדרות ברירת המחדל של הגופנים נעלמו
+בחירת עיטור בכותרת עליונה מופיעה בגודל גדול מאוד,
+שינוי הגדרות בלוח מתעדכן מיידי, מה שאומר שכל הגדרה (שינוי נקודה אחת בגופן גוף הטקסט למשל) מעמדת את כל המסמך מחדש (והדף נתקע)
+חלקים (ארוכים) בלוח ההגדרות יוצאים מרוחב הקופסא,
+ועוד מלא בעיות
+האמת שאין לי כח לכתוב את כל הבעיות,
+ אז תריץ אתה את התוכנה ממש, ותבדוק את הבעיות
+
+## Assistant:
+
+> 9/9/2026 21:38:15
+
+> מתכננת בדיקה שיטתית של כל הבאגים שדווחו.
+>
+> - Mapping out newly reported bugs to investigate.
+> - Check sizes and dates of the newly uploaded files
+> - מתכננת בדיקה שיטתית של כל הבאגים שדווחו.
+> - **Done**
+
+Understood — I'll work through this systematically. Two notes before I start: I don't see the pasted conversation/checklist content in your message (it may not have come through), and given the scope here I'll make real, tested progress now and continue in follow-up messages rather than rushing or stalling. Let me get the current build running first.
+
+> Building mock JSON files to test the loading logic.
+>
+> - Set up v3 working directory
+> - בודקת תקלה בטעינת בחירת סט באתר.
+> - Check what JSON files are expected and referenced
+> - Building mock JSON files to test the loading logic.
+> - **Done**
+
+Let me start systematically. First, the JSON "shaar sets" bug — I don't have the actual JSON asset files, so I'll read the loading code and build minimal mock files to test the real behavior:
+
+> Designing mock tests to confirm the mismatch theory.
+>
+> - Find the JSON loading function
+> - View loadExternalJSONAssets function in full
+> - בודקת אם קבצי הנתונים חסרים או שיש תקלה בקוד.
+> - Check registerExternalShaar implementation
+> - Designing mock tests to confirm the mismatch theory.
+> - **Done**
+
+Let me verify this hypothesis with mock JSON files, since it looks like a fragile matching heuristic (regex-extracting a "set number" from name/id) rather than an explicit link between main/sub/back:
+
+> מתכננת תיקון שמזהה סטים לפי שדה מפורש או מיקום.
+>
+> - Create matching-scheme mock JSON files and start a local server
+> - Test consistent-numbering JSON case
+> - Diagnosing a failed server connection issue.
+> - Debug why the local server connection was refused
+> - Diagnosing why the background server process stopped running.
+> - Restart server with nohup and disown for persistence
+> - Verify server persists across tool calls
+> - Testing whether the server persists across tool calls.
+> - Start server and run test within the same command
+> - Checking consistent naming across the files.
+> - Test with a realistic naming mismatch between main/sub/back files
+> - מתכננת תיקון שמזהה סטים לפי שדה מפורש או מיקום.
+> - **Done**
+
+JSON theme bug confirmed and root-caused. Now let me check the performance/hang issue, since that sounds most severe — every settings change triggering a full retypeset:
+
+> Applying debounce broadly and weighing individual retypeset speed.
+>
+> - Check how many controls trigger immediate full retypeset, and via which event
+> - Applying debounce broadly and weighing individual retypeset speed.
+> - **Done**
+
+Confirmed — 164 total controls (78 via `oninput`, which fires on every keystroke) trigger a full document retypeset with no debouncing. That's a clear, high-impact bug. Let me quickly check a few more items from the list via code reading, then compile findings. First, "font defaults disappeared":
+
+> Tracing why the dropdowns rely on manual font loading.
+>
+> - Search for font-defaults related code
+> - מחפשת מדוע הגדרות ברירת המחדל של הגופנים נעלמו.
+> - Check font-picker select structure and updateStyles function
+> - Tracing why the dropdowns rely on manual font loading.
+> - **Done**
+
+Found it — the font-picker `<select>` elements are completely empty in the HTML (no `<option>` tags at all), unlike the earlier version which had hardcoded defaults. Let me confirm how/whether they get populated at load time:
+
+> Compiling a checkpoint report of confirmed bugs and next steps.
+>
+> - Check if anything populates font-picker selects on load
+> - Pinpointing the missing fallback options as the root cause.
+> - Confirm font-picker selects are empty on load with an empty fonts.json
+> - Compiling a checkpoint report of confirmed bugs and next steps.
+> - **Done**
+
+Let me quickly check one more high-value item — bug #4 from your list (column separator line extending past the text) — since it's likely a fast CSS diagnosis:
+
+> Confirming the mismatch matches the reported bug and planning a fix.
+>
+> - Check column separator line CSS
+> - Check right-col/left-col and the column-rule usage
+> - Search more broadly for the column separator line feature
+> - Tracing the column divider styling through CSS and JS.
+> - Find the gutter divider CSS and JS construction
+> - View col-gutter-divider CSS
+> - Confirming the mismatch matches the reported bug and planning a fix.
+> - **Done**
+
+Good — that's a strong, verifiable diagnosis. I've now covered solid ground on four distinct issues. Given the scope here, let me stop and report this as a checkpoint, then continue in a follow-up message rather than rushing the rest.
+
+## מה שבדקתי ואישרתי בפועל (לא רק קריאת קוד — הרצתי את התוכנה בפועל)
+
+**1. איחוד שערי JSON (ראשי תקין, משנה/אחורי ריקים) — שורש הבעיה נמצא**
+בניתי קבצי JSON מינימליים ובדקתי: כשה-`name`/`id` בשלושת הקבצים (`shaar_main.json`, `shaar_sub.json`, `shaar_back.json`) חולקים אותו מספר, האיחוד עובד מושלם. אבל ברגע שניסיתי תרחיש ריאלי — פריט ב-`shaar_sub.json` עם `id`/`name` שלא כוללים בדיוק את אותו מספר כמו הפריט המקביל ב-`shaar_main.json` (למשל שם המבוסס על סוג העיטור ולא על מספר סידורי) — האיחוד **נכשל בשקט**: ה"ערכה" המאוחדת מקבלת רק `mainHTML`, ו-`subHTML`/`backHTML` נשארים ריקים. זה בדיוק התסמין שתיארת. הסיבה: הקוד ב-`loadExternalJSONAssets` (app.js) מזהה "מספר ערכה" ע"י regex שמחפש ספרה כלשהי בשם/מזהה, בלי שדה מפורש שמקשר בין שלושת הקבצים. זו שיטה שברירית מטבעה. **תיקון מוצע**: להוסיף שדה מפורש כמו `"set": 1` בכל פריט (ולהעדיף אותו כשהוא קיים), עם נפילה חזרה להתאמה לפי אינדקס-מערך (הפריט ה-N בכל קובץ שייך לערכה N) כברירת מחדל חכמה יותר מ"ניחוש מספר מהטקסט".
+
+**2. עדכון מיידי בכל שינוי הגדרה → תקיעה — מאושר במלואו**
+ספרתי בפועל: **164 בקרות** בפאנל קוראות ל-`typesetDocument()` ישירות — 78 מהן דרך `oninput` (כלומר **על כל הקשת מקש בודדת**, כולל שדות טקסט ואפילו סליידרים בזמן גרירה). על מסמך גדול זה בדיוק מסביר תקיעה. **התיקון הנכון**: להוסיף "debounce" — פונקציית עטיפה שממתינה כ-300-400 מ״ש אחרי הקלט האחרון לפני שבאמת מריצה עימוד מחדש, ולהחליף את כל 164 הקריאות ל-`oninput`/`onchange` בקריאה לפונקציה הזו. זה שינוי ממוקד ובטוח (staticly ניתן להחלפה גורפת בקובץ ה-HTML).
+
+**3. "ברירות המחדל של הגופנים נעלמו" — שורש הבעיה נמצא**
+בדקתי בפועל: כל 37 תפריטי בחירת-הגופן (`select.font-picker`) בפאנל **ריקים לחלוטין מ-`<option>`** ב-HTML הגולמי (0 אפשרויות, `value=""`), בניגוד לגרסה קודמת שבה היו ערכי ברירת מחדל קבועים (Lia Sgula, Livorna וכו'). כעת הם תלויים **אך ורק** בטעינה דינמית מ-`fonts/fonts.json` (או בלחיצה ידנית על "טען גופני Windows"). אם הקובץ הזה חסר/ריק/נכשל בטעינה — כל תפריטי הגופנים בלוח ריקים לגמרי, בלי שום ברירת מחדל גלויה למשתמש. **תיקון מוצע**: להחזיר סט ברירות-מחדל קשיח (hardcoded) לכל select כ"רשת ביטחון", שה-fetch הדינמי (אם מצליח) רק **מוסיף/מרחיב** עליו ולא מחליף לגמרי.
+
+**4. קו מפריד בין טורים חורג מקצה הטקסט — שורש הבעיה נמצא (עדיין לא הרצתי ויזואלית, זיהוי מקוד)**
+ה-CSS (`.col-gutter-divider`) משתמש ב-`height:100%` בתוך grid עם `align-items:stretch` — כלומר הקו נמתח לגובה **השורה השלמה של ה-grid**, שנקבע לפי **הטור הגבוה מבין השניים**. כתוצאה, בכל פעם שיש הפרש גובה (אפילו קטן) בין טור ימין לשמאל — וזה קורה כמעט תמיד לפני איזון סופי, ולעיתים גם אחריו — הקו יורד עד לגובה הטור הארוך, וחורג מתחת לטקסט של הטור הקצר. **תיקון מוצע**: לקבוע את גובה הקו דינמית (ב-JS, אחרי שהטורים סופיים) לפי הגובה בפועל, במקום להסתמך על stretch גורף.
+
+## מה עוד לא כיסיתי (וממשיך בהודעה הבאה)
+- 4 הבאגים הממוספרים שלך (כותרות מתחלפות/יישור, טוגל לחצי-חצי, התאמת רוחב עיטור לכותרת 2)
+- "עיטור בכותרת עליונה מופיע גדול מדי"
+- "חלקים ארוכים בלוח יוצאים מרוחב הקופסה"
+- כל מה שלא פירטת במפורש
+
+אמשיך לבדוק את אלה ואתחיל ליישם תיקונים (כולל הארבעה שכבר אובחנו) בהודעה הבאה — רק תגיד המשך.
+
+## User:
+
+> 9/9/2026 22:03:47
+
+המשך!
+
+## Assistant:
+
+> 9/9/2026 22:05:06
+
+> בודקת מדוע כותרת מרכזית לא ממורכזת בפועל.
+>
+> - Fixing several editor bugs and interface issues.
+> - Find alternating headers configuration in the panel
+> - Investigating header settings and layout structure.
+> - View the header settings panel section
+> - מנתח כיצד אמורה ההתאמה להתחלף בין עמודים.
+> - View renderHeaderSectionHTML to understand header rendering and alternating logic
+> - Investigating how header sections handle alignment logic.
+> - Find where headers are assembled with alignment and alternating logic
+> - View createPageLayout header assembly with alternating logic
+> - בודקת מדוע כותרת מרכזית לא ממורכזת בפועל.
+> - **Done**
+
+This confirms bug #1 exactly — there's literally a comment admitting the alignment-flip was deliberately removed, which is precisely backwards from what you want. Let me check the CSS for the center-header alignment issue too:
+
+> Ran command
+>
+> - Check header column CSS for the centering issue
+> - **Done**
+
+## User:
+
+> 9/10/2026 2:58:53
+
+```text
+משתמש:
+
+.לפניך מערכת לעימוד תורני, שעזרת לי לכתוב
+אני מעוניין להוסיף\להסיר הגדרות בלוח ההגדרות.
+לצורך כך אני צריך קודם שתעשה רשימה מסודרת של כל ההגדרות לבחירה הקיימות בלוח ההגדרות, וכל אפשרויות הבחירה הקיימות לכל הגדרה,
+ואחרי הרשימה אני רוצה שתציע 
+1. הגדרות חדשות שכדאי שינתנו לבחירה.
+2. אפשרויות בחירה חדשות להגדרות הקיימות כבר.
+
+AI:
+
+להלן סקירה שיטתית ומלאה של כל ההגדרות ואפשרויות הבחירה הקיימות כיום במערכת (בלוח ההגדרות), ולאחריה הצעות מנומקות להגדרות חדשות ולאפשרויות הרחבה להגדרות הקיימות.
+
+---
+
+# חלק א': מיפוי מלא של לוח ההגדרות הקיים
+
+לוח ההגדרות מחולק ל-10 פאנלים מרכזיים (לצד פעולות מהירות בראש הלוח):
+
+### פעולות מהירות (בראש הלוח)
+* **💾 שמור תבנית** (`saveAsDefaultTemplate`): שומר קובץ HTML מלא כולל כל ההגדרות, התוספים והערכות שהוטמעו.
+* **📂 טען גופני מערכת** (`loadSystemFonts`): קורא את גופני ה-Windows/מחשב המקומיים דרך דפדפני Chromium וממלא את כל בוררי הגופנים.
+
+---
+
+### 1. פאנל "ערכות נושא ושערי הספר"
+| מזהה / הגדרה | תיאור | אפשרויות בחירה קיימות |
+| :--- | :--- | :--- |
+| `active-theme-select` | **ערכת נושא כללית** | • 1. דמסק ושיש מרכזי (`builtin_1`)<br>• 2. תחרת סלסולים כפולה (`builtin_2`)<br>• 3. קרנות וילנא וגיליושה (`builtin_3`)<br>• ערכות מותאמות אישית שהוטמעו בקובץ (`customThemes`)<br>• שערי JSON שנטענו חיצונית |
+| `select-shaar-main` | **איור שער ראשי פרטני** | • לפי ערכת הנושא הנבחרת (`theme_default`)<br>• מובנה 1, מובנה 2, מובנה 3<br>• שערים מתוך `shaar_main.json` |
+| `select-shaar-back` | **איור שער אחורי פרטני** | • לפי ערכת הנושא הנבחרת (`theme_default`)<br>• מובנה 1, מובנה 2, מובנה 3<br>• שערים מתוך `shaar_back.json` |
+| `select-shaar-sub` | **איור שער משנה פרטני** | • לפי ערכת הנושא הנבחרת (`theme_default`)<br>• מובנה 1, מובנה 2, מובנה 3<br>• שערים מתוך `shaar_sub.json` |
+| `show-main-shaar` | **הצג שער ראשי** | • תיבת סימון: כן (V) / לא |
+| `show-back-shaar` | **הצג שער אחורי (גב שער)** | • תיבת סימון: כן (V) / לא |
+| `enable-shaar-box-editor` | **כוונון תיבות שער בעכבר** | • תיבת סימון: כן (V) / לא (הצגת ידיות Drag & Resize) |
+| **שדות טקסט, גופן וגודל לשער:**<br>• שם הספר (`inp-book-title`)<br>• נושא / משנה (`inp-book-subtitle`)<br>• נושא מפורט (`inp-book-desc`)<br>• פרטי מהדורא (`inp-book-sections`)<br>• שם המחבר (`inp-book-author`)<br>• מקום ושנה (`inp-book-year`) | הזנת טקסט חופשי, בחירת גופן (`.font-picker`) ובחירת גודל בנקודות (pt). | • טקסט חופשי<br>• רשימת גופני מערכת + גופנים מקומיים מתיקיית `fonts/`<br>• גודל מספרי ב-pt |
+| `section-divider-style` | **עיטור סיום פרק** | • 1. פירמידת וילנא (`pyramid` — ❖ ❖ ❖)<br>• 2. רומח מחודד עם טבעת (`spear` — SVG)<br>• 3. שושנתא וילנאית (`swash` — SVG)<br>• 4. סלסול תורני כפול (`flourish` — SVG)<br>• 5. תמונת עיטור אישית (`custom_img`)<br>• ללא עיטור (`none`)<br>• עיטורים נוספים מתוך `section_dividers.json` |
+| `file-sec-div-img` | **העלאת קובץ עיטור אישי** | קובץ מקומי (`SVG` או `תמונה`) |
+
+---
+
+### 2. פאנל "יצירת והטמעת ערכת נושא חדשה" (SVG Builder)
+* **שם הערכה** (`builder-theme-name`): טקסט חופשי.
+* **קובצי רקע (SVG) ושולי תיבת הטקסט (עליון, תחתון, ימין, שמאל במילימטרים)**:
+  * שער ראשי (`file-builder-main-svg`, `builder-main-top/bottom/right/left`)
+  * שער אחורי (`file-builder-back-svg`, `builder-back-top/bottom/right/left`)
+  * שער משנה (`file-builder-sub-svg`, `builder-sub-top/bottom/right/left`)
+* **כפתור פעולה**: "הטמע ערכת נושא זו בקובץ" / מחיקת ערכות קיימות.
+
+---
+
+### 3. פאנל "ייבוא תוספים" (Extensions)
+* **סוג עמוד** (ייבוא קובץ JSON של `pageType`): בחירת עוגן מיקום במסמך (`beforeAll`, `afterMainShaar`, `afterGeneralToc`, `beforeEachPart`, `afterEachPart`, `endOfEachPart`, `afterAll`).
+* **סגנון טקסט** (ייבוא קובץ JSON של `textStyle`): קידומת שורה / תוחמים / הגדרות הערה.
+* **תמונה כעמוד** (העלאת קובץ תמונה שלם): בחירת עוגן מיקום כנ"ל.
+
+---
+
+### 4. פאנל "הגדרות הערות" (שוליים וסיום)
+| מזהה / הגדרה | תיאור | אפשרויות בחירה קיימות |
+| :--- | :--- | :--- |
+| `fn-delim-open` / `fn-delim-close` | **תוחמי טקסט להערות שוליים** | טקסט חופשי (ברירת מחדל: `[` ו-`]`) |
+| `en-line-prefix` | **קידומת שורה להערות סיום** | טקסט חופשי (ברירת מחדל: `הערת סיום -`) |
+| `note-numbering-style` | **סגנון מספור הערות** | • אותיות עבריות (`gematria` — א, ב, ג...)<br>• ספרות (`decimal` — 1, 2, 3...) |
+| `note-marker-type` | **סוג סימון בתוך גוף הטקסט** | • כתב עילי (`super`)<br>• רגיל על השורה (`normal`)<br>• כתב תחתי (`sub`)<br>• בסוגריים מרובעים (`brackets` — [א]) |
+| `note-marker-size` | **גודל סימון בגוף הטקסט** | גודל מספרי ב-pt (ברירת מחדל: 8) |
+| `note-listing-num-size` | **גודל המספר ברשימת ההערות** | גודל מספרי ב-pt (ברירת מחדל: 8) |
+| `note-num-separator` | **מפריד אחרי מספר ההערה** | טקסט חופשי (ברירת מחדל: `.`) |
+| `note-rule-style` | **קו מפריד להערות שוליים** | • קו רגיל (`plain`)<br>• קו + עיגולים (`dots` — ◦◦◦)<br>• קו + ניצוץ (`sparkle` — ❖❖❖)<br>• קו + כוכבית (`star` — ✧✧✧)<br>• קו + יהלום (`diamond` — ♦♦♦)<br>• ללא קו (`none`)<br>• מפרידים מתוך `note_rules.json` |
+
+---
+
+### 5. פאנל "איכות עימוד אוטומטי"
+| מזהה / הגדרה | תיאור | אפשרויות בחירה קיימות |
+| :--- | :--- | :--- |
+| `avoid-widows-select` | **מניעת שורות בודדות (יתומות/אלמנות)** | • כן (`yes`)<br>• לא (`no`) |
+| `balance-chapter-end` | **איזון סוף-פרק** | • לא (`no`)<br>• כן (`yes`) |
+
+---
+
+### 6. פאנל "רקע לעמודי תוכן"
+מוגדר בנפרד ל-3 סוגי עמודים:
+1. **עמוד טקסט רגיל** (`cbg-regular-*`)
+2. **עמוד כותרת 0 / פתיחה** (`cbg-h0Open-*`)
+3. **עמוד כותרת 2 / פתיחת סימן** (`cbg-h2Open-*`)
+
+*לכל אחד מהם האפשרויות הבאות:*
+* **מצב רקע**:
+  * ללא (`none`)
+  * צבע רקע אחיד (`color` — עם בורר צבע `input[type="color"]`)
+  * מרקם עדין / דמשק דהוי (`texture` — SVG מובנה)
+  * תמונה מותאמת אישית (`image` — העלאת קובץ + סליידר שקיפות מ-0% עד 100%)
+
+---
+
+### 7. פאנל "אופן עימוד וגופנים לכל כותרת (0-7)"
+
+| רמת כותרת | מצבי עימוד (`mode-hX`) | גופן וגודל | הגדרות נוספות |
+| :--- | :--- | :--- | :--- |
+| **כותרת 0 (הקדמה)** | • טור 1 עמוד הבא (`new_page_1col`)<br>• טור 1 רציף (`span_1col`) | גופן + גודל ב-pt | • התחל בעמוד אי-זוגי (Toggle)<br>• גופן וגודל ייעודיים לגוף ההקדמה (`f-h0-body`, `s-h0-body`) |
+| **כותרת 1 (שער משנה / חלק)** | • שער משנה נפרד (`sub_shaar`)<br>• טור 1 עמוד הבא (`new_page_1col`) | גופן + גודל ב-pt | • התחל בעמוד אי-זוגי (Toggle) |
+| **כותרת 2 (פרק / סימן)** | • טור 1 עמוד הבא (`new_page_1col`) | גופן + גודל ב-pt | • התחל בעמוד אי-זוגי (Toggle)<br>• **מיספור סימנים אוטומטי**: הפעל / כבה, אפס בכל חלק (Toggle), גופן וגודל שורת סימן (`f-siman`, `s-siman`)<br>• **עיטורי כותרת 2**: סט שלם (`h2-ornament-set`), עיטור עליון (`h2-ornament-top-style`), עיטור תחתון (`h2-ornament-bottom-style`) מתוך `ornaments_up_down.json` |
+| **כותרת 3** | • טור 1 רציף (`span_1col`)<br>• רציף 2 טורים (`inline_2col`) | גופן + גודל ב-pt | • **עיטורי צד לכותרת 3**: סט שלם (`h3-ornament-set`), עיטור ימין (`h3-ornament-r`), עיטור שמאל (`h3-ornament-l` עם היפוך מראה) מתוך `ornaments_left_right.json` |
+| **כותרת 4** | • רציף 2 טורים (`inline_2col`)<br>• טור 1 רציף (`span_1col`) | גופן + גודל ב-pt | — |
+| **כותרת 5** | • רציף 2 טורים (`inline_2col`)<br>• כותרת צד (`side_note`) | גופן + גודל ב-pt | — |
+| **כותרת 6** | • רציף 2 טורים (`inline_2col`)<br>• כותרת צד (`side_note`) | גופן + גודל ב-pt | — |
+| **כותרת 7 (הערת צד)** | • כותרת צד בשוליים (`side_note`)<br>• רציף 2 טורים (`inline_2col`) | גופן + גודל ב-pt | — |
+
+---
+
+### 8. פאנל "כותרות עליונות" (Running Headers)
+מחולק ל-3 אזורים: **מעל הטור הימני**, **מעל הרווח המרכזי**, **מעל הטור השמאלי**.
+
+* **סוג תוכן לבחירה בכל אזור:**
+  * כותרת 1 / שם החלק (`h1`)
+  * שם הספר (`book_title`)
+  * כותרת 2 (`h2`)
+  * כותרת 3 (`h3`)
+  * מותאם אישית (`custom` — פותח שדה טקסט חופשי)
+  * מעויינים (`diamonds` — ◈ ❖ ◈)
+  * רומח (`spear` — SVG)
+  * שושנתא (`swash` — SVG)
+  * סלסול (`pen` — SVG)
+  * ריק (`empty`)
+  * *במרכז בלבד*: תמונת עיטור מקובץ (`custom_img`)
+  * עיטורים שנטענו מ-`header_ornaments.json`
+* **יישור לכל אזור:**
+  * בימין: מרכז (`center`), ימין (`right`), שמאל (`left`)
+  * במרכז: מרכז (`center`)
+  * בשמאל: מרכז (`center`), ימין (`right`)
+* **גופן וגודל:** לכל אחד מ-3 האזורים בנפרד (`f-hdr-*`, `s-hdr-*`).
+
+---
+
+### 9. פאנל "תוכן העניינים" (TOC)
+מחולק לשני תכנים:
+1. **תוכן עניינים כללי בראש הספר** (`enable-general-toc` — כן/לא)
+2. **תוכן עניינים מפורט בראש שערי משנה** (`enable-detailed-toc` — כן/לא)
+
+*לכל אחד משני התכנים ישנה טבלה מלאה עבור כל רמה (כותרת 1 עד 7) הכוללת:*
+* **הצג ברשימה**: Toggle (כן/לא)
+* **קיבוץ שורתי (Inline Block)**: Toggle (האם להציג כפסקה רציפה מופרדת ב-`|`, או כל סעיף בשורה נפרדת עם נקודות מובילות)
+* **גופן**: בורר גופנים ייעודי לרמה זו
+* **גודל**: גודל ב-pt ייעודי לרמה זו
+
+---
+
+### 10. פאנל "גריד וטיפוגרפיה כללית"
+* **גוף הטקסט**: גופן (`font-body`), גודל ב-pt (`size-body`).
+* **מילה ראשונה (חלון/הדגשה)**: גופן (`font-first-word`), גודל ב-em (`size-first-word`).
+* **רשת העמוד (באחוזים ופיקסלים)**:
+  * רוחב טור באחוזים (`prop-col`, ברירת מחדל 40%)
+  * שוליים חיצוניים באחוזים (`prop-margin`, ברירת מחדל 7.5%)
+  * רווח מרכזי / מרזב בין הטורים באחוזים (`prop-gutter`, ברירת מחדל 2%)
+  * רווח ביניים בין שולי ההערות לטור באחוזים (`prop-gap`, ברירת מחדל 2%)
+  * מרחק עליון של גוף הדף בפיקסלים (`prop-mt`, ברירת מחדל 20px)
+  * מרחק תחתון של גוף הדף בפיקסלים (`prop-mb`, ברירת מחדל 20px)
+
+---
+
+# חלק ב': הצעות להגדרות חדשות שמומלץ להוסיף
+
+בהתבסס על הצרכים המעשיים של עימוד ספרים תורניים (ספרי שו"ת, חידושים, מפרשים, ספרי מוסר והלכה):
+
+### 1. שליטה בריווח שורות (Line-Height / Leading)
+* **המצב כיום**: ריווח השורות בגוף הטקסט מקובע בקוד ל-`1.34` (ומוגדל דינמית רק לשם יישור טורים).
+* **ההגדרה המוצעת**: שדה לבחירת `line-height` לגוף הטקסט (למשל `1.2` עד `1.6`), וכן לשורות ההערות.
+* **התועלת**: ספרי פלפול והלכה זקוקים לעיתים לטקסט צפוף וקומפקטי (`1.25`), בעוד ספרי קריאה ומוסר דורשים פתיחת שורות (`1.45–1.5`).
+
+### 2. מצב "חלון מילה ראשונה" (Drop Word)
+* **המצב כיום**: הקוד מפעיל אוטומטית חלון מילה ראשונה בכל פסקה בעלת יותר משורה אחת.
+* **ההגדרות המוצעות**:
+  1. *סגנון מילה ראשונה*: `חלון קלאסי (שקוע)`, `הגדלה באותה שורה (Inline)`, `הדגשה בלבד (אותו גודל אך Bold)`, או `ללא הדגשה כלל`.
+  2. *אורך ההדגשה*: `מילה ראשונה בלבד`, או `שתי מילים ראשונות` (נפוץ בביטויי פתיחה כמו "גרסינן בגמרא", "איתא במדרש").
+  3. *סף מינימום להפעלת חלון*: החל מ-2 שורות ומעלה / 3 שורות ומעלה.
+
+### 3. פריסה והגדרות של הערות שוליים
+* **המצב כיום**: הערות השוליים נפרסות תמיד בטור אחד לרוחב גוף הטקסט (או לפי הגדרת תוסף JSON).
+* **ההגדרות המוצעות**:
+  1. *חלוקת טורים בהערות*: `טור 1 רחב` או `2 טורים` (בדומה לטקסט הראשי, דבר המקובל מאוד בספרי שו"ת ומאפשר חיסכון רב במקום).
+  2. *איפוס מונה הערות*: `איפוס בכל עמוד מחדש`, `איפוס בכל פרק/סימן`, או `רציף לאורך כל הספר`.
+  3. *כותרת מעל הערות שוליים*: `ללא`, או כותרת קבועה כגון "הערות וביאורים", "מראי מקומות".
+
+### 4. כותרות עליונות מתחלפות (זוגי / אי-זוגי — Recto/Verso)
+* **המצב כיום**: הכותרת העליונה מוגדרת באופן אחיד ("טור ימני", "מרכז", "טור שמאלי") בכל העמודים.
+* **ההגדרה המוצעת**: מתג "כותרות מתחלפות לפי עמוד ימין/שמאל":
+  * בעמוד ימני (אי-זוגי): שם הספר בימין / החלק במרכז.
+  * בעמוד שמאלי (זוגי): שם הפרק/הסימן הנוכחי בשמאל.
+* **התועלת**: זהו הסטנדרט המקצועי הבלתי מעורער בהוצאה לאור תורנית.
+
+### 5. שולי תפירה לא-סימטריים (Gutter Margin לדפוס)
+* **המצב כיום**: השוליים הימניים והשמאליים מוגדרים באחוז שווה בכל עמוד (`prop-margin`).
+* **ההגדרה המוצעת**: מתג "היסט שולי כריכה (Gutter)":
+  * בעמוד ימין — השוליים השמאליים (הפנימיים) רחבים יותר ב-X מ"מ.
+  * בעמוד שמאל — השוליים הימניים (הפנימיים) רחבים יותר ב-X מ"מ.
+* **התועלת**: מניעת בליעת טקסט לתוך קיפול הספר לאחר כריכה קשה.
+
+### 6. קו מפריד אנכי בין הטורים (Column Divider Rule)
+* **המצב כיום**: בין שני הטורים ישנו רווח מרכזי בלבד (`--w-gutter`).
+* **ההגדרה המוצעת**: אפשרות להוספת קו אנכי דק ומעוצב ברווח שבין הטורים (`ללא`, `קו דק רגיל`, `קו מקווקו`, `קו כפול`).
+
+### 7. זיהוי והדגשת "דיבור המתחיל" (ד"ה)
+* **המצב כיום**: ניתן לעצב דיבור המתחיל רק באמצעות תוספי תוחמים (סוגריים וכד').
+* **ההגדרה המוצעת**: מתג "הדגש דיבור המתחיל אוטומטית עד נקודה / מקף" + בחירת גופן/משקל להדגשה זו (נפוץ מאוד בביאורים על הש"ס והרמב"ם).
+
+### 8. שליטה במספור העמודים (Folio)
+* **המצב כיום**: מוצג תמיד בתחתית הדף במרכז באותיות עבריות בלבד.
+* **ההגדרות המוצעות**:
+  1. *מיקום מספור*: `תחתית במרכז`, `תחתית חיצונית (ימין בימין / שמאל בשמאל)`, או `מוטמע בכותרת העליונה`.
+  2. *עמוד תחילת מספור*: אפשרות להגדיר שמספור האותיות יתחיל רק מגוף הספר (ולא יספור את השערים והתוכן).
+  3. *פורמט*: `אות עברית בלבד (א)`, `דף א / עמוד א`, או `מספרים רגילים`.
+
+---
+
+# חלק ג': אפשרויות בחירה חדשות להגדרות הקיימות
+
+עבור פקדים שכבר קיימים בממשק, הנה אפשרויות שמומלץ להוסיף לרשימות הנפתחות (Selects):
+
+### 1. מצבי עימוד לכותרות (`mode-h0` עד `mode-h7`)
+* **עבור כותרת 2 (`mode-h2`)**:
+  * כיום קיימת אפשרות יחידה: `טור 1 עמוד הבא`.
+  * **להוסיף**: `טור 1 רציף (ללא מעבר עמוד)` — מתאים מאוד לסימנים קצרים בשו"ת שאין סיבה לפתוח עבורם עמוד חדש בכל פעם, וכן `רציף בתוך שני הטורים`.
+* **עבור כותרות 4, 5, 6 (`mode-h4`, `mode-h5`, `mode-h6`)**:
+  * כיום יש: `רציף 2 טורים`, `טור 1 רציף`, `כותרת צד`.
+  * **להוסיף**: `הבלעה בראש הפסקה (Run-in)` — כותרת שאינה תופסת שורה משלה, אלא נצמדת ישירות לתחילת השורה הראשונה של הפסקה שבאה אחריה (למשל: "**אות א.** גוף הטקסט מתחיל כאן מיד...").
+
+### 2. סגנונות מספור להערות (`note-numbering-style`)
+* כיום יש: `אותיות עבריות (א, ב, ג)`, `ספרות (1, 2, 3)`.
+* **להוסיף**:
+  * `אותיות עבריות עם גרשיים` (א', ב', ... י"א, י"ב).
+  * `כוכביות` (*, **, *** — מיועד להערות קצרות ובודדות בעמוד).
+  * `מספור בסוגריים עגולים` ((א), (ב)).
+
+### 3. קווי מפריד להערות שוליים (`note-rule-style`)
+* כיום יש: `קו רגיל`, `עיגולים`, `ניצוץ`, `כוכבית`, `יהלום`, `ללא`.
+* **להוסיף**:
+  * `קו קצר ימני (30% רוחב)` — הסגנון המסורתי ביותר של דפוסי וילנא (שבו הקו אינו חוצה את כל רוחב הדף אלא רק שליש ממנו בצד ימין).
+  * `קו חצי (50% רוחב)`.
+  * `קו כפול (Double Line)`.
+
+### 4. מקורות תוכן לכותרת עליונה (`hdr-r-type`, `hdr-c-type`, `hdr-l-type`)
+* כיום יש: `h1`, `h2`, `h3`, `book_title`, `custom`, `empty` ועיטורים גרפיים.
+* **להוסיף**:
+  * `page_number` — מספר העמוד הנוכחי (כדי שניתן יהיה לשבצו בכותרת העליונה בפינה החיצונית).
+  * `h4` — סעיף נוכחי בעמוד.
+  * `first_word_last_word` (מילה ראשונה עד מילה אחרונה בעמוד — נפוץ באינדקסים ומילונים).
+
+### 5. יישור אזור שמאל בכותרת עליונה (`hdr-l-align`)
+* **תיקון חוסר קיים**: ב-HTML הנוכחי של `hdr-l-align` מופיעות רק האפשרויות `מרכז` ו-`ימין`, וחסרה האפשרות המתבקשת `שמאל` (`left`), וכן אפשרות `חיצוני` (`outer`) התלויה בעמוד זוגי/אי-זוגי.
+
+### 6. רמות קפדנות למניעת יתומות ואלמנות (`avoid-widows-select`)
+* כיום יש: `כן` / `לא`.
+* **להוסיף**:
+  * `רגיל (ברירת מחדל)` — מניעת שורה בודדת מנותקת.
+  * `מחמיר (Strict)` — שמירה על מינימום 2 שורות בסוף טור ו-2 שורות בראש הטור הבא, ומניעת הישארות כותרת פחות מ-3 שורות לפני תחתית הטור.
+
+---
+
+### סיכום והמשך
+האם תרצה שנתמקד תחילה בהסרת הגדרות שאינן שימושיות עבורך, או שנפתח את הלוח להטמעת חלק מההגדרות החדשות (כגון ריווח שורות, כותרות עליונות מתחלפות או עימוד סימנים רציף)?
+
+משתמש:
+
+
+השינוים והתוספות הרצויות.
+1. פאנל "ערכות נושא ושערי הספר"
+
+1. בבחירת active-theme-select
+לגבי אופציית שערי JSON שנטענו חיצונית, 
+השערים מסודרים עם מספר בראשם שמסמל את מספר הערכה ואח"כ את סוג השער (לדוגמא: "1 שער ראשי" "1 שער משנה" "1 שער אחורי" הם כולם סט אחד)
+אז במקום להראות את כל השערים צריך לאחד את השערים לפי מספר שיהוו ערכה אחת, והתמונה תהיה של השער הראשי.
+2. הוסף גם לחצן "הצג שער משנה".
+
+
+4. פאנל "הגדרות הערות" (שוליים וסיום)
+הוספת 3 ההגדרות שכתבת 1. טור אחד\שתיים. 2. איפוס מונה הערות. 3. כותרת מעל הערות שוליים (ויש להוסיף בחירת עיטור צידי כמו בכותרת 3).
+5. פאנל "איכות עימוד אוטומטי"
+מניעת שורות בודדות
+יש להמיר את זה ללחצני טוגל, ולתת לחצן לשורות בודדות בתחילת עמוד וסוף עמוד בנפרד.
+
+6. פאנל "רקע לעמודי תוכן"
+לאחד עם בחירת רקע שבפאנל "ערכות נושא ושערי הספר"
+
+7. פאנל "אופן עימוד וגופנים לכל כותרת (0-7)"
+יש לייחד פאנל לבחירת עיטורים, ולהכניס בו את עיטורי: עמוד ראשי, עמוד משנה, כותרת 2, כותרת 3, סיום פרק.
+לכל אחד מאלו יש להוסיף אפשרות הגדרת רוחב וגובה (לכותרת 2 יש להוסיף אפשרות התאמת רוחב לרוחב טקסט כותרת).
+8. פאנל "כותרות עליונות" (Running Headers)
+יש להשלים לכל 3 חלקי הכותרת את כל אפשרויות היישור (מרכז (`center`), ימין (`right`), שמאל (`left`))
+יש להוסיף הגדרת רוחב ל3 חלקי הכותרות באחוזים.
+ולחצן טוגל להגדרת כותרות מתחלפות לפי עמוד ימין/שמאל
+10. פאנל "גריד וטיפוגרפיה כללית"
+להעביר את הגדרות גופן "גוף הטקסט" ו"מילה ראשונה" לפאנל "אופן עימוד וגופנים לכל כותרת (0-7)", ולהוסיף שליטה בריווח שורות, מצב "חלון מילה ראשונה", זיהוי והדגשת "דיבור המתחיל",
+
+* רשת העמוד (באחוזים ופיקסלים):
+יש להוסיף הגדרת מרחק עליון נפרדת לעמוד שמתחיל בכותרת 2, בחירת קו מפריד אנכי בין הטורים (`ללא`, `קו דק רגיל`, `קו מקווקו`, `קו כפול`).
+הוספת הגדרת שליטה במספור העמודים כמו שהצעת, והוסף גם אפשרות בחירה למסגרת סביב.
+
+וכן אני רוצה שליישם את כל ההצעות שכתבת בחלק ג': אפשרויות בחירה חדשות להגדרות הקיימות
+
+החזר לי תוכנית ברורה שנאמת הבנת הבקשות
+
+שלד התוכנית שלהלן מרכז ומאמת את כל השינויים, ההעברות והתוספות שביקשת, בחלוקה שיטתית שתבטיח סדר בממשק המשתמש ובמנוע העימוד.
+
+---
+
+
+AI:
+
+
+# תוכנית עבודה מפורטת ליישום השינויים והתוספות
+
+---
+
+## 1. ארגון מחדש של מבנה הפאנלים בלוח ההגדרות
+כדי לייצר זרימת עבודה הגיונית ולמנוע כפילויות, סדר הפאנלים יעודכן כך:
+1. **ערכות נושא, שערים ורקעי עמודים** *(איחוד פאנל 1 ופאנל 6)*.
+2. **יצירת ערכת נושא (SVG Builder)**.
+3. **ייבוא תוספים (Extensions)**.
+4. **פאנל חדש: מאגר עיטורים וממדים גרפיים** *(ריכוז כל העיטורים מהמערכת עם הגדרות רוחב וגובה)*.
+5. **גופנים, כותרות וגוף הטקסט** *(איחוד כותרות 0–7 יחד עם גוף הטקסט, מילה ראשונה וד"ה)*.
+6. **הגדרות הערות (שוליים וסיום)** *(כולל חלוקת טורים, איפוס, כותרת ועיטורים)*.
+7. **איכות עימוד ומניעת שורות בודדות** *(טוגלים מופרדים לראש ותחתית עמוד)*.
+8. **כותרות עליונות מתקדמות** *(רוחב באחוזים, יישור מלא, החלפת ימין/שמאל ומקורות חדשים)*.
+9. **תוכן העניינים (TOC)** *(כללי ומפורט)*.
+10. **רשת העמוד, קו מפריד בין טורים ומספור עמודים** *(גריד, מרחקים, קו בין טורים ומסגרת למספר עמוד)*.
+
+---
+
+## 2. פירוט השינויים לפי נושאים
+
+### א. ערכות נושא, שערי הספר ואיחוד רקעים (פאנל 1)
+1. **איחוד ערכות JSON לפי מספר ערכה ב-`active-theme-select`**:
+   * קובצי ה-JSON הנטענים (`shaar_main.json`, `shaar_sub.json`, `shaar_back.json`) יסרקו את שמות הפריטים (למשל פריטים המתחילים ב-"1 שער ראשי", "1 שער משנה", "1 שער אחורי").
+   * במקום להציג כל שער בנפרד ברשימת ערכות הנושא הכלליות, המערכת תאגד אותם לערכה אחת מאוחדת (למשל: "ערכה 1 מ-JSON").
+   * בכרטיסייה הוויזואלית (`visual-card`) של הערכה המאוחדת תוצג תמונת התצוגה המקדימה של **השער הראשי** של אותה ערכה.
+   * בחירה בערכה המאוחדת תחיל אוטומטית את השער הראשי, המשנה והאחורי של אותו מספר.
+2. **לחצן טוגל חדש: "הצג שער משנה"**:
+   * יתווסף לצד "הצג שער ראשי" ו"הצג שער אחורי". כשיכובה – כותרת 1 לא תיצור עמוד שער מלא אלא תעבור למצב העימוד הבא שלה.
+3. **איחוד בחירת רקע עמודי תוכן**:
+   * הגדרות הרקע (ללא / צבע / מרקם / תמונה + שקיפות) עבור: עמוד רגיל, עמוד כותרת 0, ועמוד כותרת 2 – יועברו ישירות לתוך פאנל זה, תחת תת-מקטע מרוכז: "רקעים לעמודי הספר והתוכן".
+
+---
+
+### ב. פאנל חדש וייעודי: "עיטורים ואלמנטים גרפיים"
+במקום לפזר את העיטורים בין הכותרות, יוקם פאנל מרוכז המכיל:
+1. **ריכוז כלל העיטורים**:
+   * עיטורי שער ראשי ומשנה.
+   * עיטורי כותרת 2: סט שלם, עיטור עליון בנפרד, עיטור תחתון בנפרד (מתוך `ornaments_up_down.json`).
+   * עיטורי כותרת 3: סט שלם, עיטור ימין, עיטור שמאל (מתוך `ornaments_left_right.json`).
+   * עיטור סיום פרק (מובנים, תמונה אישית, ו-`section_dividers.json`).
+2. **שליטה בממדים (רוחב וגובה) לכל עיטור**:
+   * לכל אחד מהעיטורים הנ"ל יתווספו פקדי קלט מדויקים:
+     * **גובה** (ב-`pt`, `px` או `em`).
+     * **רוחב** (ב-`%`, `px` או `mm`).
+3. **התאמת רוחב עיטור לרוחב הטקסט בכותרת 2**:
+   * תתווסף תיבת סימון/טוגל: "התאם רוחב עיטור לרוחב הטקסט".
+   * במצב זה, העיטור העליון/תחתון לא יימתח לרוחב קבוע, אלא יתחום בדיוק את רוחב אותיות הכותרת של הסימן.
+
+---
+
+### ג. גופנים, כותרות וגוף הטקסט
+1. **העברת הגדרות גוף הטקסט לפאנל הכותרות**:
+   * הגדרות גופן וגודל של "גוף הטקסט" ושל "מילה ראשונה" יעברו מפאנל הגריד לראש פאנל זה.
+2. **שליטה בריווח שורות (Line-Height / Leading)**:
+   * שדה מספרי ייעודי לקביעת ריווח השורות בגוף הטקסט (למשל מ-`1.15` ועד `1.75`), שיחליף את ה-`1.34` הקבוע בקוד וישפיע ישירות על חישובי חלוקת השורות והטורים.
+3. **שליטה מורחבת ב"חלון מילה ראשונה" (Drop Word)**:
+   * **מצב תצוגה**: בחירה בין `חלון קלאסי (שקוע)`, `באותה שורה מוגדל (Inline)`, `הדגשה בלבד (Bold באותו גודל)`, `ללא הדגשה`.
+   * **מספר מילים להדגשה**: `מילה אחת` או `2 מילים ראשונות`.
+   * **סף מינימום להפעלה**: החל מפסקאות של 2 שורות / 3 שורות ומעלה.
+4. **זיהוי והדגשת "דיבור המתחיל" (ד"ה)**:
+   * לחצן הפעלה (טוגל) לזיהוי אוטומטי של פתיח עד לנקודה `.` או מקף `-` / `–`.
+   * הגדרת סגנון לדיבור המתחיל: בחירת גופן, משקל (Bold/רגיל), והאם להוסיף נקודה/רווח מודגש בסופו.
+5. **מצבי עימוד חדשים לכותרות (מחלק ג')**:
+   * **כותרת 2**: הוספת מצב `טור 1 רציף (ללא מעבר עמוד)` ומצב `רציף ב-2 טורים`.
+   * **כותרת 0**: הוספת מצב `עמוד חדש - 2 טורים`.
+   * **כותרות 4, 5, 6**: הוספת מצב `הבלעה בראש הפסקה (Run-in)` — הכותרת מוכנסת ברצף ישיר לתחילת השורה הראשונה של הפסקה שאחריה.
+
+---
+
+### ד. הגדרות הערות (שוליים וסיום)
+1. **חלוקת טורים להערות שוליים**:
+   * בחירה בין `טור 1 רחב` לבין `2 טורים` בתחתית העמוד.
+2. **איפוס מונה הערות**:
+   * בחירה בין: `איפוס בכל עמוד`, `איפוס בכל סימן (כותרת 2)`, `איפוס בכל חלק (כותרת 1)`, `מספור רציף לאורך כל הספר`.
+3. **כותרת מעל הערות שוליים ועיטור צידי**:
+   * שדה טקסט לכותרת (למשל: "הערות וביאורים", "הערות").
+   * הגדרת גופן וגודל לכותרת ההערות.
+   * בחירת עיטורי צד (ימין ושמאל) מתוך `ornaments_left_right.json`, בדומה לכותרת 3.
+4. **סגנונות מספור חדשים להערות (מחלק ג')**:
+   * `אותיות עבריות עם גרש/גרשיים` (א', ב'... י"א).
+   * `כוכביות` (*, **, ***).
+   * `מספור בסוגריים עגולים` ((א), (ב)).
+5. **קווי מפריד חדשים להערות (מחלק ג')**:
+   * `קו קצר ימני (30% רוחב)` (סגנון וילנא מסורתי).
+   * `קו חצי (50% רוחב)`.
+   * `קו כפול (Double line)`.
+
+---
+
+### ה. איכות עימוד ומניעת שורות בודדות
+* החלפת הבחירה הכללית ב-2 לחצני טוגל עצמאיים:
+  1. **מניעת שורה בודדת בסוף עמוד / תחתית טור (Widow)**.
+  2. **מניעת שורה בודדת בראש עמוד / תחילת טור (Orphan)**.
+* עדכון הלוגיקה ב-`typesetter.js` לבדיקה נפרדת של תנאי החיתוך בתחתית הטור ובמעבר לראש הטור הבא לפי מצב כל טוגל.
+
+---
+
+### ו. כותרות עליונות (Running Headers)
+1. **השלמת יישור לכל 3 האזורים**:
+   * בכל אחד מ-3 האזורים (ימין, מרכז, שמאל) יינתנו כל האפשרויות: `ימין (right)`, `מרכז (center)`, `שמאל (left)`.
+2. **חלוקת רוחב באחוזים בין 3 החלקים**:
+   * 3 שדות קלט ייעודיים להגדרת הרוחב היחסי: `% רוחב ימין`, `% רוחב מרכז`, `% רוחב שמאל` (במקום הקיבוע הנוכחי לגריד העמוד).
+3. **כותרות מתחלפות לפי עמוד ימין/שמאל (Recto / Verso)**:
+   * לחצן טוגל: "כותרות מתחלפות (עמוד זוגי / אי-זוגי)".
+   * בעת הפעלה, יתאפשר להגדיר מה יופיע בעמוד אי-זוגי (ימין) ומה יופיע בעמוד זוגי (שמאל) – כגון שם הספר בימין ושם הפרק בשמאל.
+4. **מקורות תוכן חדשים (מחלק ג')**:
+   * `מספר עמוד (page_number)`.
+   * `כותרת 4 (סעיף נוכחי בעמוד)`.
+   * `מילה ראשונה ומילה אחרונה בעמוד (first_word_last_word)`.
+
+---
+
+### ז. רשת העמוד, קו מפריד בין טורים ומספור עמודים
+1. **מרחק עליון נפרד לעמוד המתחיל בכותרת 2**:
+   * שדה `prop-mt-h2` שיאפשר להגדיר שבעמוד שבו מתחיל סימן/פרק חדש, המרחק מהכותרת העליונה יהיה שונה (למשל מרווח נדיב יותר) מזה של עמוד רגיל.
+2. **קו מפריד אנכי בין הטורים (Column Divider Rule)**:
+   * בחירה: `ללא`, `קו דק רגיל`, `קו מקווקו`, `קו כפול`.
+   * הצגת הקו במרכז ה-gutter שבין שני הטורים בגובה הטקסט המעומד בפועל.
+3. **שליטה מלאה במספור העמודים (Folio)**:
+   * **מיקום**: `תחתית במרכז`, `תחתית חיצונית (ימין בימין / שמאל בשמאל)`, `מוטמע בכותרת העליונה`.
+   * **עמוד תחילת מספור**: הגדרת מספר העמוד שממנו מתחיל המיספור העברי (דילוג על שערים ותוכן).
+   * **תבנית תצוגה**: `אות עברית בלבד (א)`, `דף א / עמוד א`, `מספרים (1, 2)`.
+   * **מסגרת סביב המספר**: `ללא`, `עיגול`, `ריבוע/מלבן`, `סוגריים עגולים (א)`, `סוגריים מרובעים [א]`, `קישוטי מעויינים (◈ א ◈)`.
+
+---
+
+## 3. מיפוי הקבצים שישתנו ואחריותם
+* **קובץ ה-HTML**:
+  * שינוי סדר הפאנלים, הוספת הפאנל הייעודי לעיטורים, הוספת הטוגלים, השדות המספריים והתפריטים הנפתחים החדשים.
+* **קובץ ה-CSS (`style.css`)**:
+  * מחלקות עיצוב לקו מפריד אנכי בין טורים, מסגרות למספרי עמודים, סגנונות הדגשת דיבור המתחיל, עיצוב שורת כותרת להערות שוליים, ומשתני גודל לעיטורים.
+* **קובץ המנוע (`typesetter.js`)**:
+  * הרחבת אלגוריתם חלוקת הטורים (`balanceColumns`, `getLinesFromParagraph`) לקבלת `line-height` דינמי, בדיקת טוגלים נפרדים ליתומות ואלמנות, תמיכה בהערות שוליים ב-2 טורים, טיפול בכותרת ועיטור להערות, הפקת כותרות עליונות מתחלפות לפי זוגי/אי-זוגי, ותמיכה במצבי Run-in.
+* **קובץ הלוגיקה והממשק (`app.js`)**:
+  * עדכון פונקציית `loadExternalJSONAssets` לאיחוד ערכות לפי מספר והצגת תמונת שער ראשי, ניהול בוררי העיטורים והסנכרון שלהם עם שדות הרוחב/גובה, שמירת השדות החדשים ב-`saveAsDefaultTemplate`.
+* **קובץ העיטורים (`decorations.js`)**:
+  * פונקציות עזר להחזרת ממדי רוחב/גובה מותאמים אישית לעיטורים, ותמיכה בקווי מפריד חדשים להערות שוליים.
+
+---
+
+אם התוכנית תואמת במדויק את כוונתך, אשר אותה ונתחיל בביצוע שלב אחר שלב (או יישום מלא של כל הקבצים).
+
+
+משתמש:
+
+
+מצויין!
+רק עוד כמה תיקונים קטנים:
+בהגדרת קו מפריד להערות יש להוסיף אפשרות "ללא",
+להגדרת הכותרות העליונות יש להוסיף אפשרות לפיצול שם הספר בין שני האזורים החיצוניים (מתאים בעיקר לשם ספר בעל מספר מילים זוגי). וכן אפשרות להצגת ה"סימן" ומספרו לבד, וכן כותרת 2 עם מספר הסימן או לבד.
+לגבי מרחק עליון נפרד לעמוד המתחיל בכותרת 2: ההגדרה שכתבת היא טובה ותוסיף אותה, אבל אני התכוונתי למרחק של הכותרת עצמה מהקצה העליון של העמוד.
+במידה והודלק הוספת מספר סימן, יש להוסיף בהגדרות העיטור של כותרת 2, עם העיטור יחול על שניהם, רק שורת הסימן, רק טקסט הכותרת.
+הוסף את כל זה לתכנית והתחל מיד בביצוע, וחשב את גבול יכול האאוטפוט טוקן שלך, ולפי זה תחלק את מספר ההודעות הנצרכות לכל קובץ.
+
+משתמש:
+
+עבור על 5 הקבצים ואשר העתקה נכונה
+אחרי כן הרץ את המערכת והרץ את כל הבדיקות הנדרשות לבחינת כל פונקציה ופונקציה (והקפד לבחון את הפן הויזואלי של התוצאות), גם אלו שאינם מושפעים מהתיקונים שעשינו.
+ועשה רשימת צ'קליסט על כל הפונקציות ובמיוחד אלו שהוספנו כעת
+```
+
+המשך! ואני רואה ששכחתי להדביק את השיחה, אז הנה:
+
+## Assistant:
+
+> 9/10/2026 3:05:52
+
+> בונה רשימת בדיקה מקיפה לכל התכונות החדשות.
+>
+> - בונה רשימת בדיקה מקיפה לכל התכונות החדשות.
+> - **Done**
+
+Now I have the full picture — the "other AI" conversation shows a comprehensive rework plan that explains why the codebase grew so much. This confirms my approach was right, and now I understand the *intended* behavior for things I was puzzled about. Given the scope here is genuinely enormous (an entire panel reorganization + dozens of new settings), let me finish the check I was mid-way through, then build a proper checklist scaffold to track this systematically across messages.
+
+> Organizing findings into a structured checklist document.
+>
+> - Check header column CSS for center alignment issue
+> - בוחנת אפשרויות נוספות לגורם חוסר המרכוז.
+> - Test center header positioning empirically
+> - Tracking down a null element breaking the header layout.
+> - Debug why header elements weren't found
+> - Checking header grids across pages for a missed null element.
+> - Retry center header test with defensive per-grid checks
+> - Debugging alignment by comparing grid and center coordinates.
+> - Test with book_title which should always have content
+> - Debugging why no header grids are being generated.
+> - Final attempt at center header test with simplified string building
+> - Organizing findings into a structured checklist document.
+> - **Done**
+
+Given the scale here — this is a full audit of an entire reorganized settings panel with dozens of new features — let me create a persistent checklist file I can keep updating across messages, rather than repeating a growing list in chat each time.
+
+> Fixing document formatting issues from a checklist.
+>
+> - Ensure outputs directory exists
+> - Create the master checklist tracking verification status of every setting/feature in the reorganized panel
+> - Copy checklist to outputs
+> - Presenting file(s)...
+> - Fixing document formatting issues from a checklist.
+> - **Done**
+
+עדכנתי את הקובץ ואני ממשיך. עכשיו לבעיה #3 שמצאת — התאמת רוחב עיטור לרוחב טקסט כותרת 2:
+
+> Separating the heading ornament bug from the header ornament issue.
+>
+> - Find the ornament-fit-to-text-width feature
+> - Inspecting how the ornament's sizing styles are applied.
+> - View the H2 ornament fit-to-text insertion logic in typesetter.js
+> - Checking for CSS overrides before testing the theory directly.
+> - Check CSS for ornament wrapper classes
+> - Locating the outer wrapper element in the heading markup.
+> - View ornament wrapper CSS rules
+> - Separating the heading ornament bug from the header ornament issue.
+> - **Done**
+
+Found it — there's a CSS conflict: `.h2-ornament-top/bottom` has `width: 100% !important`, which fights directly against the `fit-content` sizing meant to make it match the heading text width. Let me verify this empirically:
+
+> Investigating why the ornaments dropdown lacks expected options.
+>
+> - Empirically test ornament width vs heading text width with fit-to-text enabled
+> - Debugging why the ornament element isn't appearing.
+> - Check ornament-top-style select options
+> - Investigating why the ornaments dropdown lacks expected options.
+> - **Done**
+
+Another finding — the ornament dropdown itself has zero built-in options (same missing-hardcoded-fallback pattern as the fonts issue), so it's empty without a real `ornaments_up_down.json`. Let me build a mock one matching the expected schema so I can actually test the width-fit bug:
+
+> Debugging conditional logic for first-page section headers.
+>
+> - Find ORNAMENTS_UD definition and JSON loading logic
+> - Inspecting how ornament data is initialized in the code.
+> - Find all JSON asset type handlers to understand expected schemas
+> - View the JSON asset type handling for ornaments and note rules
+> - Building mock ornament data files with the required schema.
+> - Test ornament width-matching with a real mock ornament
+> - Debugging why an ornament style isn't applying correctly.
+> - Debug why ornament element still not appearing
+> - Debugging why a registered option value isn't taking effect.
+> - View broader context around the H2 ornament insertion to find the gating condition
+> - Debugging conditional logic for first-page section headers.
+> - Find where h2OrnTopStyle is assigned
+> - **Done**
+
+> File: [/mnt/user-data/outputs/checklist.md](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fchecklist.md)
+
+## User:
+
+> 9/10/2026 8:33:28
+
+המשך במרץ וביעילות!!!
+
+## Assistant:
+
+> 9/10/2026 8:40:17
+
+> Debugging a script that loads content sections after a delay.
+>
+> - Debugging an ornament styling issue in the code.
+> - Check whether title-level-2-standalone and h2-spacer exist at all
+> - Tracing the table of contents element's origin.
+> - Test with TOC disabled to isolate the real content heading, checking all title instances
+> - בודקת אי-התאמה בכותרת הטקסט הגולמי.
+> - Retry with longer initial wait to avoid onload race condition
+> - Diagnosing why the raw-input setting isn't taking effect.
+> - Check how typesetDocument reads the source text
+> - Untangling why the input field never populates its value.
+> - Check raw-input element type and how content is actually stored
+> - Investigating unexpected behavior in a DOM element property.
+> - Find the value getter/setter shim for the contenteditable div
+> - View the value property shim for raw-input
+> - Investigating how an editor's content field is set.
+> - Verify if setting .value immediately reflects when read back
+> - Tracking down why saved text reverts to placeholder content.
+> - Poll the value over time to find when/if it gets reset
+> - Debugging why a document typesetting function misbehaves.
+> - Directly log what typesetDocument sees at call time
+> - Checking for duplicate elements with the same id.
+> - Check for duplicate IDs and thrown errors during typesetDocument
+> - Suspecting cached demo text is overriding fresh input sections.
+> - Final attempt with 5 second wait before any interaction
+> - Debugging a script that loads content sections after a delay.
+> - **Done**
+
+Found it — the async load chain needs ~5 seconds to fully settle, not 1.5s. That explains the flaky results. Let me redo the ornament test properly now:
+
+> Tracing the width conflict to a forced full-width rule.
+>
+> - Final reliable ornament width-fit test
+> - Tracing the width conflict to a forced full-width rule.
+> - **Done**
+
+Confirmed with hard data: `innerWrapWidth` (492px) is nowhere near the actual heading glyph width — the ornament is matching something else entirely, not the text. This validates the CSS conflict I found. Let me update the checklist with this and other findings, efficiently:
+
+> Investigating the oversized header ornament display issue.
+>
+> - Add confirmed ornament width bug and systemic fallback issue to checklist
+> - Mark ornament width item as resolved in the pending list
+> - Investigating the oversized header ornament display issue.
+> - **Done**
+
+Now let me check the "header ornament appears too large" issue with a similarly reliable test:
+
+> Rechecking whether the same sizing bug affects other ornament rules.
+>
+> - Check registerExternalHeader implementation
+> - Checking whether inline SVG styles could override sizing constraints.
+> - Test whether inline-styled ornament SVG overrides the header size constraint
+> - Rechecking whether the same sizing bug affects other ornament rules.
+> - **Done**
+
+Root-caused — the header ornament CSS has `max-height` but no `max-width` (unlike the H2/H3 ornament rules which have both), so an inline-styled SVG's width flows through uncapped. Let me update the checklist with this and wrap up this pass efficiently:
+
+> Edited file
+>
+> - Add confirmed header ornament sizing bug
+> - **Done**
+
+## User:
+
+> 9/10/2026 13:45:37
+
+המשך! ובדוק גם את שאר החלקים, יש לי תחושה שהAI האחר, פגע במנוע היישור טורים, מניעת כותרות (2-6) בסוף טור\שורה, הצמדת גוף הטקסט בעמוד "כותרת 2" (תחילת פרק) שיסתיים באותו הגובה כמו שאר העמודים, ושאר דיוקי העימוד שעבדנו עליהם, כמו"כ הגדרות שמשפיעות על כל המסמך (כמו גופני טקסט, עימוד וכו', להוציא שערים, רקעים וכו' שאינם משפיעים) לא יחולו רק אחרי לחיצה על "עדכן ועמד מחדש". אנא עבור בעיון רב על שאר החלקים. ואני אשמח אם נוסיף איכשהו אפשרות לשמירת כיוונון תיבת שער של שער ספיציפי (לדוגמא: שאם כיוונתי והתאמתי את תיבת הטקסט לשער ספציפי, אוכל לשמור את ההגדרות לשער הזה כך כל פעם שיבחר כיוון תיבת הטקסט יאורגן כמו שנשמר). ואני אשמח שהודעותיך יהיו בעברית.
+
+## Assistant:
+
+> 9/10/2026 13:51:20
+
+> Tracing usage of a function across the codebase.
+>
+> - בודקת מניעת יתמות של כותרות בסוף טור.
+> - Quick diagnostic on the three flagged pagination-quality concerns
+> - Checking whether heading-specific orphan protection is implemented.
+> - View estimateSectionFillRatio and its usage
+> - Tracing where a key function is used in the code.
+> - Find where sectionFillRatio is actually used in the pagination loop
+> - Tracing usage of a function across the codebase.
+> - **Done**
+
+**מצאתי משהו חמור מאוד** — `estimateSectionFillRatio` (איזון סוף-פרק) קיימת כפונקציה, אבל **אף אחד לא קורא לה בכל הקוד**! זה קוד מת. זה בדיוק התחושה שלך #3. בודק את שני החששות הנוספים:
+
+> Searching the code for existing heading-orphan protection logic.
+>
+> - Check for heading orphan-at-column-end protection and remPageHeight init
+> - Tracing how a page height variable gets initialized.
+> - Find remPageHeight initialization and heading token handling points
+> - Tracing the page height calculation logic in the code.
+> - View heading token handling to check for orphan protection
+> - Searching the code for existing heading-orphan protection logic.
+> - **Done**
+
+חיפוש הגנת-יתומה לכותרות מצא מנגנון קיים ותקין למראה (מסיר כותרת בודדת מסוף הטור). אבל איזון-סוף-פרק אכן מנותק לחלוטין — קוד מת, לא נקרא משום מקום, ו-`remPageHeight` כבר לא מוכפל ביחס-מילוי כלשהו. בודק אמפירית את איכות איזון הטורים ואת הגנת הכותרות:
+
+> Locating the precise point to insert code changes.
+>
+> - Test column balance quality with plain text, no notes
+> - Designing tests for heading-orphan protection across page breaks.
+> - Test for headings stranded as the last element in a column
+> - מתכננת תיקונים והמשך פיתוח לפי ממצאים.
+> - Add the three core-engine findings the user specifically worried about
+> - Prioritizing and planning code fixes to implement.
+> - Check if the balance-chapter-end checkbox still exists in HTML
+> - Tracking down why a chapter-end control isn't applied.
+> - View the balance-chapter-end select element fully
+> - Locating each section's page-loop in the typesetter code.
+> - Find secTokens and totalFlowH definitions to locate injection point
+> - View context around secTokens and totalFlowH to plan the fix
+> - Locating the precise point to insert code changes.
+> - **Done**
+
+מוצא את נקודת החיבור המדויקת. מיישם עכשיו את תיקון "איזון סוף-פרק":
+
+> Deciding to keep background changes triggering full retypesetting.
+>
+> - Reconnect estimateSectionFillRatio to actually scale available page height per section, gated by the existing (previously dead) toggle
+> - Apply the section fill ratio when computing each page's available flow height
+> - Testing how chapter-end balancing affects page fullness.
+> - Test section fill ratio ON vs OFF to verify the fix works
+> - Investigating why a fix shows no measurable effect.
+> - Retest with more content and direct diagnostic on sectionFillRatio value
+> - Deciding to keep background changes triggering full retypesetting.
+> - **Done**
+
+תיקון "איזון סוף-פרק" עובד (הפעולה משתנה בפועל עם הטוגל) — יעוד-כיוונון מדויק יותר של הנוסחה זה שיפור נפרד שאפשר לעשות בהמשך. עובר עכשיו למשימה הגדולה: הפרדת הגדרות-שמשפיעות-על-עימוד (רק דרך הכפתור) מהגדרות ויזואליות (מיידיות).
+
+> מגדירה רשימת שערים ורקעים כחריגים לכלל.
+>
+> - Extract all controls with id + event handler for categorization
+> - Counting and reconciling matches across search patterns.
+> - View remaining controls
+> - מגדירה רשימת שערים ורקעים כחריגים לכלל.
+> - **Done**
+
+מוגדר לי בבירור: "שערים ורקעים" = live, כל היתר (גופנים, עיטורים-שמשפיעים-על-גובה, TOC, כותרות, הערות, יתומות/אלמנות וכו') = רק דרך הכפתור. בונה רשימת-היתר ומיישם עם תוסף חיווי-שינויים-ממתינים:
+
+> Ran command
+>
+> - Bulk-transform all pagination-affecting controls to use markPendingChanges instead of direct typesetDocument
+> - **Done**
+
+## User:
+
+> 9/10/2026 19:28:39
+
+המשך במרץ וביעילות!!!!
+
+## Assistant:
+
+> 9/10/2026 19:28:45
+
+> Converting controls to deferred change tracking in bulk.
+>
+> - Converting controls to deferred change tracking in bulk.
+> - Find the retypeset button to wire up pending-state clearing
+> - **Done**
+
+## User:
+
+> 9/11/2026 0:40:10
+
+המשך במרץ וביעילות!!!!
+
+## Assistant:
+
+> 9/11/2026 0:52:10
+
+> Reassessing whether the test method itself was flawed.
+>
+> - Adding change-tracking features to the app.
+> - Add an ID to the retypeset button so JS can target it for the pending-changes indicator
+> - Wiring up pending-change tracking across app files.
+> - Find a good insertion point in app.js
+> - Add markPendingChanges function that visually flags unapplied pagination-affecting settings instead of triggering a full re-typeset
+> - Styling a pending-changes indicator and wiring the reset trigger.
+> - Find btn-primary CSS to add the pending-state variant near it
+> - View btn-primary CSS to add pending-state styling right after it
+> - Add pulsing visual indicator CSS for pending unapplied changes on the retypeset button
+> - View start of typesetDocument to add clearPendingChanges call
+> - Investigating existing debounce logic around document typesetting.
+> - View performTypeset start
+> - Clear the pending-changes indicator whenever a real typeset actually runs
+> - Testing pagination behavior with sample setting changes.
+> - Test the full pending-changes workflow end to end
+> - Verifying pending indicator behavior across test cases.
+> - Check inp-book-title's actual event handler
+> - Reassessing whether the test method itself was flawed.
+> - **Done**
+
+Core mechanism verified working (pending indicator shows/clears correctly). Now the shaar-box-per-image save feature. Let me find the existing box editor first:
+
+> Designing per-image position memory to fix the leak.
+>
+> - Find the shaar box editor implementation
+> - Tracing a checkbox setting's purpose in the code.
+> - View context around the shaar box editor checkbox
+> - Continue viewing the box resizer to find where the result gets applied/stored
+> - Designing per-image storage for saved box positions.
+> - Check how customThemes are persisted to mirror the same pattern
+> - Investigating how theme data persists across saved pages.
+> - View customThemes storage/embedding mechanism
+> - Find the embedded data storage pattern for persistence
+> - Tracing how custom themes get stored in hidden inputs.
+> - View context around customThemes load/save at line 779
+> - Locating structured data embedded in the page's HTML.
+> - Find the JSON island element used for persisting complex state
+> - Locating the script tag responsible for the page data.
+> - Find all references to the ext-imports-data island to see the write path
+> - View how the data island gets written before saving
+> - Designing how saved box positions map to selected images.
+> - Find where the shaar box position gets applied during rendering
+> - Search all JS files for the box positioning application
+> - Locating the theme rendering logic in the codebase.
+> - View the main shaar rendering function to find the box-style resolution logic
+> - Designing per-image position memory to fix the leak.
+> - **Done**
+
+מצאתי את הבעיה המדויקת — התיבה הגלובלית (`builder-main-top` וכו') "דולפת" בין תמונות שונות. מיישם זיכרון פר-תמונה, באותו דפוס אחסון כמו `customThemes` (כדי שזה יעבוד אוטומטית גם עם "שמור תבנית"):
+
+> Updating image rendering to prioritize saved positions.
+>
+> - Add per-image shaar box position storage and a key-resolution helper
+> - Wiring up position saving across drag and render handlers.
+> - Save the box position per-image when the user finishes dragging/resizing
+> - Updating image rendering to prioritize saved positions.
+> - Check per-image saved box position first for the main shaar, before falling back to global builder fields
+> - Find back and sub box-style resolution blocks
+> - View back shaar box style resolution block
+> - Check per-image saved box position first for the back shaar
+> - View sub shaar box style resolution block
+> - Check per-image saved box position first for the sub shaar
+> - **Done**
+
+עכשיו חיווט לשמירה/טעינה (אותו מנגנון כמו customThemes):
+
+> Testing per-image box behavior across multiple images.
+>
+> - Include shaarBoxPositions in the saved template data island
+> - Restore shaarBoxPositions when loading a saved template
+> - Adding a reset button and wiring selection change triggers.
+> - Find the checkbox location to add reset buttons nearby
+> - View context around the checkbox to add reset buttons
+> - Add per-shaar reset-to-default buttons explaining the new per-image memory behavior
+> - Testing per-image box behavior across multiple images.
+> - **Done**
+
+בודק את כל מנגנון השמירה-לפי-תמונה מקצה לקצה:
+
+> Verifying default and custom image positions behave correctly.
+>
+> - Test that box positions are correctly per-image, not leaking between selections
+> - Verifying default and custom image positions behave correctly.
+> - **Done**
+
+עובד מושלם — תמונה #1 שומרת את הכיוונון שלה, תמונה #2 מקבלת ברירת מחדל, וחזרה לתמונה #1 משחזרת בדיוק את מה שנשמר. מעדכן את הצ'קליסט ומסכם בקצרה:
+
+> מסדרת רשימת באגים שטרם טופלו.
+>
+> - Add all fixes implemented in this pass to the checklist
+> - מסדרת רשימת באגים שטרם טופלו.
+> - Mark the oninput/hang bug as resolved via the live/manual split rather than leaving it duplicated as pending
+> - **Done**
+
+## User:
+
+> 9/11/2026 9:23:47
+
+המשך במרץ וביעילות!!!!
+
+## Assistant:
+
+> 9/11/2026 9:28:34
+
+> Fixing the confirmed bugs identified earlier.
+>
+> - Fixing the confirmed bugs identified earlier.
+> - **Done**
+
+ממשיך לתקן את הבאגים המאושרים. מתחיל בתיקוני ה-CSS המהירים (עיטור כותרת 2 ועיטור כותרת עליונה):
+
+> Fixing layout by adjusting the HTML template directly.
+>
+> - Fix H2/H3 ornament width bug — remove the !important that was defeating fit-to-text sizing
+> - Reconsidering selector logic and weighing a source-level fix instead.
+> - Simplify — remove the fragile CSS selector attempt, rely on JS setting inline width instead
+> - Adjusting ornament width styling in the typesetter code.
+> - Find where the ornament wrapper divs get created in typesetter.js
+> - Untangling repeated code patterns across multiple creation sites.
+> - View the full ornament wrapper creation block to fix all instances
+> - Refactoring duplicate creation points across branches.
+> - Bulk-add fitToText inline width:auto to all 6 ornament wrapper creation sites
+> - Check exact byte sequence around the target line
+> - Retry bulk replace with correct line endings
+> - Fixing header ornament sizing across the layout.
+> - Find header ornament SVG constraint rule
+> - View the header svg/img constraint rule
+> - Add max-width and !important to guarantee the header ornament stays small regardless of inline sizing on source SVGs
+> - Overriding inline sizing styles that were taking precedence.
+> - Force both width and height to auto so the browser scales proportionally within the max constraints, fully overriding any inline sizing from source SVGs
+> - Fixing the layout height of a column divider.
+> - Check if col-gutter-divider is referenced anywhere in JS already
+> - Fixing layout by adjusting the HTML template directly.
+> - Find the end of performTypeset to add a post-processing pass
+> - View the end of performTypeset to add the divider height fix
+> - **Done**
+
+Now I'll add a post-processing pass that fixes the divider height to match the shorter column, guaranteed to catch the final state regardless of which code path produced it:
+
+> Edited file
+>
+> - Add a final pass that sizes each column divider to the shorter of its two columns, instead of relying on CSS stretch which matches the taller one
+> - **Done**
+
+בודק את שלושת התיקונים (עיטור כותרת 2, עיטור כותרת עליונה, קו מפריד טורים) יחד:
+
+> Switching to direct pixel measurement instead of CSS width tricks.
+>
+> - Verify all three CSS/JS fixes together
+> - Debugging ornament sizing across header elements.
+> - Verify the width:auto fix actually landed in the file
+> - Inspecting the rendered element's inline style directly.
+> - Debug the actual inline style state of the ornament element
+> - Debugging a CSS width issue in inline styling.
+> - Re-measure ornament widths now that width:auto is confirmed applied
+> - Reconsidering whether shrink-wrap sizing needs an explicit width property.
+> - Change width:auto to width:fit-content for more reliable shrink-to-fit
+> - Retest with fit-content instead of auto
+> - Switching to direct pixel measurement instead of CSS width tricks.
+> - **Done**
+
+CSS auto-sizing isn't cooperating reliably. Let me switch to a more robust approach — measure the actual text width directly in JS and set an explicit pixel width, sidestepping the CSS ambiguity entirely:
+
+> Finding the right spot to measure element placement.
+>
+> - Re-view the ornament insertion block to find where to measure the wrapper's natural content width before inserting the ornament
+> - Finding the right spot to measure element placement.
+> - Measure the wrapper's natural content width (title+siman, before any ornament) directly, for use as an explicit pixel width on the ornaments
+> - **Done**
+
+Now update all 6 ornament creation sites to use this explicit pixel width:
+
+> Ran command
+>
+> - Use the explicit measured pixel width instead of fit-content keyword
+> - **Done**
+
+## User:
+
+> 9/11/2026 15:05:15
+
+המשך במרץ וביעילות!!!!
+
+## Assistant:
+
+> 9/11/2026 15:05:28
+
+> Ran command
+>
+> - Retest ornament width with explicit pixel measurement approach
+> - **Done**
+
+## User:
+
+> 9/13/2026 21:28:35
+
+> File: typesetter.js
+
+המשך!! בנתיים מצאתי את כל הבעיות שגרמו לחוסר ישור (לא הגעתי לפונקציית איזון סוף פרק), ותיקנתי את הקובץ , אז אני רק רוצה להעלות את הקובץ שמתוקן בו עניין היישור כולל עם הערות וכו'.
+
+## Assistant:
+
+> 9/13/2026 21:31:55
+
+> Linking missing CSS defaults to cascading layout bugs.
+>
+> - Reconciling the uploaded fixes with earlier accumulated changes.
+> - Compare the new uploaded typesetter.js against my current fixed version
+> - Generate a proper diff using temp files
+> - Reviewing a large diff between two file versions.
+> - View first part of the diff
+> - Linking missing CSS defaults to cascading layout bugs.
+> - **Done**
+
+זה ממצא-שורש משמעותי — אני רואה שבגרסה שלי הפונקציה `updateStyles` מדלגת על הגדרת משתנה-CSS כשהשדה ריק (setVar helper), אבל בקובץ שלך היא **תמיד** קובעת ערך עם נפילה-חזרה קשיחה (למשל `|| 'serif'`). כיוון שבדקתי בעצמי שתפריטי הגופנים ריקים כברירת מחדל — זה בדיוק ההסבר לכל "קלקולי היישור": בלי הנפילה-חזרה, משתני CSS של גודל/גופן פשוט לא הוגדרו, מה שגרם למדידות טקסט שגויות שהשתרשרו לכל מנוע העימוד. ממשיך לעבור על שאר ההבדלים:
+
+> Mapping out a step-by-step plan to rebuild the merge.
+>
+> - Continue viewing the diff
+> - Tracing missing delimiter-protection fixes across file versions.
+> - Continue viewing the diff - second half
+> - Mapping out a step-by-step plan to rebuild the merge.
+> - **Done**
+
+זה מיזוג מורכב עם תגליות חשובות משני הצדדים. נמצאו בקובץ שלך תיקונים אמיתיים וטובים יותר משלי במקומות מסוימים (`resolveHeaderAlign` לכותרות מתחלפות, מניעת יתומות/אלמנות מפורשת בנקודות-הפיצול, ותיקון טוב יותר לבעיית חוסר-הסימטריה בין טורים כשיש הערות). אבל חלק מהתיקונים שלי (איזון-סוף-פרק, הגנה על הערות מפני חיתוך-אמצע, קו-מפריד-טורים, debounce) חסרים בקובץ שלך. בונה את קובץ המיזוג בזהירות — קודם בודק את הפונקציה המרכזית:
+
+> Debugging an unused function parameter in the code.
+>
+> - Check balanceColumns signature in both files
+> - Reconstructing the timeline across earlier file versions.
+> - Check how the user's file actually uses availableHeight inside balanceColumns
+> - Debugging an unused function parameter in the code.
+> - Verify dependency functions exist in the user's uploaded file
+> - **Done**
+
+כל פונקציות התלות קיימות. בונה את הקובץ הממוזג — מתחיל מהקובץ שלך כבסיס, ומוסיף בחזרה את התיקונים החסרים שלי אחד-אחד:
+
+> Ran command
+>
+> - Use the user's file as the new merge base
+> - **Done**
+
+Fix 1 — the `availableHeight` guard inside `balanceColumns` (parameter accepted but never used):
+
+> Ran command, viewed file
+>
+> - Locate the justify call inside balanceColumns
+> - View the balanceColumns justify block to fix it precisely
+> - **Done**
+
+## User:
+
+> 9/14/2026 8:45:10
+
+המשך!!!
+
+## Assistant:
+
+> 9/14/2026 8:48:02
+
+> Investigating a page-height comparison bug in the layout logic.
+>
+> - Add the availableHeight guard so cosmetic justify never stretches a column past the footnote-reserved boundary inside balanceColumns
+> - View the second (non-terminal-block) justify call site
+> - Investigating a page-height comparison bug in the layout logic.
+> - Fix the justify guard to use the correct footnote-aware ceiling (actualAvailH) instead of the too-generous bare remPageHeight, which made the guard nearly a no-op
+> - **Done**
+
+Fix 2 — section-fill-ratio reconnection (confirmed missing, as you noted):
+
+> Merging split-point protection with existing text-wrapping logic.
+>
+> - Find injection points for section-fill-ratio
+> - View context around secTokens
+> - Reconnect section-fill-ratio computation
+> - Apply the section fill ratio to available page height
+> - Merging split-point protection with existing text-wrapping logic.
+> - **Done**
+
+Fix 3 — delimiter-span split protection, carefully merged alongside their widow/orphan logic (not replacing it):
+
+> Reassessing which version actually owns each missing feature.
+>
+> - Find the items mapping and split-point filter to merge in noteSpans protection
+> - View the items mapping and split point construction/filter
+> - Reassessing which version actually owns each missing feature.
+> - Re-add noteSpans computation, avoid-orphans/widows enforcement at split-point generation, and delimiter-span cut protection — all previously found/fixed but missing from this file
+> - **Done**
+
+Fix 4 — H2 ornament fit-to-text (explicit pixel measurement, proven working by my testing):
+
+> Fixing column divider height in the typesetting logic.
+>
+> - Find the current ornament insertion block
+> - View the full ornament scope/insertion block to merge in the fitToText mechanism
+> - Adding a text-fitting feature to an existing layout structure.
+> - Merge in the fit-to-text-width mechanism for H2 ornaments (explicit JS pixel measurement, verified working), preserving the existing 3-scope branching
+> - Fixing column divider height in the typesetting logic.
+> - **Done**
+
+Fix 5 — the debounce/pending-changes split (needed for the live-vs-manual settings architecture):
+
+> Ran command, viewed file, edited file
+>
+> - Find typesetDocument function start
+> - View typesetDocument start
+> - Split typesetDocument into a debounced public entry point and the real work function, clearing the pending-changes indicator when a real typeset runs
+> - **Done**
+
+Fix 6 — column divider height, added at the end of the typeset pass:
+
+> Checking template elements for correct preservation across versions.
+>
+> - Find the end of the typeset function to add the divider fix
+> - View the end of the function to place the divider fix correctly
+> - Tracing heading ornament function calls through the code.
+> - Add the column divider height correction pass at the very end
+> - Verifying merged fixes with a full test suite check.
+> - Syntax check the merged file
+> - Check if the shaar-numbering checkboxes exist in my current index.html
+> - Checking template elements for correct preservation across versions.
+> - Find shaar visibility checkboxes to add numbering checkboxes nearby
+> - **Done**
+
+## User:
+
+> 9/14/2026 13:56:42
+
+> File: חלק ההקדמה סדר חדש.txt
+
+המשך!! ובבקשה עשה ניסוי על המסמך הבא שהעימוד עובד טוב בכל חלקיו
+
+## Assistant:
+
+> 9/14/2026 14:00:39
+
+> Checking page layouts for paragraph overflow issues.
+>
+> - בודקת מסמך שהועלה כדי לאמת סדר חדש בהקדמה.
+> - Inspect the uploaded real test document
+> - Examining the structure of a lengthy Hebrew Torah document.
+> - Check heading usage and note-marker presence throughout the document
+> - Surveying the document's headings and structural patterns.
+> - Add shaar-page numbering-inclusion checkboxes to match the typesetter.js feature
+> - Deciding whether to skip a minor feature task.
+> - Prepare for real-document test
+> - Run the real document through the merged typesetter and check structural quality
+> - Reviewing test results from processing a large document.
+> - Investigate the specific heading-orphan and overflow cases found
+> - Checking page layouts for paragraph overflow issues.
+> - **Done**
+
+זה באג אמיתי וחמור — חריגה של עד 865px מתחתית העמוד! בודק אם זה קדם למיזוג שלי או שנגרם ממנו:
+
+> Tracing the column-fill loop for a termination bug.
+>
+> - Test the same document against the pre-merge (user's original) typesetter.js
+> - Tracing the root cause of the pre-existing overflow bug.
+> - Deep-dive investigate page 41's overflowing column structure
+> - Investigating whether a new-section transition inflates available height.
+> - Instrument bodyFlow.clientHeight across pages to spot anomalies
+> - Tracing the column-fill loop for a termination bug.
+> - Locate the problematic paragraph in the source document
+> - **Done**
+
+## User:
+
+> 9/15/2026 0:53:11
+
+המשך!!!
+
+## Assistant:
+
+> 9/15/2026 0:56:39
+
+> Suspecting margin side-note placement as the inflation source.
+>
+> - Isolating a minimal reproduction to trace the bug.
+> - Extract a smaller reproduction window around the problematic paragraph
+> - Preparing a document with required header formatting.
+> - Prepend required document metadata headers
+> - Debugging page-height and column-fill logic in a layout pipeline.
+> - Run the minimal reproduction and check for the same overflow bug
+> - Suspecting margin side-note placement as the inflation source.
+> - **Done**
+
+התגלה מקרה שחזור זעיר. עכשיו יש לי השערה — המסמך הזה משתמש בהרחבה ב"כותרת 7" (הערות שוליים/margin notes), וזה עלול להיות הקשור. בודק את עמודות השוליים:
+
+> Tracing how grid stretching causes overflow past page bounds.
+>
+> - Check margin note column heights and positioning for the overflowing page
+> - Restart server and retry the margin check
+> - Tracing how grid stretching causes overflow past page bounds.
+> - **Done**
+
+התיאוריה מאושרת — `right-margin` (הערות "כותרת 7") מגיע ל-1503px, ואז שאר העמודה (grid, `align-items:stretch`) נמתחת יחד איתו. בודק את `finalizeNotePositions`:
+
+> Considering a capped-height fallback with a truncation notice.
+>
+> - View finalizeNotePositions implementation
+> - Considering a capped-height fallback with a truncation notice.
+> - **Done**
+
+הבנתי את הבעיה המדויקת: הערת-שוליים ("כותרת 7") שגובהה הטבעי (בעמודה הצרה) גדול יותר מגובה עמוד שלם, כך שאין שום מיקום שבו היא "נכנסת" — לא באמצעות הזזה ולא באמצעות מעבר לעמוד הבא. זה דורש בעצם "המשכיות הערת-שוליים בין עמודים" (תכונה גדולה); בינתיים מיישם רשת-ביטחון שמונעת את החריגה הפיזית מהעמוד:
+
+> Edited file
+>
+> - Add a safety cap so a side-note that's fundamentally too tall to fit anywhere on the page gets constrained rather than blowing out the physical page boundary
+> - **Done**
+
+## User:
+
+> 9/15/2026 7:45:56
+
+המשך!!!
+
+## Assistant:
+
+> 9/15/2026 7:48:27
+
+> Tracing the column fill loop for the real culprit.
+>
+> - Verify the safety cap fix resolves the overflow in the mini reproduction
+> - Fixing a test script with the correct port and paths.
+> - Retest with correct port targeting the merged v3 typesetter.js
+> - Start server and run test in the same command for reliability
+> - Tracing how the note's height cap affects column sizing.
+> - Instrument finalizeNotePositions to see exactly what's happening
+> - Tracing the column fill loop for the real culprit.
+> - **Done**
+
+הבנה שגויה — הבעיה לא בהערות-השוליים בכלל! ה-`columnBoundaryHeight` כבר 1503 לפני ש-`finalizeNotePositions` בכלל רץ. הבעיה האמיתית היא בלולאת המילוי של הטור עצמו. בודק שם:
+
+> Suspecting a hidden bug in the column-balancing logic.
+>
+> - Find the fill-loop comparison points
+> - Investigating a footnote height calculation for unexpected values.
+> - Check getFootnotesReservedHeight implementation for anomalies
+> - Debugging page height calculations for footnote handling.
+> - View the exact context around the second comparison point
+> - Debugging a layout loop that fits lines per column.
+> - Add temporary diagnostic logging to trace remPageHeight evolution
+> - Trace remPageHeight evolution across paragraph fitting decisions
+> - Tracing scroll heights across page transitions for the overflow case.
+> - Get full log and search for scrollHeight values exceeding the normal ~915 budget
+> - Suspecting a hidden bug in the column-balancing logic.
+> - **Done**
+
+הבנה חדשה — ה"BEFORE fit-loop" הרגיל אף פעם לא חורג מ-915! זה אומר שהחריגה קורית דרך `balanceColumns` (מסלול רינדור נפרד), לא דרך לולאת המילוי הרגילה. בודק את הלוגיקה שבוחרת את נקודת הפיצול:
+
+> Ran command, viewed file
+>
+> - Find the balance trial-evaluation loop
+> - View the split-point trial evaluation loop
+> - **Done**
+
+## User:
+
+> 9/15/2026 13:52:18
+
+המשך!!!
+
+## Assistant:
+
+> 9/15/2026 13:54:19
+
+> Suspecting grid stretch behavior masks true column heights.
+>
+> - Checking whether split-point filtering causes the imbalance.
+> - Check how pointsToEvaluate is derived from validSplitPoints
+> - Suspecting merged paragraph fragments inflate column height.
+> - Remove the temporary debug logging from the main fill loop (no longer needed) and add targeted diagnostics inside balanceColumns instead
+> - Add diagnostics right before the trial loop to inspect merged items and chosen split
+> - Log the chosen split result
+> - Run diagnostic and capture balanceColumns internal state
+> - Suspecting grid stretch behavior masks true column heights.
+> - **Done**
+
+**זה זה!** `minAbsDiff=0` בכל פעם, ו-`itemIndex` תמיד שווה בדיוק ל-`items.length` (הכל בימין, כלום בשמאל). זה קורה כי `rCol.scrollHeight`/`lCol.scrollHeight` כנראה תמיד שווים (בגלל stretch של ה-grid), מה שהופך את `diff` לתמיד 0, וכלל שובר-השוויון תמיד "מנצח" לטובת המועמד האחרון שנבדק. בודק את ה-CSS:
+
+> Ran command
+>
+> - Check block-2col grid CSS for align-items
+> - **Done**
+
+## User:
+
+> 9/15/2026 18:52:29
+
+המשך!!!
+
+## Assistant:
+
+> 9/15/2026 18:52:44
+
+> Switching stretched items to natural-height alignment as the fix.
+>
+> - Switching stretched items to natural-height alignment as the fix.
+> - CRITICAL FIX: change align-items from stretch to start on the 2-column grid. Stretch was forcing right-col and left-col to always report identical scrollHeight (matching the row), which made every ca…
+> - **Done**
+
+## User:
+
+> 9/16/2026 1:52:13
+
+המשך!!!
+
+## Assistant:
+
+> 9/16/2026 1:55:25
+
+> Debugging line-splitting logic within paragraphs.
+>
+> - Verify the align-items fix resolves the balance bug
+> - Debugging line-splitting logic within paragraphs.
+> - **Done**
+
+התיקון עובד — הפרשי גובה אמיתיים וקטנים (6, 13px) במקום 0 תמיד. מסיר את קוד הדיבוג ובודק מחדש עם המסמך המלא:
+
+> Edited 2 files, ran command
+>
+> - Remove debug diagnostics now that root cause is fixed
+> - Remove debug diagnostics for chosen split logging
+> - Verify overflow is resolved in the mini test after the fix
+> - **Done**
+
+מצוין — 0 בעיות חריגה. עכשיו בודק על המסמך המלא (107 עמודים):
+
+> Checking flagged columns against the rest of the dataset.
+>
+> - Run the full real document test against the fixed merged file
+> - Fixing layout overflow issues and reducing page count.
+> - Investigate the 2 remaining heading-orphan cases
+> - Checking flagged columns against the rest of the dataset.
+> - **Done**
+
+2 יתומות-כותרת קלות נותרו (מתוך 192 טורים, ~1%) — נמוך בהרבה בחומרה מבאג הגלישה שתוקן. לוקח כמה צילומי מסך לאימות ויזואלי כפי שביקשת:
+
+> Examining a densely annotated page with extensive margin notes.
+>
+> - Take screenshots of several representative pages from the real document
+> - View screenshot of page 20
+> - Reviewing a document layout for design quality.
+> - View screenshot of page 48 (one of the heading-orphan pages)
+> - Examining a Hebrew text page's structure and headings.
+> - View screenshot of page 70
+> - Examining a densely annotated page with extensive margin notes.
+> - **Done**
+
+שני עמודים נוספים עם הערות שוליים רבות — נקיים לחלוטין, בלי חריגה או חפיפה. מעביר את הקבצים הסופיים לפלט:
+
+> Ran command, presented file, edited file
+>
+> - Copy all 5 finalized files to outputs
+> - Presenting file(s)...
+> - Add the critical grid align-items bug discovery to the checklist as the top finding
+> - **Done**
+
+> File: [/mnt/user-data/outputs/typesetter.js](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Ftypesetter.js)
+
+> File: [/mnt/user-data/outputs/app.js](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fapp.js)
+
+> File: [/mnt/user-data/outputs/decorations.js](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fdecorations.js)
+
+> File: [/mnt/user-data/outputs/index.html](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Findex.html)
+
+> File: [/mnt/user-data/outputs/style.css](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fstyle.css)
+
+## User:
+
+> 9/16/2026 13:48:43
+
+![1. לפני הוספת עיטורים.png](data:image/webp;base64,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)
+
+![2. אחרי הוספת עיטורים.png](data:image/webp;base64,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)
+
+![3. אחרי הוספת עיטורים והסרתם.png](data:image/webp;base64,UklGRiAHAQBXRUJQVlA4IBQHAQAw5AOdASrmAhwEPm0ylkikIqIhI5AaQIANiWlu/lVzOTR/9D/b/J261+t39D/W/yL66/93/afyA5x3GP6f/aPzA+AL8a/kv+L/rX7mf4Dvj/53+QdEPL/+09gH8c/oX/R/tn+c///iD/zP6q+qf8m/rH+0/r3wAfxr+ef73+z/3r9lPcR5RfQ/qA/kn9V/7P959pP87/7f8t/qfS5+gf4H/y/5D/Q///5CfzX+w/8z/J/6D/+d9P6Nv8A9WeOciB048MfohG9VFNpy9Rr+yaoT/AP7n+QH8g3JDbHvR9+X/5X8nf8B7HfyD/Of4D+ifkB9Av5N/Q/9P+vn/J7wD9Zv8B6kH4q+2FaP/pEl//rleZf9yV7pEfnv7drv69ufs3f3evvT/yVfxj/Z/7r+ufwL+Ofnv9l/uX+W/2H9y9Ifxz5p+8f2T/Hf7f+9fHf8+f1v+C/wvip82/cf9T/kf8f/5P3////0D/HPs9+P/tn+P/9P9/9mf9H/fP8x/zf8t6F/k/6Z/mP7v/kv+Z/jPkF/Gf5X/fv7L/jv+f/hP3s+iX3z/Z/43/N/+n/Q+KvoX+M/3P+E/zX/c/f/6BfVb6B/n/73/mv/F/g/cX9f/1f94/yf7E/A35h/Wf9X/bP8P+032AfyH+ef5/+0f47/6f5j/////62/xH/S/xf+h//fob/Wv8f/2v8b/pv3E+wH+U/1//q/3//LfuV9In83/3/89/qf209qf53/kf+3/lv9V+2X2Cfy7+wf9D/B/6H/9f7b/////73f/7/1/hV+8v///7/w7/ux/9v+jXAMjiq6IOAO1rn141XcVXRBwB2tc+vGq7iq6IOAO1rn141XcVXdJx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rpx6rnaxceAJp75AuO5Bu/n7lbo+obQqsBu1/7UZZlxDRlxDRRWydNRvyOPkqxVkqxVaymWU4ZcsR8xaE1ihARd3GRcA4Cxw2G5reMZKsVWtkPD2W/7CQWvFOK/yv/PBCkUuyKLNrJv2t1nOMrfEP1Qb2PG8xmXFr7XRizLi5vhVBvY8Xj+3Xf9oo0LwvLZwvt7zwPxgaYDBNBjp8g+6Wh+GwCnRrg8h4aOnRO8Zlxc3wqg3seN5jMuLm+FUG9h8NGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENGuENB9O0FJrghqNgJUzZPtWiICr18mYZof1RSOHrhCAnn/VdOPVdOPVdOPVdOPVdOPVdOPVdOPVdNjvo9iz32LAQ73lv/yuOwfKb7R0LjFFbw0a4Q0a4Q0a4Q0a4Q0a4Q0a4Q0a4Q0a4NJPSn8ppY739IuYvP4R/SoKp1WKslWKslWKslWKslWKslWKslWKslWKslP5iasEM2CsnEOuoVo+CstCdy6hv/1XTj1XTj1XTj1XTj1XTj1XTj1XTj1XTj4Y60mp0a4Q0a4Q0a4Q0a4Q0a4Q0a4Q0a4Q0a2q8dAT1YsdZrWyCKww+VRahWtHjMHcSZvNqR9uy3fEF0Ezy3Q1Q+KslWKslWKslWKslWKslWKslWKslWKLy4+P38NIN48IOmjVMxwJDKWwR842y9xcdBt0JwU5M9leF6pAu5bIaIUy22wsKFES+iGjLiGjLiGjLiGjLiGjImZWlEl6aeNKLqdpYGf4I4Nz2oy1CuZ5WzkAzBphy/CAtAeLk5kQ46E33iGvBgy4Vy00LOaR8VPac+7pbOobcF8V0KV36odngZCIUKbXUGk3Hi6QjPUwj7UsoAh3Oe964HUVqDNyuMbAxAZdFJwiPTRdZ1mN6N5zB/vlrNLkQ1Waue/FWUS2mhhmXS+yLgm5H9T3YgycgMiPltnB+yCGoroVYBjVhRWIioKKw5bnOnxGrOqizP6n5JKjgaOpJ4PkqxVkqxVZU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)
+
+בדקתי את היישור והכל נראה מעולה חוץ מ: 1. העימוד בעמוד ראשון של פרק ("כותרת 2") שהטקסט לא מסתיים באותו הגובה כמו שאר העמודים (מסתיימת במרחק גדול יותר מתחתית העמוד), יש לציין שאחרי הוספת עיטורים לכותרת 2 והסרתם הגובה פתאום מסתדר, 2. וכן לפעמים הוגבה גולש לאזור מספר העמוד (נראה לי בגלל שהוספת העיטורים לכותרת 2 (או הסימן) וכן הוספת עיטור צידי לכותרת 3 (שמשום מה ממדי גובה העיטור לא מותאמים אוטומטית לגמימדי הטקסט של הכותרת) שמוסיפה גובה לא מחושבת), אני מצרף 3 תמונות, 1. לפני הוספת עיטורים (עמוד קצר מדי), 2. אחרי הוספת עיטורים (עמוד ארוך מדי), 3. אחרי הסרת עיטור (עמוד בגודל טוב).
+
+## Assistant:
+
+> 9/16/2026 13:50:17
+
+> Comparing the images' text and formatting differences.
+>
+> - Tracing how ornament height affects page-space calculations.
+> - View image 1 - before adding ornaments, page too short
+> - Checking where the text ends on a chapter page.
+> - View image 2 - after adding ornaments, page too long/overflowing
+> - Checking decorative additions around specific text sections.
+> - View image 3 - after removing ornament, good size
+> - Comparing the images' text and formatting differences.
+> - **Done**
+
+רואה את התסמין במדויק — זה בדיוק תואם להשערה שלי על מדידת-גובה-כותרת לא נכונה. בודק את הקוד:
+
+> Exploring section fill ratio as a possible cause.
+>
+> - Find where 'used' (first-page heading height consumption) is computed
+> - View the used-height computation for the first page of a section
+> - Exploring section fill ratio as a possible cause.
+> - Find the relevant section in the real test document
+> - **Done**
+
+## User:
+
+> 9/16/2026 20:09:40
+
+המשך!
+
+## Assistant:
+
+> 9/16/2026 20:09:45
+
+> Ran command
+>
+> - Extract and prepare the specific section for ornament-height testing
+> - **Done**
+
+## User:
+
+> 9/17/2026 2:36:47
+
+המשך!
+
+## Assistant:
+
+> 9/17/2026 2:38:26
+
+> Investigating why results stay unchanged despite file fixes.
+>
+> - Investigating page height calculations with heading ornaments.
+> - Test baseline no-ornament state and check available ornament options
+> - Debugging why the column search finds no matching elements.
+> - Precise before/after/removed ornament test matching the user's exact scenario
+> - Reproducing the reported issue to confirm the behavior.
+> - Extract a larger section for a more realistic near-full-page test
+> - Rerun with larger test section
+> - Investigating why a file replacement command isn't updating results.
+> - Debug why the test still shows identical results
+> - Investigating why results stay unchanged despite file fixes.
+> - Dump all pages structure to understand the actual document layout
+> - **Done**
+
+## User:
+
+> 9/17/2026 8:35:34
+
+המשך!
+
+## Assistant:
+
+> 9/17/2026 8:36:46
+
+> Investigating a document's column and paragraph structure.
+>
+> - Inspecting page structures to locate the target heading.
+> - Find the specific H2 page in the dump
+> - Verifying page structure across multiple content pages.
+> - More robust test using findIndex to correctly locate the H2 page
+> - Investigating a document's column and paragraph structure.
+> - **Done**
+
+הבנתי — המדידה שלי תפסה רק את הבלוק הראשון בעמוד (יש כותרת-3 קצת אחרי שמתחילה בלוק חדש). מתקן את המדידה לכל העמוד:
+
+> Ran command
+>
+> - Test with page-wide bottom-most content measurement
+> - **Done**
+
+## User:
+
+> 9/17/2026 14:09:03
+
+המשך!!
+
+## Assistant:
+
+> 9/17/2026 14:10:16
+
+> Testing whether margin collapsing fully explains the shortfall.
+>
+> - Rechecking header ornaments for side effects on heading three.
+> - Find h3 side-ornament handling to test that contributing factor
+> - Checking whether H3 ornament insertion tracks remaining page space.
+> - View H3 side ornament insertion logic
+> - Verifying layout logic for spans and titles renders correctly.
+> - Re-view the complete used-height calculation block in full detail
+> - Testing whether margin collapsing fully explains the shortfall.
+> - **Done**
+
+רואה בעיה אמיתית: המדידה מסכמת margin של כל אלמנט בנפרד (`el.getBoundingClientRect().height` + margins), אבל באלמנטים רגילים ב-block-flow (לא ב-flex wrapper), margins שכנים **מתמזגים** (collapse) ולא מצטברים — כך שהחישוב מגזים בגובה בפועל. מתקן למדידה מבוססת-מיקום-בפועל שמתחשבת נכון בקיפול:
+
+> Edited file
+>
+> - Fix the used-height calculation to measure actual rendered extent (first element's top to last element's bottom) instead of summing individual margins, which incorrectly assumes margins add up rather…
+> - **Done**
+
+## User:
+
+> 9/17/2026 21:43:23
+
+המשך!!
+
+## Assistant:
+
+> 9/17/2026 21:44:14
+
+> חושדת בבעיית טעינת גופן כגורם למדידות שגויות.
+>
+> - Verifying the fix and rechecking the overflow scenario.
+> - Verify the margin-collapse fix and re-test
+> - חושדת בבעיית טעינת גופן כגורם למדידות שגויות.
+> - **Done**
+
+יש לי תיאוריה חדשה שמתאימה בדיוק לתבנית שתיארת (רע בטעינה ראשונה, נכון אחרי כל אינטראקציה נוספת): **טעינת גופנים אסינכרונית**. אם הטיפוס הראשוני רץ לפני שהגופן העברי המלא נטען, המדידות (`used`, רוחב-טקסט לעיטור) מתבססות על גופן חלופי זמני — שגוי, אך "מתקבע" בתוך הרינדור. רק ריצה חוזרת (כמו טוגל של עיטור) שקורית אחרי שהגופן כבר התייצב, "מתקנת" את זה. בודק:
+
+> Ran command
+>
+> - Check if font loading is awaited before initial typeset
+> - **Done**
+
+## User:
+
+> 9/18/2026 3:27:39
+
+> File: גרסא  משולבת 2.txt
+
+המשך!!! ועבור על הגרסא הבאה
+
+## Assistant:
+
+> 9/18/2026 3:28:04
+
+> Mapping how separate feature branches were merged together.
+>
+> - בודקת את הקובץ המשולב שהועלה.
+> - Inspect the newly uploaded file
+> - Mapping how separate feature branches were merged together.
+> - **Done**
+
+זו תגלית משמעותית — קובץ אחד המכיל מיזוג של **4 גרסאות שונות** לכדי "גרסת-על", עם פיצ'רים חדשים (הפרדת כותרות זוגי/אי-זוגי, שדה מספר-עמוד-התחלתי, בורר תיקיה מקומית, כפתורי איפוס). בודק את זה ביסודיות. מפצל קודם לקבצים:
+
+> Ran command
+>
+> - Parse the combined file to identify all sections
+> - **Done**
+
+## User:
+
+> 9/18/2026 10:43:53
+
+המשך!!!!
+
+## Assistant:
+
+> 9/18/2026 10:44:29
+
+> Cataloging which prior fixes survived the merge.
+>
+> - Extract each file from the combined master edition
+> - Syntax check all JS files in the new master edition
+> - Debugging CSS layout issues across browser rendering.
+> - Check for presence of my critical fixes in the master edition
+> - Cataloging which prior fixes survived the merge.
+> - **Done**
+
+מצוין — התיקון הקריטי (`align-items:start`) ו-`resolveHeaderAlign` כבר נמצאים כאן! אבל כמה מהתיקונים האחרונים שלי חסרים (הגנת-הערות מפני חיתוך, איזון-סוף-פרק, ותיקון מדידת-הגובה עם קיפול-מרווחים). בודק שיטתית מה עוד חסר לעומת הגרסה המתוקנת שלי:
+
+> Ran command
+>
+> - Comprehensive check of all my other fixes against the master edition
+> - **Done**
+
+## User:
+
+> 9/18/2026 16:37:37
+
+המשך!!!!
+
+## Assistant:
+
+> 9/18/2026 16:37:49
+
+> Verifying whether earlier code fixes actually landed.
+>
+> - Verifying whether earlier code fixes actually landed.
+> - Check how index.html actually wires up pagination-affecting controls in this version
+> - **Done**
+
+## User:
+
+> 9/19/2026 20:56:59
+
+המשך!!!!
+
+## Assistant:
+
+> 9/19/2026 20:57:18
+
+> Comparing a simpler alternative to a manual input-by-input fix.
+>
+> - Debugging why an input field isn't responding to changes.
+> - Check if event wiring happens via JS instead of inline HTML attributes
+> - Comparing a simpler alternative to a manual input-by-input fix.
+> - **Done**
+
+זו ארכיטקטורה נקייה יותר משלי — event delegation יחיד על כל הפאנל, במקום לגעת ב-142 אלמנטים בנפרד! בודק את הלוגיקה:
+
+> Viewed file
+>
+> - View the event delegation logic for the settings panel
+> - **Done**
+
+## User:
+
+> 9/21/2026 20:02:19
+
+המשך!!!!
+
+## Assistant:
+
+> 9/21/2026 20:02:29
+
+> Categorizing event IDs by prefix patterns.
+>
+> - Categorizing event IDs by prefix patterns.
+> - Verify the delegation listener is actually attached and typesetDocumentLive exists
+> - **Done**
+
+## User:
+
+> 9/22/2026 1:02:25
+
+המשך!!!!
+
+## Assistant:
+
+> 9/22/2026 1:02:49
+
+> Discovering the working directory disappeared unexpectedly.
+>
+> - Check if v4 directory still exists
+> - Discovering the working directory disappeared unexpectedly.
+> - **Done**
+
+הסביבה אופסה. משחזר את כל קבצי העבודה:
+
+> Retracing which fixes made it into the delivered files.
+>
+> - Assess what survived the reset
+> - Retracing which fixes made it into the delivered files.
+> - Re-extract v4 files and verify what's in outputs
+> - **Done**
+
+## User:
+
+> 9/22/2026 10:29:10
+
+המשך!!!!
+
+## Assistant:
+
+> 9/22/2026 10:29:21
+
+> Tracing how the script initializes and connects its listeners.
+>
+> - Verifying CSS output fixes against expected changes.
+> - Verify typesetDocumentLive and listener initialization
+> - Tracing how the script initializes and connects its listeners.
+> - **Done**
+
+כל הארכיטקטורה מחוברת נכון. עכשיו מיישם את כל התיקונים הקריטיים החסרים על גרסת-העל. מתחיל בהגנת ההערות מפני חיתוך-אמצע:
+
+> Ran command
+>
+> - Find items mapping and split-point filter in v4
+> - **Done**
+
+## User:
+
+> 9/22/2026 22:47:24
+
+המשך!!!!
+
+## Assistant:
+
+> 9/22/2026 22:47:26
+
+> Viewed file
+>
+> - View items mapping and split point filter in v4
+> - **Done**
+
+## User:
+
+> 9/23/2026 12:28:30
+
+המשך!!!
+
+## Assistant:
+
+> 9/23/2026 12:28:42
+
+> Edited file
+>
+> - Add noteSpans computation and delimiter-cut protection to v4's balanceColumns
+> - **Done**
+
+## User:
+
+> 9/23/2026 17:38:21
+
+המשך!!!
+
+## Assistant:
+
+> 9/23/2026 17:38:24
+
+> Ran command
+>
+> - Check dependency function and find section-fill-ratio injection points
+> - **Done**
+
+## User:
+
+> 9/24/2026 0:48:10
+
+המשך!!!
+
+## Assistant:
+
+> 9/24/2026 0:48:12
+
+> Viewed file
+>
+> - View secTokens context in v4
+> - **Done**
+
+## User:
+
+> 9/24/2026 7:37:29
+
+המשך!!!
+
+## Assistant:
+
+> 9/24/2026 7:37:34
+
+> Edited file
+>
+> - Reconnect section-fill-ratio in v4
+> - **Done**
+
+## User:
+
+> 9/24/2026 16:35:32
+
+המשך!!!
+
+## Assistant:
+
+> 9/24/2026 16:35:35
+
+> Edited file
+>
+> - Apply section fill ratio in v4
+> - **Done**
+
+## User:
+
+> 9/24/2026 22:20:26
+
+המשך!!!
+
+## Assistant:
+
+> 9/24/2026 22:20:28
+
+> Ran command
+>
+> - Find the used-height calculation block in v4
+> - **Done**
+
+## User:
+
+> 9/25/2026 17:26:51
+
+המשך!!!
+
+## Assistant:
+
+> 9/25/2026 17:26:54
+
+> Comparing CSS selectors across merged template versions.
+>
+> - Comparing CSS selectors across merged template versions.
+> - View the used-height calculation context in v4 before applying fix
+> - **Done**
+
+## User:
+
+> 9/26/2026 19:49:39
+
+המשך!!!
+
+## Assistant:
+
+> 9/26/2026 19:49:53
+
+> Styling title layouts for a custom CSS theme.
+>
+> - Styling title layouts for a custom CSS theme.
+> - Apply margin-collapse-aware measurement to v4, preserving the block-h2-title-side skip logic
+> - **Done**
+
+## User:
+
+> 9/27/2026 0:48:19
+
+המשך!!!
+
+## Assistant:
+
+> 9/27/2026 0:48:23
+
+> Reviewing ornament sizing and layout fixes across versions.
+>
+> - Reviewing ornament sizing and layout fixes across versions.
+> - Check H2 ornament handling structure in v4
+> - **Done**
+
+## User:
+
+> 9/27/2026 7:26:13
+
+המשך!!!
+
+## Assistant:
+
+> 9/27/2026 7:26:19
+
+> Searching the codebase for text-fitting and scope references.
+>
+> - Searching the codebase for text-fitting and scope references.
+> - View the H2 ornament insertion logic in v4
+> - **Done**
+
+## User:
+
+> 9/27/2026 13:39:54
+
+המשך!!!
+
+## Assistant:
+
+> 9/27/2026 13:40:02
+
+> Untangling a layered ornament and badge system.
+>
+> - Untangling a layered ornament and badge system.
+> - Check ornament CSS rules in v4
+> - **Done**
+
+## User:
+
+> 9/28/2026 0:51:18
+
+המשך!!!
+
+## Assistant:
+
+> 9/28/2026 0:51:22
+
+> Debugging ornament width behavior across CSS versions.
+>
+> - Debugging ornament width behavior across CSS versions.
+> - Find the header ornament sizing rule under its actual selector name
+> - **Done**
+
+## User:
+
+> 9/28/2026 13:03:43
+
+המשך!!!
+
+## Assistant:
+
+> 9/28/2026 13:03:45
+
+> Viewed file
+>
+> - View the header ornament sizing CSS in v4
+> - **Done**
+
+## User:
+
+> 9/28/2026 20:30:11
+
+המשך!!!
+
+## Assistant:
+
+> 9/28/2026 20:30:16
+
+> Checking whether header ornament sizing is already constrained.
+>
+> - Checking whether header ornament sizing is already constrained.
+> - Strengthen the header ornament constraint so inline-styled SVGs from JSON can't override it
+> - **Done**
+
+## User:
+
+> 9/29/2026 2:29:42
+
+המשך!!!
+
+## Assistant:
+
+> 9/29/2026 2:29:45
+
+> Fixing responsive image sizing to block inline-style overrides.
+>
+> - Fixing responsive image sizing to block inline-style overrides.
+> - Check column divider handling in v4
+> - **Done**
+
+## User:
+
+> 9/29/2026 11:26:16
+
+המשך!!!
+
+## Assistant:
+
+> 9/29/2026 11:26:19
+
+> Viewed file
+>
+> - Check existing divider handling at line 2459
+> - **Done**
+
+## User:
+
+> 9/29/2026 16:27:23
+
+המשך!!!
+
+## Assistant:
+
+> 9/29/2026 16:27:26
+
+> Verifying the source of a prior version's fix.
+>
+> - Verifying the source of a prior version's fix.
+> - Verify the divider fix is complete
+> - **Done**
+
+## User:
+
+> 9/29/2026 21:22:21
+
+המשך!!!
+
+## Assistant:
+
+> 9/29/2026 21:22:24
+
+> Ran command
+>
+> - Check balanceColumns' availableHeight usage in v4
+> - **Done**
+
+## User:
+
+> 9/30/2026 2:21:04
+
+המשך!!!
+
+## Assistant:
+
+> 9/30/2026 2:21:18
+
+> Confirming the penalty-based fix already prevents overflow.
+>
+> - Confirming the penalty-based fix already prevents overflow.
+> - **Done**
+
+עדכני ומתוחכם יותר משלי (עונש בתוך אלגוריתם הבחירה עצמו, לא רק שומר אחרי). לא נדרש תיקון שם. בודק עכשיו עם המסמך האמיתי:
+
+> Ran command
+>
+> - Verify syntax validity of all edited files before testing
+> - **Done**
+
+## User:
+
+> 9/30/2026 12:51:18
+
+המשך!!! עיקר הדיוק צריך להיות בתיקונים וישורים ומניעת מילים וכותרות אלמנות\יתומים, ובדיוק החלת כל אחד אחרי כל שלב של שינוי בטקסט.
+
+## Assistant:
+
+> 9/30/2026 12:51:43
+
+> בונה בדיקה מקיפה לאיתור הפרות יתומות ואלמנות
+>
+> - הגדרת זיהוי שורות בודדות בתחילת ובסוף עמודה.
+> - בונה בדיקה מקיפה לאיתור הפרות יתומות ואלמנות
+> - Check function names, widow/orphan defaults, and JSON dependencies in v4
+> - **Done**
+
+## User:
+
+> 9/30/2026 17:50:21
+
+המשך!!!
+
+## Assistant:
+
+> 9/30/2026 17:50:53
+
+> Ran command
+>
+> - Set up mocks and run the comprehensive widow/orphan/overflow checker on v4 baseline
+> - **Done**
+
+## User:
+
+> 9/30/2026 23:27:23
+
+המשך!!!
+
+## Assistant:
+
+> 9/30/2026 23:29:29
+
+> בודק את רגישות הבודק עם הגנות כבויות ובדיקות עומס
+>
+> - Checking the document baseline for layout issues.
+> - בודק את רגישות הבודק עם הגנות כבויות ובדיקות עומס
+> - Sensitivity test and font-size stress tests with the real document
+> - **Done**
+
+## User:
+
+> 10/1/2026 9:43:17
+
+המשך!!!
+
+## Assistant:
+
+> 10/1/2026 9:43:41
+
+> בודקת היכן ההגנה מפני כותרות יתומות נכשלת
+>
+> - Designing a cleanup step to reclaim orphaned headings after filling.
+> - בודקת היכן ההגנה מפני כותרות יתומות נכשלת
+> - Locate all heading back-track and widow/orphan logic in the main loops
+> - **Done**
+
+## User:
+
+> 10/1/2026 20:00:57
+
+המשך!!!
+
+## Assistant:
+
+> 10/1/2026 20:00:59
+
+> Viewed file
+>
+> - View the main 2-col fill loop: column-full check, heading handling, back-track, widow/orphan
+> - **Done**
+
+## User:
+
+> 10/2/2026 8:59:43
+
+המשך!!!
+
+## Assistant:
+
+> 10/2/2026 9:00:36
+
+> Adding a final validator to keep balanced columns consistent.
+>
+> - Adding a final validator to keep balanced columns consistent.
+> - View the span_1col heading branch and block creation for orphan-heading protection
+> - **Done**
+
+## User:
+
+> 10/2/2026 14:05:22
+
+המשך!!!
+
+## Assistant:
+
+> 10/2/2026 14:05:33
+
+> Checking span headings for missing keep-with-next protection.
+>
+> - Checking span headings for missing keep-with-next protection.
+> - View the start of the per-block column loop and the end of the block (after fill) logic
+> - **Done**
+
+## User:
+
+> 10/3/2026 19:39:16
+
+המשך!!!
+
+## Assistant:
+
+> 10/3/2026 19:39:18
+
+> Viewed file
+>
+> - View heading placement tail, paragraph handling, and block post-fill logic
+> - **Done**
+
+## User:
+
+> 10/4/2026 1:58:05
+
+המשך!!!
+
+## Assistant:
+
+> 10/4/2026 1:59:07
+
+> Extending the heading-release fix to single-column layouts.
+>
+> - Extending the heading-release fix to single-column layouts.
+> - View the span_1col heading branch precisely to add keep-with-next
+> - **Done**
+
+## User:
+
+> 10/4/2026 8:35:29
+
+המשך!!!
+
+## Assistant:
+
+> 10/4/2026 8:35:46
+
+> Placing the release call where trailing headings linger unmatched.
+>
+> - Placing the release call where trailing headings linger unmatched.
+> - View the paragraph fit and widow/orphan block to restructure
+> - **Done**
+
+## User:
+
+> 10/4/2026 14:11:40
+
+המשך!
+
+## Assistant:
+
+> 10/4/2026 14:11:55
+
+> Iterating the retry loop until the widow fix stabilizes.
+>
+> - Iterating the retry loop until the widow fix stabilizes.
+> - Read adjustFitLineForNoteSpans to understand when it can return 0 or change the fit
+> - **Done**
+
+## User:
+
+> 10/4/2026 19:16:16
+
+המשך!
+
+## Assistant:
+
+> 10/4/2026 19:16:32
+
+> Drafting a plan to handle heading widows and overflow.
+>
+> - Drafting a plan to handle heading widows and overflow.
+> - View area after getFootnotesReservedHeight to insert helper functions
+> - **Done**
+
+## User:
+
+> 10/5/2026 0:10:25
+
+המשך!
+
+## Assistant:
+
+> 10/5/2026 0:10:27
+
+> Ran command
+>
+> - Check headingPageMap scope and back up before the widow/orphan restructure
+> - **Done**
+
+## User:
+
+> 10/8/2026 19:53:21
+
+המשך!
+
+## Assistant:
+
+> 10/8/2026 19:53:25
+
+> Restructuring the typesetting code with new helper functions.
+>
+> - Restructuring the typesetting code with new helper functions.
+> - Check anchor uniqueness and all callers of adjustFitLineForNoteSpans
+> - **Done**
+
+## User:
+
+> 10/9/2026 13:05:20
+
+Continue
+
+## Assistant:
+
+> 10/9/2026 13:05:26
+
+> Fixing a recurring widow issue in a typesetting script.
+>
+> - Fixing a recurring widow issue in a typesetting script.
+> - Check what persisted after the reset
+> - **Done**
+
+## User:
+
+> 10/10/2026 19:44:35
+
+Continue
+
+## Assistant:
+
+> 10/10/2026 19:44:48
+
+> מאתחל את הסביבה ומשחזר את עבודת v4 מגובה
+>
+> - Checking the output directory for existing file versions.
+> - מאתחל את הסביבה ומשחזר את עבודת v4 מגובה
+> - Rebuild the v4 working directory in persistent storage
+> - **Done**
+
+## User:
+
+> 10/11/2026 0:53:57
+
+Continue
+
+## Assistant:
+
+> 10/11/2026 0:54:20
+
+> Writing a patch script to apply known code edits safely.
+>
+> - Writing a patch script to apply known code edits safely.
+> - Create the repeatable patch script with P1-P4 and apply it
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/apply_patches.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fapply_patches.py)
+
+> File: [/mnt/user-data/outputs/work_v4/style.css](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fstyle.css)
+
+> File: [/mnt/user-data/outputs/work_v4/typesetter.js](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Ftypesetter.js)
+
+## User:
+
+> 10/11/2026 5:52:24
+
+הסבר בעברית מה נעשה ומה פשר הקבצים ששיתפת!
+
+## Assistant:
+
+> 10/11/2026 5:52:50
+
+> ריכוז הממצאים לקראת ניסוח התשובה.
+>
+> - ריכוז הממצאים לקראת ניסוח התשובה.
+> - **Done**
+
+## מה קרה בשלב האחרון
+
+**הרקע:** העלית "גרסת-על" שמאחדת כמה גרסאות. פיצלתי אותה לחמשת הקבצים (`index.html`, `style.css`, `app.js`, `decorations.js`, `typesetter.js`) והשוויתי אותה לתיקונים שפיתחתי קודם.
+
+**מה כבר היה בה:** תיקון הגריד (`align-items:start`), `resolveHeaderAlign` לכותרות מתחלפות, תיקון קו-המפריד בין הטורים, וניהול השינויים הממתינים (אפילו מוצלח משלי, כי הוא על האזנה אחת לכל הפאנל). גם בחירת נקודת הפיצול ב-`balanceColumns` כבר כוללת עונש על חריגה מהגובה הפנוי.
+
+**מה חסר בה, ומה הוספתי (טלאים P1–P4):**
+- **P1:** הגנה שמונעת מאיזון הטורים לחתוך הערת-שוליים באמצע, כי חיתוך כזה מוחק אותה בשקט.
+- **P2:** חיבור מחדש של "איזון סוף-פרק". הפונקציה הייתה מוגדרת ולא נקראה מאף מקום.
+- **P3:** מדידת גובה כותרת הפרק לפי המיקום בפועל, ולא לפי סכום מרווחים. מרווחים אנכיים סמוכים מתמזגים ואינם מצטברים. זה תיקון נכון לוגית, אבל לא הצלחתי לשחזר איתו את הבעיה מצילומי המסך שלך, ולכן **אני לא מבטיח שהוא פותר אותה**.
+- **P4:** חיזוק ה-CSS של עיטורי כותרת עליונה, כדי ש-SVG עם גודל פנימי לא יתנפח.
+
+## הקבצים ששיתפתי
+הצגתי אותם מתוך התיקייה `work_v4`, שיצרתי כי שטח העבודה שלי אופס פעמיים ואיבדתי עבודה:
+- **`apply_patches.py`** מייצר את קבצי העבודה מחדש מקבצי המקור (`orig_*`) בתוספת כל הטלאים. כך אפשר לשחזר הכול גם אם המערכת מתאפסת.
+- **`typesetter.js`** ו-**`style.css`** הם הקבצים אחרי P1–P4.
+
+**אלה קבצי ביניים, לא גרסה סופית.** התיקיה מכילה גם קובצי JSON ריקים לבדיקות ועותק של המסמך שלך.
+
+## מה עוד לא נעשה
+בדקתי את המסמך שלך בכמה גדלי גופן:
+
+| גודל גופן | כותרות יתומות | שורות יתומות/אלמנות |
+|---|---|---|
+| 12pt (בסיס) | 0 | 0 |
+| 11pt | 4 | 3 |
+| 12.6pt | 7 | 2 |
+| 13.4pt | 8 | 15 |
+| 14.2pt | 5 | 0 |
+
+כלומר ההגנה עובדת במקרה אחד בלבד. מצאתי בקוד כמה סיבות:
+- כותרת נשארת אחרונה בטור כשהטור מסתיים בנתיב שלא מחזיר אותה לזרם.
+- דגל "יש תוכן בעמוד" נקבע לכל בלוק ולא לכל עמוד.
+- בדיקת הערות-שוליים רצה אחרי בדיקת יתומות/אלמנות ועלולה ליצור הפרה חדשה.
+- לכותרות רוחביות אין בדיקת "ליווי לשורות הבאות".
+- כשכותרת מוזזת, מספר העמוד שלה בתוכן העניינים נשאר ישן.
+
+**הצעד הבא:** לממש את זה כטלאי P5, להריץ שוב את הבדיקה בכל גדלי הגופן ולוודא שאין הפרות.
+
+עוד לא בדקתי את תיאוריית טעינת-הגופנים לבעיית "העמוד הקצר מדי".
+
+## User:
+
+> 10/11/2026 11:57:53
+
+המשך עד לגרסה הסופית והמושלמת!!
+
+## Assistant:
+
+> 10/11/2026 11:57:58
+
+> Fixing document layout issues like widows and orphans.
+>
+> - Fixing document layout issues like widows and orphans.
+> - Verify persistence and locate anchors for the P5 patch
+> - **Done**
+
+## User:
+
+> 10/11/2026 17:26:35
+
+Continue
+
+## Assistant:
+
+> 10/11/2026 17:26:38
+
+> Ran command
+>
+> - View note-span adjust function, page-level vars, block start and heading placement
+> - **Done**
+
+## User:
+
+> 10/11/2026 22:41:32
+
+Continue
+
+## Assistant:
+
+> 10/11/2026 22:41:36
+
+> Debugging overflow logic for heading removal in layout.
+>
+> - Debugging overflow logic for heading removal in layout.
+> - View heading tail and paragraph fit/widow/orphan code for exact patch text
+> - **Done**
+
+## User:
+
+> 10/12/2026 8:41:08
+
+Continue
+
+## Assistant:
+
+> 10/12/2026 8:41:47
+
+> מעקב אחר שחרור פסקאות שלא הושלמו בטור.
+>
+> - מעקב אחר שחרור פסקאות שלא הושלמו בטור.
+> - Updating memory
+> - **Done**
+
+## User:
+
+> 10/12/2026 14:28:12
+
+Continue
+
+## Assistant:
+
+> 10/12/2026 14:28:15
+
+> Organizing the project's area file and planning further setup.
+>
+> - Organizing the project's area file and planning further setup.
+> - Reading memory
+> - **Done**
+
+## User:
+
+> 10/12/2026 21:00:06
+
+Continue
+
+## Assistant:
+
+> 10/12/2026 21:00:11
+
+> Used tool
+>
+> - Updating memory
+> - **Done**
+
+## User:
+
+> 10/13/2026 2:28:55
+
+Continue
+
+## Assistant:
+
+> 10/13/2026 2:28:59
+
+> Ran command
+>
+> - Print adjustFitLineForNoteSpans and the end of the column fill loop for exact patch anchors
+> - **Done**
+
+## User:
+
+> 10/13/2026 13:34:48
+
+Continue
+
+## Assistant:
+
+> 10/13/2026 13:34:57
+
+> Tracking down a pagination height-check bug.
+>
+> - Tracking down a pagination height-check bug.
+> - Print the span_1col heading branch exact text
+> - **Done**
+
+## User:
+
+> 10/13/2026 18:41:25
+
+Continue
+
+## Assistant:
+
+> 10/13/2026 18:41:31
+
+> Drafting patch helpers for the widow-handling code fix.
+>
+> - Drafting patch helpers for the widow-handling code fix.
+> - Print adjustFitLineForNoteSpans exactly
+> - **Done**
+
+## User:
+
+> 10/14/2026 1:44:32
+
+Continue
+
+## Assistant:
+
+> 10/14/2026 1:44:49
+
+> Locating exact markers for paragraph block replacement.
+>
+> - Locating exact markers for paragraph block replacement.
+> - Print the tail of the column loop with visible whitespace for an exact anchor
+> - **Done**
+
+## User:
+
+> 10/14/2026 13:54:53
+
+Continue
+
+## Assistant:
+
+> 10/14/2026 13:55:10
+
+> Spotting an infinite-loop risk from repeated heading releases.
+>
+> - Spotting an infinite-loop risk from repeated heading releases.
+> - Print the span heading placement section for exact patch text
+> - **Done**
+
+## User:
+
+> 10/14/2026 19:16:40
+
+Continue
+
+## Assistant:
+
+> 10/14/2026 19:17:03
+
+> Refining widow and orphan rules for split paragraphs.
+>
+> - Refining widow and orphan rules for split paragraphs.
+> - Verify anchors for the P5 patch are unique
+> - **Done**
+
+## User:
+
+> 10/15/2026 1:12:21
+
+Continue
+
+## Assistant:
+
+> 10/15/2026 1:12:44
+
+> Ran command, presented file
+>
+> - Create and apply the P5 widow/orphan patch set
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/patches_widow.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fpatches_widow.py)
+
+## User:
+
+> 10/15/2026 7:58:31
+
+Continue
+
+## Assistant:
+
+> 10/15/2026 7:58:36
+
+> Rebuilding the lost checker script for span heading validation.
+>
+> - Rebuilding the lost checker script for span heading validation.
+> - Find class names used for H0 single-column pages and span heading blocks
+> - **Done**
+
+## User:
+
+> 10/15/2026 15:24:52
+
+Continue
+
+## Assistant:
+
+> 10/15/2026 15:26:37
+
+> Ran command, presented file
+>
+> - Run the widow/orphan checker on the patched version across body font sizes
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/checker.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fchecker.py)
+
+## User:
+
+> 10/15/2026 20:56:47
+
+Continue
+
+## Assistant:
+
+> 10/15/2026 20:57:23
+
+> בודק את המקרה החריג האחרון בבדיקת יתומות ואלמנות
+>
+> - Investigating a lingering single-line widow at column top.
+> - בודק את המקרה החריג האחרון בבדיקת יתומות ואלמנות
+> - Inspect the remaining single-line widow case on page 53 at 12.6pt
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/debug_widow.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fdebug_widow.py)
+
+## User:
+
+> 10/16/2026 12:01:16
+
+Continue
+
+## Assistant:
+
+> 10/16/2026 12:03:37
+
+> Refining the probe method to avoid side effects on rendering.
+>
+> - Refining the probe method to avoid side effects on rendering.
+> - Add rendered-line-count remainder probe to the orphan rule and re-run the checker
+> - **Done**
+
+## User:
+
+> 10/16/2026 17:32:51
+
+Continue
+
+## Assistant:
+
+> 10/16/2026 17:33:26
+
+> Debugging a persistent widow despite the earlier fix attempt.
+>
+> - Debugging a persistent widow despite the earlier fix attempt.
+> - Instrument the decision for token 295 to see why a 17|1 split survives
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/dbg_run.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fdbg_run.py)
+
+## User:
+
+> 10/17/2026 19:41:30
+
+Continue
+
+## Assistant:
+
+> 10/17/2026 19:42:13
+
+> Comparing column widths to explain the rendering gap.
+>
+> - Comparing column widths to explain the rendering gap.
+> - Compare widths and styles of the two chunks of paragraph 295
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/dbg_cols.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fdbg_cols.py)
+
+## User:
+
+> 10/18/2026 0:54:59
+
+Continue
+
+## Assistant:
+
+> 10/18/2026 0:55:50
+
+> Debugging why the probe renders extra lines unexpectedly.
+>
+> - Debugging why the probe renders extra lines unexpectedly.
+> - Log predicted line lengths and remainder text for token 295
+> - **Done**
+
+## User:
+
+> 10/18/2026 8:35:06
+
+Continue
+
+## Assistant:
+
+> 10/18/2026 8:35:24
+
+> התאמת לולאת המדידה לעיבוד הסופי של ההערות.
+>
+> - התאמת לולאת המדידה לעיבוד הסופי של ההערות.
+> - Check applyDelimiterStyles dry-run support and the candidate-fit loop text
+> - **Done**
+
+## User:
+
+> 10/18/2026 14:26:42
+
+Continue
+
+## Assistant:
+
+> 10/18/2026 14:26:45
+
+> Ran command
+>
+> - View the body of the candidate-fit loop to see how footnote text is handled during measurement
+> - **Done**
+
+## User:
+
+> 10/18/2026 19:25:06
+
+Continue
+
+## Assistant:
+
+> 10/18/2026 19:25:20
+
+> Styling delimiters during measurement to tighten height estimates.
+>
+> - Styling delimiters during measurement to tighten height estimates.
+> - Confirm dry-run support in applyDelimiterStyles and where pendingFnMatches is defined
+> - **Done**
+
+## User:
+
+> 10/19/2026 2:35:28
+
+Continue
+
+## Assistant:
+
+> 10/19/2026 2:37:13
+
+> Patching the loop to apply delimiter styles during measurement.
+>
+> - Patching the loop to apply delimiter styles during measurement.
+> - Add dry-run note substitution to the measuring loop and probe, then re-run all-size checks
+> - **Done**
+
+## User:
+
+> 10/19/2026 10:06:42
+
+Continue
+
+## Assistant:
+
+> 10/19/2026 10:06:47
+
+> Debugging a failed patch script modification attempt.
+>
+> - Debugging a failed patch script modification attempt.
+> - Show the exact probe line in the patch file
+> - **Done**
+
+## User:
+
+> 10/19/2026 15:25:11
+
+Continue
+
+## Assistant:
+
+> 10/19/2026 15:25:21
+
+> Debugging a Python-embedded JavaScript string insertion issue.
+>
+> - Debugging a Python-embedded JavaScript string insertion issue.
+> - Correctly add the dry-run probe line and the P6 patch, then rebuild
+> - **Done**
+
+## User:
+
+> 10/19/2026 22:12:21
+
+Continue
+
+## Assistant:
+
+> 10/19/2026 22:13:49
+
+> Ran command
+>
+> - Run the all-sizes check after the P6 note-aware measurement patch
+> - **Done**
+
+## User:
+
+> 10/20/2026 4:09:55
+
+Continue
+
+## Assistant:
+
+> 10/20/2026 4:10:44
+
+> בודקת את עמוד הסימן הראשון ונתיב כותרת-0
+>
+> - Designing a font-reload listener to fix stale measurements.
+> - בודקת את עמוד הסימן הראשון ונתיב כותרת-0
+> - Measure end-of-text gaps on chapter-first pages versus regular pages, and H0 coverage
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/chapter_gap.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fchapter_gap.py)
+
+## User:
+
+> 10/20/2026 12:43:52
+
+Continue
+
+## Assistant:
+
+> 10/20/2026 12:44:30
+
+> Measuring the vertical gap between chapter pages and regular pages.
+>
+> - Measuring the vertical gap between chapter pages and regular pages.
+> - Compare the engine's computed used-height against the real position of the first text block
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/dbg_used.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fdbg_used.py)
+
+## User:
+
+> 10/20/2026 22:37:17
+
+Continue
+
+## Assistant:
+
+> 10/20/2026 22:37:59
+
+> Investigating why content height exceeds the flow's budget.
+>
+> - Investigating why content height exceeds the flow's budget.
+> - Print real top/bottom positions of each child in a chapter-first page's flow
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/dbg_flow.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fdbg_flow.py)
+
+## User:
+
+> 10/21/2026 7:52:01
+
+Continue
+
+## Assistant:
+
+> 10/21/2026 7:52:52
+
+> Tracing how the measurement bug shrinks placed content.
+>
+> - Tracing how the measurement bug shrinks placed content.
+> - Fix the scale-sensitive measurement in P3 (use unscaled offset values) and remeasure chapter-first-page gaps
+> - **Done**
+
+## User:
+
+> 10/21/2026 16:46:42
+
+Continue
+
+## Assistant:
+
+> 10/21/2026 16:46:48
+
+> Analyzing chapter page gaps to spot the irregular entry.
+>
+> - Analyzing chapter page gaps to spot the irregular entry.
+> - View window.onload in app.js to place the font-loading re-typeset hook
+> - **Done**
+
+## User:
+
+> 10/21/2026 23:01:49
+
+Continue
+
+## Assistant:
+
+> 10/21/2026 23:01:56
+
+> Reviewing how builtin font loading is handled in the code.
+>
+> - Reviewing how builtin font loading is handled in the code.
+> - View the end of window.onload
+> - **Done**
+
+## User:
+
+> 10/22/2026 5:42:55
+
+Continue
+
+## Assistant:
+
+> 10/22/2026 5:43:05
+
+> Tracing document typesetting functions across versions.
+>
+> - Tracing document typesetting functions across versions.
+> - Add the font-loading re-typeset hook (P7) and rebuild
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/app.js](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fapp.js)
+
+## User:
+
+> 10/22/2026 10:45:05
+
+Continue
+
+## Assistant:
+
+> 10/22/2026 10:45:09
+
+> Ran command
+>
+> - List ornament-related control ids in v4
+> - **Done**
+
+## User:
+
+> 10/22/2026 15:58:46
+
+Continue
+
+## Assistant:
+
+> 10/22/2026 15:58:52
+
+> Investigating how heading ornament text-fit checkbox works.
+>
+> - Investigating how heading ornament text-fit checkbox works.
+> - Read the JSON ornament loader schema in v4
+> - **Done**
+
+## User:
+
+> 10/22/2026 22:10:01
+
+Continue
+
+## Assistant:
+
+> 10/22/2026 22:11:37
+
+> Designing decorative SVG ornaments for the layout.
+>
+> - Designing decorative SVG ornaments for the layout.
+> - Test the user's ornament scenario: chapter-first-page gaps and overflow with and without ornaments
+> - **Done**
+
+## User:
+
+> 10/23/2026 14:09:58
+
+Continue
+
+## Assistant:
+
+> 10/23/2026 14:09:58
+
+> Presented file
+>
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/orn_scenario.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Forn_scenario.py)
+
+## User:
+
+> 10/24/2026 19:48:44
+
+Continue
+
+## Assistant:
+
+> 10/24/2026 19:49:52
+
+> Recomputing available space from each block's real position.
+>
+> - Recomputing available space from each block's real position.
+> - View the 2-col block creation to add geometric calibration of the available height
+> - **Done**
+
+## User:
+
+> 10/25/2026 1:15:31
+
+Continue
+
+## Assistant:
+
+> 10/25/2026 1:17:19
+
+> התלבטות בשימוש בנתוני גיאומטריה לעומת נוסחה מקורית.
+>
+> - התלבטות בשימוש בנתוני גיאומטריה לעומת נוסחה מקורית.
+> - Add the geometric available-height calibration (P8) and compare it with the formula-based value
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/dbg_geo.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fdbg_geo.py)
+
+## User:
+
+> 10/25/2026 12:47:58
+
+Continue
+
+## Assistant:
+
+> 10/25/2026 12:48:28
+
+> Validating the formula against exact block-level calibration results.
+>
+> - Validating the formula against exact block-level calibration results.
+> - Inspect header alignment controls and resolveHeaderAlign implementation
+> - **Done**
+
+## User:
+
+> 10/25/2026 23:33:31
+
+Continue
+
+## Assistant:
+
+> 10/25/2026 23:34:30
+
+> Untangling page-side logic for right-to-left book layouts.
+>
+> - Untangling page-side logic for right-to-left book layouts.
+> - Test alternating headers: outer alignment and centering on odd/even pages
+> - Presenting file(s)...
+> - **Done**
+
+> File: [/mnt/user-data/outputs/work_v4/hdr_test.py](https://claude.ai/api/organizations/9df1540a-f17c-4efa-9a4f-1a04372f1d50/conversations/5a1998c5-66f8-4d60-b35d-ac81031a7944/wiggle/download-file?path=%2Fmnt%2Fuser-data%2Foutputs%2Fwork_v4%2Fhdr_test.py)
+
+## User:
+
+> 10/26/2026 8:24:38
+
+Continue
+
+## Assistant:
+
+> 10/26/2026 8:27:45
+
+> בודקת את מיקום הכותרות בעמודי הספר.
+>
+> - בודקת את מיקום הכותרות בעמודי הספר.
+> - Find how alternating headers are controlled in v4
+> - **Done**
+
+## User:
+
+> 10/26/2026 14:54:13
+
+Continue
+
+## Assistant:
+
+> 10/26/2026 14:54:24
+
+> Investigating header toggle behavior across versions.
+>
+> - Investigating header toggle behavior across versions.
+> - Inspect the alternating header toggle and the header control ids
+> - **Done**
+
+Powered by Claude Exporter (https://www.ai-chat-exporter.net)
