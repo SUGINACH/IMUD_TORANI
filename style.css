@@ -1138,6 +1138,23 @@ body.tabs-not-ready #sidebar::before {
     align-items: start;
 }
 
+/* Explicit structural fallback for a short terminal fragment with no legal two-column split.
+   The visible fragment spans both text columns; the opposite column and central rule are hidden.
+   Side-margin tracks remain intact so existing side-note anchors retain their side. */
+.block-2col.layout-full-width-terminal-residual .col-gutter-divider {
+    display: none !important;
+}
+.block-2col.layout-full-width-terminal-residual[data-layout-balance-fallback-side="right"] .right-col,
+.block-2col.layout-full-width-terminal-residual[data-layout-balance-fallback-side="left"] .left-col {
+    grid-column: 3 / 6 !important;
+    width: 100%;
+    min-width: 0;
+}
+.block-2col.layout-full-width-terminal-residual[data-layout-balance-fallback-side="right"] .left-col,
+.block-2col.layout-full-width-terminal-residual[data-layout-balance-fallback-side="left"] .right-col {
+    display: none !important;
+}
+
 /* קו מפריד אנכי בין הטורים (יושב בתוך עמודה 4 - מרזב) */
 .col-gutter-divider {
     grid-column: 4;
