@@ -403,3 +403,135 @@ Commit `b54961e182267ebfaf77e714893873c49295a961` prints the ledger/DOM parity, 
 Commit `a77590094012d1a0d97688de219f2fb4e0d0b170` moves the complete post-parenthesis paragraph snapshot into an in-memory `Map`. Only the compact diagnostic (including capped changed-paragraph samples) is serialized onto each block. The final-stage comparison reads the in-memory snapshot directly. This avoids placing potentially large arrays of line rectangles into DOM attributes and then serializing/parsing them again; it preserves the same measured values while reducing DOM attribute size and serialization overhead.
 
 The latest long-document run for this optimization is pending behind earlier runs. Static parsing of `typesetter.js` and `tools/geometry-audit-cli.js` passed, but runtime overhead and the final integrity gate remain to be verified.
+
+---
+
+## 11. ארכיטקטורת איזון דינמי (עדכון 2026-10-26)
+
+> סעיף זה מתעד את מערכת האיזון הדינמי שנוספה בשלבים 1-3 (word-spacing, para-spacing, line-height) ואת התיקונים שבוצעו כדי למנוע רגרסיות overshoot.
+
+### 11.1 רכיבי המערכת
+
+המערכת מורכבת מ-3 כלים היררכיים, מהשקוף לקריטי:
+
+| כלי | פונקציה | טווח | מתי מופעל | סיכון |
+|-----|---------|------|-----------|------|
+| רווח מילים | `stretchByWordSpacing` / `compressByWordSpacing` | 0.95-1.05 | רק כש-diff > 15px | בינוני — פועל בקפיצות גדולות |
+| רווח פסקאות | padding-bottom על פסקאות | 0-9px לכל רווח | תמיד (כש-aq-para-spacing פעיל) | נמוך — מדויק |
+| רווח שורות | lineHeight על פסקאות | base עד base+3px | תמיד (כש-aq-line-height פעיל) | בינוני — יכול ל-overshoot מעיגול |
+
+### 11.2 זרימת העבודה ב-`justifyColumnVertically`
+
+```
+justifyColumnVertically(col, targetHeight)
+  ├── בדוק diff = target - col.scrollHeight
+  ├── אם diff <= 0.5 → החזר (כבר ביעד)
+  ├── אם diff > maxStretch → החזר (לא ניתן למתוח)
+  │
+  ├── שלב 0: word-spacing (רק אם diff > 15px ו-useWordSpacing=true)
+  │   └── stretchByWordSpacing(col, diff)
+  │       ├── factor 1.02 → מדוד → אם overshoot > 10px → revert
+  │       └── factor 1.05 → מדוד → אם overshoot > 10px → revert
+  │
+  ├── שלב 1: para-spacing (עד 9px לכל רווח)
+  │   └── per = diff / gapKids.length
+  │       └── k.style.paddingBottom += min(per, maxGap - cur)
+  │
+  └── שלב 2: line-height (עד base+3px, 8 מעברים)
+      └── for pass 0..7:
+          ├── rest = target - col.scrollHeight
+          ├── אם rest <= 0.5 → break
+          ├── e = (rest / totalLines) * 0.5  // 50% מתיחה תיאורטית
+          └── for each paragraph:
+              ├── מדוד currentRest
+              ├── אם currentRest <= 0.5 → break (עצירה מיידית)
+              ├── newLh = min(lh + e, base + cap)
+              └── p.style.lineHeight = newLh
+```
+
+### 11.3 כללי מניעת overshoot
+
+1. **word-spacing רק למתיחות גדולות**: דלג כש-diff < 15px. word-spacing פועל בקפיצות של 15-30px וגורם ל-overshoot כשצריך רק כמה פיקסלים.
+
+2. **revert ב-word-spacing**: אחרי כל factor, בדוק אם התוצאה עברה את היעד ב-+10px. אם כן — חזור לפקטור הקודם.
+
+3. **50% מתיחה תיאורטית ב-line-height**: `e = (rest / totalLines) * 0.5`. הדפדפן מעגל כל שורה כלפי מעלה, ולכן המתיחה בפועל גדולה מהתיאורטית. 50% מפצה על זה.
+
+4. **מדידה אחרי כל פסקה**: בלולאת line-height, בדוק `currentRest` לפני כל פסקה. אם הגענו ליעד — עצור מיידית.
+
+5. **עד 8 מעברים**: במקום 3 מעברים, הגדלנו ל-8 כדי לאפשר התכנסות הדרגתית.
+
+### 11.4 `balanceByWordSpacing` — חלוקת עומס בין טורים
+
+פועל רק ב-Branch 4 (עמוד רגיל) לפני `justifyColumnVertically`:
+
+```
+balanceByWordSpacing(rCol, lCol, diff)
+  ├── בדוק הגדרות: aq-enabled, aq-word-spacing, aq-shared-load
+  ├── בדוק טווח: threshold < |diff| <= maxDiff (2-20px)
+  │
+  ├── כווץ את הארוך: factor = 1.0 - (1.0 - minFactor) * 0.5
+  ├── הרחב את הקצר: factor = 1.0 + (maxFactor - 1.0) * 0.5
+  ├── בדוק תוצאה: אם הפער גדל → revert
+  └── אם עזר אבל עדיין יש פער → נסה פקטורים קיצוניים יותר
+```
+
+### 11.5 הגדרות פאנל "איכות עימוד אוטומטי"
+
+כל ההגדרות נשמרות ב-`default_settings.json` ונשלחות ל-iframe דרך `renderer-bridge.js`:
+
+| הגדרה | ברירת מחדל | תיאור |
+|-------|-----------|-------|
+| `aq-enabled` | true | הפעל/כבה את כל האיזון הדינמי |
+| `aq-word-spacing` | true | הפעל/כבה רווח מילים דינמי |
+| `aq-word-spacing-min` | 0.95 | פקטור כיווץ מינימלי |
+| `aq-word-spacing-max` | 1.05 | פקטור הרחבה מקסימלי |
+| `aq-word-spacing-threshold` | 2 | פער מינימלי לטיפול (px) |
+| `aq-word-spacing-max-diff` | 20 | פער מקסימלי לטיפול (px) |
+| `aq-para-spacing` | true | הפעל/כבה רווח פסקאות דינמי |
+| `aq-para-spacing-max` | 9 | תקרת רווח לכל פסקה (px) |
+| `aq-line-height` | true | הפעל/כבה רווח שורות דינמי |
+| `aq-line-height-max` | 3 | תקרת תוספת לגובה שורה (px) |
+| `aq-shared-load` | true | הפעל/כבה חלוקת עומס בין טורים |
+
+### 11.6 בדיקות גיאומטריה — סיכום סופי
+
+אחרי כל התיקונים (2026-10-26):
+
+| מדד | התחלתי | סופי | שיפור |
+|-----|--------|------|-------|
+| סה"כ בעיות | 370 | 111 | -70% |
+| High severity | 106 | 9 | -92% |
+| imbalance | 63 | 6 | -90% |
+| page-overflow | 0 | 0 | נשמר |
+| page-underfill | — | 6 | (בדיקה חדשה) |
+| containment | 275 | 86 | -69% |
+| פרקים תקינים | 32/79 | 68/79 | +113% |
+
+### 11.7 הוספת אלמנטים חדשים — מדריך
+
+כדי להוסיף אלמנט חדש למנוע העימוד בבטחה:
+
+1. **הגדר את המידות ב-CSS** (`style.css`):
+   - רוחב, גובה, margin, padding
+   - ודא שהאלמנט לא חורג מהטור (`.right-col` / `.left-col`)
+
+2. **הוסף סיווג ב-`geometry-audit.js`** (`classifyElement`):
+   - הוסף `if (cls.includes('my-element')) return { type: 'my-element', tag };`
+   - ודא ש-`DESCEND_INTO` כולל את הסוג אם יש לו ילדים משמעותיים
+
+3. **צור את האלמנט ב-`typesetter.js`**:
+   - הוסף פונקציית יצירה (למשל `buildMyElement(...)`)
+   - ודא שהאלמנט נכנס לתוך `block-2col` או `block-single-col`
+   - אל תשכח לקרוא ל-`repositionBlockNotes` אחרי שינויי גובה
+
+4. **הוסף בדיקה ייעודית ב-`geometry-audit.js`** (אופציונלי):
+   - אם האלמנט דורש בדיקה ספציפית, כתוב פונקציית `auditMyElement`
+   - קרא לה מתוך `auditGeometry`
+
+5. **בדוק עם טקסט מלא**:
+   - הרץ `node /home/z/my-project/scripts/test-chapters-enhanced.js 1 79 full-test`
+   - ודא שאין רגרסיה ב-high severity
+
+6. **עדכן את המפה הזו**:
+   - הוסף סעיף תחת סעיף 3 עם התלויות הגיאומטריות של האלמנט החדש
