@@ -1147,8 +1147,9 @@ body.tabs-not-ready #sidebar::before {
 .block-2col.layout-full-width-terminal-residual[data-layout-balance-fallback-side="right"] .right-col,
 .block-2col.layout-full-width-terminal-residual[data-layout-balance-fallback-side="left"] .left-col {
     grid-column: 3 / 6 !important;
-    width: 100%;
+    width: var(--layout-residual-width, 100%) !important;
     min-width: 0;
+    justify-self: center;
 }
 .block-2col.layout-full-width-terminal-residual[data-layout-balance-fallback-side="right"] .left-col,
 .block-2col.layout-full-width-terminal-residual[data-layout-balance-fallback-side="left"] .right-col {
