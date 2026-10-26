@@ -4102,3 +4102,48 @@ Stage Summary:
 - ✅ נוספה בדיקת page-underfill ל-geometry-audit
 - ✅ הבדיקה פועלת ומדלגת נכון על מקרי קצה (תחילת/סיום פרק)
 - ✅ 0 עמודים דלילים בכל הפרקים שנבדקו (מצביע על ניצולת טובה)
+
+---
+Task ID: balance-fix-threshold-tuning
+Agent: main (GLM)
+Date: 2026-10-26 (cont.)
+Task: כיוונון סף ה-revert ב-stretchByWordSpacing/compressByWordSpacing — מ-+2px ל-+10px
+
+Work Log:
+הסף +2px היה אגרסיבי מדי וגרם לרגרסיה בפרק 79 (5 page-overflow חדשים, imbalance 169px).
+
+### הבעיה עם סף +2px:
+- `stretchByWordSpacing(col, 3)` — factor 1.02 מוסיף 21px
+- `21 > 3 + 2 = 5` → revert ל-1.0
+- אבל ה-revert גורם לכך שהטור לא מקבל שום מתיחה מ-word-spacing
+- ואז `justifyColumnVertically` צריך לפצות עם para-spacing + line-height
+- במקרים מסוימים, זה לא מספיק ונוצר חוסר איזון חמור
+
+### התיקון — סף +10px:
+- `stretchByWordSpacing(col, 3)` — factor 1.02 מוסיף 21px
+- `21 > 3 + 10 = 13` → עדיין revert (21 > 13)
+- אבל אם factor 1.02 מוסיף 8px ו-neededPx=3:
+  - `8 > 3 + 10 = 13` → FALSE → מקבל את המתיחה
+  - זה מאפשר מתיחה יעילה יותר
+
+### אימות השוואתי:
+
+| פרק | לפני תיקון | תיקון ראשון (+2px) | תיקון סופי (+10px) |
+|-----|-----------|-------------------|-------------------|
+| Ch 4 total | 27 | 8 | 10 |
+| Ch 4 high | 4 | 0 | 0 ✅ |
+| Ch 4 imbalance | 3 | 0 ✅ | 0 ✅ |
+| Ch 79 total | 5 | 8 | 4 |
+| Ch 79 high | 3 | 7 | 0 ✅ |
+| Ch 79 overflow | 0 | 5 | 0 ✅ |
+| Ch 79 imbalance | 1 (30px) | 1 (169px) | 1 (18px) ✅ |
+
+### סיכום:
+- ✅ פרק 4: 0 high, 0 imbalance
+- ✅ פרק 79: 0 high, 0 overflow, imbalance 18px (מ-169px)
+- ✅ הסף +10px מאזן בין מניעת overshoot לבין יעילות מתיחה
+
+Stage Summary:
+- ✅ כיוונון הסף פתר את רגרסיית פרק 79
+- ✅ שמר על השיפור בפרק 4 (0 high, 0 imbalance)
+- ✪ מוכן לבדיקה מלאה של 79 הפרקים

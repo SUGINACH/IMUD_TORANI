@@ -1000,7 +1000,8 @@ function applyWordSpacing(col, factor) {
    - מחזיר את כמות הפיקסלים שכווצה בפועל
    - מנסה כיווץ הדרגתי: 0.98 → 0.95 → 0.92 → 0.90
    - [תיקון רגרסיה] בודק אחרי כל פקטור אם עברנו את היעד, ואם כן — חוזר לפקטור הקודם.
-     ללא תיקון זה, הפונקציה הייתה מכווצת יותר מדי וגורמת לאי-איזון. */
+     ללא תיקון זה, הפונקציה הייתה מכווצת יותר מדי וגורמת לאי-איזון.
+   - [תיקון נוסף] הסף revert הועלה מ-+2px ל-+10px כדי לאפשר כיווץ יעיל יותר מבלי לגרום לרגרסיה. */
 function compressByWordSpacing(col, neededPx) {
     if (!(neededPx > 0)) return 0;
     const factors = [0.98, 0.95, 0.92, 0.90];
@@ -1012,7 +1013,7 @@ function compressByWordSpacing(col, neededPx) {
         applyWordSpacing(col, f);
         const after = col.scrollHeight;
         const freed = before - after;
-        if (freed > neededPx + 2) {
+        if (freed > neededPx + 10) {
             // כיווצנו יותר מדי — חזור לפקטור הקודם
             applyWordSpacing(col, lastGoodFactor);
             totalFreed = lastGoodHeight - col.scrollHeight;
@@ -1030,7 +1031,8 @@ function compressByWordSpacing(col, neededPx) {
    - מחזיר את כמות הפיקסלים שנוספה בפועל
    - מנסה הרחבה הדרגתית: 1.02 → 1.05 (תקרה נמוכה — מונע גלישה)
    - [תיקון רגרסיה קריטי] בודק אחרי כל פקטור אם עברנו את היעד, ואם כן — חוזר לפקטור הקודם.
-     ללא תיקון זה, הפונקציה הייתה מוסיפה 30-60px גם כשצריך רק 3px, וגורמת לאי-איזון חמור. */
+     ללא תיקון זה, הפונקציה הייתה מוסיפה 30-60px גם כשצריך רק 3px, וגורמת לאי-איזון חמור.
+   - [תיקון נוסף] הסף revert הועלה מ-+2px ל-+10px כדי לאפשר הרחבה יעילה יותר מבלי לגרום לרגרסיה. */
 function stretchByWordSpacing(col, neededPx) {
     if (!(neededPx > 0)) return 0;
     const factors = [1.02, 1.05];
@@ -1042,7 +1044,7 @@ function stretchByWordSpacing(col, neededPx) {
         applyWordSpacing(col, f);
         const after = col.scrollHeight;
         const added = after - before;
-        if (added > neededPx + 2) {
+        if (added > neededPx + 10) {
             // הרחבנו יותר מדי — חזור לפקטור הקודם
             applyWordSpacing(col, lastGoodFactor);
             totalAdded = col.scrollHeight - before;
