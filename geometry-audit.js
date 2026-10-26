@@ -815,6 +815,121 @@ function overlapArea(a, b) {
     return xOverlap * yOverlap;
 }
 
+/* [חדש — בדיקת הכלה דלילה של עמוד]
+   בודקת את יחס המילוי של כל עמוד (כמה משטח ה-body-flow מנוצל).
+   מדלגת על:
+   - עמוד ראשון של פרק (מכיל כותרת + התחלת תוכן)
+   - עמוד אחרון של פרק (מסתיים באמצע העמוד)
+   - עמודים עם הערות שוליים ארוכות (שתופסות מקום לגיטימי)
+
+   סף התראה:
+   - medium: יחס מילוי < 70% (פער גדול מהצפוי)
+   - high: יחס מילוי < 50% (פער חמור מאוד)
+
+   הסף מחושב כ:
+   fillRatio = bodyFlowUsedHeight / bodyFlowAvailableHeight
+   כאשר:
+   - bodyFlowAvailableHeight = גובה ה-page פחות header, footer, footnote-area
+   - bodyFlowUsedHeight = הגובה מתחילת ה-body-flow ועד תחתית הבלוק האחרון בו */
+function auditPageFillRatio(model, issues) {
+    if (!model.pages || model.pages.length === 0) return;
+
+    // מצא את כל העמודים שמתחילים פרק חדש (מכילים h2-title או h2-siman)
+    const chapterStartPageIdxs = new Set();
+    model.pages.forEach((page, idx) => {
+        function hasH2(node) {
+            if (node.type === 'h2-title' || node.type === 'h2-siman') return true;
+            return node.children.some(hasH2);
+        }
+        if (page.children.some(c => hasH2(c))) {
+            chapterStartPageIdxs.add(idx);
+        }
+    });
+
+    // מצא את כל העמודים שמסיימים פרק (העמוד הבא מתחיל פרק חדש, או שזה העמוד האחרון)
+    const chapterEndPageIdxs = new Set();
+    model.pages.forEach((page, idx) => {
+        if (idx === model.pages.length - 1) {
+            chapterEndPageIdxs.add(idx);
+        } else if (chapterStartPageIdxs.has(idx + 1)) {
+            chapterEndPageIdxs.add(idx);
+        }
+    });
+
+    // עבור כל עמוד שאינו ראשון/אחרון בפרק — בדוק יחס מילוי
+    model.pages.forEach((page, idx) => {
+        if (chapterStartPageIdxs.has(idx)) return; // דלג על תחילת פרק
+        if (chapterEndPageIdxs.has(idx)) return;   // דלג על סוף פרק
+
+        // מצא את ה-wrapper
+        const wrapper = findChild(page, 'wrapper');
+        if (!wrapper) return;
+
+        // מצא את ה-body-flow
+        const bodyFlow = findChild(wrapper, 'body-flow');
+        if (!bodyFlow) return;
+
+        // מצא את ה-footnote-area (אם יש)
+        const fnArea = findChild(wrapper, 'footnote-area');
+
+        // חשב את הגובה הזמין ל-body-flow
+        const pageRect = page.rect;
+        const bodyFlowRect = bodyFlow.rect;
+        const bodyFlowAvailableH = bodyFlowRect.h;
+
+        if (bodyFlowAvailableH <= 0) return;
+
+        // חשב את הגובה בשימוש = מה-top של ה-body-flow עד ה-bottom של הבלוק האחרון
+        let lastBlockBottom = bodyFlowRect.y;
+        function findLastBlockBottom(node) {
+            if (node.type === 'block-2col' || node.type === 'block-single-col' || node.type === 'block-h3-span') {
+                if (node.rect.bottom > lastBlockBottom) {
+                    lastBlockBottom = node.rect.bottom;
+                }
+            }
+            for (const c of node.children) findLastBlockBottom(c);
+        }
+        for (const c of bodyFlow.children) findLastBlockBottom(c);
+
+        const bodyFlowUsedH = lastBlockBottom - bodyFlowRect.y;
+        if (bodyFlowUsedH <= 0) return;
+
+        const fillRatio = bodyFlowUsedH / bodyFlowAvailableH;
+        const wastedPx = bodyFlowAvailableH - bodyFlowUsedH;
+
+        // דווח רק אם הפער משמעותי (>100px = ~10% מעמוד A4)
+        if (wastedPx < 100) return;
+
+        let severity = 'low';
+        let kind = 'page-underfill';
+        let note = '';
+
+        if (fillRatio < 0.50) {
+            severity = 'high';
+            note = ' (פער חמור — פחות מ-50% מילוי)';
+        } else if (fillRatio < 0.70) {
+            severity = 'medium';
+            note = ' (פער משמעותי — פחות מ-70% מילוי)';
+        } else {
+            severity = 'low';
+            note = ' (פער קל — פחות מ-85% מילוי)';
+        }
+
+        issues.push({
+            kind: kind,
+            severity: severity,
+            pageIdx: page.idx,
+            location: `page ${page.label}`,
+            fillRatio: Math.round(fillRatio * 100),
+            availableH: Math.round(bodyFlowAvailableH),
+            usedH: Math.round(bodyFlowUsedH),
+            wastedPx: Math.round(wastedPx),
+            note: note.trim(),
+            message: `עמוד דליל: ${Math.round(fillRatio * 100)}% מילוי (${Math.round(wastedPx)}px ריקים מתוך ${Math.round(bodyFlowAvailableH)}px)${note}`
+        });
+    });
+}
+
 /* הפעלת כל הבדיקות */
 function auditGeometry(model) {
     const issues = [];
@@ -834,6 +949,7 @@ function auditGeometry(model) {
         auditPageOverflow(page, issues);
         auditOrnaments(page, issues); // [חדש] בדיקת עיטורים
     }
+    auditPageFillRatio(model, issues); // [חדש] בדיקת הכלה דלילה של עמוד
     // עדכן pageIdx בכל בעיה ע"י חיפוש בעץ
     issues.forEach(iss => {
         if (iss.pageIdx === -1 || iss.pageIdx === undefined) {

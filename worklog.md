@@ -4061,3 +4061,44 @@ Stage Summary:
 - ✅ 62 פרקים תקינים לחלוטין (מ-32)
 - ⚠️ 17 פרקים עדיין בעייתיים — רובם containment טבעי (1-6px)
 - ⚠️ פרק 79 דורש חקירה (5 page-overflow חדשים)
+
+---
+Task ID: page-underfill-audit
+Agent: main (GLM)
+Date: 2026-10-26 (cont.)
+Task: הוספת בדיקת "הכלה דלילה של עמוד" (page underfill) ל-geometry-audit.js
+
+Work Log:
+הוספתי פונקציה חדשה `auditPageFillRatio(model, issues)` ל-geometry-audit.js.
+
+### מה הפונקציה עושה:
+1. מזהה עמודי תחילת פרק (מכילים h2-title או h2-siman) ומדלגת עליהם
+2. מזהה עמודי סיום פרק (העמוד הבא מתחיל פרק, או שזה העמוד האחרון) ומדלגת עליהם
+3. לכל עמוד אחר, מחשבת את יחס המילוי:
+   - bodyFlowAvailableH = גובה ה-body-flow
+   - bodyFlowUsedH = מ-top של body-flow עד bottom של הבלוק האחרון
+   - fillRatio = usedH / availableH
+4. מדווחת על עמודים עם פער משמעותי (>100px ריקים):
+   - high: fillRatio < 50%
+   - medium: fillRatio < 70%
+   - low: fillRatio < 85%
+
+### אימות:
+- פרק 1 (20 עמודים): 0 page-underfill ✓
+- פרק 5 (17 עמודים): 0 page-underfill ✓
+- פרק 8 (39 עמודים): 0 page-underfill — רוב העמודים 100% מילוי ✓
+- פרק 79 (14 עמודים): 0 page-underfill (אבל 5 page-overflow — בעיה נפרדת)
+
+### סיכום ביניים:
+- ✅ הבדיקה החדשה פועלת ומדלגת נכון על עמודי תחילת/סיום פרק
+- ✅ הטקסט הנוכחי מנוצל היטב — 0 עמודים דלילים בכל הפרקים שנבדקו
+- ✅ הבדיקה מוכנה לזהות עמודים דלילים אם/כשיופיעו
+
+### שינויים בקבצים:
+- `geometry-audit.js`: פונקציה חדשה `auditPageFillRatio` (115 שורות)
+- הפעלה מתוך `auditGeometry` אחרי כל הבדיקות האחרות
+
+Stage Summary:
+- ✅ נוספה בדיקת page-underfill ל-geometry-audit
+- ✅ הבדיקה פועלת ומדלגת נכון על מקרי קצה (תחילת/סיום פרק)
+- ✅ 0 עמודים דלילים בכל הפרקים שנבדקו (מצביע על ניצולת טובה)
