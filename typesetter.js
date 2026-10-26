@@ -1671,7 +1671,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             lCol.firstElementChild?.tagName === 'P' && rCol.children.length === 0;
         const residualParagraph = rightOnlyParagraph ? rCol.firstElementChild
             : (leftOnlyParagraph ? lCol.firstElementChild : null);
-        const residualText = residualParagraph?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+        const residualText = residualParagraph?.textContent?.replace(/\s+/g, ' ').trim() || '';
         const residualLines = residualText
             ? getLinesFromParagraph(residualText, colWidth, styleObj, false, false,
                 willParenWrapTokenId(residualParagraph.getAttribute('data-token-id'))).lines.length
