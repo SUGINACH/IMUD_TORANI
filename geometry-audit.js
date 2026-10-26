@@ -918,6 +918,17 @@ function auditColumnBalance(node, issues) {
                 const activeStyle = activeEl ? activeEl.ownerDocument.defaultView.getComputedStyle(activeEl) : null;
                 const inactiveStyle = inactiveEl ? inactiveEl.ownerDocument.defaultView.getComputedStyle(inactiveEl) : null;
                 const activeRect = activeEl ? rectOf(activeEl) : null;
+                const activeParagraph = activeEl?.querySelector(':scope > p') || null;
+                const activeParagraphStyle = activeParagraph
+                    ? activeParagraph.ownerDocument.defaultView.getComputedStyle(activeParagraph) : null;
+                const activeParagraphRect = activeParagraph ? rectOf(activeParagraph) : null;
+                const activeLineHeight = parseFloat(activeParagraphStyle?.lineHeight || '');
+                const activeRenderedLineCount = activeParagraph && Number.isFinite(activeParagraphRect?.h) &&
+                    Number.isFinite(activeLineHeight) && activeLineHeight > 0
+                    ? Math.max(1, Math.round(activeParagraphRect.h / activeLineHeight))
+                    : null;
+                const widowOrphanValid = !activeParagraph?.classList.contains('p-cut') ||
+                    (Number.isFinite(activeRenderedLineCount) && activeRenderedLineCount >= 2);
                 const fallbackValid = ['left', 'right'].includes(side) &&
                     !!activeEl && !!inactiveEl &&
                     activeStyle?.display !== 'none' &&
@@ -926,7 +937,8 @@ function auditColumnBalance(node, issues) {
                     inactiveStyle?.display === 'none' &&
                     !!activeRect && activeRect.w > 0 &&
                     (activeEl.textContent || '').trim().length > 0 &&
-                    inactiveEl.children.length === 0;
+                    inactiveEl.children.length === 0 &&
+                    widowOrphanValid;
                 issues.push({
                     kind: 'structural-fallback',
                     severity: fallbackValid ? 'low' : 'high',
@@ -935,6 +947,9 @@ function auditColumnBalance(node, issues) {
                     balanceOutcome: 'full-width-terminal-residual',
                     fallbackSide: side,
                     fallbackValid,
+                    widowOrphanValid,
+                    activeParagraphClass: activeParagraph?.className || null,
+                    activeRenderedLineCount,
                     activeColumnWidth: Math.round(activeRect?.w || 0),
                     activeRenderedTextLength: (activeEl?.textContent || '').trim().length,
                     inactiveColumnDisplay: inactiveStyle?.display || null,
