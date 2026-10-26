@@ -1530,6 +1530,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     block.removeAttribute('data-layout-balance-fallback-side');
     block.removeAttribute('data-layout-balance-fallback-height-before');
     block.removeAttribute('data-layout-balance-fallback-height-after');
+    block.removeAttribute('data-layout-balance-fallback-width');
     block.setAttribute('data-layout-balance-status', 'started');
     block.setAttribute('data-layout-balance-skip-reason', '');
     block.setAttribute('data-layout-balance-fallback', 'none');
@@ -1563,6 +1564,8 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
 
     const rCol = block.querySelector('.right-col');
     const lCol = block.querySelector('.left-col');
+    rCol?.style.removeProperty('--layout-residual-width');
+    lCol?.style.removeProperty('--layout-residual-width');
     if (!rCol || !lCol) {
         block.setAttribute('data-layout-balance-status', 'skipped');
         block.setAttribute('data-layout-balance-skip-reason', 'missing-column');
@@ -1672,21 +1675,48 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         const residualParagraph = rightOnlyParagraph ? rCol.firstElementChild
             : (leftOnlyParagraph ? lCol.firstElementChild : null);
         const residualText = residualParagraph?.textContent?.replace(/\s+/g, ' ').trim() || '';
-        const residualLines = residualText
-            ? getLinesFromParagraph(residualText, colWidth, styleObj, false, false,
-                willParenWrapTokenId(residualParagraph.getAttribute('data-token-id'))).lines.length
+        const residualHasFirstWordWindow = residualParagraph?.getAttribute('data-is-cont') !== 'true';
+        const residualWillParenWrap = willParenWrapTokenId(residualParagraph?.getAttribute('data-token-id'));
+        const residualLinesAtWidth = width => residualText
+            ? getLinesFromParagraph(residualText, width, styleObj, residualHasFirstWordWindow, false,
+                residualWillParenWrap).lines.length
             : Infinity;
+        const residualLines = residualLinesAtWidth(colWidth);
         const isShortTerminalResidual = items.length === 1 && items[0].type === 'p' &&
             !!residualParagraph && residualLines > 0 && residualLines <= (rules.minFirst + rules.minLast - 1);
 
         if (isShortTerminalResidual) {
             const side = rightOnlyParagraph ? 'right' : 'left';
             const beforeHeight = Math.max(rCol.scrollHeight, lCol.scrollHeight);
+            const activeColumn = side === 'right' ? rCol : lCol;
             block.setAttribute('data-layout-balance-fallback', 'full-width-terminal-residual');
             block.setAttribute('data-layout-balance-fallback-side', side);
             block.classList.add('layout-full-width-terminal-residual');
+
+            // A p-cut must retain at least the configured minimum number of lines.
+            // If spanning both columns would collapse it to a one-line orphan, find
+            // the widest centered measure that still satisfies the widow/orphan rule.
+            let chosenWidth = null;
+            const fullWidth = activeColumn.getBoundingClientRect().width;
+            if (residualParagraph.classList.contains('p-cut') &&
+                residualLinesAtWidth(fullWidth) < rules.minLast) {
+                for (let width = Math.floor(fullWidth); width >= Math.floor(colWidth); width -= 1) {
+                    if (residualLinesAtWidth(width) >= rules.minLast) {
+                        chosenWidth = width;
+                        break;
+                    }
+                }
+                if (chosenWidth === null) {
+                    block.classList.remove('layout-full-width-terminal-residual');
+                    block.removeAttribute('data-layout-balance-fallback-side');
+                    block.setAttribute('data-layout-balance-fallback', 'preserve-existing-flow-no-legal-split');
+                    return;
+                }
+                activeColumn.style.setProperty('--layout-residual-width', chosenWidth + 'px');
+                block.setAttribute('data-layout-balance-fallback-width', String(chosenWidth));
+            }
+
             // Recompute side-note positions against the new width/height geometry.
-            const activeColumn = side === 'right' ? rCol : lCol;
             repositionBlockNotes(block, activeColumn.scrollHeight);
             block.setAttribute('data-layout-balance-fallback-height-before', String(beforeHeight));
             block.setAttribute('data-layout-balance-fallback-height-after',
@@ -5412,6 +5442,7 @@ function typesetDocumentCore() {
                 fallbackSide: blk.getAttribute('data-layout-balance-fallback-side') || null,
                 fallbackHeightBefore: numericAttr('data-layout-balance-fallback-height-before'),
                 fallbackHeightAfter: numericAttr('data-layout-balance-fallback-height-after'),
+                fallbackWidth: numericAttr('data-layout-balance-fallback-width'),
                 policy: blk.getAttribute('data-layout-balance-selection-policy') || null,
                 candidateCount: numericAttr('data-layout-balance-candidates'),
                 selectedCandidateIndex: numericAttr('data-layout-balance-selected-candidate'),
