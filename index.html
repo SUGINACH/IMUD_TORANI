@@ -46,6 +46,8 @@
           <button type="button" id="btn-retypeset" class="btn-tool btn-primary" onclick="typesetDocument()">⚡ עדכן ועמד מחדש</button>
           <button type="button" class="btn-tool btn-import" onclick="document.getElementById('file-txt-import').click()">📄 ייבוא טקסט</button>
           <button type="button" class="btn-tool btn-secondary" onclick="window.print()">🖨️ הדפסה / PDF</button>
+          <button type="button" id="btn-load-extended-fonts" class="btn-tool btn-secondary" onclick="loadExtendedFonts()">📚 טען גופנים נוספים</button>
+          <button type="button" id="btn-export-html" class="btn-tool btn-secondary" onclick="exportRenderedHTML()">💾 ייצוא HTML</button>
           <input type="file" id="file-txt-import" accept=".txt,.text,.md" style="display:none" onchange="handleTxtFileImport(event)">
         </div>
       </div>
@@ -575,6 +577,14 @@
                 <label>רוחב:</label><input type="text" id="dim-note-side-w" value="40px">
                 <label>גובה:</label><input type="text" id="dim-note-side-h" value="0.9em">
               </div>
+              <!-- עיטור כותרת עליונה -->
+              <div class="panel-sub-header">כותרת עליונה — עיטור (ימין / מרכז / שמאל)</div>
+              <div class="dim-box">
+                <label>ממדי עיטור כותרת עליונה:</label>
+                <label>רוחב:</label><input type="text" id="dim-hdr-w" value="46px">
+                <label>גובה:</label><input type="text" id="dim-hdr-h" value="12px">
+              </div>
+
             </div>
           </div>
 
@@ -865,7 +875,13 @@
                   <span class="btn-toggle-box"><span class="check-icon">✓</span>מנע מילה בודדת בשורה האחרונה של פסקה</span>
                 </label>
               </div>
-              <div class="hint">איזון טורים בסוף פרק ולפני כותרות שפורשות טור יחיד מתבצע אוטומטית לפי הצורך בפועל (אין צורך בהגדרה נפרדת).</div>
+              <div class="inline-cfg-row">
+                <label>איזון סוף-פרק:</label>
+                <select id="balance-chapter-end">
+                  <option value="no" selected="selected">לא</option>
+                  <option value="yes">כן (איזון טורים שווה בסוף פרק)</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1319,6 +1335,8 @@
 
   <script src="decorations.js"></script>
   <script src="typesetter.js"></script>
+  <script src="settings-manager.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
+

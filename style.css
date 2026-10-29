@@ -1063,7 +1063,7 @@ body {
     width: 100%;
     display: flex;
     justify-content: center;
-    align-items: stretch;
+    align-items: start;
     pointer-events: none;
 }
 
@@ -1113,14 +1113,15 @@ body {
     align-items: center !important;
     justify-content: center !important;
     flex-shrink: 0 !important;
+    height: 1em !important;
+    max-height: 1.1em !important;
     margin-top: -0.05em;
 }
 .h3-ornament-right svg, .h3-ornament-left svg,
 .h3-ornament-right img, .h3-ornament-left img {
-    width: 100% !important;
-    height: 100% !important;
-    max-width: 100% !important;
+    height: 0.95em !important;
     max-height: 100% !important;
+    width: auto !important;
     object-fit: contain !important;
 }
 
@@ -1612,8 +1613,7 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
     .theme-bounded-content { border: none !important; box-shadow: none !important; }
 }
 
-
-/* מניעת מילה יתומה בכותרות רב-שורתיות: איזון אורך השורות בכותרת (לא משנה את מספר השורות,
+/* [הועבר מ-V20.5] מניעת מילה יתומה בכותרות רב-שורתיות: איזון אורך השורות בכותרת (לא משנה את מספר השורות,
    ולכן גם לא את חישובי הגובה של מנוע העימוד). נתמך ב-Chrome/Edge 114+; בדפדפנים אחרים מתעלמים. */
 .title-level-0, .title-level-1, .title-level-2-standalone, .title-level-3, .title-level-4,
 .title-level-5, .title-level-6, .title-level-7, .title-level-custom,

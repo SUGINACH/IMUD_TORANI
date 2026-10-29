@@ -1,0 +1,11 @@
+# Normalize line endings in the repository (LF); working copies follow the platform.
+* text=auto
+*.woff2 binary
+*.woff  binary
+*.ttf   binary
+*.otf   binary
+*.ico   binary
+*.png   binary
+*.jpg   binary
+*.pdf   binary
+*.docx  binary

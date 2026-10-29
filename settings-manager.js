@@ -61,6 +61,20 @@ function applySettingsToDOM(settings, triggerTypeset) {
         if (el.type === 'checkbox') {
             el.checked = !!val;
         } else if (el.tagName === 'SELECT') {
+            // [Orange] אם הערך השמור אינו קיים ברשימה: בורר גופנים מקבל אופציה חדשה (כדי לשמר את הבחירה
+            // גם כשהגופן נטען מאוחר), כל בורר אחר נשאר על ערכו הנוכחי (לא מרוקנים בחירה).
+            var has = Array.prototype.some.call(el.options, function(o) { return o.value === String(val); });
+            if (!has) {
+                if (el.classList.contains('font-picker') && val) {
+                    var opt = document.createElement('option');
+                    opt.value = String(val);
+                    opt.textContent = String(val).split(',')[0].replace(/['"]/g, '').trim() || String(val);
+                    el.appendChild(opt);
+                    has = true;
+                } else {
+                    return; // דלג על ערך לא זמין
+                }
+            }
             el.value = val;
         } else {
             el.value = val;
@@ -78,22 +92,42 @@ function applySettingsToDOM(settings, triggerTypeset) {
 
 /**
  * collectCurrentSettings — אוסף את כל ערכי ההגדרות הנוכחיים מה-DOM.
+ * אוסף מכל האלמנטים עם id במסמך (לא רק מ-settings-pane), כי בארכיטקטורת ה-iframe
+ * ההגדרות נמצאות ב-#settings-hidden, ובדף הראשי הן ב-#settings-pane.
+ * מתעלם מ: file inputs, כפתורים, ואלמנטים ללא id.
  * @returns {Object}
  */
 function collectCurrentSettings() {
     var settings = {};
-    document.querySelectorAll('#settings-pane select[id], #settings-pane input[id], #settings-pane textarea[id]').forEach(function(el) {
-        if (!el.id || el.type === 'file') return;
+    // אסוף מכל המסמך — תומך גם ב-#settings-pane (דף ראשי) וגם ב-#settings-hidden (iframe)
+    document.querySelectorAll('input[id], select[id], textarea[id]').forEach(function(el) {
+        if (!el.id || el.type === 'file' || el.type === 'button' || el.tagName === 'BUTTON') return;
+        // דלג על אלמנטים שאינם הגדרות
+        if (el.id === 'raw-input' || el.id === 'file-txt-import' || el.id === 'file-import-settings' ||
+            el.id === 'file-cbg-regular-img' || el.id === 'file-cbg-h0Open-img' || el.id === 'file-cbg-h2Open-img' ||
+            el.id === 'file-builder-main-svg' || el.id === 'file-builder-back-svg' || el.id === 'file-builder-sub-svg' ||
+            el.id === 'assets-folder-input' || el.id === 'file-sec-div-img' || el.id === 'file-hdr-c-img' ||
+            el.id === 'file-import-debug' || el.id === 'style-set-select') return;
         if (el.type === 'checkbox') {
             settings[el.id] = el.checked;
         } else {
             settings[el.id] = el.value;
         }
     });
-    // הגדרות נוספות שאינן ב-settings-pane
-    ['font-body', 'font-first-word', 'size-body', 'size-first-word', 'line-height-body'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) settings[id] = el.value;
+    // [חדש] אסוף תיבות סימון של תוכן עניינים (class-based, לא ID-based)
+    // בדף הראשי: אוספים מה-checkboxים המסומנים
+    // ב-iframe: אין checkboxים, אז קוראים מה-hidden input שמכיל את הערך המופרד בפסיקים
+    ['gtoc-show', 'gtoc-grp', 'dtoc-show', 'dtoc-grp'].forEach(function(cls) {
+        var checked = Array.from(document.querySelectorAll('.' + cls + ':checked')).map(function(cb) { return cb.value; });
+        if (checked.length > 0) {
+            settings[cls + 's'] = checked.join(',');
+        } else {
+            // ב-iframe — קרא מה-hidden input
+            var hidden = document.getElementById(cls + 's');
+            if (hidden) {
+                settings[cls + 's'] = hidden.value;
+            }
+        }
     });
     return settings;
 }
@@ -173,28 +207,16 @@ function initStyleSetDropdown() {
 function loadStyleSetsList() {
     var select = document.getElementById('style-set-select');
     if (!select) return;
-    fetch('https://api.github.com/repos/SUGINACH/IMUD_TORANI/contents/setting_sets')
-        .then(function(res) { return res.json(); })
-        .then(function(files) {
-            if (!Array.isArray(files)) return;
-            files.forEach(function(file) {
-                if (file.name.endsWith('.json')) {
-                    var opt = document.createElement('option');
-                    opt.value = file.name;
-                    opt.textContent = file.name.replace('.json', '');
-                    select.appendChild(opt);
-                }
-            });
-        })
-        .catch(function() {
-            // Fallback: שמות ידועים
-            ['קונטרס.json', 'פרשנות.json', 'תלמוד.json'].forEach(function(name) {
-                var opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name.replace('.json', '');
-                select.appendChild(opt);
-            });
-        });
+    // נסה קודם לטעון מקומית מ-setting_sets/ (דרך fetch של directory listing לא זמין,
+    // אז משתמשים ברשימה ידנית של קבצים ידועים).
+    // ניסיון GitHub API נכשל לעתים קרובות (rate limit, CORS), לכן נשתמש ברשימה ידנית.
+    var knownSets = ['קונטרס.json', 'פרשנות.json', 'תלמוד.json'];
+    knownSets.forEach(function(name) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name.replace('.json', '');
+        select.appendChild(opt);
+    });
 }
 
 function exportSettings() {

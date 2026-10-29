@@ -1,0 +1,4 @@
+node_modules/
+tests/layout/results/
+*.log
+docs/generated/

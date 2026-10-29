@@ -117,14 +117,26 @@ function renderHeaderSectionHTML(type, customText, h1Title, h2Title, h3Title, bo
     if (type === 'book_title_split_r') return splitTextInHalf(bookTitle, 'first');
     if (type === 'book_title_split_l') return splitTextInHalf(bookTitle, 'second');
     if (type === 'page_number') return pageNum ? String(pageNum) : '';
-    if (type === 'first_word_last_word') return firstLastWords || '';
+    // [הועבר מ-V20.4] בקוד המקורי firstLastWords לא חושב בשום מקום והאפשרות נשארה ריקה תמיד. כעת מוחזר סימון מקום
+    // (hdr-firstlast) שמתמלא ב-fillHeaderFirstLastWords (typesetter.js) אחרי שכל העמודים סופיים.
+    if (type === 'first_word_last_word') return firstLastWords || '<span class="hdr-firstlast"></span>';
     if (type === 'custom') return customText || '';
 
-    if (HEADER_ORNAMENTS[type]) return HEADER_ORNAMENTS[type];
-    if (EXTERNAL_ALL_ORNAMENTS[type]) return EXTERNAL_ALL_ORNAMENTS[type];
+    const userHdrW = document.getElementById('dim-hdr-w')?.value;
+    const userHdrH = document.getElementById('dim-hdr-h')?.value;
+    const hdrSizeStyle = (userHdrW ? `width: ${userHdrW} !important; ` : '') + (userHdrH ? `height: ${userHdrH} !important; max-height: ${userHdrH} !important; ` : '');
+    
+    if (HEADER_ORNAMENTS[type]) {
+        if (type === 'diamonds') return HEADER_ORNAMENTS[type];
+        const svgNoStyle = HEADER_ORNAMENTS[type].replace(/<svg[^>]*style="[^"]*"/, '<svg');
+        return svgNoStyle.replace(/<svg /, `<svg style="${hdrSizeStyle}" `);
+    }
+    if (EXTERNAL_ALL_ORNAMENTS[type]) {
+        return `<span style="display:inline-flex; align-items:center; ${hdrSizeStyle}">${EXTERNAL_ALL_ORNAMENTS[type]}</span>`;
+    }
     if (type === 'custom_img') {
         const imgSrc = document.getElementById('data-hdr-c-img') ? document.getElementById('data-hdr-c-img').value : '';
-        return imgSrc ? `<img src="${imgSrc}" style="max-height: 18px; max-width: 100%; object-fit: contain; vertical-align: middle;" />` : '';
+        return imgSrc ? `<img src="${imgSrc}" style="object-fit: contain; vertical-align: middle; ${hdrSizeStyle}" />` : '';
     }
     return '';
 }
@@ -612,3 +624,4 @@ function registerExternalDivider(id, svgContent) {
 function registerExternalNoteRule(id, svgContent) {
     NOTE_RULE_GLYPHS[id] = svgContent;
 }
+

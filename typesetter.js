@@ -232,8 +232,11 @@ function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
     const minLines = parseInt(document.getElementById('drop-word-min-lines')?.value, 10) || 2;
     const meetsLineThreshold = (numLines >= minLines) && !isSingleLine;
 
-    const words = text.split(/[ \t\r\n\f\v]+/);   // לא מפצלים לפי U+00A0 (רווח בלתי-שביר שמחבר את שתי המילים האחרונות)
+    const words = text.split(/\s+/);
     if (words.length === 0) return '';
+    const fnOpenD = document.getElementById('fn-delim-open')?.value?.trim() || '[';
+    // מילה ראשונה שמכילה פתיחת הערה: לא עוטפים ב-span (אחרת ההערה מפוצלת בין אלמנטי DOM ולא תזוהה)
+    if (fnOpenD && words.slice(0, Math.min(wordCount, words.length)).some(w => w.includes(fnOpenD))) return applyDibburHamatchil(text);
     const dropWords = words.slice(0, Math.min(wordCount, words.length)).join(' ');
     const restOfText = words.slice(Math.min(wordCount, words.length)).join(' ');
 
@@ -254,7 +257,7 @@ function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
 /* ============================================================
    4. מדידת שורות אטומית עם הגנת הערות שוליים (\uE000)
    ============================================================ */
-/* חיבור מילות שורה למחרוזת. אם שתי המילים האחרונות של הפסקה נמצאות באותה שורה,
+/* [הועבר מ-V20.5] חיבור מילות שורה למחרוזת. אם שתי המילים האחרונות של הפסקה נמצאות באותה שורה,
    מחברים ביניהן ברווח בלתי-שביר (U+00A0) כדי שיישארו יחד גם ברינדור האמיתי
    (מניעת "מילה יתומה": מילה בודדת בשורה האחרונה של פסקה). */
 function joinMeasuredLine(arr, idxs, pairStart, bindPair) {
@@ -295,12 +298,21 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
         return { lines: [], hasWindow: false, numLines: 0 };
     }
 
+    // תצוגת מילה במדידה: כל הערה (גם צמודה למילה) מוחלפת בסימון בגודל סימון-ההערה האמיתי
+    const escOm = (fnOpen || '[').replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const escCm = (fnClose || ']').replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const noteInWordRe = new RegExp(escOm + '[\\s\\S]*?' + escCm, 'g');
+    const displayOf = (w) => {
+        if (fnOpen && fnClose && w.startsWith(fnOpen) && w.endsWith(fnClose)) return ' א ';
+        return w.replace(noteInWordRe, 'א').replace(/\uE000/g, ' ');
+    };
+
     const pMeasure = document.createElement('p');
     pMeasure.style.margin = '0';
     pMeasure.style.padding = '0';
     pMeasure.style.lineHeight = styleObj.lineHeight;
 
-    pMeasure.textContent = text;
+    pMeasure.textContent = text.replace(new RegExp(escOm + '[\\s\\S]*?' + escCm, 'g'), 'א');
     measureContainer.appendChild(pMeasure);
     const singleLineHeight = pMeasure.offsetHeight;
     pMeasure.textContent = "א";
@@ -309,12 +321,15 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
 
     const minLines = parseInt(document.getElementById('drop-word-min-lines')?.value, 10) || 2;
     const mode = document.getElementById('drop-word-mode')?.value || 'window';
-    const shouldApplyWindow = useWindowIfMultipleLines && (numLinesEstimated >= minLines) && (mode === 'window');
+    const wcTmp = parseInt(document.getElementById('drop-word-count')?.value, 10) || 1;
+    const firstWordsHaveNote = !!(fnOpen && words.slice(0, Math.min(wcTmp, words.length)).some(w => w.includes(fnOpen)));
+    const shouldApplyWindow = useWindowIfMultipleLines && (numLinesEstimated >= minLines) && (mode === 'window') && !firstWordsHaveNote;
 
     const wordCount = parseInt(document.getElementById('drop-word-count')?.value, 10) || 1;
     const dropWords = words.slice(0, Math.min(wordCount, words.length)).join(' ').replace(/\uE000/g, ' ');
+    const dropWordsDisplay = words.slice(0, Math.min(wordCount, words.length)).map(displayOf).join(' ');
 
-    // מניעת מילה יתומה בשורה האחרונה: שתי המילים האחרונות נשארות יחד (כמו שתי מילים לפחות בשורה האחרונה).
+    // [הועבר מ-V20.5] מניעת מילה יתומה בשורה האחרונה: שתי המילים האחרונות נשארות יחד.
     // לא חלה כשהפסקה קצרה מדי, או כשהזוג נוגע בחלון "מילה ראשונה".
     const avoidRunt = document.getElementById('avoid-runt-word')?.checked !== false;
     const flowStart = shouldApplyWindow ? wordCount : 0;
@@ -323,18 +338,16 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
 
     let html = '';
     if (shouldApplyWindow) {
-        html += `<span class="first-word-window" id="mw-0">${dropWords}</span> `;
+        html += `<span class="first-word-window" id="mw-0">${dropWordsDisplay}</span> `;
         for (let i = wordCount; i < words.length; i++) {
             const w = words[i];
-            const isNote = w.startsWith(fnOpen) && w.endsWith(fnClose);
-            const displayW = isNote ? ' א ' : w.replace(/\uE000/g, ' ');
+            const displayW = displayOf(w);
             html += `<span id="mw-${i}">${displayW}</span>${(bindPair && i === pairStart) ? '&nbsp;' : ' '}`;
         }
     } else {
         for (let i = 0; i < words.length; i++) {
             const w = words[i];
-            const isNote = w.startsWith(fnOpen) && w.endsWith(fnClose);
-            const displayW = isNote ? ' א ' : w.replace(/\uE000/g, ' ');
+            const displayW = displayOf(w);
             html += `<span id="mw-${i}">${displayW}</span>${(bindPair && i === pairStart) ? '&nbsp;' : ' '}`;
         }
     }
@@ -398,53 +411,6 @@ function adjustFitLineForNoteSpans(lines, bestFitLine) {
     return bestFitLine;
 }
 
-/* ==========================================================================
-   החלטת חיתוך פסקה (כמה שורות נשארות בטור/עמוד הנוכחי) - החלה מדויקת של כל
-   ההגנות בסדר קבוע, וחזרה עד ייצוב, כי כל שלב עלול לשנות את תוצאת קודמו:
-   (1) לא קורעים הערת שוליים באמצע (adjustFitLineForNoteSpans),
-   (2) "יתומה" - אין להעביר שורה בודדת לטור/עמוד הבא,
-   (3) "אלמנה" - אין להשאיר שורה בודדת בתחתית (אם יש משהו מעליה).
-   החזרה: מספר השורות שנשארות כאן; 0 = להעביר את הפסקה כולה הלאה.
-   ========================================================================== */
-function resolveParagraphCut(lines, maxFit, hasContentAbove, avoidWidows, avoidOrphans) {
-    const total = lines.length;
-    if (maxFit <= 0) return 0;
-    if (maxFit >= total) return total;
-    let fit = maxFit;
-    for (let iter = 0; iter < 8; iter++) {
-        const before = fit;
-        fit = adjustFitLineForNoteSpans(lines, fit);
-        if (fit <= 0) return 0;
-        if (fit >= total) return total;
-        // אם לא ניתן לחתוך מעל הערה בלי לחרוג, שלמות ההערה גוברת
-        if (fit > maxFit) return fit;
-        if (avoidOrphans && total - fit === 1 && fit > 1) fit -= 1;
-        if (hasContentAbove) {
-            if (avoidWidows && fit === 1) return 0;
-            if (avoidOrphans && fit === 1 && total - fit === 1) return 0;
-        }
-        if (fit === before) break;
-    }
-    return fit;
-}
-
-/* כותרות (title-level-*) שנשארו בסוף טור בלי טקסט אחריהן ("כותרת יתומה") */
-function trailingHeadingCount(col) {
-    let n = 0;
-    let el = col.lastElementChild;
-    while (el && typeof el.className === 'string' && el.className.startsWith('title-level-')) {
-        n++;
-        el = el.previousElementSibling;
-    }
-    return n;
-}
-function popTrailingHeadings(col) {
-    const n = trailingHeadingCount(col);
-    for (let k = 0; k < n; k++) col.removeChild(col.lastElementChild);
-    return n;
-}
-
-
 /* ============================================================
    5. בניית מעטפת עמוד (כותרות עליונות מתחלפות ועצמאיות)
    ============================================================ */
@@ -452,40 +418,6 @@ function resolveHeaderAlign(align, slot) {
     if (align === 'outer') return slot === 'r' ? 'right' : 'left';
     if (align === 'inner') return slot === 'r' ? 'left' : 'right';
     return align;
-}
-
-/* התאמת עיטור עליון/תחתון לרוחב הטקסט הצמוד - חייבת לרוץ מיד עם
-   ההכנסה של העיטור ל-DOM, לפני שנמדד גובה "used" לתקצוב העמוד;
-   הרצה מאוחרת (post-process, אחרי שכל המסמך כבר עומד) גורמת לכך
-   שהתקצוב מתבסס על מידת העיטור הלא-מותאמת, וזה בדיוק מה שגרם לפער
-   בין "כמה טקסט אמור להיכנס" לבין הגובה שבפועל נראה על המסך. */
-function fitOneHeadingOrnament(ornWrap, isTop) {
-    const fitInner = ornWrap.querySelector('.heading-ornament-wrap.fit-heading-text');
-    if (!fitInner) return;
-    const targetEl = isTop ? ornWrap.nextElementSibling : ornWrap.previousElementSibling;
-    if (!targetEl) return;
-    const textWidth = targetEl.getBoundingClientRect().width;
-    if (textWidth > 0) {
-        fitInner.style.width = textWidth + 'px';
-        fitInner.style.maxWidth = '90%';
-    }
-}
-
-/* אותו עיקרון עבור עיטורי צד (כותרת 2 במצב צדדי, וכותרת 3): לא נותנים
-   לגובה קבוע מההגדרות לנפח את השורה מעבר לגובה הטבעי של הטקסט. */
-function fitSideOrnamentsToText(wrap) {
-    const textEl = wrap.querySelector('.title-level-2-standalone, .h3-title-text');
-    if (!textEl) return;
-    const textHeight = textEl.getBoundingClientRect().height;
-    if (textHeight <= 0) return;
-    wrap.querySelectorAll('.h2-title-ornament-right, .h2-title-ornament-left, .h3-ornament-right, .h3-ornament-left').forEach(ornEl => {
-        ornEl.style.maxHeight = textHeight + 'px';
-        const innerImg = ornEl.querySelector('svg, img');
-        if (innerImg) {
-            innerImg.style.maxHeight = textHeight + 'px';
-            innerImg.style.height = 'auto';
-        }
-    });
 }
 
 function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, h3Title, bookTitle, customR, customC, customL, pageRole, pageContext = {}) {
@@ -648,13 +580,30 @@ function parseMetadataFromText(rawText) {
 /* ============================================================
    7. איזון טורים (Column Balancing) עם עונש גובה ומניעת יתומות
    ============================================================ */
-function estimateSectionFillRatio(tokens) {
+function estimateSectionFillRatio(tokens, headingModes) {
     const sampleFlow = document.querySelector('.page-body-flow');
     const perPageCapacity = (sampleFlow ? sampleFlow.clientHeight : 900) * 2;
+
+    const existingRCol = document.querySelector('.right-col');
+    const colWidth = (existingRCol && existingRCol.offsetWidth) || 272;
+    const existingBlock = document.querySelector('.block-2col');
+    const spanWidth = (existingBlock && existingBlock.offsetWidth) || (colWidth * 2 + 20);
+
+    const styleObj = {
+        fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--fn-body'),
+        fontSize: getComputedStyle(document.documentElement).getPropertyValue('--sz-body'),
+        lineHeight: '1.34'
+    };
+
     const probe = document.createElement('div');
-    probe.style.cssText = 'position:absolute;visibility:hidden;width:580px;';
-    probe.className = 'page-body-flow';
+    probe.className = 'main-column';
+    probe.style.cssText = `position:absolute; visibility:hidden; top:-9999px; width:${colWidth}px; font-family:${styleObj.fontFamily}; font-size:${styleObj.fontSize}; line-height:${styleObj.lineHeight};`;
     document.body.appendChild(probe);
+
+    const spanProbe = document.createElement('div');
+    spanProbe.style.cssText = `position:absolute; visibility:hidden; top:-9999px; width:${spanWidth}px;`;
+    document.body.appendChild(spanProbe);
+
     let totalHeight = 0;
     tokens.forEach(t => {
         if (t.type === 'p') {
@@ -664,17 +613,22 @@ function estimateSectionFillRatio(tokens) {
             totalHeight += p.getBoundingClientRect().height;
             probe.removeChild(p);
         } else if (t.type.startsWith('h')) {
+            const mode = headingModes ? headingModes[t.level] : 'inline_2col';
+            const hostProbe = mode === 'span_1col' ? spanProbe : probe;
             const h = document.createElement('div');
             h.className = t.customStyleId ? 'title-level-custom' : `title-level-${t.level}`;
             h.textContent = t.text;
-            probe.appendChild(h);
-            totalHeight += h.getBoundingClientRect().height;
+            hostProbe.appendChild(h);
+            let hHeight = h.getBoundingClientRect().height;
             const hStyle = window.getComputedStyle(h);
-            totalHeight += parseFloat(hStyle.marginTop) + parseFloat(hStyle.marginBottom);
-            probe.removeChild(h);
+            hHeight += parseFloat(hStyle.marginTop) + parseFloat(hStyle.marginBottom);
+            hostProbe.removeChild(h);
+            totalHeight += (mode === 'span_1col') ? hHeight * 2 : hHeight;
         }
     });
     document.body.removeChild(probe);
+    document.body.removeChild(spanProbe);
+
     if (totalHeight <= 0) return 1;
     const naivePages = Math.ceil(totalHeight / perPageCapacity);
     if (naivePages <= 1) return 1;
@@ -707,7 +661,151 @@ function justifyColumnVertically(col, targetHeight, styleObj) {
     }
 }
 
-function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = Infinity) {
+
+/* ============================================================
+   מדידה ויישור תחתיות טורים — ביחידות layout (בלתי תלוי בזום התצוגה),
+   וקביעת נקודת חיתוך פסקה לפי כללי יתומה/אלמנה/הערות
+   ============================================================ */
+function colContentBottom(col) {
+    const last = col.lastElementChild;
+    if (!last) return 0;
+    const cr = col.getBoundingClientRect();
+    const lr = last.getBoundingClientRect();
+    const scale = (col.offsetWidth && cr.width) ? (cr.width / col.offsetWidth) : 1;
+    return (lr.bottom - cr.top) / (scale || 1);
+}
+
+function isHeadingEl(el) {
+    return !!el && el.tagName !== 'P' && /title-level|heading/.test(el.className || '');
+}
+
+// מותח טור כך שתחתית תוכנו תגיע ל-targetBottom: מוסיף ריווח בין פסקאות
+// (לא בין כותרת לפסקה שאחריה); אם אין בין מי — מותח ריווח שורות בפסקה בודדת.
+function stretchColumnTo(col, targetBottom) {
+    for (let pass = 0; pass < 3; pass++) {
+        const diff = targetBottom - colContentBottom(col);
+        if (diff <= 0.2) return;
+        const kids = Array.from(col.children);
+        const gapIdx = [];
+        for (let i = 0; i < kids.length - 1; i++) if (!isHeadingEl(kids[i])) gapIdx.push(i);
+        if (gapIdx.length) {
+            const extra = diff / gapIdx.length;
+            gapIdx.forEach(i => {
+                const mb = parseFloat(getComputedStyle(kids[i]).marginBottom) || 0;
+                kids[i].style.marginBottom = (mb + extra) + 'px';
+            });
+        } else {
+            const p = kids.find(k => k.tagName === 'P');
+            if (!p) return;
+            const lh = parseFloat(getComputedStyle(p).lineHeight) || 20;
+            const n = Math.max(1, Math.round(p.offsetHeight / lh));
+            p.style.lineHeight = (lh + diff / n) + 'px';
+        }
+    }
+}
+
+// מיישר את תחתיות שני הטורים לאותו גובה. עדיפות ראשונה: הגדלת הרווח בין פסקאות
+// בטור הקצר. אם זה לא מספיק (למשל טור עם 2-3 פסקאות בלבד) — מגדילים בעדינות גם
+// את ריווח השורות בטור הקצר (עד ~10%). ok=false רק אם ההפרש עדיין גדול מדי.
+function alignBlockColumns(rCol, lCol, lineH) {
+    if (!rCol.children.length || !lCol.children.length) return { ok: true, diff: 0 };
+    const rB = colContentBottom(rCol), lB = colContentBottom(lCol);
+    const diff = rB - lB;
+    if (Math.abs(diff) <= 0.2) return { ok: true, diff };
+    const shorter = diff > 0 ? lCol : rCol;
+    const target = Math.max(rB, lB);
+    const kids = Array.from(shorter.children);
+    const gaps = kids.slice(0, -1).filter(k => !isHeadingEl(k)).length;
+    const spacingMax = gaps * lineH * 1.3;
+    const need = Math.abs(diff);
+    if (gaps && need <= spacingMax) {
+        stretchColumnTo(shorter, target);
+        return { ok: Math.abs(colContentBottom(rCol) - colContentBottom(lCol)) <= 0.6, diff };
+    }
+    if (gaps) stretchColumnTo(shorter, colContentBottom(shorter) + spacingMax);
+    // שלב ב': ריווח שורות בפסקאות הטור הקצר
+    for (let pass = 0; pass < 3; pass++) {
+        const remain = target - colContentBottom(shorter);
+        if (remain <= 0.2) break;
+        const paras = Array.from(shorter.children).filter(k => k.tagName === 'P');
+        const totalH = paras.reduce((acc, p) => acc + p.offsetHeight, 0);
+        const totalLines = paras.reduce((acc, p) => acc + Math.max(1, Math.round(p.offsetHeight / (parseFloat(getComputedStyle(p).lineHeight) || lineH))), 0);
+        if (!paras.length || remain > Math.max(totalH * 0.10, totalLines * 4)) return { ok: false, diff };
+        const factor = 1 + remain / totalH;
+        paras.forEach(p => {
+            const lh = parseFloat(getComputedStyle(p).lineHeight) || lineH;
+            p.style.lineHeight = (lh * factor) + 'px';
+        });
+    }
+    return { ok: Math.abs(colContentBottom(rCol) - colContentBottom(lCol)) <= 0.6, diff };
+}
+
+// מדידת מספר השורות בפועל של פסקה בתוך הטור האמיתי (אותו CSS, אותו רוחב, אותו מבנה
+// DOM כמו ברינדור הסופי) — מדויקת יותר מתיבת המדידה, שבה עטיפה ב-span-ים נותנת
+// לעיתים תוצאה שונה במקרי גבול (שבר-פיקסל).
+function probeParagraphLines(col, html, cls) {
+    const p = document.createElement('p');
+    p.className = cls || 'p-end';
+    // בלוק רגיל (לא absolute): בדיוק כמו הפסקה האמיתית, כך שמילה-ראשונה צפה לא מנפחת את הגובה
+    p.style.cssText = 'visibility:hidden; margin:0;';
+    p.innerHTML = html;
+    try { applyDelimiterStyles(p, 'body', getBodySizePt(), true); } catch (e) { /* ignore */ }
+    col.appendChild(p);
+    const h = p.offsetHeight;
+    const lh = parseFloat(getComputedStyle(p).lineHeight) || 20;
+    col.removeChild(p);
+    return Math.max(1, Math.round(h / lh));
+}
+
+// כמה שורות להשאיר בטור הנוכחי (k) כך שלא תיווצר שורה בודדת בתחתית הטור
+// (אלמנה) או בראש הטור הבא (יתומה), ובלי לחתוך באמצע הערה. מחזירה 0 אם יש
+// להעביר את כל הפסקה לטור הבא (אם canPush), אחרת את fit המקורי.
+// אורכי הקטעים נמדדים בפועל (חיזוי השורות מהפסקה השלמה עלול לסטות מעטיפת
+// השורות האמיתית של הקטע כשהוא עומד לבדו, למשל בלי מילה-ראשונה צפה).
+function chooseSplitLines(lines, fit, avoidWidows, avoidOrphans, canPush, ctx) {
+    const total = lines.length;
+    if (fit <= 0 || fit >= total) return fit;
+    const spans = findDelimiterMatches(lines.join(' '), 'body');
+    const cutsNote = (k) => {
+        if (!spans.length) return false;
+        const off = lines.slice(0, k).join(' ').length;
+        return spans.some(m => off > m.start && off < m.end);
+    };
+    const firstN = (k) => (ctx && ctx.first) ? ctx.first(lines.slice(0, k).join(' ')) : k;
+    const restN = (k) => (ctx && ctx.rest) ? ctx.rest(lines.slice(k).join(' ')) : (total - k);
+    let k = fit;
+    for (let guard = 0; guard < total + 5 && k > 0; guard++) {
+        if (cutsNote(k)) { k--; continue; }
+        const widowBad = avoidWidows && firstN(k) < 2;
+        const orphanBad = avoidOrphans && restN(k) < 2;
+        if (!widowBad && !orphanBad) return k;
+        if (orphanBad && !widowBad) { k--; continue; }
+        k = 0; break;
+    }
+    if (k > 0) return k;
+    return canPush ? 0 : fit;
+}
+
+
+// תחתית התוכן בזרימת העמוד (כולל השוליים התחתונים של האלמנט האחרון), ביחידות layout.
+// נמדד ע"י אלמנט-בדיקה בגובה אפס בסוף הזרימה — כך כל השוליים נספרים אוטומטית.
+function flowBottomOf(flow) {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'height:0;margin:0;padding:0;border:0;';
+    flow.appendChild(probe);
+    const fr = flow.getBoundingClientRect(), pr = probe.getBoundingClientRect();
+    flow.removeChild(probe);
+    const sc = (flow.offsetWidth && fr.width) ? fr.width / flow.offsetWidth : 1;
+    return (pr.top - fr.top) / sc;
+}
+// מיקום ראש אלמנט ביחס לראש הזרימה, ביחידות layout.
+function flowTopOfEl(flow, el) {
+    const fr = flow.getBoundingClientRect(), er = el.getBoundingClientRect();
+    const sc = (flow.offsetWidth && fr.width) ? fr.width / flow.offsetWidth : 1;
+    return (er.top - fr.top) / sc;
+}
+
+function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = Infinity, lastItemContinues = false) {
     if (snapshot) {
         footnoteQueueForPage.length = snapshot.footnoteQueueLen;
         endnoteQueueForPart.length = snapshot.endnoteQueueLen;
@@ -768,7 +866,8 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
                 lines: linesInfo.lines,
                 isSingleLine: linesInfo.lines.length <= 1,
                 hasWindow: linesInfo.hasWindow,
-                numLines: linesInfo.lines.length
+                numLines: linesInfo.lines.length,
+                noteSpans: findDelimiterMatches(item.rawText, 'body')
             };
         }
         return item;
@@ -783,24 +882,33 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             let lines = items[i].lines;
             splitPoints.push({ itemIndex: i, lineIndex: 0 });
             for (let l = 1; l < lines.length; l++) {
-                // נקודות שמפרות את כללי אלמנה/יתומה לא נפסלות סופית: הן נשמרות עם סימון, ומשמשות רק כרשת ביטחון
-                // אם כל הפיצולים התקינים חורגים מהגובה המותר (חריגה מבנית גרועה מהפרת כלל דפוס).
-                const violatesRule = (avoidWidows && l === 1) || (avoidOrphans && (lines.length - l) === 1);
-                splitPoints.push({ itemIndex: i, lineIndex: l, lines: lines, violatesRule: violatesRule });
+                if (avoidWidows && l === 1) continue;
+                if (avoidOrphans && (lines.length - l) === 1) continue;
+                splitPoints.push({ itemIndex: i, lineIndex: l, lines: lines });
             }
         } else {
             splitPoints.push({ itemIndex: i, lineIndex: 0 });
         }
     }
 
+    // לא לחתוך שורה בדיוק בתוך טווח מסומן-delimiter (הערת-שוליים/סיום) —
+    // אחרת הפתיח והסיום של אותה הערה ייפלו לשני צדי החלוקה, אף חצי לא
+    // ייסגר כראוי, וההערה תיעלם בשקט בלי סימון.
     const validSplitPoints = splitPoints.filter(sp => {
-        if (sp.lineIndex > 0) return true;
+        if (sp.lineIndex > 0) {
+            const item = items[sp.itemIndex];
+            if (item && item.noteSpans && item.noteSpans.length) {
+                const offset = sp.lines.slice(0, sp.lineIndex).join(' ').length;
+                const cutsSpan = item.noteSpans.some(m => offset > m.start && offset < m.end);
+                if (cutsSpan) return false;
+            }
+            return true;
+        }
         if (sp.itemIndex > 0 && items[sp.itemIndex - 1].type === 'h') return false;
         return true;
     });
 
-    const strictPoints = validSplitPoints.filter(sp => !sp.violatesRule);
-    let pointsToEvaluate = strictPoints.length > 0 ? strictPoints : (validSplitPoints.length > 0 ? validSplitPoints : splitPoints);
+    let pointsToEvaluate = validSplitPoints.length > 0 ? validSplitPoints : splitPoints;
     if (pointsToEvaluate.length === 0) return;
 
     function renderSingleItemFast(col, item) {
@@ -818,10 +926,9 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
     let bestSplit = pointsToEvaluate[0];
     let minAbsDiff = Infinity;
     let bestDiff = Infinity;
+    const candScores = [];
 
-    let bestPenalty = Infinity;
-    function scanPoints(points) {
-    for (let sp of points) {
+    for (let sp of pointsToEvaluate) {
         rCol.innerHTML = '';
         for (let i = 0; i < sp.itemIndex; i++) renderSingleItemFast(rCol, items[i]);
         if (sp.lineIndex > 0) {
@@ -833,7 +940,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
             applyDelimiterStyles(pRight, 'body', getBodySizePt(), true);
             rCol.appendChild(pRight);
         }
-        let rHeight = rCol.scrollHeight;
+        let rHeight = colContentBottom(rCol);
 
         lCol.innerHTML = '';
         if (sp.lineIndex > 0) {
@@ -848,7 +955,7 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         for (let i = sp.lineIndex > 0 ? sp.itemIndex + 1 : sp.itemIndex; i < items.length; i++) {
             renderSingleItemFast(lCol, items[i]);
         }
-        let lHeight = lCol.scrollHeight;
+        let lHeight = colContentBottom(lCol);
 
         let diff = rHeight - lHeight;
         let absDiff = Math.abs(diff);
@@ -861,24 +968,33 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         }
 
         let score = absDiff + heightPenalty;
+        candScores.push({ sp, score, diff });
 
         if (score < minAbsDiff) {
             minAbsDiff = score;
             bestSplit = sp;
             bestDiff = diff;
-            bestPenalty = heightPenalty;
         } else if (score === minAbsDiff && diff >= 0) {
             bestSplit = sp;
             bestDiff = diff;
-            bestPenalty = heightPenalty;
         }
     }
-    }
-    scanPoints(pointsToEvaluate);
-    // רשת ביטחון: חריגה מהגובה המותר (גלישה לאזור ההערות/מספר העמוד) גרועה מהפרת כלל אלמנה/יתומה.
-    // אם כל הפיצולים שעומדים בכללים חורגים - בודקים גם פיצולים שמפרים אותם (אך לא כאלה שמשאירים כותרת יתומה).
-    if (bestPenalty > 0 && pointsToEvaluate !== validSplitPoints) {
-        scanPoints(validSplitPoints.filter(sp => !pointsToEvaluate.includes(sp)));
+
+    // אימות בפועל של אורכי הקטעים בחיתוך שבתוך פסקה (חיזוי השורות עלול לסטות
+    // מעטיפת השורות האמיתית): בוחרים את המועמד הטוב הבא שאינו יוצר שורה בודדת.
+    {
+        const validFrag = (sp) => {
+            if (!(sp.lineIndex > 0)) return true;
+            const it = items[sp.itemIndex];
+            const na = probeParagraphLines(rCol, createDropWord(sp.lines.slice(0, sp.lineIndex).join(' '), !!it.isCont, !it.hasWindow, sp.lines.length), 'p-cut');
+            const nb = probeParagraphLines(lCol, createDropWord(sp.lines.slice(sp.lineIndex).join(' '), true, true, sp.lines.length), 'p-end');
+            return !(avoidWidows && na < 2) && !(avoidOrphans && nb < 2);
+        };
+        if (!validFrag(bestSplit)) {
+            const ordered = candScores.slice().sort((x, y) => (x.score - y.score) || (((x.diff >= 0) ? 0 : 1) - ((y.diff >= 0) ? 0 : 1)));
+            const okC = ordered.find(c => validFrag(c.sp));
+            if (okC) { bestSplit = okC.sp; bestDiff = okC.diff; }
+        }
     }
 
     rCol.innerHTML = '';
@@ -952,12 +1068,17 @@ function balanceColumns(block, colWidth, styleObj, snapshot, availableHeight = I
         appendItemFinal(lCol, lMargin, items[i], false, false, null, items[i].isCont);
     }
 
-    let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
-    if (finalDiff > 2 && finalDiff <= 60) {
-        justifyColumnVertically(lCol, rCol.scrollHeight, styleObj);
-    } else if (finalDiff < -2 && Math.abs(finalDiff) <= 60) {
-        justifyColumnVertically(rCol, lCol.scrollHeight, styleObj);
+    if (lastItemContinues) {
+
+        const lastColEl = lCol.children.length ? lCol : rCol;
+
+        const lastEl = lastColEl.lastElementChild;
+
+        if (lastEl && lastEl.tagName === 'P') lastEl.className = 'p-cut';
+
     }
+
+    alignBlockColumns(rCol, lCol, parseFloat(getComputedStyle(rCol).lineHeight) || 20);
 
     finalizeNotePositions(finalNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
 }
@@ -1059,6 +1180,39 @@ function findDelimiterMatches(text, hostContextKey) {
         }
     });
     return dedup;
+}
+
+// בודקת אם בטקסט יש פתיחת delimiter (למשל "[") שאין לה סגירה מתאימה
+// בהמשך אותו טקסט — כלומר הערת-שוליים/סיום שנפתחה אבל טרם נסגרה. משמש
+// בזמן טוקניזציה כדי לדעת אם צריך לצרף את השורה הבאה לפני שהשורה הזו
+// הופכת לטוקן סופי.
+function hasUnclosedDelimiter(text, hostContextKey) {
+    const activeStyles = [];
+    const fnOpen = document.getElementById('fn-delim-open')?.value?.trim();
+    const fnClose = document.getElementById('fn-delim-close')?.value?.trim();
+    if (fnOpen && fnClose) {
+        activeStyles.push({ def: { trigger: { type: 'delimiterPair', open: fnOpen, close: fnClose } } });
+    }
+    if (typeof importedTextStyles !== 'undefined') {
+        importedTextStyles.forEach(inst => {
+            const trig = inst.def && inst.def.trigger;
+            if (!trig || trig.type !== 'delimiterPair' || !trig.open || !trig.close) return;
+            const scope = trig.appliesWithin;
+            if (scope && scope.textStyles && scope.textStyles.length && scope.textStyles.indexOf(hostContextKey) === -1) return;
+            activeStyles.push(inst);
+        });
+    }
+    return activeStyles.some(inst => {
+        const trig = inst.def.trigger;
+        let searchFrom = 0;
+        while (true) {
+            const oIdx = text.indexOf(trig.open, searchFrom);
+            if (oIdx === -1) return false;
+            const cIdx = text.indexOf(trig.close, oIdx + trig.open.length);
+            if (cIdx === -1) return true;
+            searchFrom = cIdx + trig.close.length;
+        }
+    });
 }
 
 function applyDelimiterStyles(containerEl, hostContextKey, hostSizePt, isDryRun = false) {
@@ -1343,19 +1497,6 @@ function flushEndnotesForPart(container, pIdx) {
     return pagesUsed;
 }
 
-/* שטח שמור להערות שוליים - נוסחה אחת משותפת למדידה בזמן התאמת שורות (probe) ולשמירת המקום בפועל
-   (getFootnotesReservedHeight). קודם הפרוב השמיט את גובה כותרת בלוק ההערות (24px) ולא כיבד את
-   בקרת fn-columns, ולכן שמר פחות מקום ממה שנדרש בפועל והערות יכלו לגלוש מעבר לתחתית העמוד. */
-function getFootnoteColCount(styleId) {
-    const cfg = getNoteConfig(styleId);
-    return parseInt(document.getElementById('fn-columns')?.value, 10) || cfg.columns || 1;
-}
-function footnoteReserveFor(queue, colCount) {
-    const titleText = document.getElementById('fn-title-text')?.value?.trim();
-    const headerH = titleText ? 24 : 0;
-    return measureNoteBlockHeight(queue, colCount) + 24 + headerH;
-}
-
 function measureNoteBlockHeight(queue, columns) {
     if (!queue.length) return 0;
     const probe = buildNoteBlockElement(queue, columns);
@@ -1570,11 +1711,52 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
    10. מנוע העימוד המרכזי (performTypeset)
    ========================================================================== */
 let typesetTimer = null;
-function typesetDocument() {
+function typesetDocument(delay = 0) {
     if (typesetTimer) clearTimeout(typesetTimer);
-    typesetTimer = setTimeout(() => {
+    if (delay <= 0) {
         performTypeset();
-    }, 400);
+    } else {
+        typesetTimer = setTimeout(() => {
+            performTypeset();
+        }, delay);
+    }
+}
+
+function typesetDocumentLive(delay = 350) {
+    typesetDocument(delay);
+}
+
+/* [הועבר מ-V20.4] סוג כותרת עליונה "מילה ראשונה עד אחרונה": בקובץ המקורי האפשרות לא חישבה שום ערך והכותרת נשארה ריקה.
+   אחרי שכל העמודים סופיים, לכל עמוד גוף מציבים את המילה הראשונה (תחילת הטור הימני) ואת האחרונה (סוף הטור השמאלי)
+   של טקסט הפסקאות, מופרדות במקף: "ראשונה – אחרונה". סימוני הערות ופיסוק בקצה המילה אינם נכללים.
+   עמוד בלי פסקאות (שער, תוכן עניינים) נשאר ריק. */
+function fillHeaderFirstLastWords(container) {
+    const holders = container ? container.querySelectorAll('.hdr-firstlast') : [];
+    if (!holders.length) return;
+    const TRIM = /^[\s"'“”‘’(){}\[\]<>.,;:!?\-–—…]+|[\s"'“”‘’(){}\[\]<>.,;:!?\-–—…]+$/g;
+    const wordsOf = el => {
+        let s = '';
+        const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+            acceptNode: n => (n.parentElement && n.parentElement.closest('.note-marker')) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+        });
+        while (w.nextNode()) s += w.currentNode.nodeValue;
+        return s.split(/\s+/).map(x => x.replace(TRIM, '')).filter(Boolean);
+    };
+    const byPage = new Map();
+    holders.forEach(h => {
+        const pg = h.closest('.a4-page');
+        if (!pg) return;
+        if (!byPage.has(pg)) byPage.set(pg, []);
+        byPage.get(pg).push(h);
+    });
+    byPage.forEach((hs, pg) => {
+        const paras = pg.querySelectorAll('.main-column p, .single-wide-col p');
+        let first = '', last = '';
+        for (let i = 0; i < paras.length && !first; i++) { const w = wordsOf(paras[i]); if (w.length) first = w[0]; }
+        for (let i = paras.length - 1; i >= 0 && !last; i--) { const w = wordsOf(paras[i]); if (w.length) last = w[w.length - 1]; }
+        const txt = (first && last && first !== last) ? (first + ' \u2013 ' + last) : (first || last);
+        hs.forEach(h => { h.textContent = txt; });
+    });
 }
 
 function performTypeset() {
@@ -1613,6 +1795,8 @@ function performTypeset() {
     const fnOpen = document.getElementById('fn-delim-open')?.value?.trim() || '[';
     if (fnOpen) {
         const escO = fnOpen.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        // הערה שנכתבה (גם בשורה נפרדת) לפני סימן הפתיחה מוצמדת למילה שלפניה — תכונה מכוונת של המנוע:
+        // כך אפשר לכתוב הערה בשורה משלה מתחת לפסקה שאליה היא שייכת.
         rawText = rawText.replace(new RegExp('\\s+(' + escO + ')', 'g'), '$1');
     }
     const autoSimanH2 = document.getElementById('h2-auto-siman')?.checked ?? false;
@@ -1642,15 +1826,29 @@ function performTypeset() {
     lineToTokenMap = [];
 
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-        const line = lines[lineIdx].trim();
+        let line = lines[lineIdx].trim();
         if (!line) {
             lineToTokenMap[lineIdx] = null;
             continue;
         }
 
+        // הערת-שוליים/סיום עשויה להיפתח בשורה אחת ולהיסגר רק בשורה מאוחרת
+        // יותר — מאחדים שורות רצופות עד שכל delimiter פתוח נסגר. עוצרים
+        // בשורה ריקה גם אם עדיין לא נסגר, כדי שסוגר ] ששכחו לא יבלע את כל
+        // המשך המסמך.
+        const mergedIndices = [lineIdx];
+        while (hasUnclosedDelimiter(line, 'body') && lineIdx + 1 < lines.length) {
+            const nextRaw = lines[lineIdx + 1].trim();
+            if (!nextRaw) break;
+            lineIdx++;
+            line += ' ' + nextRaw;
+            mergedIndices.push(lineIdx);
+        }
+        const mapMerged = (tokenId) => mergedIndices.forEach(idx => { lineToTokenMap[idx] = tokenId; });
+
         if (enLinePrefix && line.startsWith(enLinePrefix)) {
             pendingEndNote = line.slice(enLinePrefix.length).replace(/^[:\-–—]\s*/, '').trim();
-            lineToTokenMap[lineIdx] = null;
+            mapMerged(null);
             continue;
         }
 
@@ -1661,12 +1859,12 @@ function performTypeset() {
             if (lvl === 7 && (document.getElementById('mode-h7')?.value || 'side_note') === 'side_note') {
                 pendingSideNote = txt;
                 pendingSideNoteStyleId = null;
-                lineToTokenMap[lineIdx] = null;
+                mapMerged(null);
             } else {
                 const hMode = document.getElementById('mode-h' + lvl)?.value;
                 if (hMode === 'run_in') {
                     pendingRunInHeading = { level: lvl, text: txt, lineIdx: lineIdx };
-                    lineToTokenMap[lineIdx] = null;
+                    mapMerged(null);
                 } else {
                     const tokenObj = {
                         id: tokens.length,
@@ -1676,7 +1874,7 @@ function performTypeset() {
                         lineIdx: lineIdx
                     };
                     tokens.push(tokenObj);
-                    lineToTokenMap[lineIdx] = tokenObj.id;
+                    mapMerged(tokenObj.id);
                 }
             }
         } else {
@@ -1696,11 +1894,11 @@ function performTypeset() {
             if (customMatch) {
                 if (customMatch.inst.def.target === 'endnote') {
                     pendingEndNote = customMatch.text;
-                    lineToTokenMap[lineIdx] = null;
+                    mapMerged(null);
                 } else if (customMatch.inst.def.layoutMode === 'side_note') {
                     pendingSideNote = customMatch.text;
                     pendingSideNoteStyleId = customMatch.inst.instanceId;
-                    lineToTokenMap[lineIdx] = null;
+                    mapMerged(null);
                 } else if (customMatch.inst.def.layoutMode === 'run_in') {
                     pendingRunInHeading = {
                         level: customMatch.inst.syntheticLevel,
@@ -1708,7 +1906,7 @@ function performTypeset() {
                         lineIdx: lineIdx,
                         customStyleId: customMatch.inst.instanceId
                     };
-                    lineToTokenMap[lineIdx] = null;
+                    mapMerged(null);
                 } else {
                     const lvl = customMatch.inst.syntheticLevel;
                     const tokenObj = {
@@ -1720,7 +1918,7 @@ function performTypeset() {
                         customStyleId: customMatch.inst.instanceId
                     };
                     tokens.push(tokenObj);
-                    lineToTokenMap[lineIdx] = tokenObj.id;
+                    mapMerged(tokenObj.id);
                 }
             } else {
                 let paragraphText = line;
@@ -1739,7 +1937,7 @@ function performTypeset() {
                     lineIdx: lineIdx
                 };
                 tokens.push(tokenObj);
-                lineToTokenMap[lineIdx] = tokenObj.id;
+                mapMerged(tokenObj.id);
                 pendingSideNote = null;
                 pendingSideNoteStyleId = null;
                 pendingEndNote = null;
@@ -1875,9 +2073,15 @@ function performTypeset() {
         lineHeight: getComputedStyle(document.documentElement).getPropertyValue('--line-height-body') || '1.34'
     };
 
+    let blockReserveFloor = 0, blockRedoCount = 0, blockNoBalance = false;
+    let forceProgress = false, forceReserveCap = Infinity;
     function getFootnotesReservedHeight() {
-        if (!footnoteQueueForPage.length) return 0;
-        return footnoteReserveFor(footnoteQueueForPage, getFootnoteColCount(footnoteQueueForPage[0].styleId));
+        if (!footnoteQueueForPage.length) return Math.min(blockReserveFloor, forceReserveCap);
+        const cfg0 = getNoteConfig(footnoteQueueForPage[0].styleId);
+        const colCount = parseInt(document.getElementById('fn-columns')?.value, 10) || cfg0.columns || 1;
+        const titleText = document.getElementById('fn-title-text')?.value?.trim();
+        const headerH = titleText ? 24 : 0;
+        return Math.min(Math.max(measureNoteBlockHeight(footnoteQueueForPage, colCount) + 24 + headerH, blockReserveFloor), forceReserveCap);
     }
 
     let hasOpenPart = false;
@@ -1969,10 +2173,21 @@ function performTypeset() {
 
         let secTokens = sec.tokens.slice();
         let tokenIndex = 0;
+        let lastPageProgKey = '', stuckPages = 0;
         let pendingWordTokens = null;
+        const sectionFillRatio = (document.getElementById('balance-chapter-end')?.value === 'yes')
+            ? estimateSectionFillRatio(secTokens, headingModes) : 1;
 
         while (tokenIndex < secTokens.length || pendingWordTokens) {
             if (prevPageEl) flushFootnotesInto(prevPageEl);
+            blockReserveFloor = 0; blockRedoCount = 0; blockNoBalance = false;
+            {
+                const progKey = tokenIndex + ':' + (pendingWordTokens ? pendingWordTokens.token.id + ':' + pendingWordTokens.remainingLines.length : '-');
+                stuckPages = (progKey === lastPageProgKey) ? stuckPages + 1 : 0;
+                lastPageProgKey = progKey;
+                forceProgress = stuckPages >= 1;
+                forceReserveCap = forceProgress ? (pageLayout && pageLayout.bodyFlow ? (pageLayout.bodyFlow.clientHeight || 870) * 0.4 : 350) : Infinity;
+            }
             if (isFirstPage && h2Text && sec.hToken) ensureOddPageStart(sec.hToken.level);
 
             const pageRole = isFirstPage ? (isH0 ? 'h0Open' : (h2Text ? 'h2Open' : 'regular')) : 'regular';
@@ -1992,7 +2207,7 @@ function performTypeset() {
                 recordPageBreak(pageIndex - 1, firstLineIdxOnPage);
             }
 
-            let totalFlowH = pageLayout.bodyFlow.clientHeight || 870;
+            let totalFlowH = (pageLayout.bodyFlow.clientHeight || 870) * sectionFillRatio;
             let used = 0;
 
             if (isFirstPage && h2Text) {
@@ -2023,7 +2238,6 @@ function performTypeset() {
                         ornWrap.innerHTML = topOrnHTML;
                         const insertTarget = simanElem || title;
                         insertTarget.parentNode.insertBefore(ornWrap, insertTarget);
-                        fitOneHeadingOrnament(ornWrap, true);
                     }
                     if (btmOrnHTML) {
                         const ornWrap = document.createElement('div');
@@ -2031,7 +2245,6 @@ function performTypeset() {
                         ornWrap.innerHTML = btmOrnHTML;
                         const insertAfter = simanElem || title;
                         insertAfter.parentNode.insertBefore(ornWrap, insertAfter === title ? title.nextSibling : title);
-                        fitOneHeadingOrnament(ornWrap, false);
                     }
 
                     const h2TitleOrnMode = document.getElementById('h2-title-orn-mode')?.value || 'none';
@@ -2045,14 +2258,12 @@ function performTypeset() {
                             ornWrap.className = 'h2-ornament-top';
                             ornWrap.innerHTML = titleTopHTML;
                             title.parentNode.insertBefore(ornWrap, title);
-                            fitOneHeadingOrnament(ornWrap, true);
                         }
                         if (titleBtmHTML) {
                             const ornWrap = document.createElement('div');
                             ornWrap.className = 'h2-ornament-bottom';
                             ornWrap.innerHTML = titleBtmHTML;
                             title.parentNode.insertBefore(ornWrap, title.nextSibling);
-                            fitOneHeadingOrnament(ornWrap, false);
                         }
                     } else if (h2TitleOrnMode === 'side' && typeof renderSideOrnamentHTML === 'function') {
                         const titleOrnR = document.getElementById('h2-title-ornament-r')?.value || 'none';
@@ -2077,7 +2288,6 @@ function performTypeset() {
                                 ornL.innerHTML = ornLHTML;
                                 sideWrap.appendChild(ornL);
                             }
-                            fitSideOrnamentsToText(sideWrap);
                         }
                     }
                 }
@@ -2150,35 +2360,51 @@ function performTypeset() {
                             let testText = lines.slice(0, i).join(' ');
                             pElem.className = (i === lines.length) ? 'p-end' : 'p-cut';
                             pElem.innerHTML = createDropWord(testText, isContinuation, !hasWindow, lines.length);
+                            // כמו ברינדור הסופי: הערות מוצגות כסימון קטן (ולא כטקסט ההערה המלא) — אחרת הגובה המדוד מנופח
+                            // וההערה נספרת פעמיים (גם בגוף וגם בתקציב ההערות), והעמוד נחתך מוקדם מדי
+                            applyDelimiterStyles(pElem, 'body', getBodySizePt(), true);
 
                             const availH = remPageHeight - getFootnotesReservedHeight();
                             if (targetCol.scrollHeight <= availH) bestFitLine = i;
                             else break;
                         }
 
-                        if (bestFitLine === 0) {
+                        if (bestFitLine === 0 && forceProgress && !Array.from(pageLayout.bodyFlow.querySelectorAll('p')).some(x => x !== pElem)) {
+                            bestFitLine = 1;   // התקדמות מאולצת: שורה אחת לפחות, גם אם חורגת
+                        } else if (bestFitLine === 0) {
                             targetCol.removeChild(pElem);
                             if (targetCol.children.length > 0) {
-                                tokenIndex -= popTrailingHeadings(targetCol);
+                                let lastEl = targetCol.lastElementChild;
+                                while (lastEl && isHeadingEl(lastEl)) {
+                                    targetCol.removeChild(lastEl);
+                                    tokenIndex--;
+                                    lastEl = targetCol.lastElementChild;
+                                }
                                 break;
+                            } else if (!pageHasContent && !pageLayout.bodyFlow.querySelector('p')) {
+                                // עמוד ריק לגמרי ושורה אחת לא נכנסת: חייבים להתקדם — מציבים שורה אחת
+                                // (ומחזירים את האלמנט ל-DOM; בלי זה השורה נעלמת מהפלט)
+                                bestFitLine = 1;
+                                targetCol.appendChild(pElem);
                             } else {
-                                // הפסקה נשלפה מהטור למעלה; כשמכריחים שורה אחת (עמוד ריק) חייבים להחזיר אותה
-                                if (!pageHasContent) { targetCol.appendChild(pElem); bestFitLine = 1; }
-                                else break;
+                                break;   // יש כבר טקסט בעמוד: הפסקה עוברת לטור/עמוד הבא, בלי לצרוך אותה
                             }
                         }
 
                         const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true;
                         const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;
-                        {
-                            // כל ההגנות (הערות/יתומה/אלמנה) מוחלות יחד, בסדר קבוע וחוזר עד ייצוב
-                            const cut = resolveParagraphCut(lines, bestFitLine, pageHasContent, avoidWidows, avoidOrphans);
-                            if (cut === 0) {
+                        if (bestFitLine > 0 && bestFitLine < lines.length) {
+                            const remainingAfterSplit = lines.length - bestFitLine;
+                            if (avoidWidows && bestFitLine === 1 && pageHasContent) {
                                 targetCol.removeChild(pElem);
-                                tokenIndex -= popTrailingHeadings(targetCol);   // כותרת שנשארה מעליה לא נשארת יתומה
                                 break;
+                            } else if (avoidOrphans && remainingAfterSplit === 1) {
+                                if (bestFitLine > 1) bestFitLine -= 1;
+                                else if (pageHasContent) {
+                                    targetCol.removeChild(pElem);
+                                    break;
+                                }
                             }
-                            bestFitLine = cut;
                         }
 
                         if (bestFitLine > 0) pageHasContent = true;
@@ -2251,10 +2477,10 @@ function performTypeset() {
                         spanBlock.appendChild(ornL);
                     }
 
+                    const spanU0 = flowBottomOf(pageLayout.bodyFlow);
                     pageLayout.bodyFlow.appendChild(spanBlock);
-                    fitSideOrnamentsToText(spanBlock);
 
-                    const spanHeight = spanBlock.offsetHeight + 4;
+                    const spanHeight = Math.max(spanBlock.offsetHeight + 4, flowBottomOf(pageLayout.bodyFlow) - spanU0);
                     if (spanHeight > (remPageHeight - getFootnotesReservedHeight())) {
                         pageLayout.bodyFlow.removeChild(spanBlock);
                         break;
@@ -2266,6 +2492,13 @@ function performTypeset() {
                     continue;
                 }
 
+                const blockStartState = {
+                    tokenIndex,
+                    pendingWordTokens: pendingWordTokens ? Object.assign({}, pendingWordTokens) : null,
+                    pendingNotesLen: pagePendingNotes.length,
+                    h3: currentH3Title, h4: currentH4Title,
+                    headingKeys: new Set(Object.keys(headingPageMap))
+                };
                 const block2Col = document.createElement('div');
                 block2Col.className = 'block-2col';
                 block2Col.innerHTML = `
@@ -2278,6 +2511,7 @@ function performTypeset() {
           <div class="margin-notes-column left-margin"></div>
         `;
                 pageLayout.bodyFlow.appendChild(block2Col);
+                remPageHeight = totalFlowH - flowTopOfEl(pageLayout.bodyFlow, block2Col);
 
                 const blockNoteSnapshot = {
                     footnoteQueueLen: footnoteQueueForPage.length,
@@ -2355,7 +2589,7 @@ function performTypeset() {
                             /* שריון גובה מקדים להערות שוליים הנמצאות בפסקה זו */
                             const fullRemainingText = lines.join(' ');
                             const pendingFnMatches = findDelimiterMatches(fullRemainingText, 'body').filter(m => m.inst.def.target === 'footnote');
-                            const pendingFnColumns = pendingFnMatches.length ? getFootnoteColCount(pendingFnMatches[0].inst.instanceId) : 1;
+                            const pendingFnColumns = pendingFnMatches.length ? (getNoteConfig(pendingFnMatches[0].inst.instanceId).columns || 1) : 1;
                             let lastFnCount = -1;
                             let cachedAvailH = remPageHeight - getFootnotesReservedHeight();
 
@@ -2364,47 +2598,66 @@ function performTypeset() {
                                 let testText = lines.slice(0, i).join(' ');
                                 pElem.className = (i === lines.length) ? 'p-end' : 'p-cut';
                                 pElem.innerHTML = createDropWord(testText, isContinuation, !hasWindow, lines.length);
+                                // כמו ברינדור הסופי: הערות מוצגות כסימון קטן (ולא כטקסט ההערה המלא) — אחרת הגובה המדוד מנופח
+                                // וההערה נספרת פעמיים (גם בגוף וגם בתקציב ההערות), והעמוד נחתך מוקדם מדי
+                                applyDelimiterStyles(pElem, 'body', getBodySizePt(), true);
 
                                 if (pendingFnMatches.length) {
                                     const newOnes = pendingFnMatches.filter(m => m.end <= testText.length);
                                     if (newOnes.length !== lastFnCount) {
                                         lastFnCount = newOnes.length;
-                                        cachedAvailH = remPageHeight - (newOnes.length
-                                            ? footnoteReserveFor(footnoteQueueForPage.concat(newOnes.map((m, idx) => ({
+                                        cachedAvailH = remPageHeight - Math.max(blockReserveFloor, (newOnes.length
+                                            ? measureNoteBlockHeight(footnoteQueueForPage.concat(newOnes.map((m, idx) => ({
                                                 number: 'א', uid: 'probe' + idx, styleId: m.inst.instanceId,
                                                 text: fullRemainingText.slice(m.start + m.inst.def.trigger.open.length, m.end - m.inst.def.trigger.close.length)
-                                            }))), pendingFnColumns)
-                                            : getFootnotesReservedHeight());
+                                            }))), pendingFnColumns) + 24
+                                            : getFootnotesReservedHeight()));
                                     }
                                 }
 
-                                if (targetCol.scrollHeight <= cachedAvailH) bestFitLine = i;
+                                if ((pElem.offsetTop + pElem.offsetHeight) <= cachedAvailH) bestFitLine = i;
                                 else break;
                             }
 
-                            if (bestFitLine === 0) {
+                            if (bestFitLine === 0 && forceProgress && !Array.from(pageLayout.bodyFlow.querySelectorAll('p')).some(x => x !== pElem)) {
+                                bestFitLine = 1;   // התקדמות מאולצת: שורה אחת לפחות, גם אם חורגת
+                            } else if (bestFitLine === 0) {
                                 targetCol.removeChild(pElem);
                                 if (targetCol.children.length > 0) {
-                                    tokenIndex -= popTrailingHeadings(targetCol);
+                                    let lastEl = targetCol.lastElementChild;
+                                    while (lastEl && isHeadingEl(lastEl)) {
+                                    const hid0 = lastEl.getAttribute('data-token-id');
+                                        targetCol.removeChild(lastEl);
+                                    if (hid0 !== null && !blockStartState.headingKeys.has(hid0)) delete headingPageMap[hid0];
+                                        tokenIndex--;
+                                        lastEl = targetCol.lastElementChild;
+                                    }
                                     break;
+                                } else if (!pageHasContent && !pageLayout.bodyFlow.querySelector('p')) {
+                                    // עמוד ריק לגמרי ושורה אחת לא נכנסת: חייבים להתקדם — מציבים שורה אחת
+                                    // (ומחזירים את האלמנט ל-DOM; בלי זה השורה נעלמת מהפלט)
+                                    bestFitLine = 1;
+                                    targetCol.appendChild(pElem);
                                 } else {
-                                    // הפסקה נשלפה מהטור למעלה; כשמכריחים שורה אחת (עמוד ריק) חייבים להחזיר אותה
-                                    if (!pageHasContent) { targetCol.appendChild(pElem); bestFitLine = 1; }
-                                    else break;
+                                    break;   // יש כבר טקסט בעמוד: הפסקה עוברת לטור/עמוד הבא, בלי לצרוך אותה
                                 }
                             }
 
                             const avoidOrphans = document.getElementById('avoid-orphans')?.checked ?? true;
                             const avoidWidows = document.getElementById('avoid-widows')?.checked ?? true;
-                            {
-                                // כל ההגנות (הערות/יתומה/אלמנה) מוחלות יחד, בסדר קבוע וחוזר עד ייצוב
-                                const cut = resolveParagraphCut(lines, bestFitLine, pageHasContent, avoidWidows, avoidOrphans);
-                                if (cut === 0) {
+                            if (bestFitLine > 0 && bestFitLine < lines.length) {
+                                const canPush = pageHasContent || (colName === 'left' && rCol.children.length > 0)
+                                    || Array.from(pageLayout.bodyFlow.querySelectorAll('p')).some(x => x !== pElem);
+                                const nextColEl = colName === 'right' ? lCol : rCol;
+                                    const kSplit = chooseSplitLines(lines, bestFitLine, avoidWidows, avoidOrphans, canPush, {
+                                        first: (txt) => probeParagraphLines(targetCol, createDropWord(txt, isContinuation, !hasWindow, lines.length), 'p-cut'),
+                                        rest: (txt) => probeParagraphLines(nextColEl, createDropWord(txt, true, true, lines.length), 'p-end')
+                                    });
+                                if (kSplit === 0) {
                                     targetCol.removeChild(pElem);
-                                    tokenIndex -= popTrailingHeadings(targetCol);   // כותרת שנשארה מעליה לא נשארת יתומה
                                     break;
                                 }
-                                bestFitLine = cut;
+                                bestFitLine = kSplit;
                             }
                             if (bestFitLine > 0) pageHasContent = true;
 
@@ -2446,21 +2699,24 @@ function performTypeset() {
                             }
                         }
                     }
-                    // הגנת "כותרת יתומה": כל יציאה מהלולאה (טור מלא, כותרת שגרמה לגלישה, חוקי אלמנה/יתומה וכו')
-                    // עלולה להשאיר כותרת כרכיב האחרון בטור בלי טקסט אחריה. לא מושכים כשהכותרת הבאה פורשת
-                    // טור יחיד (אז אין טקסט שהיא אמורה להישאר איתו), וגם לא כשהטור כולו כותרות בעמוד ריק (למניעת לולאה).
-                    if (tokenIndex < secTokens.length && !pendingWordTokens) {
-                        const nxt = secTokens[tokenIndex];
-                        const nxtMode = nxt && nxt.type.startsWith('h') ? headingModes[nxt.level] : 'inline_2col';
-                        const hn = trailingHeadingCount(targetCol);
-                        if (hn > 0 && nxtMode !== 'span_1col' && (targetCol.children.length > hn || pageHasContent)) {
-                            popTrailingHeadings(targetCol);
-                            tokenIndex -= hn;
-                        }
+
+                    // שמירת כותרת עם הטקסט שאחריה: טור לא מסתיים בכותרת. כותרות שנשארו בסוף
+                    // הטור חוזרות לזרם ויוצבו בראש הטור הבא / בעמוד הבא יחד עם הפסקה שלהן.
+                    const nxtTokAfterHeads = pendingWordTokens ? null : secTokens[tokenIndex];
+                    const nextIsSpanHeading = !!(nxtTokAfterHeads && nxtTokAfterHeads.type.startsWith('h') && headingModes[nxtTokAfterHeads.level] === 'span_1col');
+                    while (!nextIsSpanHeading && targetCol.lastElementChild && isHeadingEl(targetCol.lastElementChild)
+                           && (targetCol.children.length > 1 || colName === 'left' || pageLayout.bodyFlow.querySelector('p'))) {
+                        const hLast = targetCol.lastElementChild;
+                        const hLastId = hLast.getAttribute('data-token-id');
+                        targetCol.removeChild(hLast);
+                        if (hLastId !== null && !blockStartState.headingKeys.has(hLastId)) delete headingPageMap[hLastId];
+                        tokenIndex--;
                     }
                 });
 
                 if (rCol.children.length === 0 && lCol.children.length === 0) {
+                    tokenIndex = blockStartState.tokenIndex;
+                    pendingWordTokens = blockStartState.pendingWordTokens ? Object.assign({}, blockStartState.pendingWordTokens) : null;
                     if (blockNoteSnapshot) {
                         footnoteQueueForPage.length = blockNoteSnapshot.footnoteQueueLen;
                         endnoteQueueForPart.length = blockNoteSnapshot.endnoteQueueLen;
@@ -2478,12 +2734,67 @@ function performTypeset() {
                     break;
                 }
 
-                const actualAvailH = remPageHeight - getFootnotesReservedHeight();
+                // ===== בדיקת התאמה סופית — אחרי שכל ההערות של הבלוק (גם מהטור השמאלי) כבר ידועות =====
+                const sectionEnded = tokenIndex >= secTokens.length && !pendingWordTokens;
+                const nextPeekTok0 = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
+                const nextPeekMode0 = nextPeekTok0 && nextPeekTok0.type.startsWith('h') ? headingModes[nextPeekTok0.level] : 'inline_2col';
+                const nextIsSpan = !sectionEnded && nextPeekMode0 === 'span_1col' && !pendingWordTokens;
+                const lineH0 = parseFloat(getComputedStyle(rCol).lineHeight) || 20;
+                const willBalance = (sectionEnded || nextIsSpan) && !blockNoBalance;
+                const bottomNow = () => Math.max(colContentBottom(rCol), colContentBottom(lCol));
 
-                /* איזון טורים בסיום פרק או לפני כותרת 3 */
-                if (tokenIndex >= secTokens.length && !pendingWordTokens) {
-                    balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
+                const rollbackBlock = () => {
+                    if (blockNoteSnapshot) {
+                        footnoteQueueForPage.length = blockNoteSnapshot.footnoteQueueLen;
+                        endnoteQueueForPart.length = blockNoteSnapshot.endnoteQueueLen;
+                        noteCounters.footnote = blockNoteSnapshot.footnoteCounter;
+                        noteCounters.endnote = blockNoteSnapshot.endnoteCounter;
+                        noteUidCounter = blockNoteSnapshot.noteUid;
+                    }
+                    if (block2Col.parentNode) block2Col.parentNode.removeChild(block2Col);
+                    tokenIndex = blockStartState.tokenIndex;
+                    pendingWordTokens = blockStartState.pendingWordTokens ? Object.assign({}, blockStartState.pendingWordTokens) : null;
+                    pagePendingNotes.length = blockStartState.pendingNotesLen;
+                    currentH3Title = blockStartState.h3;
+                    currentH4Title = blockStartState.h4;
+                    Object.keys(headingPageMap).forEach(k => { if (!blockStartState.headingKeys.has(k)) delete headingPageMap[k]; });
+                };
 
+                let actualAvailH = remPageHeight - getFootnotesReservedHeight();
+
+                // גלישה: הערות שנוספו בטור השמאלי הגדילו את התקציב השמור אחרי שהטור הימני כבר מולא.
+                // מחזירים את הבלוק לתחילתו ומנסים שוב עם רצפת תקציב-הערות מעודכנת.
+                const ovFill = bottomNow() - actualAvailH;
+                if (ovFill > 0.5 && blockRedoCount < 6) {
+                    blockReserveFloor = Math.max(blockReserveFloor, getFootnotesReservedHeight()) + (blockRedoCount > 0 ? ovFill + 1 : 0);
+                    blockRedoCount++;
+                    rollbackBlock();
+                    continue;
+                }
+
+                if (willBalance) {
+                    balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, false);
+                    actualAvailH = remPageHeight - getFootnotesReservedHeight();
+                    const ovBal = bottomNow() - actualAvailH;
+                    if (ovBal > 0.5 && blockRedoCount < 6) {
+                        blockNoBalance = true;
+                        blockReserveFloor = Math.max(blockReserveFloor, getFootnotesReservedHeight());
+                        blockRedoCount++;
+                        rollbackBlock();
+                        continue;
+                    }
+                    alignBlockColumns(rCol, lCol, lineH0);
+                } else {
+                    const al = alignBlockColumns(rCol, lCol, lineH0);
+                    if (!al.ok) {
+                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH, !!pendingWordTokens);
+                        alignBlockColumns(rCol, lCol, lineH0);
+                    }
+                }
+
+                blockReserveFloor = 0; blockRedoCount = 0; blockNoBalance = false;
+
+                if (sectionEnded) {
                     const divHTML = getSectionDividerHTML(secDivStyle);
                     if (divHTML) {
                         const divContainer = document.createElement('div');
@@ -2491,29 +2802,36 @@ function performTypeset() {
                         pageLayout.bodyFlow.appendChild(divContainer.firstElementChild);
                     }
                     break;
-                } else {
-                    let nextPeekTok = pendingWordTokens ? pendingWordTokens.token : secTokens[tokenIndex];
-                    const nextPeekMode = nextPeekTok && nextPeekTok.type.startsWith('h') ? headingModes[nextPeekTok.level] : 'inline_2col';
-
-                    if (nextPeekMode === 'span_1col' && !pendingWordTokens) {
-                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                    } else if (rCol.scrollHeight > actualAvailH || Math.abs(rCol.scrollHeight - lCol.scrollHeight) > 60) {
-                        balanceColumns(block2Col, colWidth, styleObj, blockNoteSnapshot, actualAvailH);
-                    } else {
-                        let usedBlockH = Math.max(rCol.scrollHeight, lCol.scrollHeight);
-                        let finalDiff = rCol.scrollHeight - lCol.scrollHeight;
-                        if (usedBlockH <= remPageHeight) {
-                            if (finalDiff > 2 && finalDiff <= 60) {
-                                justifyColumnVertically(lCol, rCol.scrollHeight, styleObj);
-                            } else if (finalDiff < -2 && Math.abs(finalDiff) <= 60) {
-                                justifyColumnVertically(rCol, lCol.scrollHeight, styleObj);
-                            }
-                        }
-                    }
                 }
 
-                remPageHeight -= Math.max(rCol.scrollHeight, lCol.scrollHeight);
+                remPageHeight = totalFlowH - flowBottomOf(pageLayout.bodyFlow);
                 finalizeNotePositions(pagePendingNotes, Math.max(rCol.scrollHeight, lCol.scrollHeight));
+            }
+
+            // כותרת span שנשארה בסוף העמוד בלי טקסט אחריה — חוזרת לזרם ותוצב בעמוד הבא
+            {
+                let tailEl = pageLayout.bodyFlow.lastElementChild;
+                while (tailEl && tailEl.classList.contains('block-h3-span') && tailEl.previousElementSibling) {
+                    const tailTok = tailEl.querySelector('[data-token-id]');
+                    const tailId = tailTok ? tailTok.getAttribute('data-token-id') : null;
+                    pageLayout.bodyFlow.removeChild(tailEl);
+                    if (tailId !== null) delete headingPageMap[tailId];
+                    tokenIndex--;
+                    // כותרות inline שנשארו בסוף הבלוק שלפניה (בטור האחרון שיש בו תוכן) — גם הן חוזרות לזרם
+                    const prevBlk = pageLayout.bodyFlow.lastElementChild;
+                    if (prevBlk && prevBlk.classList.contains('block-2col')) {
+                        const colsRev = [prevBlk.querySelector('.left-col'), prevBlk.querySelector('.right-col')];
+                        const lastCol = colsRev.find(c => c && c.children.length);
+                        while (lastCol && lastCol.lastElementChild && isHeadingEl(lastCol.lastElementChild) && (lastCol.children.length > 1 || prevBlk.previousElementSibling)) {
+                            const hh = lastCol.lastElementChild;
+                            const hhId = hh.getAttribute('data-token-id');
+                            lastCol.removeChild(hh);
+                            if (hhId !== null) delete headingPageMap[hhId];
+                            tokenIndex--;
+                        }
+                    }
+                    tailEl = pageLayout.bodyFlow.lastElementChild;
+                }
             }
         }
     }
@@ -2529,6 +2847,9 @@ function performTypeset() {
         flushEndnotesForPart(container, pageIndex);
     }
     renderExtAnchor(container, 'afterAll', rawText);
+
+    // [הועבר מ-V20.4] כותרת עליונה מסוג "מילה ראשונה עד אחרונה" - ממולאת אחרי שכל העמודים סופיים
+    fillHeaderFirstLastWords(container);
 
     document.querySelectorAll('.toc-page-num[data-target-id], .grp-page[data-target-id]').forEach(span => {
         const targetId = span.getAttribute('data-target-id');
@@ -2555,8 +2876,9 @@ function performTypeset() {
         const rCol = block.querySelector('.right-col');
         const lCol = block.querySelector('.left-col');
         if (!divider || !rCol || !lCol) return;
-        const minH = Math.min(rCol.scrollHeight, lCol.scrollHeight);
+        const minH = Math.min(colContentBottom(rCol), colContentBottom(lCol));
         divider.style.alignSelf = 'start';
         divider.style.height = minH + 'px';
     });
 }
+

@@ -1,0 +1,396 @@
+---
+title: "מערכת עימוד תורנית — תיעוד טכני מלא"
+date: unknown
+version: V21
+type: technical
+source: z.ai
+---
+# מערכת עימוד תורנית — תיעוד טכני מלא
+
+## 1. סקירת המערכת והארכיטקטורה
+
+### ייעוד
+מערכת עימוד ספרים תורניים ב-A4 דו-טורי (RTL), פעלתנית בדפדפן בלבד (client-side JavaScript), ללא backend. מיועדת לספרי הלכה, פירושים ומבואות עם מאפיינים ייחודיים: מילה ראשונה מודגשת (drop-word), הערות שוליים צדדיות (H7/marginalia), כותרות חוצות טורים (H3-span), סימוני פרקים וסימנים, וגופנים עבריים מסחריים.
+
+### טכנולוגיות
+- **JavaScript vanilla** (אין framework) — כל הלוגיקה ב-`typesetter.js`, `app.js`, `decorations.js`
+- **CSS** — `style.css` עם CSS Custom Properties (variables) + `_fonts.css` עם `@font-face` declarations
+- **HTML** — `index.html` עם contenteditable editor + preview pane
+- **Playwright** (Chromium headless) — לבדיקות אוטומטיות וצילומ מסך
+- **fontTools** (Python) — לקריאת שמות משפחה ומשקלים מקובצי woff2
+- **GitHub Pages** — פריסה דרך branch, עם `.nojekyll` להגשת קבצים עם קו תחתון מוביל
+
+### עקרונות תכנון
+
+**הפרדת אחריות:**
+- `typesetter.js` — מנוע העימוד: פרסור טקסט לטוקנים, יצירת עמודים, איזון טורים, יישור, הערות
+- `app.js` — UI: עורך טקסט, pickers, סנכרון גלילה, אתחול גופנים, `beforeprint`/`afterprint`
+- `style.css` — כל הסגנונות: רשת עמוד A4, טורים, כותרות, גופנים
+- `_fonts.css` — הגדרות `@font-face` (101 גופנים מ-`fonts.json` של GitHub SUGINACH/IMUD_TORANI)
+- `test-suite.js` — מחולל טקסט בדיקה + דוח עימוד
+- `decorations.js` — עיטורים ודקורציה
+
+**מודל עימוד:**
+1. **פרסור** — הטקסט הגולמי מפורס לטוקנים (כותרות, פסקאות, הערות שוליים, הערות סיום)
+2. **חלוקה לעמודים** — הטוקנים מחולקים לעמודי A4, תוך התחשבות במקום פנוי, הערות שוליים, ומעברי עמוד
+3. **איזון טורים** — כל בלוק דו-טורי מאוזן ע"י מערכת עדיפויות (P1-P5) + תיקון ישיר
+4. **עידון** — `tightenRunts` (כיווץ גופנים), יישור שורה אחרונה, מניעת יתומ/אלמנות
+
+**דפוסי תכנון מרכזיים:**
+- **Debounce** — `typesetDocument()` ממתין 400ms לפני ביצוע (מונע רינדור יתר)
+- **Event Delegation** — מאזין אחד על `#book-container` לכל הקליקים על עמודים
+- **MutationObserver** — `layoutInvalidator` (מנוטרל כעת) היה משדרג בלוקים דרך rAF
+- **Fallback Chain** — גופנים: `font-family: 'גופן עברי', 'פרנק רוהל ליברה רגיל', serif`
+
+---
+
+## 2. מכלול האלגוריתמים והבעיות שפתרנו
+
+### 2.1 עימוד ויישור שני טורים (Two-Column Layout & Balancing)
+
+**מבנה נתונים:**
+כל בלוק דו-טורי (`.block-2col`) מכיל `.right-col` ו-`.left-col` (RTL → ימין קודם). כל טור מכיל פסקאות (`<p>`) עם class של `p-end` (סיום טבעי) או `p-cut` (פסקה חתוכה שממשיכה בטור הבא).
+
+**תהליך האיזון — `distributeColumnJustification()`:**
+
+מערכת 5 עדיפויות (tiers), כל אחת מקבלת תקציב (budget) מתוך הפער הדרוש (`neededGrowth`):
+
+| עדיפות | מנגנון | משקל | מתי פעיל |
+|---|---|---|---|
+| P1 | margin-top לפני כותרת | 6 | יש כותרת בטור |
+| P2 | margin-bottom אחרי כותרת | 4 | יש כותרת בטור |
+| P3 | margin-bottom בין פסקאות | 3 | ≥2 פסקאות בטור |
+| P4 | line-height (עד 0.18 תוספת) | 2 | תמיד |
+| P5 | word-spacing (0.1px עד 8px) | 1 | פסקה אחרונה בלבד |
+
+**שני סבבים:**
+1. **סבב ראשון** — כל tier מקבל `remaining * (weight / totalWeight)` מהתקציב
+2. **סבב שני** — כל tier מקבל את כל ה-`remaining` הנותר
+
+**תיקון ישיר (Direct Fix):** אחרי שני הסבבים, אם עדיין יש פער >5px, המערכת מחשבת ישירות את ה-`extraLh` המדויק הדרוש ומחילה אותו על הפסקה האחרונה. זה עוקף את מערכת ה-budget המורכבת ומבטיח תוצאה מדויקת.
+
+**`justifyColumnsPair()`:**
+- מקבל `rCol`, `lCol`, `heightCeiling`
+- מחשב `diff = rH - lH`, מזהה את הטור הקצר
+- `targetH = max(rH, lH)`, `growthCeiling = targetH + 1`
+- קורא ל-`distributeColumnJustification(shortCol, needed, ..., growthCeiling)`
+
+**Rebalance אחרי `tightenRunts()`:**
+- בודק אם `tightenRunts` יצר פער חדש
+- אם כן, מאפס סגנונות ישנים (`resetColumnJustificationStyles`) ומריץ מחדש
+- Fallback עם ceiling רחב יותר (`tallH + 3`)
+
+### 2.2 מניעת שורות וכותרות יתומות/אלמנות
+
+**`rollbackColumnTail()`:**
+- אסרך מתחתית הטור כלפי מעלה
+- **כלל 1:** שום כותרת אינה יכולה להיות האלמנט המסיים של טור
+- **כלל 2:** פסקה אחרי כותרת חייבת ≥2 שורות
+- **כלל 3:** פסקת `p-cut` חייבת ≥2 שורות
+- כל אלמנט שנלגח חוזר לתור לטור/עמוד הבא
+
+### 2.3 עימוד וניהול כותרות צד (Side Headings / Marginalia)
+
+**H7 → הערות שוליים:**
+- `כותרת 7` בטקסט → הופך ל-`.side-note-anchor` בעמודת השוליים
+- ממוקם ע"י `finalizeNotePositions()` — ממוקם ב-`offsetTop` של הפסקה + `SIDE_NOTE_OFFSET_TOP = 4px` (תיקון: מעט מתחת לתחילת הפסקה)
+- לוגיקת גלישה: אם הערה לא נכנסת בעמודת השוליים, מועברת לעמודת השוליים של העמוד הבא (איפה שהפסקה ממשיכה)
+
+**H4/5/6 בתחילת טור:**
+- CSS: `.right-col > .title-level-4:first-child { margin-top: 0 !important; }` — מבטל margin-top כדי להשוות גובה תחילת טור
+
+### 2.4 מנגנון הערות שוליים בתחתית העמוד (Footnotes)
+
+- תור נפרד: `footnoteQueueForPage[]` — נאסף תוך כדי עימוד
+- `flushFootnotesInto(pageEl)` — מוזרק לתחתית העמוד אחרי סיום הטורים
+- שמור מקום מראש: `getFootnotesReservedHeight()` מחשב גובה נדרש ומפחית מה-budget הזמין
+- איפוס מונה: `noteCounters` מתאפס לפי דף/פרק (`fn-reset-mode`)
+
+### 2.5 גלישת טקסט בין הטורים ולאזור הערות השוליים
+
+- **p-cut:** פסקה ארוכה נחתכת בין טורים. החלק הראשון מסתיים ב-`p-cut`, השני ממשיך בטור הבא עם `data-is-cont="true"`
+- **עבודה עם H7:** כשפסקה עם הערת שוליים נחתכת (p-cut), ההערה משויכת לחלק הראשון (לא להמשך)
+- **Overflow:** אם פסקה לא נכנסת בכלל בעמוד, המערכת מדלגת לעמוד הבא ומנסה שם
+
+### 2.6 איזון סוף פרק / סוף מודול
+
+- כשפרק מסתיים ונשאר מקום בעמוד האחרון, `distributeColumnJustification` משתמש ב-`budget` המלא (שארית העמוד) כדי למתוח את הטורים
+- רווחים מתפלגים לפי עדיפויות: קודם margin-top לפני כותרות (נראה טבעי), אחר כך margin-bottom, ורק בסוף line-height ו-word-spacing
+
+### 2.7 נושאים נוספים
+
+**tightenRunts — כיווץ גופנים לטיפול בשורות אחרונות דלילות:**
+- סולם tracking שלילי: `[0, -0.01, -0.02, ..., -0.06]em`
+- מודד ישירות ב-DOM (`p.offsetHeight`) — לא ב-measuring-box (תיקון קריטי)
+- מופעל רק על הטור הארוך יותר (לא מכווץ את הקצר)
+- `IMBALANCE_THRESHOLD = 10px` — לא מכווץ טור שכבר קצר ב-10px+
+
+**שורה אחרונה ממורכזת:**
+- `--last-line-align: center` — `text-align-last: center` על `p.p-end`
+- `p.p-cut` נשאר `justify` (המשך פסקה, לא מסתיים)
+
+**מילה ראשונה (Drop Word):**
+- `.first-word-window` — `float: right`, `font-size: 1.5em`, `line-height: 0.85`, `height: 1.25em`
+- `createDropWord()` — יוצר span עם המילה הראשונה, עם escapeHTML למניעת XSS
+- `line-height: 0.85` דוחס את ה-line-box → המילה ממורכזת אנכית
+
+**סנכרון גלילה עורך ↔ תצוגה:**
+- `lineToTokenMap[]` — מפה משורת עורך ל-token ID
+- `querySelectorAll` (לא `querySelector`) — מוצא את כל ההתאמות (פסקה חתוכה יכולה להופיע פעמיים)
+- בוחר את האלמנט הקרוב ביותר למיקום הגלילה הנוכחי
+
+**טעינת גופנים דו-שלבית:**
+- שלב א': 12 גופנים עיקריים נטענים דרך `document.fonts.load()` — העימוד מתחיל מיד
+- שלב ב': שאר הגופנים נטענים ברקע דרך `document.fonts.ready`
+- תיקון CSS escaping: גרש בודד (`'`) במקום גרשיים (`"`) כעוטף CSS, כי השם `גוטמן רש"י רגיל` מכיל `"` ששובר מחרוזת
+
+**beforeprint handler:**
+- `window.addEventListener('beforeprint', ...)` — מריץ `performTypeset()` מחדש לפני הדפסה
+- נחוץ כי רינדור גופנים שונה בין מסך להדפסה (font hinting, subpixel positioning)
+- `afterprint` — משחזר מצב מסך
+
+---
+
+## 3. יומן כישלונות, טעויות וניסיונות שנפסלו
+
+### 3.1 layoutInvalidator (V2 Engine) דרס תיקונים
+
+**ההצעה:** `layoutInvalidator` (מבוסס `balanceColumnsV2`) היה מתזמן re-balance דרך `requestAnimationFrame` אחרי שינויי גובה.
+
+**הכשלון:** V2 פעל פחות טוב מ-V1. ה-re-balance של V2 דרס את כל התיקונים של `justifyColumnsPair` + `tightenRunts`. תוצאה: 86 עמודים לא מאוזנים ב-PDF המודפס.
+
+**איך התגלה:** ניתוח `pdffonts` הראה גופני fallback (DavidLibre, TimesNewRoman). ניתוח הדיבאג HTML הראה שהאיזון הופעל (trace log מתעד) אבל התוצאה הסופית לא מאוזנת. הסיבה: rAF של V2 רץ אחרי ה-`finalizeTwoColumnBlockLayout` ודרס הכל.
+
+**המסקנה:** אל תפעיל re-balance אסינכרוני אחרי איזון סינכרוני. ה-comment out של `invalidateBlock` פתר את הבעיה.
+
+### 3.2 `applied = delta` ב-P5 (במקום `applied += delta`)
+
+**ההצעה:** ב-`applyPriority5_WordSpacing`, לצבור את ה-delta מכל צעד ws.
+
+**הכשלון:** הקוד היה `applied = delta` (overwrite) במקום `applied += delta` (cumulative). תוצאה: הבדיקה `applied >= budget - 0.5` לא תפסה לעולם, ו-P5 המשיך לגדול עד ws=8, גרם ל-overshoot של 16-21px.
+
+**איך התגלה:** ניתוח דוחות דיבאג הראה `neededGrowth=34, applied=50` — הפער גדול מהנדרש. הפער העודף (16px) תאם בדיוק את ה-delta האחרון של P5.
+
+**המסקנה:** תמיד השתמש ב-`+=` לצבירה קומולטיבית בלולאות מדידה.
+
+### 3.3 refuse-to-fill-with-runt ב-P4
+
+**ההצעה:** למנוע יצירת runt (שורה דלילה) ע"י בדיקת מספר מילים בשורה האחרונה אחרי שינוי line-height.
+
+**הכשלון:** `getLinesFromParagraph` משתמש ב-measuring-box עם `styleObj.lineHeight` (ברירת מחדל 1.34), לא ב-line-height שהופעל בפועל. **line-height לא משנה שבירת שורות** — הוא משנה רק מרווח אנכי. לכן הבדיקה ראתה תמיד את אותו מספר מילים (עם ברירת מחדל 1.34), ואם היו ≤2 מילים בשורה האחרונה — חסמה כל גידול.
+
+**איך התגלה:** דיבאג מ-`debug-page-29.html` הראה `neededGrowth=34, P4=4` — P4 הצליח להוסיף רק 4px מתוך 34px הנדרשים. הסיבה: ה-bדיקה חסמה את הסבב השני של P4.
+
+**המסקנה:** אל תבדוק runt במנגנונים שלא משנים שבירת שורות (line-height). הבדיקה רלוונטית רק ל-P5 (word-spacing) שכן משנה שבירה. **הסרה מוחלטת של הבדיקה מ-P4.**
+
+### 3.4 `heightCeiling = budget` במקום `targetH + 1`
+
+**ההצעה:** להעביר את ה-budget הגלובלי (915px = כל העמוד) כ-ceiling ל-`distributeColumnJustification`.
+
+**הכשלון:** הפונקציה יכולה לגדול PAST הטור הארוך (כי ה-ceiling הרבה יותר גבוה מהיעד). תוצאה: overshoot של 20-40px, יצירת חוסר איזון הפוך.
+
+**איך התגלה:** ניתוח דיבאג הראה עמודים עם R=371 L=393 (הטור הקצר גדל מעבר לארוך). ה-ceiling היה 913 (budget) במקום 394 (targetH+1).
+
+**המסקנה:** העבר `growthCeiling = targetH + 1` (או `+3` ל-fallback), לא את ה-budget הגלובלי.
+
+### 3.5 Fallback ceiling `tallH + 30` גרם ל-overshoot
+
+**ההצעה:** ה-rebalance fallback השתמש ב-`tallH + 30` כדי לאפשר "מרחב נשימה".
+
+**הכשלון:** 30px יתרון איפשר ל-P5 לקפוץ מ-0 ל-21px בצעד אחד (ws=0.5px → delta=21px) בלי ש-`colOverCeiling` יתפוס. תוצאה: overshoot של 16-21px ב-6 עמודים.
+
+**איך התגלה:** דוח העימוד הראה באופן עקבי `applied > needed` ב-6 מתוך 12 עמודים, עם יתרון קבוע של ~16-21px.
+
+**המסקנה:** הקטן ל-`tallH + 3`, והחלף צעדי P5 מ-0.5px ל-0.1px.
+
+### 3.6 `tryLookAheadWordPull` — משיכת מילים בין טורים
+
+**ההצעה:** כששורה אחרונה בטור ימין דלילה, העבר 1-3 מילים מתחילת טור שמאל.
+
+**הכשלון:** postext (הפרויקט שנחקר) ממליץ נגד זה מפורשות: "religious/semantic text units must not be silently rebalanced for visual fit." בנוסף, הפונקציה לא מצאה אף מקרה התאמה בפועל.
+
+**איך התגלה:** מחקר מעמיק של מאגר postext (GitHub: drnachio/postext). המלצה #9: "Don't pull words from the next column."
+
+**המסקנה:** השבת את הקריאה ל-`tryLookAheadWordPull`. שורה דלילה עדיפה על שינוי תוכן דתי.
+
+### 3.7 CSS escaping — גרשיים בתוך שם גופן
+
+**ההצעה:** `PRIORITY_FONTS` עם `"12pt \"גוטמן רש\"י רגיל\""` — גרשיים כפולים כעוטף CSS.
+
+**הכשלון:** ה-`"` בתוך `רש"י` שובר את המחרוזת. CSS קורא `"גוטמן רש"` ומתעלם מהשאר. `document.fonts.load()` נכשל שקט, והעימוד רץ עם גופני fallback.
+
+**איך התגלה:** `pdffonts` הראה `TimesNewRomanPS-BoldMT` (system fallback) ב-PDF. השוואת SHA256 של קובץ הגופן הראתה שהקובץ זהה, אבל השם ב-`@font-face` לא תאם.
+
+**המסקנה:** השתמש בגרש בודד (`'`) כעוטף CSS כשהשם מכיל `"`: `"12pt 'גוטמן רש\"י רגיל'"`.
+
+### 3.8 GitHub Pages + Jekyll מסנן `_fonts.css`
+
+**ההצעה:** קובץ בשם `_fonts.css` עם `@import` ב-`style.css`.
+
+**הכשלון:** GitHub Pages עם Jekyll (ברירת מחדל) מתעלם מקבצים שמתחילים בקו תחתון (`_`). הדפדפן קיבל 404.
+
+**איך התגלה:** שגיאה בקונסול: `GET _fonts.css net::ERR_ABORTED 404`. בדיקת `raw.githubusercontent.com` הראתה 200, אבל Pages הראה 404.
+
+**המסקנה:** הוסף `.nojekyll` ריק ב-root, או שנה את השם ללא קו תחתון מוביל.
+
+### 3.9 V2 Layout Engine (balanceColumnsV2)
+
+**ההצעה:** מנוע עימוד מתקדם עם `calculateCandidateLayout`, `scoreCandidate`, `findBestSplitPoint`, `continuationLineQuality`, `lookAheadLineBreak`.
+
+**הכשלון:** בבדיקות, V2 הפיק תוצאות נחותות מ-V1. ה-scoring לא הצליח למצוא נקודות פיצול טובות יותר.
+
+**המסקנה:** השאר את V1 כמנוע הראשי. V2 נשמר כקוד מבוטל.
+
+---
+
+## 4. סטטוס קוד נוכחי ורכיבים מוכנים
+
+### מפת פונקציות עיקריות ב-`typesetter.js`
+
+| פונקציה | שורות | תפקיד |
+|---|---|---|
+| `getLinesFromParagraph()` | 297-430 | מדידת שורות ב-measuring-box |
+| `distributeColumnJustification()` | 921-1182 | איזון טור קצר ע"י 5 עדיפויות + תיקון ישיר |
+| `justifyColumnsPair()` | 1143-1190 | זיהוי טור קצר + קריאה ל-distribute |
+| `applyPriority1_HeadingBefore()` | 937-958 | margin-top לפני כותרת |
+| `applyPriority2_HeadingAfter()` | 961-982 | margin-bottom אחרי כותרת |
+| `applyPriority3_ParagraphSpacing()` | 985-1006 | margin-bottom בין פסקאות |
+| `applyPriority4_LineHeight()` | 1008-1041 | line-height (cap 0.18, ללא refuse-to-fill-with-runt) |
+| `applyPriority5_WordSpacing()` | 1054-1121 | word-spacing (צעדי 0.1px + חיפוש בינארי 0.01px) |
+| `tightenRunts()` | 1405-1500 | כיווץ tracking שלילי (DOM ישיר) |
+| `tightenRuntsInBlock()` | 1511-1539 | בדיקת אי-איזון לפני כיווץ |
+| `finalizeTwoColumnBlockLayout()` | 1224-1270 | רכז: איזון → tightenRunts → rebalance |
+| `rollbackColumnTail()` | 1352-1460 | גלגול אחורה: מניעת יתומ/אלמנות |
+| `finalizeNotePositions()` | 2922-2965 | מיקום הערות שוליים (offsetTop + 4px) |
+| `createDropWord()` | 256-295 | יצירת מילה ראשונה מודגשת |
+| `performTypeset()` | 3801-3835 | כניסה ראשית (עם try/catch) |
+| `performTypesetInner()` | 3837-5240 | לולאת העימוד הראשית |
+| `updateStyles()` | 162-225 | עדכון CSS variables מ-pickers (fallbacks בעברית) |
+
+### `app.js` — רכיבים מרכזיים
+
+| פונקציה | תפקיד |
+|---|---|
+| `initFontPickers()` | אתחול pickers עם 27 אפשרויות גופן (כל המשקלים) |
+| `updateStyles()` | קריאה מ-typesetter — הפעלה |
+| `syncCursorToPreview()` | סנכרון גלילה עורך → תצוגה (querySelectorAll) |
+| `ensureBuiltinFontsLoaded()` | טעינת Assistant + Rubik מ-Google |
+| `beforeprint`/`afterprint` | re-typeset לפני/אחרי הדפסה |
+
+### `test-suite.js` — רכיבים
+
+| פונקציה | תפקיד |
+|---|---|
+| `generateTestText()` | מחולל ~1.1MB טקסט (362 עמודים) המכסה את כל השילובים |
+| `generateLayoutReport()` | דוח HTML עם 9 מדדים + טבלה מפורטת לכל בלוק |
+
+### קטעי קוד סופיים קריטיים
+
+**תיקון ישיר (Direct Fix) — `distributeColumnJustification`:**
+```js
+// אחרי שני סבבי P1-P5, אם עדיין יש פער:
+if (remaining > 5 && !colOverCeiling()) {
+    const lastP = allP[allP.length - 1];
+    const n = Math.max(1, li.lines.length);
+    const exactExtraLh = remaining / (n * fp);
+    if (exactExtraLh > 0 && exactExtraLh <= 0.40) {
+        const newLh = baseLh + currentExtraLh + exactExtraLh;
+        lastP.style.lineHeight = newLh.toString();
+        if (!colOverCeiling()) remaining = 0;
+        else lastP.style.lineHeight = prev;
+    }
+}
+```
+
+**P5 עם צעדים עדינים:**
+```js
+for (let ws = 0.1; ws <= 8; ws += 0.1) {
+    if (applied >= budget - 0.3) break;
+    // ... measure, check ceiling, check refuse-to-fill-with-runt (before/after)
+    applied += delta;  // cumulative, לא = delta
+    if (applied > budget + 2) { p.style.wordSpacing = lastGood; applied -= delta; break; }
+}
+// שלב ב': חיפוש בינארי 0.01px אם עדיין חסר
+```
+
+---
+
+## 5. מקרי קצה שנבדקו ותורגמו לבדיקות
+
+### מקרי קצה מטופלים
+
+| מקרה קצה | טיפול |
+|---|---|
+| פסקה בת מילה אחת | `createDropWord` לא מופעל (דורש ≥4 מילים); `rollbackColumnTail` מונע פסקה חד-שורתית אחרי כותרת |
+| פסקה חתוכה (p-cut) עם שורה אחת | `rollbackColumnTail` דורש ≥2 שורות ל-p-cut |
+| כותרת בתחתית טור | `rollbackColumnTail` כלל 1 — מסיר כותרת מסוף טור |
+| פסקה אחרי כותרת עם שורה אחת | `rollbackColumnTail` כלל 2א — דורש ≥2 שורות |
+| הערת שוליים ארוכה מעמוד | `finalizeNotePositions` — מעביר לעמוד הבא |
+| פסקה ענקית (800+ מילים) | נחתכת בין טורים (p-cut) ובין עמודים |
+| שתי פסקאות ענקיות זו אחר זו | כל אחת נחתכת בנפרד |
+| רצף כותרות ללא פסקאות | H3→H4 מותר; H4 מקבל `margin-top: 0` כ-`:first-child` |
+| 20 הערות שוליים ברצף | כל אחת ממוקמת ב-offsetTop של הפסקה שלה |
+| טור ריק (סוף פרק) | מתקבל כמקרה קצה — diff=50px עם R=0 |
+| שינוי גופן בין Windows ו-Linux | `beforeprint` handler מריץ re-typeset |
+| גופן עם `"` בשם | גרש בודד כעוטף CSS |
+
+### מקרי קצה שנבדקו ע"י טקסט הבדיקה
+
+טקסט הבדיקה (1,106,519 תווים, 362 עמודים) מכסה:
+- 17 רמות אורך פסקה (1 עד 800 מילים)
+- סדרת פיבונאצ'י (1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610)
+- כל רמות הכותרות (H0-H7) בכל השילובים
+- H3 חוצה טורים (6 פעמים)
+- H4 בתחילת טור (בדיקת `:first-child`)
+- 80 סבבים של H4+H7+H5+H6+H7 עם אורכים עולים
+- רצף 25 פסקאות שורה אחת עם H7
+- פסקה באורך עמוד מלא (900 מילים)
+
+---
+
+## 6. מפת דרכים והצעדים הבאים
+
+### סטטוס נוכחי (V14)
+
+| מדד | ערך |
+|---|---|
+| עמודים מטקסט בדיקה | 362-546 |
+| בלוקים | 354-367 |
+| לא מאוזנים | 4-7 (98-99% מאוזן) |
+| שורות דלילות (סה"כ) | 546 |
+| שורות דלילות p-cut (אמצע פסקה) | לא מדווח עדיין (תיקון בדוח החדש) |
+| tightenRunts | 129 |
+| פסקאות עם התאמות | 407 |
+
+### בעיות פתוחות
+
+1. **2 בלוקים עם 16px הפרש** — H5 בטור אחד. הפער נובע מגובה עודף של הכותרת. פתרון אפשרי: התאמת `margin-bottom` של H5 במקום `line-height` של הפסקה השנייה.
+
+2. **546 שורות דלילות** — רובן סיומי פסקאות טבעיים (p-end). לא ניתן לתקן ללא שינוי הטקסט. אבל שורות דלילות p-cut (אמצע פסקה בסוף טור) דורשות טיפול — הדוח החדש מזהה אותן כעת.
+
+3. **הבדלי פלטפורמה (Windows vs Linux)** — רינדור גופנים שונה גורם למספר עמודים שונה (362 ב-Linux, 373 ב-Windows). `beforeprint` מטפל בזה ע"י re-typeset.
+
+4. **מקרי קצה עם פסקאות קצרצרות (1-4 מילים)** — diff=60px בבלוקים עם פסקאות זעירות. אין מספיק תוכן לאיזון.
+
+### צעדים מומלצים הבאים
+
+1. **טפל בשורות p-cut דלילות** — אם פסקה חתוכה מסתיימת ב-1-2 מילים בסוף טור, המערכת צריכה להזיז את נקודת החיתוך (להעביר מילה נוספת לטור הראשון, או להשאיר את המילה לטור השני). זה דורש שינוי ב-`balanceColumns` שיבחר נקודת חיתוך עם ריבוי מילים בשורה האחרונה.
+
+2. **הוסף עמודה לדוח: "סוג דלילות"** — כעת הדוח מפריד p-end מ-p-cut, אבל לא מציג בטבלה איזו פסקה דלילה. הוסף עמודת "דליל" עם ✓/✗ לכל בלוק.
+
+3. **בדוק את ה-2 בלוקים הנותרים עם H5** — נסה להוסיף התאמת `margin-bottom` של H5 כמנגנון P2.5 (בין P2 ל-P3).
+
+4. **שקול Knuth-Plass** — לטווח ארוך, מנוע K-P עם runt penalty (כפי שנחקר ב-postext) יכול למנוע שורות דלילות מראש, במקום לתקן אחר כך.
+
+5. **ודא ש-`.nojekyll` קיים** בכל branch שמשרת Pages.
+
+### הנחיות ל-AI הבא
+
+- **אל תפעיל `layoutInvalidator`** — הוא דרס תיקונים עם V2
+- **אל תחזיר `refuse-to-fill-with-runt` ל-P4** — line-height לא משנה שבירת שורות
+- **אל תשתמש ב-`tryLookAheadWordPull`** — מדיניות postext: אל תמשוך מילים בין טורים
+- **השתמש בגרש בודד** ב-`document.fonts.load()` כששם הגופן מכיל `"`
+- **ודא `.nojekyll`** בכל branch שמשרת GitHub Pages
+- **הרץ טקסט בדיקה** (`🧪 טקסט בדיקה`) לפני כל שינוי, והפק דוח (`📊 דוח עימוד`)
+- **כל שינוי ב-`distributeColumnJustification` דורש בדיקת overshoot** — ודא ש-`applied` לא חורג מ-`budget + 2`
+- **הפרד בין דלילות p-end (טבעיות) ל-p-cut (בעייתיות)** בכל דוח עתידי

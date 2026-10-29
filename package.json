@@ -1,0 +1,16 @@
+{
+  "name": "tora-book-typesetter-orange",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unified Torah book typesetting system (A4, Hebrew RTL) - runs as a static site, no build step",
+  "scripts": {
+    "test": "npm run test:layout:quick && npm run test:features",
+    "test:layout": "node tests/layout/run-suite.js",
+    "test:layout:quick": "node tests/layout/run-suite.js --quick",
+    "test:features": "node tests/features/run.js",
+    "baseline:update": "node tests/layout/run-suite.js --update-baseline"
+  },
+  "devDependencies": {
+    "playwright": "^1.50.0"
+  }
+}
