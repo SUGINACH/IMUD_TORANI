@@ -210,6 +210,7 @@ if (editorElem) {
 
     editorElem.addEventListener('input', () => {
         updateEditorStats();
+        if (typeof markPendingChanges === 'function') markPendingChanges();
     });
 }
 
@@ -1685,14 +1686,25 @@ document.addEventListener('click', (e) => {
    15. אירוע טעינת הדף הראשי (Window Onload)
    ========================================================================== */
 window.onload = async function() {
+    initSettingsChangeListeners();
     initFontPickers();
     refreshCustomThemesUI();
     rehydrateExtImports();
 
     await loadExternalJSONAssets();
     await loadFolderAssetsAndThemes();
-    await loadExternalFonts();
+    // [הועבר מ-v19, תיקון 2026-10-16] loadExternalFonts טוען 1,754 גופנים אחד-אחד; המתנה לו חסמה את העימוד
+    // הראשון (מעל דקה). מריצים ברקע - בוררי הגופנים מתעדכנים תוך כדי.
+    loadExternalFonts();
     await ensureBuiltinFontsLoaded();
+
+    // [הועבר מ-v19] הגדרות ברירת מחדל + הגדרות שמורות/מיובאות (localStorage) + שורת "סגנון / ייצוא / ייבוא".
+    // מוחלות אחרי טעינת הנכסים (רשימות שערים/עיטורים) ולפני העימוד הראשון.
+    if (typeof loadDefaultSettings === 'function') {
+        try { await loadDefaultSettings(); } catch (e) { console.warn(e); }
+    }
+    if (typeof initStyleSetDropdown === 'function') initStyleSetDropdown();
+    clearPendingChanges();
 
     if (document.getElementById('section-divider-style')?.value === 'custom_img') {
         const row = document.getElementById('row-sec-div-img');
@@ -1738,4 +1750,353 @@ window.onload = async function() {
 
     typesetDocument();
     initVisualPickers();
+    // [Orange] סימון סיום אתחול — הבדיקות האוטומטיות ממתינות לו (במקום להמתין זמן קבוע)
+    window.__appReady = true;
 };
+
+/* ==========================================================================
+   האזנה מרוכזת לכל שינויי לוח ההגדרות (סנכרון חיווי ועימוד חי)
+   ========================================================================== */
+function initSettingsChangeListeners() {
+    const settingsPane = document.getElementById('settings-pane');
+    if (!settingsPane) return;
+
+    settingsPane.addEventListener('input', (e) => {
+        const id = e.target.id || '';
+        // שדות מטא-דאטה לשערים מעדכנים תצוגה מיידית
+        if (id.startsWith('inp-book-') || id.startsWith('builder-') || id.startsWith('cbg-')) {
+            if (typeof typesetDocumentLive === 'function') typesetDocumentLive(350);
+        } else {
+            if (typeof markPendingChanges === 'function') markPendingChanges();
+        }
+    });
+
+    settingsPane.addEventListener('change', (e) => {
+        const id = e.target.id || '';
+        // בוררי שערים ורקעים מגיבים מיד
+        if (id.startsWith('select-shaar-') || id === 'active-theme-select' || id.startsWith('cbg-') || id.startsWith('show-')) {
+            if (typeof typesetDocumentLive === 'function') typesetDocumentLive(300);
+        } else {
+            if (typeof markPendingChanges === 'function') markPendingChanges();
+        }
+    });
+}
+
+
+/* ==========================================================================
+   16. ייצוא HTML מרונדר + טעינת גופנים נוספים  [הועבר מקו v19 / commit 6c5a7e1]
+   ========================================================================== */
+// ייצוא: מסמך HTML עצמאי (שכפול preview-pane + CSS + גופני עדיפות כ-base64).
+// גופנים נוספים: מזריק fonts-extended.css ומאכלס את בוררי הגופנים מ-fonts-extended.json (רשימה 2).
+let _extendedFontsLoaded = false;
+
+async function loadExtendedFonts() {
+    if (_extendedFontsLoaded) {
+        alert('רשימה 2 של הגופנים כבר נטענה.');
+        return;
+    }
+    const btn = document.getElementById('btn-load-extended-fonts');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ טוען גופנים...';
+    }
+
+    try {
+        // 1) הזרקת fonts-extended.css
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'fonts-extended.css';
+        link.id = 'fonts-extended-stylesheet';
+        document.head.appendChild(link);
+        await new Promise((resolve, reject) => {
+            link.onload = resolve;
+            link.onerror = reject;
+            setTimeout(resolve, 5000);
+        });
+
+        // 2) אכלוס ה-pickers מ-fonts-extended.json
+        const res = await fetch('fonts-extended.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const fonts = await res.json();
+        if (!Array.isArray(fonts)) throw new Error('פורמט שגוי');
+
+        document.querySelectorAll('.font-picker').forEach(select => {
+            const currentVal = select.value;
+            let grp = select.querySelector('optgroup[label="גופנים מקומיים — רשימה 2"]');
+            if (!grp) {
+                grp = document.createElement('optgroup');
+                grp.label = 'גופנים מקומיים — רשימה 2';
+                select.appendChild(grp);
+            }
+            fonts.forEach(font => {
+                const opt = document.createElement('option');
+                opt.value = `'${font.family}', serif`;
+                opt.textContent = font.family;
+                grp.appendChild(opt);
+            });
+            select.value = currentVal;
+        });
+
+        _extendedFontsLoaded = true;
+        if (btn) {
+            btn.textContent = `✓ נטענו ${fonts.length} גופנים נוספים`;
+        }
+        console.log(`✓ רשימה 2: ${fonts.length} גופנים נטענו`);
+    } catch (e) {
+        console.error('loadExtendedFonts נכשל:', e);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '📚 טען גופנים נוספים';
+        }
+        alert('טעינת רשימה 2 נכשלה. בדוק את הקונסול לפרטים.');
+    }
+}
+window.loadExtendedFonts = loadExtendedFonts;
+window.loadExtendedFonts = loadExtendedFonts;
+
+async function exportRenderedHTML() {
+    const bookContainer = document.getElementById('book-container');
+    if (!bookContainer) {
+        alert('אין מסמך מרונדר. הרץ עימוד קודם.');
+        return;
+    }
+
+    const btn = document.getElementById('btn-export-html');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ מייצא...';
+    }
+
+    try {
+        // 1) שכפול ה-#preview-pane (שמכיל את #book-container) — כך המבנה
+        // ההיררכי נשמר, וה-layout זהה ל-DOM החי.
+        const previewPane = document.getElementById('preview-pane');
+        const clone = previewPane.cloneNode(true);
+
+        // 2) הסרת event handlers
+        clone.querySelectorAll('*').forEach(el => {
+            el.removeAttribute('onclick');
+        });
+
+        // 3) איסוף CSS — fetch style.css + fonts-def.css + fonts-extended.css (אם נטען)
+        const cssFiles = ['style.css', 'fonts-def.css'];
+        const extLink = document.getElementById('fonts-extended-stylesheet');
+        if (extLink) cssFiles.push('fonts-extended.css');
+
+        const cssContents = [];
+        for (const file of cssFiles) {
+            try {
+                const res = await fetch(file);
+                if (res.ok) {
+                    const text = await res.text();
+                    cssContents.push(`/* === ${file} === */\n${text}`);
+                }
+            } catch (e) {
+                console.warn(`לא ניתן לטעון ${file}:`, e);
+            }
+        }
+
+        // 3.5) הטמעת גופני העדיפות של עדכון_ממשק_9 כ-base64 — חיוני כדי שה-HTML
+        // המיוצא יציג את הגופנים נכון גם בלי תיקיית fonts/ לידו.
+        // רשימה זו כוללת את כל הגופנים שבשימוש ברירת המחדל של עדכון_ממשק_9
+        // (מתוך fonts-priority.json / fonts-def.css):
+        //   - Guttman Rashi (גוף הטקסט)
+        //   - AlphaBlack / Alpha / AlphaLight (כותרות 0, 2, 3, 4, 5, סימן)
+        //   - FrankReal (מילה ראשונה)
+        //   - Hadassah Friedlaender (כותרת 7 / הערות צד)
+        //   - Livorna (כותרות עליונות, שערים)
+        //   - David Libre / Frank Ruhl Libre / Noto Serif Hebrew (Google fallback)
+        // גם גופני Google נטענים דרך @import ב-style.css.
+        const PRIORITY_FONT_FILES = [
+            'Guttman-Rashi-Normal.woff2',
+            'Guttman-Rashi-Bold.woff2',
+            'Alpha-Black.woff2',
+            'Alpha-Bold.woff2',
+            'Alpha-Regular.woff2',
+            'Alpha-Light.woff2',
+            'FrankReal-Bold.woff2',
+            'FrankReal-Regular.woff2',
+            'Hadassah-Friedlaender-Regular.woff2',
+            'Hadassah-Friedlaender-Bold.woff2',
+            'Livorna-Regular.woff2',
+            'Livorna-Bold.woff2',
+            'Livornabook-Regular.woff2'
+        ];
+        const embeddedFonts = [];
+        for (const fontFile of PRIORITY_FONT_FILES) {
+            try {
+                const res = await fetch('fonts/' + fontFile);
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const reader = new FileReader();
+                    const base64 = await new Promise((resolve, reject) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                    embeddedFonts.push({ file: fontFile, base64 });
+                }
+            } catch (e) {
+                console.warn(`לא ניתן להטמיע ${fontFile}:`, e);
+            }
+        }
+        if (embeddedFonts.length > 0) {
+            console.log(`exportRenderedHTML: הוטמעו ${embeddedFonts.length} גופנים`);
+        }
+
+        // 4) איסוף CSS variables מ-:root (computed) + inline styles שהוצבו ע"י JS
+        const rootStyle = getComputedStyle(document.documentElement);
+        const cssVars = [];
+        const seenProps = new Set();
+
+        // א. אסוף inline styles מ-document.documentElement (הוצבו ע"י JS)
+        const rootEl = document.documentElement;
+        for (let i = 0; i < rootEl.style.length; i++) {
+            const prop = rootEl.style[i];
+            if (prop.startsWith('--')) {
+                const val = rootEl.style.getPropertyValue(prop).trim();
+                if (val) {
+                    cssVars.push(`${prop}: ${val};`);
+                    seenProps.add(prop);
+                }
+            }
+        }
+
+        // ב. אסוף CSS variables מ-:root rules (רק אלה שלא הוצבו inline)
+        for (const sheet of document.styleSheets) {
+            try {
+                for (const rule of sheet.cssRules) {
+                    if (rule.selectorText === ':root' && rule.style) {
+                        for (let i = 0; i < rule.style.length; i++) {
+                            const prop = rule.style[i];
+                            if (prop.startsWith('--') && !seenProps.has(prop)) {
+                                const val = rootStyle.getPropertyValue(prop).trim();
+                                if (val) {
+                                    cssVars.push(`${prop}: ${val};`);
+                                    seenProps.add(prop);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // 4.5) החלפת src ב-@font-face של גופני העדיפות עם base64
+        let cssText = cssContents.join('\n\n');
+        for (const { file, base64 } of embeddedFonts) {
+            const patterns = [
+                `url('fonts/${file}')`,
+                `url("fonts/${file}")`,
+                `url(fonts/${file})`
+            ];
+            for (const pat of patterns) {
+                cssText = cssText.split(pat).join(`url(${base64})`);
+            }
+        }
+
+        // 5) בניית HTML עצמאי
+        const html = `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מסמך מרונדר — ייצוא</title>
+<style>
+${cssText}
+
+/* === CSS Variables מהשורש (אחרי ה-CSS כדי לגבור על :root) === */
+:root {
+    ${cssVars.join('\n    ')}
+}
+
+/* === סגנונות ייצוא — מציגים רק את הספר === */
+html, body {
+    margin: 0;
+    padding: 0;
+    background: #334155;
+    font-family: 'Assistant', sans-serif;
+    height: auto !important;
+    overflow: visible !important;
+}
+body {
+    padding: 20px 0;
+}
+#sidebar, #text-pane, #settings-pane, #resizer, #measuring-box {
+    display: none !important;
+}
+#preview-pane {
+    display: flex !important;
+    position: static !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 20px 0 !important;
+    float: none !important;
+    width: 100% !important;
+    flex: none !important;
+    background: #334155 !important;
+}
+#book-container {
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    will-change: auto !important;
+    transition: none !important;
+}
+.a4-page {
+    margin: 0 auto 25px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+    background: #ffffff !important;
+    transform: none !important;
+    flex-shrink: 0;
+}
+@media print {
+    .a4-page {
+        page-break-after: always;
+    }
+}
+</style>
+</head>
+<body>
+${clone.outerHTML}
+<script>
+if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+        document.body.offsetHeight;
+    });
+}
+</script>
+</body>
+</html>`;
+
+        // 6) הורדה — תיקון שגיאת תחביר שהייתה ב-v18 (Blob(tml] → Blob([html])
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'rendered-document.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+        if (btn) {
+            btn.textContent = '✓ יוצא';
+            setTimeout(() => {
+                btn.textContent = '💾 ייצוא HTML';
+                btn.disabled = false;
+            }, 2000);
+        }
+        console.log('✓ HTML מרונדר יוצא');
+    } catch (e) {
+        console.error('exportRenderedHTML נכשל:', e);
+        if (btn) {
+            btn.textContent = '💾 ייצוא HTML';
+            btn.disabled = false;
+        }
+        alert('ייצוא HTML נכשל: ' + e.message);
+    }
+}
+window.exportRenderedHTML = exportRenderedHTML;
