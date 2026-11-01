@@ -1644,3 +1644,20 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
     max-width: 100%;
     max-height: 30px;
 }
+
+/* [הועבר מ-V21] פריסת הערות "רציפה": ההערות זורמות כטקסט אחד עם רווח כפול ביניהן (במקום שורה נפרדת לכל הערה).
+   markLastRowOfContinuousBlock מוסיף last-row-multi כשבשורה האחרונה יש 2+ הערות, כדי שייפרסו על כל הרוחב. */
+.note-block.continuous-mode {
+    column-count: 1;
+    text-align: justify;
+    text-justify: inter-word;
+    text-align-last: var(--note-last-line-align, right);
+}
+.note-block.continuous-mode.last-row-multi { text-align-last: justify; }
+.note-block.continuous-mode .note-line {
+    display: inline;
+    margin-bottom: 0;
+    break-inside: auto;
+}
+.note-block.continuous-mode .note-line + .note-line { margin-right: 1em; }
+.note-block.continuous-mode .note-line .note-line-num { margin-left: 0; }

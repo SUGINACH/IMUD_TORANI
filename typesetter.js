@@ -1377,10 +1377,33 @@ function createNoteMarkerAndQueue(text, styleId, target) {
     return marker;
 }
 
+/* [הועבר מ-V21] מסמן את ההערות ב"שורה האחרונה" של בלוק הערות רציף (class last-row-multi כשיש בה 2+ הערות,
+   כדי שיישור מלא של השורה האחרונה יתפרס על כל הרוחב). נקרא אחרי שהבלוק חובר ל-DOM (נדרש layout למדידת Y). */
+function markLastRowOfContinuousBlock(block) {
+    if (!block || !block.classList.contains('continuous-mode')) return;
+    if (block.getAttribute('data-mark-last-row') !== '1') return;
+    block.removeAttribute('data-mark-last-row');
+
+    const notes = Array.from(block.querySelectorAll('.note-line'));
+    if (notes.length < 2) return;
+
+    const lastTop = notes[notes.length - 1].getBoundingClientRect().top;
+    let countInLastRow = 0;
+    for (let i = notes.length - 1; i >= 0; i--) {
+        if (Math.abs(notes[i].getBoundingClientRect().top - lastTop) < 2) countInLastRow++;
+        else break;
+    }
+    if (countInLastRow >= 2) block.classList.add('last-row-multi');
+}
+
 function buildNoteBlockElement(queue, columns) {
     const wrap = document.createElement('div');
     const cols = columns || parseInt(document.getElementById('fn-columns')?.value, 10) || 1;
     wrap.className = `note-block cols-${cols}`;
+
+    // [הועבר מ-V21] פריסת הערות: "block" (כל הערה בשורה נפרדת, ברירת מחדל) או "continuous" (הערות ברצף עם רווח ביניהן)
+    const layoutMode = document.getElementById('fn-layout-mode')?.value || 'block';
+    if (layoutMode === 'continuous') wrap.classList.add('continuous-mode');
 
     const sepEl = document.getElementById('note-num-separator');
     const globalSep = sepEl ? sepEl.value : '.';
@@ -1403,6 +1426,7 @@ function buildNoteBlockElement(queue, columns) {
         line.appendChild(body);
         wrap.appendChild(line);
     });
+    if (layoutMode === 'continuous' && wrap.children.length > 1) wrap.setAttribute('data-mark-last-row', '1');
     return wrap;
 }
 
@@ -1461,6 +1485,9 @@ function flushFootnotesInto(pageEl) {
     } else {
         pageEl.appendChild(area);
     }
+
+    // [הועבר מ-V21] אחרי שהאזור חובר ל-DOM: סימון השורה האחרונה של בלוק רציף
+    markLastRowOfContinuousBlock(block);
 
     footnoteQueueForPage = [];
     resetNoteCounterIfNeeded('footnote', 'page');

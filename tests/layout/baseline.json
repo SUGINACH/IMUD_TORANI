@@ -207,7 +207,47 @@
    "counts": {},
    "jsErrors": 0,
    "ms": 1582
+  },
+  "cfg-fncont": {
+   "group": "cfg",
+   "pages": 29,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 2452
+  },
+  "synthFnCont-31": {
+   "group": "synth",
+   "pages": 19,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 1510
+  },
+  "synthFnCont-32": {
+   "group": "synth",
+   "pages": 20,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 1688
+  },
+  "synthFnBlock-31": {
+   "group": "synth",
+   "pages": 20,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 1585
+  },
+  "synthFnBlock-32": {
+   "group": "synth",
+   "pages": 20,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 1812
   }
  },
- "updated": "2026-11-01T08:12:01.502Z"
+ "updated": "2026-11-01T13:22:24.225Z"
 }
