@@ -450,6 +450,10 @@ function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, 
     let evenRSize = (document.getElementById('s-hdr-verso-r')?.value || 15) + 'pt';
     let evenLFont = document.getElementById('f-hdr-verso-l')?.value || oddLFont;
     let evenLSize = (document.getElementById('s-hdr-verso-l')?.value || 15) + 'pt';
+    // [Orange] אמצע כותרת עליונה בעמוד זוגי: גופן וגודל משלו (היו בממשק אך המנוע התעלם מהם, בכל הגרסאות)
+    let evenCFont = document.getElementById('f-hdr-verso-c')?.value || '';
+    let evenCSizeVal = document.getElementById('s-hdr-verso-c')?.value || '';
+    let hdrCStyleExtra = '';
 
     let hdrRType, hdrCType, hdrLType, hdrRAlign, hdrCAlign, hdrLAlign, hdrRFont, hdrRSize, hdrLFont, hdrLSize;
     let cR = customR, cL = customL, cC = customC;
@@ -464,6 +468,10 @@ function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, 
         const vCustL = document.getElementById('hdr-verso-l-custom')?.value;
         if (vCustR) cR = vCustR;
         if (vCustL) cL = vCustL;
+        const vCustC = document.getElementById('hdr-verso-c-custom')?.value;
+        if (vCustC) cC = vCustC;
+        if (evenCFont) hdrCStyleExtra += `font-family:${evenCFont}; `;
+        if (evenCSizeVal) hdrCStyleExtra += `font-size:${evenCSizeVal}pt; `;
     } else {
         hdrRType = (oddR === 'same_as_even' && evenR !== 'same_as_odd') ? evenR : oddR;
         hdrCType = (oddC === 'same_as_even' && evenC !== 'same_as_odd') ? evenC : oddC;
@@ -502,7 +510,7 @@ function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, 
     <div class="page-content-wrapper">
       <div class="top-header-grid">
         <div class="header-col-r" style="text-align:${hdrRAlign}; justify-content:${hdrRAlign}; font-family:${hdrRFont}; font-size:${hdrRSize};">${hdrRHTML}</div>
-        <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign};">${hdrCHTML}</div>
+        <div class="header-col-c" style="text-align:${hdrCAlign}; justify-content:${hdrCAlign}; ${hdrCStyleExtra}">${hdrCHTML}</div>
         <div class="header-col-l" style="text-align:${hdrLAlign}; justify-content:${hdrLAlign}; font-family:${hdrLFont}; font-size:${hdrLSize};">${hdrLHTML}</div>
       </div>
       <div class="page-body-flow ${h2Text ? 'h2-flow-page' : ''}">
