@@ -1767,6 +1767,26 @@ function fillHeaderFirstLastWords(container) {
     });
 }
 
+/* [הועבר מ-V21] עיטור הפרדה בין קטעי כותרות מאותה רמה (3-6).
+   מחזיר את ה-HTML של העיטור, או '' אם לא צריך: רק כשיש כותרת קודמת מאותה רמה שלא "נוקתה" על-ידי כותרת גבוהה יותר.
+   lastHeadingSeen[level] = מזהה הכותרת הקודמת מאותה רמה (כותרת גבוהה יותר מאפסת את הנמוכות ממנה). */
+function maybeGetHeadingDivider(level, lastHeadingSeen) {
+    if (!lastHeadingSeen || !lastHeadingSeen[level]) return '';
+    if (level < 3 || level > 6) return '';
+    const dividerType = document.getElementById('heading-divider-h' + level)?.value || 'none';
+    if (dividerType === 'none') return '';
+    if (typeof getHeadingDividerHTML !== 'function') return '';
+    return getHeadingDividerHTML(dividerType, 40);
+}
+
+/* [Orange] רושם שכותרת מרמה level הוצבה: מנקה את הרמות הנמוכות ממנה ושומר את המצב הקודם לשחזור בהחזרת כותרת. */
+const headingPrevSeen = new WeakMap();
+function noteHeadingPlaced(lastHeadingSeen, level, id, hElem) {
+    headingPrevSeen.set(hElem, Object.assign({}, lastHeadingSeen));
+    lastHeadingSeen[level] = id;
+    for (let l = level + 1; l <= 7; l++) lastHeadingSeen[l] = null;
+}
+
 function performTypeset() {
     if (typeof clearPendingChanges === 'function') clearPendingChanges();
     updateGrid();
@@ -2037,6 +2057,7 @@ function performTypeset() {
     let currentH2Title = '';
     let currentH3Title = '';
     let currentH4Title = '';
+    const lastHeadingSeen = {0: null, 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null};   // [הועבר מ-V21] לעיטורי הפרדה בין כותרות
 
     const bookTitle = document.getElementById('inp-book-title')?.value || "ספר";
     const showMainShaar = document.getElementById('show-main-shaar')?.checked ?? true;
@@ -2161,6 +2182,11 @@ function performTypeset() {
         let rawH2Text = sec.isNewPage ? sec.hToken.text : '';
         let h2Id = sec.isNewPage ? sec.hToken.id : undefined;
         let isH0 = sec.isNewPage && sec.hToken.level === 0 && !sec.is2ColNewPage;
+        // [הועבר מ-V21] כותרת פתיחת הקטע מאפסת את מעקב הכותרות הנמוכות ממנה
+        if (sec.hToken && typeof sec.hToken.level === 'number') {
+            lastHeadingSeen[sec.hToken.level] = sec.hToken.id;
+            for (let l = sec.hToken.level + 1; l <= 7; l++) lastHeadingSeen[l] = null;
+        }
 
         let simanLabel = '';
         let displayH2Text = rawH2Text;
@@ -2342,12 +2368,26 @@ function performTypeset() {
                             hElem.textContent = currentTok.text;
                         }
                         applyDelimiterStyles(hElem, 'h' + currentTok.level, getHostSizePt(currentTok.level, currentTok.customStyleId), false);
+                        // [הועבר מ-V21] עיטור הפרדה לפני כותרת מאותה רמה. נוצר בעת ההצבה (גם בראש טור) כדי שיישאר צמוד לכותרת
+                        // כשאיזון הטורים מזיז אותה; balanceColumns מתייחס אליו כפריט כותרת (לא מפצל בינו לבין הכותרת).
+                        let dividerEl = null;
+                        {
+                            const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
+                            if (dividerHTML) {
+                                const tmpDiv = document.createElement('div');
+                                tmpDiv.innerHTML = dividerHTML;
+                                dividerEl = tmpDiv.firstElementChild;
+                                if (dividerEl) targetCol.appendChild(dividerEl);
+                            }
+                        }
                         targetCol.appendChild(hElem);
 
                         if (targetCol.scrollHeight > (remPageHeight - getFootnotesReservedHeight()) && targetCol.children.length > 1) {
                             targetCol.removeChild(hElem);
+                            if (dividerEl && dividerEl.parentNode === targetCol) targetCol.removeChild(dividerEl);
                             break;
                         }
+                        noteHeadingPlaced(lastHeadingSeen, currentTok.level, currentTok.id, hElem);
                         headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
                         tokenIndex++;
                         continue;
@@ -2494,6 +2534,7 @@ function performTypeset() {
                         break;
                     }
 
+                    noteHeadingPlaced(lastHeadingSeen, peekTok.level, peekTok.id, spanBlock);
                     headingPageMap[peekTok.id] = toGematria(pageIndex - 1);
                     remPageHeight -= spanHeight;
                     tokenIndex++;
@@ -2505,6 +2546,7 @@ function performTypeset() {
                     pendingWordTokens: pendingWordTokens ? Object.assign({}, pendingWordTokens) : null,
                     pendingNotesLen: pagePendingNotes.length,
                     h3: currentH3Title, h4: currentH4Title,
+                    lastHeadingSeen: Object.assign({}, lastHeadingSeen),
                     headingKeys: new Set(Object.keys(headingPageMap))
                 };
                 const block2Col = document.createElement('div');
@@ -2564,13 +2606,27 @@ function performTypeset() {
                                 hElem.textContent = currentTok.text;
                             }
                             applyDelimiterStyles(hElem, 'h' + currentTok.level, getHostSizePt(currentTok.level, currentTok.customStyleId), false);
+                            // [הועבר מ-V21] עיטור הפרדה לפני כותרת מאותה רמה. נוצר בעת ההצבה (גם בראש טור) כדי שיישאר צמוד לכותרת
+                            // כשאיזון הטורים מזיז אותה; balanceColumns מתייחס אליו כפריט כותרת (לא מפצל בינו לבין הכותרת).
+                            let dividerEl = null;
+                            {
+                                const dividerHTML = maybeGetHeadingDivider(currentTok.level, lastHeadingSeen);
+                                if (dividerHTML) {
+                                    const tmpDiv = document.createElement('div');
+                                    tmpDiv.innerHTML = dividerHTML;
+                                    dividerEl = tmpDiv.firstElementChild;
+                                    if (dividerEl) targetCol.appendChild(dividerEl);
+                                }
+                            }
                             targetCol.appendChild(hElem);
 
                             if (targetCol.scrollHeight > (remPageHeight - getFootnotesReservedHeight()) && targetCol.children.length > 1) {
                                 targetCol.removeChild(hElem);
+                                if (dividerEl && dividerEl.parentNode === targetCol) targetCol.removeChild(dividerEl);
                                 break;
                             }
 
+                            noteHeadingPlaced(lastHeadingSeen, currentTok.level, currentTok.id, hElem);
                             if (!headingPageMap[currentTok.id]) {
                                 headingPageMap[currentTok.id] = toGematria(pageIndex - 1);
                             }
@@ -2718,12 +2774,18 @@ function performTypeset() {
                         const hLastId = hLast.getAttribute('data-token-id');
                         targetCol.removeChild(hLast);
                         if (hLastId !== null && !blockStartState.headingKeys.has(hLastId)) delete headingPageMap[hLastId];
-                        tokenIndex--;
+                        // [Orange] אלמנט עיטור הפרדה אינו טוקן: לא מחזירים tokenIndex עבורו. כותרת אמיתית משחזרת את מצב המעקב.
+                        if (hLastId !== null) {
+                            tokenIndex--;
+                            const prevSeen = headingPrevSeen.get(hLast);
+                            if (prevSeen) Object.assign(lastHeadingSeen, prevSeen);
+                        }
                     }
                 });
 
                 if (rCol.children.length === 0 && lCol.children.length === 0) {
                     tokenIndex = blockStartState.tokenIndex;
+                    Object.assign(lastHeadingSeen, blockStartState.lastHeadingSeen);
                     pendingWordTokens = blockStartState.pendingWordTokens ? Object.assign({}, blockStartState.pendingWordTokens) : null;
                     if (blockNoteSnapshot) {
                         footnoteQueueForPage.length = blockNoteSnapshot.footnoteQueueLen;
@@ -2737,6 +2799,8 @@ function performTypeset() {
                     while (lastFlowEl && lastFlowEl.classList.contains('block-h3-span')) {
                         pageLayout.bodyFlow.removeChild(lastFlowEl);
                         tokenIndex--;
+                        const prevSeenSpan = headingPrevSeen.get(lastFlowEl);
+                        if (prevSeenSpan) Object.assign(lastHeadingSeen, prevSeenSpan);
                         lastFlowEl = pageLayout.bodyFlow.lastElementChild;
                     }
                     break;
@@ -2765,6 +2829,7 @@ function performTypeset() {
                     pagePendingNotes.length = blockStartState.pendingNotesLen;
                     currentH3Title = blockStartState.h3;
                     currentH4Title = blockStartState.h4;
+                    Object.assign(lastHeadingSeen, blockStartState.lastHeadingSeen);
                     Object.keys(headingPageMap).forEach(k => { if (!blockStartState.headingKeys.has(k)) delete headingPageMap[k]; });
                 };
 
@@ -2825,6 +2890,8 @@ function performTypeset() {
                     pageLayout.bodyFlow.removeChild(tailEl);
                     if (tailId !== null) delete headingPageMap[tailId];
                     tokenIndex--;
+                    const prevSeenTail = headingPrevSeen.get(tailEl);
+                    if (prevSeenTail) Object.assign(lastHeadingSeen, prevSeenTail);
                     // כותרות inline שנשארו בסוף הבלוק שלפניה (בטור האחרון שיש בו תוכן) — גם הן חוזרות לזרם
                     const prevBlk = pageLayout.bodyFlow.lastElementChild;
                     if (prevBlk && prevBlk.classList.contains('block-2col')) {
@@ -2835,7 +2902,12 @@ function performTypeset() {
                             const hhId = hh.getAttribute('data-token-id');
                             lastCol.removeChild(hh);
                             if (hhId !== null) delete headingPageMap[hhId];
-                            tokenIndex--;
+                            // [Orange] עיטור הפרדה אינו טוקן; כותרת אמיתית משחזרת את מצב המעקב
+                            if (hhId !== null) {
+                                tokenIndex--;
+                                const prevSeenHh = headingPrevSeen.get(hh);
+                                if (prevSeenHh) Object.assign(lastHeadingSeen, prevSeenHh);
+                            }
                         }
                     }
                     tailEl = pageLayout.bodyFlow.lastElementChild;

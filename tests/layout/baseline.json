@@ -167,7 +167,47 @@
    "counts": {},
    "jsErrors": 0,
    "ms": 1533
+  },
+  "cfg-dividers": {
+   "group": "cfg",
+   "pages": 30,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 2107
+  },
+  "synthDiv-21": {
+   "group": "synth",
+   "pages": 20,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 1778
+  },
+  "synthDiv-22": {
+   "group": "synth",
+   "pages": 20,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 1615
+  },
+  "synthNoDiv-21": {
+   "group": "synth",
+   "pages": 20,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 1503
+  },
+  "synthNoDiv-22": {
+   "group": "synth",
+   "pages": 19,
+   "total": 0,
+   "counts": {},
+   "jsErrors": 0,
+   "ms": 1582
   }
  },
- "updated": "2026-10-28T20:37:32.565Z"
+ "updated": "2026-11-01T08:12:01.502Z"
 }

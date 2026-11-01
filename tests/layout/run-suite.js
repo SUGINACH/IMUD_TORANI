@@ -44,6 +44,12 @@ const checker = fs.readFileSync(path.join(__dirname, 'check_layout.js'), 'utf-8'
       pages = await typeset(page, sc.text, sc.cfg);
       const viol = await page.evaluate(() => { try { return window.__checkLayout({}); } catch (e) { return [{ type: 'CHECKER_ERROR' }]; } });
       viol.forEach((v) => { if (v.type !== 'GRANULARITY(ok)') counts[v.type] = (counts[v.type] || 0) + 1; });
+      // a heading divider must always be followed by the heading it precedes (never left at the bottom of a column)
+      const stray = await page.evaluate(() => Array.from(document.querySelectorAll('.main-column .heading-divider-wrap, .single-wide-col .heading-divider-wrap')).filter((d) => {
+        const next = d.nextElementSibling;
+        return !next || !/title-level/.test(next.className || '');
+      }).length);
+      if (stray) counts.STRAY_DIVIDER = stray;
       total = Object.values(counts).reduce((a, b) => a + b, 0);
     } catch (e) { counts = { HARNESS_ERROR: 1 }; total = 1; errors.push(String(e.message).slice(0, 160)); }
     results[sc.name] = { group: sc.group, pages, total, counts, jsErrors: errors.length, ms: Date.now() - t0 };

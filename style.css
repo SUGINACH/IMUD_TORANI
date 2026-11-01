@@ -1620,3 +1620,27 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
 .h3-title-text, .h2-siman-badge {
     text-wrap: balance;
 }
+
+/* [Orange] עיטור הפרדה בין כותרות בתוך טור: תקרת גובה, כדי שעיטור לא-שטוח (למשל ריבועי) לא יתפוס חצי עמוד.
+   עיטורי שער (מחוץ לטורים) אינם מוגבלים. */
+.main-column .heading-divider-wrap,
+.single-wide-col .heading-divider-wrap {
+    max-height: 30px;
+    overflow: hidden;
+}
+.main-column .heading-divider-wrap > div,
+.single-wide-col .heading-divider-wrap > div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-height: 30px;
+}
+.main-column .heading-divider-wrap svg,
+.main-column .heading-divider-wrap img,
+.single-wide-col .heading-divider-wrap svg,
+.single-wide-col .heading-divider-wrap img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 30px;
+}

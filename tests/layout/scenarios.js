@@ -38,7 +38,9 @@ function synth(pool, seed, o = {}) {
       let p = pick(pool);
       if (o.short && r() < 0.5) p = p.slice(0, 60 + Math.floor(r() * 140));
       if (r() < (o.noteRate ?? 0.3)) {
-        const at = Math.floor(r() * p.length * 0.8);
+        let at = Math.floor(r() * p.length * 0.8);
+        // a paragraph that starts with a footnote right after a heading is joined to that heading by the tokenizer (by design)
+        if (o.noNoteAtStart && at < 1) at = 1;
         const n = pick(pool).slice(0, 30 + Math.floor(r() * (o.noteLen || 260)));
         p = p.slice(0, at) + ' [' + n + '] ' + p.slice(at);
       }
@@ -58,9 +60,16 @@ const CFGS = {
   'fn2col': { 'fn-columns': 2 },
   'h3h4inline2': { 'mode-h3': 'inline_2col', 'mode-h4': 'inline_2col' },
   'col44': { 'prop-col': 44, 'prop-margin': 5.5 },
+  'dividers': null,   // filled below (needs DIVIDER_ID)
 };
 
-const QUICK = new Set(['doc', 'cfg-size13.4', 'cfg-lh1.5', 'cfg-fn2col', 'synth-1', 'synth-2', 'synthShort-11']);
+// id of a flat calligraphic divider from section_dividers.json (used by the divider scenarios)
+const DIVIDER_ID = 'ext_calligraphics_47__2019_06_24_13_53_22_utc__svg';
+const DIVIDER_CFG = { 'heading-divider-h3': DIVIDER_ID, 'heading-divider-h4': DIVIDER_ID, 'heading-divider-h5': DIVIDER_ID, 'heading-divider-h6': DIVIDER_ID, 'shaar-main-divider': DIVIDER_ID, 'shaar-sub-divider': DIVIDER_ID };
+
+const QUICK = new Set(['doc', 'cfg-size13.4', 'cfg-lh1.5', 'cfg-fn2col', 'cfg-dividers', 'synth-1', 'synth-2', 'synthShort-11']);
+
+CFGS.dividers = DIVIDER_CFG;
 
 function buildScenarios({ quick = false } = {}) {
   const full = corpus('test_doc.txt');
@@ -72,7 +81,10 @@ function buildScenarios({ quick = false } = {}) {
   for (const [k, cfg] of Object.entries(CFGS)) all.push({ name: 'cfg-' + k, group: 'cfg', text: part1, cfg });
   for (let seed = 1; seed <= 6; seed++) all.push({ name: 'synth-' + seed, group: 'synth', text: synth(pool, seed, { noteRate: 0.35 }), cfg: {} });
   for (let seed = 11; seed <= 14; seed++) all.push({ name: 'synthShort-' + seed, group: 'synth', text: synth(pool, seed, { short: true, headRate: 0.3, noteRate: 0.4 }), cfg: {} });
+  for (let seed = 21; seed <= 22; seed++) all.push({ name: 'synthDiv-' + seed, group: 'synth', text: synth(pool, seed, { headRate: 0.4, noteRate: 0.3, noNoteAtStart: true }), cfg: DIVIDER_CFG });
+  // control: the same heading-rich documents WITHOUT dividers (separates divider effects from pre-existing edge cases)
+  for (let seed = 21; seed <= 22; seed++) all.push({ name: 'synthNoDiv-' + seed, group: 'synth', text: synth(pool, seed, { headRate: 0.4, noteRate: 0.3, noNoteAtStart: true }), cfg: {} });
   return quick ? all.filter((s) => QUICK.has(s.name)) : all;
 }
 
-module.exports = { buildScenarios, CFGS };
+module.exports = { buildScenarios, CFGS, DIVIDER_ID, DIVIDER_CFG };
