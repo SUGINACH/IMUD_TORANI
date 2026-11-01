@@ -3,7 +3,7 @@
 /*
  * Settings-effect audit: does every control in the settings panel actually change the typeset result?
  *
- *   node tests/audit/settings-effect.js [--root=<dir>] [--shard=i/n] [--out=<file>] [--only=<id>] [--quick]
+ *   node tests/audit/settings-effect.js [--root=<dir>] [--shard=i/n] [--out=<file>] [--only=<id>] [--fast]
  *
  * For each control it applies 1-3 alternative values, re-typesets a rich document and compares a signature of the
  * rendered output (book DOM + root CSS variables + dynamic <style>). Controls that never change the signature are
@@ -22,6 +22,7 @@ const ROOT = path.resolve(val('--root', path.join(__dirname, '..', '..')));
 const [SHARD_I, SHARD_N] = (val('--shard', '0/1')).split('/').map(Number);
 const OUT = val('--out', path.join(__dirname, 'results', `settings-effect-${path.basename(ROOT)}-${SHARD_I}of${SHARD_N}.json`));
 const ONLY = val('--only');
+const FAST = args.includes('--fast');   // one alternative value per control; restore verified every 12 controls
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain' };
 function serve(root) {
@@ -138,7 +139,8 @@ const SKIP_ID = /^(file-|raw-input|style-set-select|vp-|btn-|assets-folder-input
   for (const c of mine) {
     n++;
     const rec = { id: c.id, type: c.type, default: c.value, alts: [] };
-    for (const a of alts(c)) {
+    const altList = FAST ? alts(c).slice(-1) : alts(c);
+    for (const a of altList) {
       try {
         await page.evaluate(({ id, a }) => {
           const el = window.__ctl(id); if (!el) return;
@@ -155,7 +157,7 @@ const SKIP_ID = /^(file-|raw-input|style-set-select|vp-|btn-|assets-folder-input
         el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
       }, { id: c.id, v: c.value });
     }
-    const sr = await typesetAndSig();
+    const sr = (!FAST || n % 12 === 0) ? await typesetAndSig() : s0;
     if (sr !== s0) {                                       // restore drift: start from a clean page
       rec.restoreDrift = true;
       await open(); await page.evaluate((doc) => { document.getElementById('raw-input').value = doc; }, DOC); await typesetAndSig();

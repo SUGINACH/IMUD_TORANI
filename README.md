@@ -39,6 +39,7 @@ npm install && npx playwright install chromium     # פעם אחת
 npm run test:layout:quick      # ~1 דקה
 npm run test:layout            # ~2.5 דקות, 21 תרחישים (נכשל אם סוג חריגה כלשהו גדל מול baseline)
 npm run test:features          # בדיקות פיצ'רים
+node tests/audit/settings-effect.js --fast --shard=0/3   # ביקורת: איזו הגדרה משפיעה בפועל (3 חלקים)
 ```
 
 **כל שינוי חייב לעבור את הבדיקות לפני שהוא מתקבל** — ראו [`docs/AI_WORKFLOW.md`](docs/AI_WORKFLOW.md).
