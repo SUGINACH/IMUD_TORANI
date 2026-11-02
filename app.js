@@ -988,6 +988,7 @@ function initFontPickers() {
     const pickerDefaults = {
         'font-body': "'Guttman Rashi', 'Frank Ruhl Libre', serif",
         'font-first-word': "'FrankReal', 'Frank Ruhl Libre', serif",
+        'f-paren': "",   // ריק = אותו גופן כמו הטקסט המארח
         'f-dh': "'AlphaBlack', 'David Libre', serif",
         'f-hdr-r': "'Livorna', 'David Libre', serif",
         'f-hdr-c': "'Livorna', 'David Libre', serif",
@@ -1025,6 +1026,13 @@ function initFontPickers() {
 
     document.querySelectorAll('.font-picker').forEach(select => {
         if (select.children.length === 0) {
+            // [עיצוב סוגריים] ל-f-paren אפשרות ריקה בראש הרשימה: "כמו שאר הטקסט"
+            if (select.id === 'f-paren') {
+                const inheritOpt = document.createElement('option');
+                inheritOpt.value = '';
+                inheritOpt.textContent = '— כמו שאר הטקסט —';
+                select.appendChild(inheritOpt);
+            }
             defaultFonts.forEach(grp => {
                 const optGroup = document.createElement('optgroup');
                 optGroup.label = grp.label;

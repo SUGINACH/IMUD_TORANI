@@ -3,7 +3,7 @@
 /*
  * Layout acceptance suite.
  *
- *   node tests/layout/run-suite.js [--quick] [--only=<scenario>] [--update-baseline] [--root=<dir>] [--out=<file>]
+ *   node tests/layout/run-suite.js [--quick] [--only=<scenario>[,<scenario>...]] [--update-baseline] [--root=<dir>] [--out=<file>]
  *
  * Typesets every scenario in headless Chromium and runs check_layout.js on the result
  * (overflow, column misalignment, orphan headings, widow/orphan lines, lost or altered text).
@@ -31,7 +31,7 @@ const checker = fs.readFileSync(path.join(__dirname, 'check_layout.js'), 'utf-8'
   const fonts = hasFonts(ROOT);
   if (!fonts) console.warn('WARNING: fonts/ folder not found - results are NOT comparable with the baseline (run tools/import-from-old-repo.sh).');
   let scenarios = buildScenarios({ quick: flag('--quick') });
-  if (val('--only')) scenarios = scenarios.filter((s) => s.name === val('--only'));
+  if (val('--only')) { const want = val('--only').split(','); scenarios = scenarios.filter((s) => want.includes(s.name)); }
   const { server, url } = await startServer(ROOT);
   const browser = await chromium.launch();
   const results = {};

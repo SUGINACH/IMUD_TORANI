@@ -210,6 +210,146 @@ function updateStyles() {
 /* ============================================================
    3. טיפוגרפיה: דיבור המתחיל ומילה ראשונה (Drop Word)
    ============================================================ */
+/* ============================================================
+   עיצוב טקסט בסוגריים ( ... )   [הועבר מ-V21; מימוש חדש בבסיס]
+   ------------------------------------------------------------
+   שלב מקדים אחד (applyParenMarkersToTokens) מחשב לכל פסקה את טווחי הסוגריים - כולל סוגריים מקוננים ופסקאות עוקבות
+   (זוג שנפתח בפסקה אחת ונסגר עד 3 פסקאות אחריה) - ועוטף כל טווח בסימנים בלתי-נראים PAREN_START/PAREN_END בטקסט הטוקן.
+   מכאן הכול עקבי כמעט בחינם: המדידה (getLinesFromParagraph) והרינדור (applyDelimiterStyles) קוראים את אותם סימנים,
+   וכל שבר פסקה (p-cut) נושא את המידע בעצמו: שבר שמתחיל בסימן END פותח בתוך טווח, שבר שנגמר בלי END נשאר פתוח.
+   הערות [..] מוסוות בסריקה (סוגריים בתוכן הערה אינם נספרים) והסימנים אינם נכנסים לתוכן הערה.
+   מגבלות: לא חל על כותרות ועל טקסט הערות השוליים; טווח שלא נסגר תוך 3 פסקאות אינו מעוצב.
+   ============================================================ */
+const PAREN_START = '\uE001';
+const PAREN_END = '\uE002';
+const PAREN_MARKERS_RE = /[\uE001\uE002]/;
+const PAREN_MARKERS_RE_G = /[\uE001\uE002]/g;
+const PAREN_LOOKAHEAD_PARAGRAPHS = 3;
+
+function getParenConfig() {
+    const sizeEl = document.getElementById('s-paren');
+    if (!sizeEl) return null;
+    const mode = document.getElementById('s-paren-mode')?.value || 'relative';
+    const val = parseFloat(sizeEl.value);
+    const font = (document.getElementById('f-paren')?.value || '').trim();
+    const hasSize = isFinite(val) && (mode === 'fixed' ? val > 0 : val !== 0);
+    if (!font && !hasSize) return null;
+    return { font, mode, val: isFinite(val) ? val : 0, hasSize };
+}
+
+function parenCssFor(hostPt, cfg) {
+    if (!cfg) return '';
+    let css = '';
+    if (cfg.font) css += `font-family:${cfg.font};`;
+    if (cfg.hasSize) {
+        const pt = cfg.mode === 'fixed' ? cfg.val : Math.max(4, (hostPt || 12) + cfg.val);
+        css += `font-size:${Math.round(pt * 100) / 100}pt;`;
+    }
+    return css;
+}
+
+function stripParenMarkers(str) { return str ? str.replace(PAREN_MARKERS_RE_G, '') : str; }
+
+function parenInitialState(str) {          // true אם הסימן הראשון בטקסט הוא END (הטקסט מתחיל בתוך טווח)
+    const m = str.match(PAREN_MARKERS_RE);
+    return !!m && m[0] === PAREN_END;
+}
+
+function parenStateAfter(str, inParen) {
+    for (const ch of str) { if (ch === PAREN_START) inParen = true; else if (ch === PAREN_END) inParen = false; }
+    return inParen;
+}
+
+function maskForParenScan(str, noteRe) {
+    const blank = (m) => ' '.repeat(m.length);
+    return str.replace(/<span class="heading-run-in[\s\S]*?<\/span>/g, blank).replace(/<[^>]+>/g, blank).replace(noteRe, blank);
+}
+
+function applyParenMarkersToTokens(tokens) {
+    if (!getParenConfig()) return;
+    const fnOpen = document.getElementById('fn-delim-open')?.value?.trim() || '[';
+    const fnClose = document.getElementById('fn-delim-close')?.value?.trim() || ']';
+    const esc = (x) => x.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const noteRe = new RegExp(esc(fnOpen) + '[\\s\\S]*?' + esc(fnClose), 'g');
+    const masked = tokens.map((t) => (t.type === 'p' && typeof t.text === 'string') ? maskForParenScan(t.text, noteRe) : null);
+
+    // האם הטווח הפתוח (עומק depth) נסגר בתוך הפסקאות העוקבות (רצף פסקאות בלבד, עד PAREN_LOOKAHEAD_PARAGRAPHS)?
+    const closesAhead = (idx, depth) => {
+        for (let k = idx + 1; k <= idx + PAREN_LOOKAHEAD_PARAGRAPHS && k < tokens.length; k++) {
+            if (masked[k] === null) return false;
+            for (const ch of masked[k]) {
+                if (ch === '(') depth++;
+                else if (ch === ')') { depth--; if (depth === 0) return true; }
+            }
+        }
+        return false;
+    };
+
+    let carry = 0;
+    for (let i = 0; i < tokens.length; i++) {
+        const m = masked[i];
+        if (m === null) { carry = 0; continue; }
+        const ranges = [];
+        let depth = carry, start = carry > 0 ? 0 : -1;
+        for (let k = 0; k < m.length; k++) {
+            const ch = m[k];
+            if (ch === '(') { if (depth === 0) start = k; depth++; }
+            else if (ch === ')' && depth > 0) { depth--; if (depth === 0) { ranges.push([start, k]); start = -1; } }
+        }
+        carry = 0;
+        if (depth > 0) {
+            if (closesAhead(i, depth)) { ranges.push([start, m.length - 1]); carry = depth; }
+            // אחרת: סוגריים פותחים בלי סגירה בקרבת מקום - אינם מעוצבים
+        }
+        if (!ranges.length) continue;
+        const txt = tokens[i].text;
+        let out = '', prev = 0;
+        for (const [a, b] of ranges) { out += txt.slice(prev, a) + PAREN_START + txt.slice(a, b + 1) + PAREN_END; prev = b + 1; }
+        tokens[i].text = out + txt.slice(prev);
+    }
+}
+
+/* ממיר סימני סוגריים בתוך אלמנט (פסקה) ל-<span class="paren-style"> ומסיר אותם. המצב נשמר בין צמתי טקסט. */
+function applyParenMarkersInElement(root, hostSizePt) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    if (!nodes.some((nd) => PAREN_MARKERS_RE.test(nd.nodeValue))) return;
+    const css = parenCssFor(hostSizePt || 12, getParenConfig());
+    let inParen = false;
+    for (const nd of nodes) { const m = nd.nodeValue.match(PAREN_MARKERS_RE); if (m) { inParen = (m[0] === PAREN_END); break; } }
+    for (const nd of nodes) {
+        const v = nd.nodeValue;
+        const skip = nd.parentElement && nd.parentElement.closest('.note-marker, .first-word-window, .first-word-inline, .first-word-bold');
+        if (skip) { nd.nodeValue = v.replace(PAREN_MARKERS_RE_G, ''); continue; }
+        if (!PAREN_MARKERS_RE.test(v) && !inParen) continue;
+        const frag = document.createDocumentFragment();
+        let cur = '';
+        const flush = () => {
+            if (!cur) return;
+            if (inParen && css) { const sp = document.createElement('span'); sp.className = 'paren-style'; sp.style.cssText = css; sp.textContent = cur; frag.appendChild(sp); }
+            else frag.appendChild(document.createTextNode(cur));
+            cur = '';
+        };
+        for (const ch of v) {
+            if (ch === PAREN_START) { flush(); inParen = true; }
+            else if (ch === PAREN_END) { flush(); inParen = false; }
+            else cur += ch;
+        }
+        flush();
+        nd.parentNode.replaceChild(frag, nd);
+    }
+}
+
+function stripLeftoverParenMarkers(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    const hits = [];
+    let n;
+    while ((n = walker.nextNode())) if (PAREN_MARKERS_RE.test(n.nodeValue)) hits.push(n);
+    hits.forEach((nd) => { nd.nodeValue = nd.nodeValue.replace(PAREN_MARKERS_RE_G, ''); });
+}
+
 function applyDibburHamatchil(text) {
     const isDhEnabled = document.getElementById('auto-dh')?.checked;
     if (!isDhEnabled || !text) return text;
@@ -237,8 +377,11 @@ function createDropWord(text, isContinuation, isSingleLine, numLines = 2) {
     const fnOpenD = document.getElementById('fn-delim-open')?.value?.trim() || '[';
     // מילה ראשונה שמכילה פתיחת הערה: לא עוטפים ב-span (אחרת ההערה מפוצלת בין אלמנטי DOM ולא תזוהה)
     if (fnOpenD && words.slice(0, Math.min(wordCount, words.length)).some(w => w.includes(fnOpenD))) return applyDibburHamatchil(text);
-    const dropWords = words.slice(0, Math.min(wordCount, words.length)).join(' ');
-    const restOfText = words.slice(Math.min(wordCount, words.length)).join(' ');
+    const dropWordsRaw = words.slice(0, Math.min(wordCount, words.length)).join(' ');
+    const dropWords = stripParenMarkers(dropWordsRaw);   // המילים הראשונות אינן מעוצבות כסוגריים
+    let restOfText = words.slice(Math.min(wordCount, words.length)).join(' ');
+    // טווח סוגריים שנפתח במילים הראשונות ונמשך: ממשיך בשאר הטקסט
+    if (restOfText && PAREN_MARKERS_RE.test(dropWordsRaw) && parenStateAfter(dropWordsRaw, parenInitialState(text))) restOfText = PAREN_START + restOfText;
 
     let className = 'first-word-inline';
     if (mode === 'window') {
@@ -312,7 +455,7 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     pMeasure.style.padding = '0';
     pMeasure.style.lineHeight = styleObj.lineHeight;
 
-    pMeasure.textContent = text.replace(new RegExp(escOm + '[\\s\\S]*?' + escCm, 'g'), 'א');
+    pMeasure.textContent = stripParenMarkers(text).replace(new RegExp(escOm + '[\\s\\S]*?' + escCm, 'g'), 'א');
     measureContainer.appendChild(pMeasure);
     const singleLineHeight = pMeasure.offsetHeight;
     pMeasure.textContent = "א";
@@ -336,18 +479,39 @@ function getLinesFromParagraph(text, colWidth, styleObj, useWindowIfMultipleLine
     const pairStart = words.length - 2;
     const bindPair = avoidRunt && (words.length - flowStart) >= 3 && pairStart >= flowStart;
 
+    // [עיצוב סוגריים] מילים בתוך טווח סוגריים נמדדות בגופן/גודל הסוגריים, כמו ברינדור (applyParenMarkersInElement)
+    const hasParenMarks = PAREN_MARKERS_RE.test(safeText);
+    const parenState = { inParen: hasParenMarks ? parenInitialState(safeText) : false };
+    const parenCssM = hasParenMarks ? parenCssFor(parseFloat(styleObj.fontSize) || 12, getParenConfig()) : '';
+    const consumeParenWord = (w, styled) => {
+        if (!hasParenMarks) return displayOf(w);
+        const parts = [];
+        let cur = '';
+        for (const ch of w) {
+            if (ch === PAREN_START || ch === PAREN_END) {
+                if (cur) { parts.push([cur, parenState.inParen]); cur = ''; }
+                parenState.inParen = (ch === PAREN_START);
+            } else cur += ch;
+        }
+        if (cur) parts.push([cur, parenState.inParen]);
+        return parts.map(([t, inP]) => { const d = displayOf(t); return (styled && inP && parenCssM) ? `<span style="${parenCssM}">${d}</span>` : d; }).join('');
+    };
+    const winDisplay = (shouldApplyWindow && hasParenMarks)
+        ? words.slice(0, Math.min(wordCount, words.length)).map((w) => consumeParenWord(w, false)).join(' ')
+        : dropWordsDisplay;
+
     let html = '';
     if (shouldApplyWindow) {
-        html += `<span class="first-word-window" id="mw-0">${dropWordsDisplay}</span> `;
+        html += `<span class="first-word-window" id="mw-0">${winDisplay}</span> `;
         for (let i = wordCount; i < words.length; i++) {
             const w = words[i];
-            const displayW = displayOf(w);
+            const displayW = consumeParenWord(w, true);
             html += `<span id="mw-${i}">${displayW}</span>${(bindPair && i === pairStart) ? '&nbsp;' : ' '}`;
         }
     } else {
         for (let i = 0; i < words.length; i++) {
             const w = words[i];
-            const displayW = displayOf(w);
+            const displayW = consumeParenWord(w, true);
             html += `<span id="mw-${i}">${displayW}</span>${(bindPair && i === pairStart) ? '&nbsp;' : ' '}`;
         }
     }
@@ -1225,6 +1389,8 @@ function hasUnclosedDelimiter(text, hostContextKey) {
 
 function applyDelimiterStyles(containerEl, hostContextKey, hostSizePt, isDryRun = false) {
     const effHostSize = hostSizePt || 12;
+    // [עיצוב סוגריים] סימנים בטקסט הפסקה -> <span class="paren-style"> (לפני עיבוד ההערות, שיעבדו גם בתוך הטווחים)
+    if (hostContextKey === 'body') applyParenMarkersInElement(containerEl, effHostSize);
     const walker = document.createTreeWalker(containerEl, NodeFilter.SHOW_TEXT, null, false);
     const textNodes = [];
     let n;
@@ -2036,6 +2202,8 @@ function performTypeset() {
             pageIndex++;
         }
     }
+
+    applyParenMarkersToTokens(tokens);   // [עיצוב סוגריים] סימון טווחים בטקסט הטוקנים (אם מוגדר עיצוב)
 
     const sections = [];
     let currentSection = { type: 'body', tokens: [] };
@@ -2957,6 +3125,7 @@ function performTypeset() {
 
     // [הועבר מ-V20.4] כותרת עליונה מסוג "מילה ראשונה עד אחרונה" - ממולאת אחרי שכל העמודים סופיים
     fillHeaderFirstLastWords(container);
+    stripLeftoverParenMarkers(container);   // רשת ביטחון: אין להשאיר סימוני סוגריים גלויים
 
     document.querySelectorAll('.toc-page-num[data-target-id], .grp-page[data-target-id]').forEach(span => {
         const targetId = span.getAttribute('data-target-id');

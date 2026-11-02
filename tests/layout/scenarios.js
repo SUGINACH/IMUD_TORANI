@@ -24,6 +24,7 @@ function synth(pool, seed, o = {}) {
   const pick = (a) => a[Math.floor(r() * a.length)];
   const out = ['שם הספר - בדיקה סינתטית ' + seed, ''];
   const nSec = o.sections || 2, perSec = o.perSec || 26;
+  let openParen = 0;   // paragraphs left until a deliberately open '(' is closed
   for (let s = 0; s < nSec; s++) {
     out.push('כותרת 1 - חלק ' + (s + 1));
     out.push('כותרת 2 - סימן ' + (s + 1) + ' - נושא');
@@ -44,6 +45,21 @@ function synth(pool, seed, o = {}) {
         const n = pick(pool).slice(0, 30 + Math.floor(r() * (o.noteLen || 260)));
         p = p.slice(0, at) + ' [' + n + '] ' + p.slice(at);
       }
+      if (o.parenRate && r() < o.parenRate) {
+        // wrap a random run of words in ( ... ), sometimes with a nested pair, sometimes left open to be closed 1-2 paragraphs later
+        const w = p.split(' ');
+        if (w.length > 12) {
+          const a = Math.floor(r() * (w.length - 10)), len = 2 + Math.floor(r() * 8);
+          const kind = r();
+          if (kind < 0.2 && !openParen) { w[a] = '(' + w[a]; openParen = 1 + Math.floor(r() * 2); }
+          else {
+            w[a] = '(' + w[a]; w[a + len] = w[a + len] + ')';
+            if (kind > 0.7 && len > 4) { w[a + 1] = '(' + w[a + 1]; w[a + 2] = w[a + 2] + ')'; }
+          }
+          p = w.join(' ');
+        }
+      }
+      if (openParen) { openParen--; if (openParen === 0) p = p.replace(/^(\S+)/, '$1)'); }
       out.push(p);
     }
   }
@@ -62,13 +78,15 @@ const CFGS = {
   'col44': { 'prop-col': 44, 'prop-margin': 5.5 },
   'dividers': null,   // filled below (needs DIVIDER_ID)
   'fncont': { 'fn-layout-mode': 'continuous' },
+  'paren-fixed9': { 's-paren-mode': 'fixed', 's-paren': 9 },
+  'paren-off': { 's-paren': 0, 'f-paren': '' },
 };
 
 // id of a flat calligraphic divider from section_dividers.json (used by the divider scenarios)
 const DIVIDER_ID = 'ext_calligraphics_47__2019_06_24_13_53_22_utc__svg';
 const DIVIDER_CFG = { 'heading-divider-h3': DIVIDER_ID, 'heading-divider-h4': DIVIDER_ID, 'heading-divider-h5': DIVIDER_ID, 'heading-divider-h6': DIVIDER_ID, 'shaar-main-divider': DIVIDER_ID, 'shaar-sub-divider': DIVIDER_ID };
 
-const QUICK = new Set(['doc', 'cfg-size13.4', 'cfg-lh1.5', 'cfg-fn2col', 'cfg-dividers', 'cfg-fncont', 'synth-1', 'synth-2', 'synthShort-11']);
+const QUICK = new Set(['doc', 'cfg-size13.4', 'cfg-lh1.5', 'cfg-fn2col', 'cfg-dividers', 'cfg-fncont', 'cfg-paren-fixed9', 'synthParen-41', 'synth-1', 'synth-2', 'synthShort-11']);
 
 CFGS.dividers = DIVIDER_CFG;
 
@@ -86,6 +104,9 @@ function buildScenarios({ quick = false } = {}) {
   // footnote-heavy documents: continuous footnote layout vs the same text in block layout (control)
   for (let seed = 31; seed <= 32; seed++) all.push({ name: 'synthFnCont-' + seed, group: 'synth', text: synth(pool, seed, { noteRate: 0.8, noteLen: 150, noNoteAtStart: true }), cfg: { 'fn-layout-mode': 'continuous' } });
   for (let seed = 31; seed <= 32; seed++) all.push({ name: 'synthFnBlock-' + seed, group: 'synth', text: synth(pool, seed, { noteRate: 0.8, noteLen: 150, noNoteAtStart: true }), cfg: {} });
+  // parenthesis-rich documents (nested pairs, pairs spanning paragraphs): styled vs the same text with paren styling off
+  for (let seed = 41; seed <= 43; seed++) all.push({ name: 'synthParen-' + seed, group: 'synth', text: synth(pool, seed, { parenRate: 0.7, noteRate: 0.3, noNoteAtStart: true }), cfg: {} });
+  for (let seed = 41; seed <= 42; seed++) all.push({ name: 'synthParenOff-' + seed, group: 'synth', text: synth(pool, seed, { parenRate: 0.7, noteRate: 0.3, noNoteAtStart: true }), cfg: { 's-paren': 0, 'f-paren': '' } });
   // control: the same heading-rich documents WITHOUT dividers (separates divider effects from pre-existing edge cases)
   for (let seed = 21; seed <= 22; seed++) all.push({ name: 'synthNoDiv-' + seed, group: 'synth', text: synth(pool, seed, { headRate: 0.4, noteRate: 0.3, noNoteAtStart: true }), cfg: {} });
   return quick ? all.filter((s) => QUICK.has(s.name)) : all;

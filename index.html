@@ -682,6 +682,15 @@
                 <input type="number" id="size-first-word" class="size-input" value="1.5" step="0.1">
               </div>
               <div class="inline-cfg-row">
+                <label title="טקסט שבתוך סוגריים ( ) בגוף הפסקאות. ברירת מחדל: אותו גופן, גודל קטן ב-2pt מהטקסט המארח. סוגריים מקוננים ופסקאות עוקבות נתמכים; לא חל על כותרות והערות שוליים.">טקסט בסוגריים ( ):</label>
+                <select id="f-paren" class="font-picker" title="גופן לטקסט בסוגריים (ריק = כמו שאר הטקסט)"></select>
+                <select id="s-paren-mode" style="flex:0 0 auto; min-width:90px;" title="יחסי = X נקודות פחות/יותר מהטקסט המארח. קבוע = גודל קבוע בנקודות.">
+                  <option value="relative" selected="selected">יחסי</option>
+                  <option value="fixed">קבוע</option>
+                </select>
+                <input type="number" id="s-paren" class="size-input" value="-2" step="0.5" title="גודל/דלתא (יחסי: דלתא מהטקסט המארח, קבוע: גודל קבוע בנקודות). 0 ביחסי = ללא שינוי גודל">
+              </div>
+              <div class="inline-cfg-row">
                 <label>מילים להדגשה:</label>
                 <select id="drop-word-count">
                   <option value="1" selected="selected">מילה ראשונה בלבד</option>
