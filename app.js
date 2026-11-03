@@ -28,6 +28,21 @@ let isResizing = false;
 
 /* מבנים גלובליים לתיאום מיקומי שערים ונכסים טעונים */
 window.shaarBoxSavedPositions = window.shaarBoxSavedPositions || { main: {}, back: {}, sub: {} };
+
+/* [Orange, בהשראת כיול השערים של V20.4] שמירת מיקומי תיבות הטקסט בשערים גם בין ביקורים (localStorage), לפי מזהה השער.
+   המיקומים מוחלים בעת הרינדור (resolveShaarBoxStyle ב-decorations.js); ייצוא ל-JSON נשאר דרך exportShaarJSONWithPositions. */
+const SHAAR_BOX_POS_STORAGE_KEY = 'orange.shaarBoxPositions';
+(function loadPersistedShaarBoxPositions() {
+    try {
+        const raw = localStorage.getItem(SHAAR_BOX_POS_STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        ['main', 'back', 'sub'].forEach(t => { if (saved && saved[t]) Object.assign(window.shaarBoxSavedPositions[t] = window.shaarBoxSavedPositions[t] || {}, saved[t]); });
+    } catch (e) { /* אחסון חסום או נתון פגום - ממשיכים בלי שמירה */ }
+})();
+function persistShaarBoxPositions() {
+    try { localStorage.setItem(SHAAR_BOX_POS_STORAGE_KEY, JSON.stringify(window.shaarBoxSavedPositions)); } catch (e) { /* ignore */ }
+}
 window.loadedShaarItems = window.loadedShaarItems || { main: {}, back: {}, sub: {} };
 
 /* ==========================================================================
@@ -439,6 +454,7 @@ function initShaarBoxResizer() {
 
     window.addEventListener('mouseup', () => {
         if (activeDrag) {
+            persistShaarBoxPositions();
             activeDrag = null;
             document.body.style.userSelect = '';
         }
@@ -448,10 +464,14 @@ initShaarBoxResizer();
 
 function resetCurrentShaarBoxPosition(shaarType) {
     const sel = document.getElementById(`select-shaar-${shaarType}`);
-    const shaarId = sel ? sel.value : 'theme_default';
+    // [Orange] המזהה בו נשמר המיקום הוא data-shaar-id של התיבה המרונדרת (בשער ברירת-המחדל: 'theme_default:<ערכה>'),
+    // לא ערך הבורר ('theme_default') - אחרת האיפוס לא מצא את המפתח ולא עשה דבר בשערי ערכה.
+    const renderedBox = document.querySelector(`.theme-bounded-content[data-shaar-type="${shaarType}"]`);
+    const shaarId = (renderedBox && renderedBox.getAttribute('data-shaar-id')) || (sel ? sel.value : 'theme_default');
     if (window.shaarBoxSavedPositions && window.shaarBoxSavedPositions[shaarType]) {
         delete window.shaarBoxSavedPositions[shaarType][shaarId];
     }
+    persistShaarBoxPositions();
     typesetDocument();
 }
 
