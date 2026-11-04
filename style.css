@@ -1661,3 +1661,12 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
 }
 .note-block.continuous-mode .note-line + .note-line { margin-right: 1em; }
 .note-block.continuous-mode .note-line .note-line-num { margin-left: 0; }
+
+/* חיווי עימוד בתהליך (setTypesetBusy / runTypesetWithBusy ב-typesetter.js) */
+body.is-typesetting::after {
+    content: '⏳ מעמד את המסמך…';
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: #fff; padding: 8px 18px; border-radius: 999px;
+    font: 600 13px Assistant, sans-serif; z-index: 100000; box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+body.is-typesetting #btn-retypeset { opacity: .6; pointer-events: none; }

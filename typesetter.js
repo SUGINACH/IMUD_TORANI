@@ -1912,13 +1912,26 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
    10. מנוע העימוד המרכזי (performTypeset)
    ========================================================================== */
 let typesetTimer = null;
+
+/* [בהשראת setTypesetBusy של V20.4] חיווי "מעמד..." כשהעימוד חוסם את הדפדפן (שניות רבות במסמך ארוך).
+   מוצג לפני ההרצה (המתנה לציור פריים) ומוסר בסיומה, גם אם העימוד זרק שגיאה. */
+function setTypesetBusy(busy) {
+    document.body.classList.toggle('is-typesetting', !!busy);
+}
+function runTypesetWithBusy() {
+    setTypesetBusy(true);
+    requestAnimationFrame(() => setTimeout(() => {
+        try { performTypeset(); } finally { setTypesetBusy(false); }
+    }, 0));
+}
+
 function typesetDocument(delay = 0) {
     if (typesetTimer) clearTimeout(typesetTimer);
     if (delay <= 0) {
         performTypeset();
     } else {
         typesetTimer = setTimeout(() => {
-            performTypeset();
+            runTypesetWithBusy();
         }, delay);
     }
 }
