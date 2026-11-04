@@ -1927,6 +1927,36 @@ function typesetDocumentLive(delay = 350) {
     typesetDocument(delay);
 }
 
+/* [הועבר מ-V20.4, הותאם לבסיס] רענון עמודי השער (ראשי / אחורי / משנה) במקום, לפי ההגדרות הנוכחיות — בלי עימוד מחדש של המסמך.
+   בבסיס כל הקלדה בשדה שער הפעילה עימוד מלא (שניות רבות במסמך ארוך). עמודי הגוף נשארים אותם אלמנטים; מאפייני data-* נשמרים.
+   מחזיר true אם נמצא מה לרענן (אחרת על הקורא לעמד מחדש). */
+function refreshCoversInPlace() {
+    const container = document.getElementById('book-container');
+    if (!container || !container.querySelector('.a4-page')) return false;
+    updateStyles();                       // משתני CSS של גופני וגדלי השערים
+    const themeId = document.getElementById('active-theme-select')?.value || 'builtin_1';
+    let found = 0;
+    const swap = (oldPage, build) => {
+        const tmp = document.createElement('div');
+        build(tmp, parseInt(oldPage.getAttribute('data-page-index'), 10) || 1);
+        const fresh = tmp.firstElementChild;
+        if (!fresh) return;
+        for (const a of Array.from(oldPage.attributes)) {
+            if (a.name.startsWith('data-')) fresh.setAttribute(a.name, a.value);
+        }
+        oldPage.replaceWith(fresh);
+        found++;
+    };
+    container.querySelectorAll('.a4-page.main-shaar-page').forEach(p => swap(p, (tmp, idx) => renderMainShaar(tmp, themeId, idx)));
+    container.querySelectorAll('.a4-page.back-shaar-page').forEach(p => swap(p, (tmp, idx) => renderBackShaar(tmp, themeId, idx)));
+    container.querySelectorAll('.a4-page.sub-shaar-page').forEach(p => {
+        const li = p.getAttribute('data-first-line-idx');
+        const tok = (globalTokens || []).find(x => String(x.lineIdx) === String(li) && /^h/.test(x.type));
+        if (tok) swap(p, (tmp, idx) => renderSubShaar(tmp, tok, themeId, idx));
+    });
+    return found > 0;
+}
+
 /* [הועבר מ-V20.4] סוג כותרת עליונה "מילה ראשונה עד אחרונה": בקובץ המקורי האפשרות לא חישבה שום ערך והכותרת נשארה ריקה.
    אחרי שכל העמודים סופיים, לכל עמוד גוף מציבים את המילה הראשונה (תחילת הטור הימני) ואת האחרונה (סוף הטור השמאלי)
    של טקסט הפסקאות, מופרדות במקף: "ראשונה – אחרונה". סימוני הערות ופיסוק בקצה המילה אינם נכללים.

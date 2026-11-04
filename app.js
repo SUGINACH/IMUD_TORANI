@@ -1797,8 +1797,13 @@ function initSettingsChangeListeners() {
 
     settingsPane.addEventListener('input', (e) => {
         const id = e.target.id || '';
-        // שדות מטא-דאטה לשערים מעדכנים תצוגה מיידית
-        if (id.startsWith('inp-book-') || id.startsWith('builder-') || id.startsWith('cbg-')) {
+        // שדות מטא-דאטה לשערים מעדכנים תצוגה מיידית: רענון עמודי השער במקום (בלי עימוד מחדש); רקעים - עימוד חי כמקודם
+        if (id.startsWith('inp-book-') || id.startsWith('builder-')) {
+            if (typeof refreshCoversInPlace === 'function' && refreshCoversInPlace()) {
+                // שם הספר מופיע גם בכותרות העליונות ובתוכן העניינים - דורש עימוד מחדש מפורש
+                if (id === 'inp-book-title' && typeof markPendingChanges === 'function') markPendingChanges();
+            } else if (typeof typesetDocumentLive === 'function') typesetDocumentLive(350);
+        } else if (id.startsWith('cbg-')) {
             if (typeof typesetDocumentLive === 'function') typesetDocumentLive(350);
         } else {
             if (typeof markPendingChanges === 'function') markPendingChanges();
@@ -1807,8 +1812,10 @@ function initSettingsChangeListeners() {
 
     settingsPane.addEventListener('change', (e) => {
         const id = e.target.id || '';
-        // בוררי שערים ורקעים מגיבים מיד
-        if (id.startsWith('select-shaar-') || id === 'active-theme-select' || id.startsWith('cbg-') || id.startsWith('show-')) {
+        // בוררי שערים: רענון במקום; ערכת נושא, רקעים ותצוגת שערים משנים את מבנה העמודים - עימוד חי
+        if (id.startsWith('select-shaar-') && typeof refreshCoversInPlace === 'function' && refreshCoversInPlace()) {
+            /* עמודי השער רועננו */
+        } else if (id.startsWith('select-shaar-') || id === 'active-theme-select' || id.startsWith('cbg-') || id.startsWith('show-')) {
             if (typeof typesetDocumentLive === 'function') typesetDocumentLive(300);
         } else {
             if (typeof markPendingChanges === 'function') markPendingChanges();
