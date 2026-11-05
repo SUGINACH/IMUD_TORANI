@@ -62,18 +62,32 @@ function scopeSvgIds(svg) {
     return out;
 }
 
-/* מחזיר את ה-SVG בלבד: חותך פרולוג <?xml ...?>, DOCTYPE, הערות ורווחים שלפני התג, ומתאים את המזהים */
+/* האם זה סימון "מעורב": רכיב HTML אמיתי (למשל div) שעוטף את ה-svg, ולא קובץ SVG רגיל.
+   פרולוג <?xml ...?>, DOCTYPE והערות שלפני התג אינם נחשבים. דוגמה: עיטור-פינות builtin_3 הוא div שעוטף ארבעה svg של פינות -
+   חיתוך כל מה שלפני ה-svg הראשון מוחק את העטיפה, משאיר </div> יתום ושובר את המבנה שסביבו (בורר השערים, עטיפת רקע השער). */
+function isMixedSvgMarkup(s) {
+    const at = s.search(/<svg\b/i);
+    if (at <= 0) return false;
+    const head = s.slice(0, at)
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<\?[\s\S]*?\?>/g, '')
+        .replace(/<!doctype[^>]*>/gi, '');
+    return /<[a-z]/i.test(head);
+}
+
+/* מחזיר את ה-SVG בלבד: חותך פרולוג <?xml ...?>, DOCTYPE, הערות ורווחים שלפני התג, ומתאים את המזהים.
+   סימון מעורב (ראו isMixedSvgMarkup) מוחזר כמות שהוא */
 function normalizeSvgMarkup(svg) {
     if (!svg || typeof svg !== 'string') return svg || '';
     const at = svg.search(/<svg\b/i);
-    if (at < 0) return svg;
+    if (at < 0 || isMixedSvgMarkup(svg)) return svg;
     return scopeSvgIds(svg.slice(at));
 }
 
 function wrapSvgAsShaarBg(svg) {
     if (!svg) return '';
     if (svg.includes('class="custom-bg-img"')) return svg;
-    if (svg.search(/<svg\b/i) < 0) return svg;
+    if (svg.search(/<svg\b/i) < 0 || isMixedSvgMarkup(svg)) return svg;
     // קובצי SVG רבים מתחילים ב-<?xml ...?> - לפני התיקון הם לא נעטפו, ולכן השער הופיע ריק או בגודל מקורי
     return normalizeSvgMarkup(svg).replace(/<svg\b([^>]*)>/i, '<svg class="custom-bg-img" preserveAspectRatio="none" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5;" $1>');
 }
@@ -610,7 +624,8 @@ function registerExternalHeader(id, svgContent) {
 }
 
 function registerExternalDivider(id, svgContent) {
-    SECTION_DIVIDERS[id] = `<div style="grid-column: 3 / 6; text-align: center; margin: 16px auto 6px auto; max-width: 50%;">${svgContent}</div>`;
+    // העטיפה (sec-divider-wrap) נוספת ב-getSectionDividerHTML; עטיפה נוספת עם max-width:50% כאן כיווצה את המפריד פי שניים וגרמה לגובה כפול
+    SECTION_DIVIDERS[id] = svgContent;
     registerExternalAllOrnament(id, svgContent);
 }
 
