@@ -1524,6 +1524,10 @@ body.hide-shaar-editor .theme-bounded-content { border: none !important; box-sha
     .page-content-wrapper, .shaar-main-content, .sub-shaar-content-centered, .back-shaar-content-centered { height: 100% !important; }
     .shaar-drag-bar, .shaar-resize-handle { display: none !important; }
     .theme-bounded-content { border: none !important; box-shadow: none !important; }
+    /* רקעים וצבעים של העמוד (שערים, מסגרות, ערכות) מודפסים גם כשבחלון ההדפסה לא סומן "גרפיקת רקע" */
+    .a4-page, .a4-page * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    /* העמוד האחרון לא מוסיף מעבר עמוד: אחרת נוסף עמוד ריק בסוף ה-PDF */
+    .a4-page:last-child { page-break-after: auto; break-after: auto; }
 }
 
 /* ==========================================================================
@@ -1579,3 +1583,80 @@ body.is-typesetting, body.is-typesetting * { cursor: progress !important; }
 #app-toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { #app-toast { transition: none; } }
 @media print { #app-toast { display: none !important; } }
+
+/* ==========================================================================
+   עיצוב תוכן העניינים (עמוד התוכן, שורות, נקודות מילוי ומספרי עמודים) - שוחזר מקובץ המקור.
+   בפיצול לקבצים הכללים האלה לא הועתקו, ולכן התוכן הוצג ללא עיצוב.
+   ========================================================================== */
+.toc-page {
+  padding: 15mm 15mm 15mm 15mm;
+}
+.toc-grid-full {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: space-between;
+  flex-grow: 1;
+  width: 100%;
+  max-width: 175mm;
+  margin: 0 auto;
+}
+.toc-entry-group {
+  break-inside: avoid;
+  margin-bottom: 3px;
+}
+.toc-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 2px;
+  font-family: 'David Libre', serif;
+  font-size: 10.5pt;
+}
+.toc-title {
+  flex-shrink: 1;
+  max-width: 84%;
+  font-weight: 600;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  text-align: right;
+  line-height: 1.3;
+}
+.toc-dots {
+  flex-grow: 1;
+  border-bottom: 1px dotted #777;
+  margin: 0 8px;
+  height: 1px;
+  min-width: 25px;
+}
+.toc-page-num {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-family: 'David Libre', serif;
+  font-size: 10.5pt;
+  min-width: 25px;
+  text-align: left;
+}
+
+.toc-lvl-1 { font-size: 12pt; font-weight: 700; margin-top: 8px; margin-bottom: 3px; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
+.toc-lvl-2 { font-size: 11pt; font-weight: 700; margin-top: 5px; padding-right: 8px; }
+.toc-lvl-3 { font-size: 10.5pt; font-weight: 700; padding-right: 16px; }
+.toc-lvl-4 { padding-right: 24px; font-size: 10pt; }
+.toc-lvl-5 { padding-right: 32px; font-size: 9.5pt; }
+.toc-lvl-6 { padding-right: 40px; font-size: 9pt; }
+.toc-lvl-7 { padding-right: 48px; font-size: 8.8pt; }
+
+.toc-grouped-block {
+  padding-right: 30px;
+  font-size: 9pt;
+  color: #222;
+  line-height: 1.5;
+  margin: 2px 0 5px 0;
+  text-align: right;
+  font-family: 'David Libre', serif;
+}
+.grp-item { font-size: inherit; white-space: normal; }
+.grp-title { font-weight: 600; color: #111; }
+.grp-page { font-weight: 700; color: #4a5568 !important; font-family: 'David Libre', serif; }
+.grp-sep { color: #888; margin: 0 6px; font-weight: bold; white-space: nowrap; }
