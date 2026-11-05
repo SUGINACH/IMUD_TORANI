@@ -2042,6 +2042,8 @@ function rebuildHeadingPageMapFromDOM(container, headingPageMap) {
             if (isHeading || isSideNoteP) {
                 seen.add(id);
                 headingPageMap[id] = label;
+                // פסקה עם הערת צד היא יעד קישור בתוכן העניינים אך לא קיבלה מזהה בבנייה - הקישור אליה היה "מת"
+                if (isSideNoteP && !el.id) el.id = 'heading-tok-' + id;
             }
         });
     });
@@ -2060,6 +2062,7 @@ function rebuildHeadingPageMapFromDOM(container, headingPageMap) {
    ========================================================================== */
 let settingsDirty = false;
 let __typesetTimer = null;
+let __typesetSeq = 0;   // מספר בקשת העימוד האחרונה - בקשה ישנה שהמתינה לגופנים מתבטלת כשנכנסה חדשה
 
 const LIVE_COVER_ID_RE = /^(active-theme-select|select-shaar-(main|back|sub)|inp-book-(title|subtitle|desc|sections|author|year)|[fs]-sh-[a-z]+)$/;
 const LIVE_BG_ID_RE = /^cbg-/;
@@ -2154,6 +2157,23 @@ function applyUploadedImageSetting(targetInputId) {
     }
 }
 
+/* ממתין לטעינת הגופנים שנבחרו בלוח (גוף הטקסט, מילה ראשונה). גופן שעוד לא נטען נמדד ברוחב של גופן חלופי,
+   ולכן העימוד הראשון (שרץ מיד אחרי טעינת הדף) יצא שונה מהעימוד שאחרי "עדכן ועמד מחדש". ההמתנה מוגבלת בזמן,
+   כדי שגופן שנכשל בטעינה לא יתקע את העימוד. */
+function ensureFontsLoaded(maxWaitMs) {
+    if (typeof document === 'undefined' || !document.fonts || typeof document.fonts.load !== 'function') return Promise.resolve();
+    const sample = 'אבגדהוזחטיכלמנסעפצקרשת abc 123';
+    const jobs = [];
+    document.querySelectorAll('select.font-picker').forEach(sel => {
+        if (!sel.value) return;
+        ['400', '700'].forEach(w => {
+            try { jobs.push(document.fonts.load(w + ' 16px ' + sel.value, sample).catch(() => {})); } catch (e) { /* ערך גופן לא תקין - מדלגים */ }
+        });
+    });
+    if (!jobs.length) return Promise.resolve();
+    return Promise.race([Promise.all(jobs), new Promise(res => setTimeout(res, maxWaitMs || 6000))]);
+}
+
 /* נקודת הכניסה היחידה לעימוד - כל ה-oninput/onchange בלוח ההגדרות וכפתור העדכון קוראים לה.
    delay (מילישניות) - רק לקריאות מפורשות (כפתור העדכון / טעינה): מצייר "מעמד..." ומעמד אחרי ההשהיה */
 function typesetDocument(delay) {
@@ -2176,10 +2196,14 @@ function typesetDocument(delay) {
     if (typeof delay === 'number' && delay > 0) {
         clearTimeout(__typesetTimer);
         setTypesetBusy(true);
+        const seq = ++__typesetSeq;
         __typesetTimer = setTimeout(() => {
-            requestAnimationFrame(() => setTimeout(() => {
-                try { typesetDocumentNow(); } finally { setTypesetBusy(false); }
-            }, 0));
+            ensureFontsLoaded().then(() => {
+                if (seq !== __typesetSeq) return; // נכנסה בינתיים בקשת עימוד חדשה - היא תעמד (ותכבה את חיווי "מעמד...")
+                requestAnimationFrame(() => setTimeout(() => {
+                    try { typesetDocumentNow(); } finally { setTypesetBusy(false); }
+                }, 0));
+            });
         }, delay);
         return;
     }
@@ -2568,7 +2592,7 @@ function typesetDocumentCore() {
             }
 
             currentH1Title = sec.token.text.split(/[-–—]/)[0].trim();
-            headingPageMap[sec.token.id] = toGematria(pageIndex);
+            headingPageMap[sec.token.id] = getTocPageLabel(pageIndex);
 
             if (enableDetailedTOC) {
                 let inThisH1 = false;
@@ -2616,7 +2640,7 @@ function typesetDocumentCore() {
 
         if (h2Text) {
             currentH2Title = h2Text;
-            headingPageMap[h2Id] = toGematria(pageIndex);
+            headingPageMap[h2Id] = getTocPageLabel(pageIndex);
             resetNoteCounterIfNeeded('footnote', 'siman');
         }
 
