@@ -175,6 +175,7 @@ if (editorElem) {
 
     editorElem.addEventListener('input', () => {
         updateEditorStats();
+        setSettingsDirty(true);   // הטקסט השתנה: העימוד המוצג ישן עד "עדכן ועמד מחדש" (וההדפסה תעמד אוטומטית לפני שהיא יוצאת)
     });
 }
 
@@ -182,11 +183,26 @@ function handleTxtFileImport(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    const applyText = (text) => {
         if (editorElem) {
-            editorElem.value = e.target.result;
+            editorElem.value = text;
             typesetDocument();
         }
+    };
+    reader.onload = function(e) {
+        const text = e.target.result;
+        // קובץ בקידוד Windows-1255 (נפוץ בקובצי טקסט עבריים ישנים) לא נקרא נכון כ-UTF-8 ומתמלא בתווי � - קוראים אותו שוב בקידוד העברי.
+        // מאמצים את הקריאה השנייה רק אם יצאו ממנה אותיות עבריות; אחרת הקובץ היה UTF-8 שמכיל � לגיטימי, ונשאר כמות שהוא.
+        if (typeof text === 'string' && text.indexOf('�') !== -1) {
+            const retry = new FileReader();
+            retry.onload = function(ev) {
+                const t2 = ev.target.result;
+                applyText(/[א-ת]/.test(t2) ? t2 : text);
+            };
+            retry.readAsText(file, 'windows-1255');
+            return;
+        }
+        applyText(text);
     };
     reader.readAsText(file);
     event.target.value = '';
@@ -425,6 +441,11 @@ function validateExtJSON(def, expectedKind) {
     if (!def || typeof def !== 'object') return 'קובץ לא תקין (לא JSON תקין).';
     if (def.kind !== expectedKind) return 'הקובץ אינו מסוג ' + (expectedKind === 'pageType' ? 'סוג עמוד' : 'סגנון טקסט') + ' (kind=' + def.kind + ').';
     if (!def.name) return 'להגדרה שיובאה אין שם (name).';
+    // elements חייב להיות מערך של אובייקטים: ערך אחר (טקסט, אובייקט בודד) מפיל את הקריאות המאוחרות (blankExtPageTypeLines) אחרי שהפאנל כבר נוסף
+    if (expectedKind === 'pageType' && def.elements !== undefined && def.elements !== null &&
+        (!Array.isArray(def.elements) || def.elements.some(el => !el || typeof el !== 'object'))) {
+        return 'בהגדרת סוג העמוד, השדה elements חייב להיות מערך של רכיבים (אובייקטים).';
+    }
     return null;
 }
 
@@ -1094,8 +1115,11 @@ async function loadExternalFonts() {
                         grp.label = 'גופנים מקומיים (תיקיית fonts)';
                         select.prepend(grp);
                     }
+                    const optValue = `'${font.family}', serif`;
+                    // קריאה חוזרת לפונקציה (טעינה נוספת של הגופנים) לא מוסיפה שוב את אותו גופן לרשימה
+                    if (Array.from(grp.querySelectorAll('option')).some(o => o.value === optValue)) return;
                     const opt = document.createElement('option');
-                    opt.value = `'${font.family}', serif`;
+                    opt.value = optValue;
                     opt.textContent = font.family;
                     grp.appendChild(opt);
                 });
@@ -1311,8 +1335,12 @@ function resetShaarCalibration(key) {
 function onH2OrnamentSetChange(val) {
     const topEl = document.getElementById('h2-ornament-top-style');
     const btmEl = document.getElementById('h2-ornament-bottom-style');
-    if (topEl) topEl.value = val;
-    if (btmEl) btmEl.value = val;
+    // "custom" הוא רק סימון ש"למעלה ולמטה שונים" (נקבע ב-onH2IndividualOrnamentChange) ואינו עיטור: אסור להעתיק אותו לבוררים,
+    // אחרת שניהם מתאפסים לערך ריק והעיטורים נעלמים
+    if (val !== 'custom') {
+        if (topEl) topEl.value = val;
+        if (btmEl) btmEl.value = val;
+    }
     refreshVisualPicker('h2-ornament-top-style');
     refreshVisualPicker('h2-ornament-bottom-style');
     typesetDocument();
@@ -1332,8 +1360,10 @@ function onH2IndividualOrnamentChange() {
 function onH3OrnamentSetChange(val) {
     const rEl = document.getElementById('h3-ornament-r');
     const lEl = document.getElementById('h3-ornament-l');
-    if (rEl) rEl.value = val;
-    if (lEl) lEl.value = val;
+    if (val !== 'custom') {   // ראו הסבר ב-onH2OrnamentSetChange
+        if (rEl) rEl.value = val;
+        if (lEl) lEl.value = val;
+    }
     refreshVisualPicker('h3-ornament-r');
     refreshVisualPicker('h3-ornament-l');
     typesetDocument();
