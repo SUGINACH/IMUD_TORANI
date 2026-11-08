@@ -19,28 +19,47 @@ let globalTokens = [];
 function stripEditorialNotes(text) {
     if (!text || typeof text !== 'string')
         return text || '';
-    return text.replace(/##[\s\S]*?##/g, '').replace(/[ \t]{2,}/g, ' ').replace(/\s+([,.:;!?])/g, '$1').trim();
+    // הערת עריכה היא ##...## בתוך אותה פסקה: הסריקה אינה חוצה שורה ריקה (גבול פסקה) ואינה בולעת שורת כותרת.
+    // קודם, הערה שנשכח לסגור התחברה לפתיחה של ההערה הבאה ומחקה בדרך פסקאות וכותרות שלמות; עכשיו סימן ## בודד נשאר בטקסט
+    // (הטעות נראית בעימוד) ואיש אינו מאבד תוכן.
+    // הרווח שלפני פיסוק נמחק רק כשהוא רווח או טאב: \s כלל גם מעבר שורה, ולכן שורה שמתחילה בנקודה או בפסיק התחברה לשורה שלפניה
+    return text
+        .replace(/##(?:[^#\n]|#(?!#)|\n(?![ \t\r]*\n)(?![ \t]*כותרת\s*\d))*?##/g, '')
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/[ \t]+([,.:;!?])/g, '$1')
+        .trim();
 }
 
 /* מספור עמודים משותף - כדי ששער משנה (אם יוגדר להציג מספר) ישתמש
    באותו פורמט/מסגרת/עמוד-התחלה בדיוק כמו עמודי תוכן רגילים */
+/* טקסט מספר העמוד לפי הפורמט ועמוד ההתחלה שבהגדרות, בלי תלות במיקום ובמסגרת.
+   משמש את המספור התחתון, את התוכן ואת האפשרות "מספר עמוד" בכותרת העליונה (שהייתה תמיד באותיות, בלי פורמט ובלי עמוד התחלה) */
+function formatPageNumberText(pNum) {
+    const pageNumFormat = document.getElementById('page-num-format')?.value || 'gematria';
+    // עמוד התחלה שלילי או אפס (הפקד מגביל למינימום 1 רק בחצים, לא בהקלדה) מתקבל כ-1
+    const startIdx = Math.max(1, parseInt(document.getElementById('page-num-start-idx')?.value, 10) || 1);
+    if (!(pNum >= startIdx)) return '';
+    const effectiveNum = pNum - startIdx + 1;
+    if (pageNumFormat === 'gematria') return toGematria(effectiveNum);
+    if (pageNumFormat === 'page_gematria') return 'דף ' + toGematria(effectiveNum);
+    if (pageNumFormat === 'amud_gematria') return 'עמוד ' + toGematria(effectiveNum);
+    if (pageNumFormat === 'numeric') return String(effectiveNum);
+    return '';
+}
+
+/* זוגיות העמוד לפי מונה המספור (אותו מונה שמחליף כותרות עליונות ומוסיף עמוד ריק), כדי שה-CSS (צד המספר החיצוני) וה-JS יסכימו.
+   קודם ה-CSS הסתמך על מקום העמוד ב-DOM, ולכן אחרי מספר אי-זוגי של שערים או אחרי עמוד מיובא (שאינם במספור) הצד התהפך בכל העמודים שאחריהם */
+function markPageParity(pageEl, n) {
+    if (parseInt(n, 10) % 2 === 0) pageEl.setAttribute('data-page-even', '1');
+    else pageEl.removeAttribute('data-page-even');
+}
+
 function formatPageNumberDisplay(pNum) {
     const pageNumPos = document.getElementById('page-num-position')?.value || 'bottom_center';
-    const pageNumFormat = document.getElementById('page-num-format')?.value || 'gematria';
     const pageNumFrame = document.getElementById('page-num-frame')?.value || 'none';
-    const startIdx = parseInt(document.getElementById('page-num-start-idx')?.value, 10) || 1;
 
     let displayPageNum = '';
-    if (pageNumPos !== 'none' && pNum >= startIdx) {
-        const effectiveNum = pNum - startIdx + 1;
-        if (pageNumFormat === 'gematria') {
-            displayPageNum = toGematria(effectiveNum);
-        } else if (pageNumFormat === 'page_gematria') {
-            displayPageNum = 'דף ' + toGematria(effectiveNum);
-        } else if (pageNumFormat === 'numeric') {
-            displayPageNum = String(effectiveNum);
-        }
-    }
+    if (pageNumPos !== 'none') displayPageNum = formatPageNumberText(pNum);
 
     let framedPageNum = displayPageNum;
     if (displayPageNum && pageNumFrame !== 'none') {
@@ -54,6 +73,9 @@ function toGematria(num) {
     num = parseInt(num, 10);
     if (isNaN(num) || num <= 0)
         return "";
+    // מ-1000 ומעלה: האלפים באותיות וגרש (׳) ואחריהם שאר המספר (1000 = א׳, 1234 = א׳רלד). בעבר האלפים נמחקו: 1000 יצא ריק ו-1234 יצא "לד"
+    if (num >= 1000)
+        return toGematria(Math.floor(num / 1000)) + "׳" + toGematria(num % 1000);
     if (num === 15)
         return "טו";
     if (num === 16)
@@ -573,7 +595,7 @@ function buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR
 
     const contextExtra = {
         ...pageContext,
-        pageNum: toGematria(pNum)
+        pageNum: formatPageNumberText(pNum)
     };
 
     // טקסט כותרת עליונה נעטף ב-.hdr-txt: כשהטקסט ארוך מרוחב העמודה הוא נחתך בסופו עם "…" (ולא נחתך בתחילתו
@@ -601,6 +623,7 @@ function createPageLayout(container, h2Text, h2TokenId, pNum, h1Title, h2Title, 
     const page = document.createElement('div');
     page.className = 'a4-page';
     page.setAttribute('data-page-index', String(pNum));
+    markPageParity(page, pNum);
     applyContentBg(page, pageRole || 'regular');
 
     const headerGridHTML = buildHeaderGridHTML(pNum, h1Title, h2Title, h3Title, bookTitle, customR, customC, customL, pageContext, '');
@@ -1685,13 +1708,19 @@ function flushEndnotesForPart(container, pIdx) {
         page.appendChild(wrap);
         container.appendChild(page);
         let fit = 0;
+        // הגבול הוא תחתית אזור התוכן של העמוד (בלי הריפוד התחתון). בעבר נמדד גובה גוף ההערות לבדו מול גובה העמוד,
+        // בלי הריפוד העליון, הכותרת והשוליים שמעל ההערות, ולכן הערות חרגו מהעמוד ונחתכו בתחתיתו ולא הופיעו בשום עמוד
+        const bottomLimit = page.clientHeight - (parseFloat(getComputedStyle(page).paddingBottom) || 0) - 4;
         for (let i = 0; i < remaining.length; i++) {
             const testBlock = buildNoteBlockElement(remaining.slice(0, i + 1), columns);
             wrap.innerHTML = '';
             wrap.appendChild(testBlock);
-            if (wrap.scrollHeight > page.clientHeight - 60 && i > 0) break;
+            if (wrap.offsetTop + wrap.scrollHeight > bottomLimit && i > 0) break;
             fit = i + 1;
         }
+        // בעמוד נשארות רק ההערות שנכנסו; ההערה שחרגה (והייתה נשארת חתוכה כאן) עוברת במלואה לעמוד הבא
+        wrap.innerHTML = '';
+        wrap.appendChild(buildNoteBlockElement(remaining.slice(0, fit), columns));
         remaining = remaining.slice(fit);
         pagesUsed++;
         if (pagesUsed > 200) break;
@@ -1838,6 +1867,7 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
         const page = document.createElement('div');
         page.className = 'a4-page toc-page';
         page.setAttribute('data-page-index', String(pageIndex + pagesCount - 1));
+        markPageParity(page, pageIndex + pagesCount - 1);
         applyContentBg(page, isFirstTOCPage ? 'tocFirst' : 'tocRegular');
         lastRenderedPage = page;
 
@@ -2584,6 +2614,7 @@ function typesetDocumentCore() {
             const subShaarPage = container.lastElementChild;
             if (subShaarPage) {
                 subShaarPage.setAttribute('data-page-index', String(pageIndex));
+                markPageParity(subShaarPage, pageIndex);
                 subShaarPage.setAttribute('data-first-line-idx', String(sec.token.lineIdx));
             }
             recordPageBreak(pageIndex, sec.token.lineIdx);
@@ -2592,6 +2623,8 @@ function typesetDocumentCore() {
             }
 
             currentH1Title = sec.token.text.split(/[-–—]/)[0].trim();
+            // חלק חדש מתחיל בלי כותרות המשנה של החלק הקודם: אחרת חלק שמתחיל בפסקאות (בלי כותרת 2) הציג בכותרת העליונה את כותרת 2 של החלק הקודם
+            currentH2Title = ''; currentH3Title = ''; currentH4Title = '';
             headingPageMap[sec.token.id] = getTocPageLabel(pageIndex);
 
             if (enableDetailedTOC) {
