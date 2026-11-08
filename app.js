@@ -147,7 +147,8 @@ function updateEditorStats() {
     const text = getCleanEditorText();
     const lines = text.split('\n').length;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-    statsEl.textContent = `${lines} שורות | ${words} מילים`;
+    // ביחיד: "שורה אחת" ו"מילה אחת" (קודם: "1 שורות")
+    statsEl.textContent = `${lines === 1 ? 'שורה אחת' : lines + ' שורות'} | ${words === 1 ? 'מילה אחת' : words + ' מילים'}`;
 }
 
 if (editorElem) {
@@ -157,11 +158,35 @@ if (editorElem) {
         configurable: true
     });
 
+    /* הטקסט של הבחירה כפי שהוא באמת בעורך: שורה לכל שורת עורך, בלי חוצצי מעבר עמוד.
+       קודם נלקח sel.toString() ורק הכיתוב "מעבר עמוד — עמוד ..." הוסר, ולכן העתקה שחצתה סימן מעבר עמוד
+       הכניסה ללוח את הסימן "●" ושורה ריקה נוספת. */
+    function selectionToCleanText(range) {
+        const frag = range.cloneContents();
+        frag.querySelectorAll('.page-break-divider').forEach(d => d.remove());
+        const out = [];
+        let inline = '';
+        frag.childNodes.forEach(n => {
+            if (n.nodeType === 1 && n.tagName === 'DIV') {
+                if (inline) { out.push(inline); inline = ''; }
+                out.push(n.textContent.replace(/[\r\n]/g, ''));
+            } else {
+                inline += n.textContent;
+            }
+        });
+        if (inline || !out.length) out.push(inline);
+        return out.join('\n');
+    }
+
     editorElem.addEventListener('copy', (e) => {
         const sel = window.getSelection();
         if (!sel || !sel.rangeCount) return;
-        let text = sel.toString();
-        text = text.replace(/מעבר עמוד — עמוד [^\n\r]+/g, '');
+        let text;
+        try {
+            text = selectionToCleanText(sel.getRangeAt(0));
+        } catch (err) {
+            text = sel.toString().replace(/●?\s*מעבר עמוד — עמוד [^\n\r]+/g, '');
+        }
         e.clipboardData.setData('text/plain', text);
         e.preventDefault();
     });
@@ -1302,7 +1327,10 @@ function saveShaarBoxCalibration(type, box) {
     const m = readBoxMargins(box);
     if (!['top', 'bottom', 'right', 'left'].every(k => isFinite(m[k]))) return;
     const themeId = document.getElementById('active-theme-select')?.value || '';
-    shaarBoxCalib[getShaarCoverKey(type, themeId)] = m;
+    const calKey = getShaarCoverKey(type, themeId);
+    shaarBoxCalib[calKey] = m;
+    // כיוונון ישן של אותו ציור (מפתח בצורה הישנה) מוחלף בחדש ולא נשאר ברשימה כשורה כפולה
+    getShaarCoverKeyAliases(type, themeId).forEach(k => { if (k !== calKey) delete shaarBoxCalib[k]; });
     persistShaarCalibToStorage();
     refreshShaarCalibList();
     showToast('כיוונון תיבת הטקסט נשמר לשער הזה (' + (SHAAR_TYPE_LABELS[type] || type) + ')');

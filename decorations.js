@@ -102,7 +102,21 @@ let shaarBoxCalib = {};   // { 'sub|cover:sub_2': {top,bottom,right,left}, 'main
 
 function getShaarCoverKey(type, themeId) {
     const sel = document.getElementById('select-shaar-' + type)?.value || 'theme_default';
-    return type + '|' + (sel !== 'theme_default' ? 'cover:' + sel : 'theme:' + (themeId || document.getElementById('active-theme-select')?.value || ''));
+    if (sel !== 'theme_default') return type + '|cover:' + sel;
+    const tid = themeId || document.getElementById('active-theme-select')?.value || '';
+    // "לפי ערכה" על ערכה מובנית מציג בדיוק את אותו ציור כמו בחירה מפורשת בו, ולכן מפתח אחד לשניהם.
+    // קודם היו שני מפתחות (theme: ו-cover:) לאותו ציור, וכיוונון שנשמר באחד לא נמצא אחרי מעבר לערכה אחרת וחזרה.
+    if (tid && BUILTIN_SHAAR_THEMES[tid]) return type + '|cover:' + tid;
+    return type + '|theme:' + tid;
+}
+
+/* כל המפתחות שיכולים להחזיק כיוונון לציור הנוכחי: המפתח הנוכחי, ולציור מובנה גם הצורה הישנה (theme:) שנשמרה
+   בתבניות ובדפדפן לפני האיחוד */
+function getShaarCoverKeyAliases(type, themeId) {
+    const key = getShaarCoverKey(type, themeId);
+    const m = key.match(/^([^|]+)\|cover:(.+)$/);
+    if (m && BUILTIN_SHAAR_THEMES[m[2]]) return [key, m[1] + '|theme:' + m[2]];
+    return [key];
 }
 
 function shaarBoxStyleFromMargins(m) {
@@ -110,7 +124,8 @@ function shaarBoxStyleFromMargins(m) {
 }
 
 function applyShaarBoxCalib(type, themeId, defaultStyle) {
-    const cal = shaarBoxCalib[getShaarCoverKey(type, themeId)];
+    const calKey = getShaarCoverKeyAliases(type, themeId).find(k => shaarBoxCalib[k]);
+    const cal = calKey ? shaarBoxCalib[calKey] : null;
     if (!cal) return defaultStyle;
     const ok = ['top', 'bottom', 'right', 'left'].every(k => typeof cal[k] === 'number' && isFinite(cal[k]));
     return ok ? shaarBoxStyleFromMargins(cal) : defaultStyle;
@@ -523,7 +538,13 @@ function renderSubShaar(container, token, themeId) {
     let titleMain = token.text;
     let titleSub = '';
 
-    if (token.text.includes('-') || token.text.includes('–') || token.text.includes('—')) {
+    // המפריד בין כותרת לכותרת משנה הוא המקף הראשון שמוקף ברווחים: מקף בתוך מילה או בתוך טווח ("בן-אדם", "סימנים א-ה") כבר לא מפצל.
+    // כשאין מקף עם רווחים, ההתנהגות הקודמת נשמרת (פיצול בכל מקף).
+    const subSep = token.text.match(/\s[-–—]\s/);
+    if (subSep) {
+        titleMain = token.text.slice(0, subSep.index).trim();
+        titleSub = token.text.slice(subSep.index + subSep[0].length).trim();
+    } else if (token.text.includes('-') || token.text.includes('–') || token.text.includes('—')) {
         const parts = token.text.split(/[-–—]/);
         titleMain = parts[0].trim();
         titleSub = parts.slice(1).join(' - ').trim();

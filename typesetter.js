@@ -1906,7 +1906,7 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
 
             let itemHTML = '';
             if (it.isGroup) {
-                const inlineSpans = it.items.map(grp => `<span class="grp-item grp-lvl-${grp.level}" style="${getTocStyle(grp.level)}"><a href="#heading-tok-${grp.id}" style="text-decoration: none; color: inherit; outline: none;"><span class="grp-title">${grp.text}</span> - <span class="grp-page" data-target-id="${grp.id}"></span></a></span>`).join('<span class="grp-sep">|</span>');
+                const inlineSpans = it.items.map(grp => `<span class="grp-item grp-lvl-${grp.level}" style="${getTocStyle(grp.level)}"><a href="#heading-tok-${grp.id}" style="text-decoration: none; color: inherit; outline: none;"><span class="grp-title">${grp.text}</span> - <span class="grp-page" data-target-id="${grp.id}">${tocHint(grp.id)}</span></a></span>`).join('<span class="grp-sep">|</span>');
                 itemHTML = `<div class="toc-entry-group"><div class="toc-grouped-block">${inlineSpans}</div></div>`;
             } else {
                 itemHTML = `
@@ -1914,7 +1914,7 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
             <a href="#heading-tok-${it.id}" class="toc-item toc-lvl-${it.level}" style="text-decoration: none; color: inherit; outline: none;">
               <span class="toc-title">${it.text}</span>
               <span class="toc-dots"></span>
-              <span class="toc-page-num" data-target-id="${it.id}"></span>
+              <span class="toc-page-num" data-target-id="${it.id}">${tocHint(it.id)}</span>
             </a>
           </div>
         `;
@@ -2053,6 +2053,19 @@ function fitColumnDividers(container) {
 function getTocPageLabel(pNum) {
     const d = formatPageNumberDisplay(pNum).displayPageNum;
     return d || toGematria(pNum);
+}
+
+/* [תיקון] מספרי העמודים בתוכן העניינים מתמלאים רק אחרי שהגוף עומד, כלומר אחרי שהחלוקה לעמודי תוכן כבר נמדדה.
+   בבלוק מקובץ המספר נכנס בתוך הטקסט ויכול להוסיף שורה, והרשומה האחרונה בעמוד ירדה מתחת לאזור התוכן
+   (בבדיקה: 22px בעמוד התוכן הראשון). כשהמילוי מגדיל חריגה של עמוד תוכן (נמדד לפני ואחרי המילוי), העימוד רץ פעם
+   נוספת והמספרים מהריצה הראשונה נכנסים מראש לתוכן העניינים, כך שהמדידה כוללת את רוחבם האמיתי.
+   בלי חריגה אין שום שינוי: אותה ריצה בדיוק, בלי ריצה נוספת. */
+let __tocLabelHints = null;           // { מזהה כותרת: תווית עמוד } מהריצה הקודמת; null בריצה רגילה
+let __lastHeadingPageMap = null;      // מפת הכותרות של הריצה האחרונה (מקור ה"רמזים")
+let __tocFillGrewOverflow = false;    // האם מילוי המספרים הגדיל חריגה של עמוד תוכן עניינים בריצה האחרונה
+function tocHint(id) { return (__tocLabelHints && __tocLabelHints[id]) || ''; }
+function measureTocOverflow() {
+    return Array.from(document.querySelectorAll('.a4-page.toc-page .page-body-flow')).map(f => f.scrollHeight - f.clientHeight);
 }
 
 /* בונה מחדש את מפת "כותרת -> מספר עמוד" לפי מה שנמצא בפועל בעמודים שנוצרו.
@@ -2251,7 +2264,14 @@ function typesetDocumentNow() {
         host.style.transform = 'none';
     }
     try {
-        return typesetDocumentCore();
+        let result = typesetDocumentCore();
+        // מילוי מספרי העמודים בתוכן העניינים הגדיל חריגה של עמוד (ראו __tocLabelHints): ריצה נוספת אחת עם המספרים כבר בפנים
+        if (__tocFillGrewOverflow && !__tocLabelHints && __lastHeadingPageMap) {
+            __tocLabelHints = Object.assign({}, __lastHeadingPageMap);
+            try { result = typesetDocumentCore(); }
+            finally { __tocLabelHints = null; __tocFillGrewOverflow = false; }
+        }
+        return result;
     } finally {
         if (host) {
             host.style.transform = prevTransform;
@@ -2271,6 +2291,7 @@ function printDocument() {
 window.addEventListener('beforeprint', () => { if (settingsDirty) typesetDocumentNow(); });
 
 function typesetDocumentCore() {
+    __tocFillGrewOverflow = false;
     updateGrid();
     updateStyles();
 
@@ -2351,7 +2372,11 @@ function typesetDocumentCore() {
             continue;
         }
 
-        const hMatch = line.match(/^כותרת\s*(\d+).*?[-–—]\s*(.*)$/);
+        // המפריד בין "כותרת N" לטקסט: (1) מקף מיד אחרי המספר, כמו תמיד; (2) כשיש מילה/קטע בין המספר למקף, המקף הראשון שמוקף ברווחים
+        // ("כותרת 3 א-ב - טקסט" נותן "טקסט" ולא "ב - טקסט"); (3) אחרת, המקף הראשון בכל צורה, כמו בכלל הקודם.
+        const hMatch = line.match(/^כותרת\s*(\d+)\s*[-–—]\s*(.*)$/)
+            || line.match(/^כותרת\s*(\d+)\s*[^-–—\s].*?\s[-–—]\s+(.*)$/)
+            || line.match(/^כותרת\s*(\d+).*?[-–—]\s*(.*)$/);
         if (hMatch) {
             const lvl = parseInt(hMatch[1], 10);
             const txt = hMatch[2].trim();
@@ -3290,12 +3315,18 @@ function typesetDocumentCore() {
     // כי כותרת שהוחזרה לעמוד הבא יחד עם הפסקה שאחריה השאירה ברישום את העמוד הישן.
     rebuildHeadingPageMapFromDOM(container, headingPageMap);
 
+    const tocOverflowBefore = measureTocOverflow();
     document.querySelectorAll('.toc-page-num[data-target-id], .grp-page[data-target-id]').forEach(span => {
         const targetId = span.getAttribute('data-target-id');
         if (targetId && headingPageMap[targetId]) {
             span.textContent = headingPageMap[targetId];
+        } else if (__tocLabelHints) {
+            span.textContent = '';   // רמז מהריצה הקודמת שאין לו כותרת מתאימה בריצה הזאת
         }
     });
+    const tocOverflowAfter = measureTocOverflow();
+    __tocFillGrewOverflow = tocOverflowAfter.some((v, i) => v > (tocOverflowBefore[i] || 0) + 1);
+    __lastHeadingPageMap = headingPageMap;
 
     if (typeof updateEditorWithPageBreaks === 'function') {
         updateEditorWithPageBreaks(pageBreaks);
