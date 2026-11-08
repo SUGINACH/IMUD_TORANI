@@ -148,7 +148,19 @@ function updateEditorStats() {
     const lines = text.split('\n').length;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     // ביחיד: "שורה אחת" ו"מילה אחת" (קודם: "1 שורות")
-    statsEl.textContent = `${lines === 1 ? 'שורה אחת' : lines + ' שורות'} | ${words === 1 ? 'מילה אחת' : words + ' מילים'}`;
+    let label = `${lines === 1 ? 'שורה אחת' : lines + ' שורות'} | ${words === 1 ? 'מילה אחת' : words + ' מילים'}`;
+    // שורה שמתחילה ב"כותרת N" ואין בה מקף אחרי המספר אינה כותרת: המנוע מציג אותה כפסקה רגילה, והמשתמש לא היה מקבל שום רמז.
+    const lineList = text.split('\n');
+    let badCount = 0, firstBad = -1;
+    lineList.forEach((l, i) => {
+        const tl = l.trim();   // המנוע מנקה רווחים בקצוות השורה לפני שהוא מזהה כותרת
+        if (/^כותרת\s*\d+/.test(tl) && !/[-–—]/.test(tl)) { badCount++; if (firstBad < 0) firstBad = i + 1; }
+    });
+    if (badCount) label += ` | ⚠ ${badCount === 1 ? 'שורת כותרת אחת' : badCount + ' שורות כותרת'} בלי מקף`;
+    statsEl.textContent = label;
+    statsEl.title = badCount
+        ? `שורה שמתחילה ב"כותרת N" ואין בה מקף אחרי המספר מוצגת כפסקה רגילה, לא ככותרת (למשל "כותרת 2 - סימן א"). השורה הראשונה: ${firstBad}`
+        : '';
 }
 
 if (editorElem) {
