@@ -1841,6 +1841,7 @@ function buildStructuredTOC(tokenList, showLevels, groupLevels) {
 
 function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, pageIndex, curH1, curH2, tocPrefix) {
     if (entries.length === 0) return 0;
+    entries = entries.slice();   // העימוד עשוי לפצל בלוק מקובץ גבוה לשתי רשומות; לא משנים את המערך של הקורא
 
     let pagesCount = 0;
     let currentEntryIdx = 0;
@@ -1858,6 +1859,11 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
         const s = document.getElementById(`s-${tocPrefix}-${level}`);
         if (f && s) return `font-family: ${f.value}; font-size: ${s.value}pt;`;
         return '';
+    }
+
+    function groupBlockHTML(items) {
+        const inlineSpans = items.map(grp => `<span class="grp-item grp-lvl-${grp.level}" style="${getTocStyle(grp.level)}"><a href="#heading-tok-${grp.id}" style="text-decoration: none; color: inherit; outline: none;"><span class="grp-title">${grp.text}</span> - <span class="grp-page" data-target-id="${grp.id}">${tocHint(grp.id)}</span></a></span>`).join('<span class="grp-sep">|</span>');
+        return `<div class="toc-entry-group"><div class="toc-grouped-block">${inlineSpans}</div></div>`;
     }
 
     while (currentEntryIdx < entries.length) {
@@ -1906,8 +1912,7 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
 
             let itemHTML = '';
             if (it.isGroup) {
-                const inlineSpans = it.items.map(grp => `<span class="grp-item grp-lvl-${grp.level}" style="${getTocStyle(grp.level)}"><a href="#heading-tok-${grp.id}" style="text-decoration: none; color: inherit; outline: none;"><span class="grp-title">${grp.text}</span> - <span class="grp-page" data-target-id="${grp.id}">${tocHint(grp.id)}</span></a></span>`).join('<span class="grp-sep">|</span>');
-                itemHTML = `<div class="toc-entry-group"><div class="toc-grouped-block">${inlineSpans}</div></div>`;
+                itemHTML = groupBlockHTML(it.items);
             } else {
                 itemHTML = `
           <div class="toc-entry-group" style="${getTocStyle(it.level)}">
@@ -1932,7 +1937,25 @@ function renderPaginatedTOC(container, entries, titleText, bookTitle, h1Title, p
                     }
                     break;
                 } else {
-                    gridFull.insertAdjacentHTML('beforeend', itemHTML);
+                    // הרשומה לא נכנסת גם בעמוד ריק. בלוק מקובץ (למשל כל הרמות 2-7 מקובצות תחת כותרת חלק) נחתך קודם בתחתית העמוד,
+                    // ומה שמעבר אבד; עכשיו הוא מתפצל בין הפריטים: החלק שנכנס נשאר בעמוד, והשאר ממשיך בעמוד התוכן הבא.
+                    let placedSplit = false;
+                    if (it.isGroup && it.items.length > 1) {
+                        let lo = 1, hi = it.items.length - 1, best = 1;
+                        while (lo <= hi) {
+                            const mid = (lo + hi) >> 1;
+                            gridFull.insertAdjacentHTML('beforeend', groupBlockHTML(it.items.slice(0, mid)));
+                            const fits = bodyFlow.scrollHeight <= maxH;
+                            gridFull.lastElementChild.remove();
+                            if (fits) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+                        }
+                        entries.splice(currentEntryIdx, 1,
+                            { isGroup: true, items: it.items.slice(0, best) },
+                            { isGroup: true, items: it.items.slice(best) });
+                        gridFull.insertAdjacentHTML('beforeend', groupBlockHTML(it.items.slice(0, best)));
+                        placedSplit = true;
+                    }
+                    if (!placedSplit) gridFull.insertAdjacentHTML('beforeend', itemHTML);
                     currentEntryIdx++;
                     break;
                 }
