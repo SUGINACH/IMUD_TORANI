@@ -1669,4 +1669,21 @@ body.is-typesetting::after {
     background: #1e293b; color: #fff; padding: 8px 18px; border-radius: 999px;
     font: 600 13px Assistant, sans-serif; z-index: 100000; box-shadow: 0 4px 14px rgba(0,0,0,.35);
 }
-body.is-typesetting #btn-retypeset { opacity: .6; pointer-events: none; }
+body.is-typesetting [data-retypeset-btn] { opacity: .6; pointer-events: none; }
+
+/* כפתור "החל שינויים" בראש לוח ההגדרות (בהשראת V20.4): מהבהב יחד עם כפתור העדכון שבסרגל כשיש שינויים ממתינים */
+.btn-header-action.btn-apply { background: #0f766e; color: #fff; border-color: #0f766e; font-weight: 700; }
+.btn-header-action.btn-apply.has-pending-changes { background: #b45309; border-color: #b45309; animation: pending-pulse 1.6s ease-in-out infinite; }
+
+/* Toast: הודעות לא חוסמות במקום alert() */
+#app-toast-host { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 100001; pointer-events: none; max-width: min(560px, 92vw); }
+.app-toast { background: #1e293b; color: #fff; padding: 10px 16px; border-radius: 10px; font: 600 13px Assistant, sans-serif; box-shadow: 0 6px 18px rgba(0,0,0,.35); direction: rtl; text-align: right; opacity: 1; transition: opacity .3s, transform .3s; pointer-events: auto; }
+.app-toast-success { background: #166534; }
+.app-toast-error { background: #991b1b; }
+.app-toast-out { opacity: 0; transform: translateY(6px); }
+
+/* רשימת מיקומים שמורים של תיבות שערים */
+.calib-list { display: flex; flex-direction: column; gap: 3px; max-height: 140px; overflow-y: auto; }
+.calib-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 7.6pt; padding: 2px 4px; background: #f1f5f9; border-radius: 4px; }
+.calib-row .btn-tool { font-size: 7pt; padding: 1px 6px; }
+.calib-empty { font-size: 7.4pt; color: #94a3b8; padding: 2px 4px; }

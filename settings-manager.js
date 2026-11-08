@@ -144,7 +144,7 @@ function loadSettingsFromFile(path) {
         })
         .catch(function(e) {
             console.error('שגיאת טעינת הגדרות:', e);
-            alert('שגיאת טעינת הגדרות: ' + e.message);
+            (typeof showToast === 'function' ? showToast('שגיאת טעינת הגדרות: ' + e.message, 'error') : alert('שגיאת טעינת הגדרות: ' + e.message));
         });
 }
 
@@ -244,7 +244,7 @@ function importSettings(event) {
             localStorage.removeItem('selected_style_set'); // נקה סט ידני
             console.log('✓ הגדרות יובאו (' + Object.keys(settings).length + ' ערכים)');
         } catch (err) {
-            alert('שגיאת ייבוא: ' + err.message);
+            (typeof showToast === 'function' ? showToast('שגיאת ייבוא: ' + err.message, 'error') : alert('שגיאת ייבוא: ' + err.message));
         }
     };
     reader.readAsText(file);

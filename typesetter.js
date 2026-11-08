@@ -2059,9 +2059,10 @@ function performTypeset() {
     const fnOpen = document.getElementById('fn-delim-open')?.value?.trim() || '[';
     if (fnOpen) {
         const escO = fnOpen.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-        // הערה שנכתבה (גם בשורה נפרדת) לפני סימן הפתיחה מוצמדת למילה שלפניה — תכונה מכוונת של המנוע:
-        // כך אפשר לכתוב הערה בשורה משלה מתחת לפסקה שאליה היא שייכת.
-        rawText = rawText.replace(new RegExp('\\s+(' + escO + ')', 'g'), '$1');
+        // רווחים (לא מעברי שורה) לפני סימן פתיחת הערה מוצמדים למילה שלפניה.
+        // [Orange, לפי הנחיית המשתמש] הערה בשורה נפרדת אינה קלט תקין: מעבר שורה לפני הערה כבר אינו מאחד את השורות
+        // (קודם הוא צירף פסקה שמתחילה בהערה לכותרת/פסקה שלפניה, ויצר כותרת ענקית שאי אפשר לפצל).
+        rawText = rawText.replace(new RegExp('[^\\S\\r\\n]+(' + escO + ')', 'g'), '$1');
     }
     const autoSimanH2 = document.getElementById('h2-auto-siman')?.checked ?? false;
     const resetSimanOnH1 = document.getElementById('h2-reset-siman')?.checked ?? true;

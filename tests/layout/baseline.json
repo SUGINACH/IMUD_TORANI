@@ -218,11 +218,11 @@
   },
   "synthFnCont-31": {
    "group": "synth",
-   "pages": 20,
+   "pages": 19,
    "total": 0,
    "counts": {},
    "jsErrors": 0,
-   "ms": 2056
+   "ms": 1492
   },
   "synthFnCont-32": {
    "group": "synth",
@@ -234,11 +234,11 @@
   },
   "synthFnBlock-31": {
    "group": "synth",
-   "pages": 20,
+   "pages": 19,
    "total": 0,
    "counts": {},
    "jsErrors": 0,
-   "ms": 1837
+   "ms": 1325
   },
   "synthFnBlock-32": {
    "group": "synth",
@@ -305,5 +305,5 @@
    "ms": 1561
   }
  },
- "updated": "2026-11-02T22:22:38.576Z"
+ "updated": "2026-11-08T22:32:28.365Z"
 }

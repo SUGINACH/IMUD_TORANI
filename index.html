@@ -43,7 +43,7 @@
           <span>עורך תוכן וחלוקת עמודים</span>
         </div>
         <div class="text-actions-bar">
-          <button type="button" id="btn-retypeset" class="btn-tool btn-primary" onclick="runTypesetWithBusy()">⚡ עדכן ועמד מחדש</button>
+          <button type="button" id="btn-retypeset" data-retypeset-btn class="btn-tool btn-primary" onclick="runTypesetWithBusy()">⚡ עדכן ועמד מחדש</button>
           <button type="button" class="btn-tool btn-import" onclick="document.getElementById('file-txt-import').click()">📄 ייבוא טקסט</button>
           <button type="button" class="btn-tool btn-secondary" onclick="window.print()">🖨️ הדפסה / PDF</button>
           <button type="button" id="btn-load-extended-fonts" class="btn-tool btn-secondary" onclick="loadExtendedFonts()">📚 טען גופנים נוספים</button>
@@ -71,6 +71,7 @@
         <div class="settings-top-bar">
           <div class="settings-title">⚙️ הגדרות עימוד</div>
           <div class="settings-quick-actions">
+            <button type="button" id="btn-apply-settings" data-retypeset-btn class="btn-header-action btn-apply" onclick="runTypesetWithBusy()" title="עמד מחדש את המסמך עם ההגדרות הנוכחיות">⚡ החל שינויים</button>
             <button type="button" class="btn-header-action btn-save" onclick="saveAsDefaultTemplate()">💾 שמור תבנית</button>
             <button type="button" class="btn-header-action btn-fonts" onclick="loadSystemFonts()">📂 גופני מחשב</button>
             <button type="button" class="btn-close-settings" onclick="toggleSettingsPane()" title="סגור">✕</button>
@@ -171,6 +172,15 @@
                   <button type="button" class="btn-tool" style="flex:1; font-size:7.2pt; padding:3px;" onclick="resetCurrentShaarBoxPosition('main')">איפוס תיבת ראשי</button>
                   <button type="button" class="btn-tool" style="flex:1; font-size:7.2pt; padding:3px;" onclick="resetCurrentShaarBoxPosition('sub')">איפוס תיבת משנה</button>
                   <button type="button" class="btn-tool" style="flex:1; font-size:7.2pt; padding:3px;" onclick="resetCurrentShaarBoxPosition('back')">איפוס תיבת אחורי</button>
+                </div>
+
+                <!-- רשימת מיקומים שמורים לתיבות הטקסט בשערים -->
+                <div class="panel-sub-header" style="margin-top:8px;">מיקומים שמורים של תיבות בשערים</div>
+                <div style="font-size:7.2pt; color:#64748b; margin-bottom:4px;">נשמרים בדפדפן הזה בלבד. לשימוש קבוע ובמחשבים אחרים — "ייצא לקובצי שערים" ושמירת הקבצים בריפו (שערי ערכה מובנים אינם בקבצי JSON).</div>
+                <div id="shaar-calib-list" class="calib-list"></div>
+                <div style="display:flex; gap:4px; margin-top:4px;">
+                  <button type="button" class="btn-tool" style="flex:1; font-size:7.2pt; padding:3px;" onclick="resetAllShaarBoxPositions()">אפס הכול</button>
+                  <button type="button" class="btn-tool btn-secondary" style="flex:1; font-size:7.2pt; padding:3px;" onclick="exportAllShaarPositions()">💾 ייצא לקובצי שערים</button>
                 </div>
               </div>
 

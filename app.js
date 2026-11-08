@@ -27,21 +27,105 @@ const editorElem = document.getElementById('raw-input');
 let isResizing = false;
 
 /* מבנים גלובליים לתיאום מיקומי שערים ונכסים טעונים */
-window.shaarBoxSavedPositions = window.shaarBoxSavedPositions || { main: {}, back: {}, sub: {} };
+window.shaarBoxSavedPositions = window.shaarBoxSavedPositions || { main: {}, back: {}, sub: {} };   // המיקום האפקטיבי: מיקומי JSON + דריסות המשתמש
+window.shaarBoxJsonPositions = { main: {}, back: {}, sub: {} };   // [Orange] המיקומים המקוריים מקובצי ה-JSON (לשחזור באיפוס)
+window.shaarBoxUserPositions = { main: {}, back: {}, sub: {} };   // [Orange] דריסות המשתמש בדפדפן הזה - אלו נשמרות ב-localStorage
 
-/* [Orange, בהשראת כיול השערים של V20.4] שמירת מיקומי תיבות הטקסט בשערים גם בין ביקורים (localStorage), לפי מזהה השער.
-   המיקומים מוחלים בעת הרינדור (resolveShaarBoxStyle ב-decorations.js); ייצוא ל-JSON נשאר דרך exportShaarJSONWithPositions. */
+/* [Orange, בהשראת כיול השערים של V20.4] שמירת מיקומי תיבות הטקסט בשערים שהמשתמש שינה גם בין ביקורים (localStorage), לפי מזהה השער.
+   המיקום האפקטיבי (shaarBoxSavedPositions) נבנה מהמיקומים שבקובצי ה-JSON ועליהם דריסות המשתמש, ומוחל בעת הרינדור
+   (resolveShaarBoxStyle ב-decorations.js); ייצוא לקבצי JSON נשאר דרך exportShaarJSONWithPositions. */
 const SHAAR_BOX_POS_STORAGE_KEY = 'orange.shaarBoxPositions';
 (function loadPersistedShaarBoxPositions() {
     try {
         const raw = localStorage.getItem(SHAAR_BOX_POS_STORAGE_KEY);
         if (!raw) return;
         const saved = JSON.parse(raw);
-        ['main', 'back', 'sub'].forEach(t => { if (saved && saved[t]) Object.assign(window.shaarBoxSavedPositions[t] = window.shaarBoxSavedPositions[t] || {}, saved[t]); });
+        ['main', 'back', 'sub'].forEach(t => { if (saved && saved[t]) Object.assign(window.shaarBoxUserPositions[t], saved[t]); });
     } catch (e) { /* אחסון חסום או נתון פגום - ממשיכים בלי שמירה */ }
 })();
+function sameShaarBox(a, b) {
+    if (!a || !b) return false;
+    return ['top', 'bottom', 'left', 'right'].every(k => Math.abs(parseFloat(a[k]) - parseFloat(b[k])) < 0.05);
+}
+/* מחיל את דריסות המשתמש על המיקום האפקטיבי. נקרא אחרי טעינת קובצי ה-JSON. דריסה זהה למקור ה-JSON נמחקת (שאריות מגרסה קודמת). */
+function applyUserShaarPositions() {
+    let pruned = false;
+    ['main', 'sub', 'back'].forEach(t => {
+        Object.keys(window.shaarBoxUserPositions[t]).forEach(id => {
+            const orig = window.shaarBoxJsonPositions[t][id];
+            if (orig && sameShaarBox(window.shaarBoxUserPositions[t][id], orig)) { delete window.shaarBoxUserPositions[t][id]; pruned = true; return; }
+            window.shaarBoxSavedPositions[t][id] = window.shaarBoxUserPositions[t][id];
+        });
+    });
+    if (pruned) persistShaarBoxPositions();
+}
+function setUserShaarPosition(type, id, pos) {
+    window.shaarBoxSavedPositions[type] = window.shaarBoxSavedPositions[type] || {};
+    window.shaarBoxSavedPositions[type][id] = pos;
+    window.shaarBoxUserPositions[type][id] = Object.assign({}, pos);
+}
+function clearUserShaarPosition(type, id) {
+    delete window.shaarBoxUserPositions[type][id];
+    const orig = window.shaarBoxJsonPositions[type][id];
+    if (orig) window.shaarBoxSavedPositions[type][id] = orig; else delete window.shaarBoxSavedPositions[type][id];
+}
 function persistShaarBoxPositions() {
-    try { localStorage.setItem(SHAAR_BOX_POS_STORAGE_KEY, JSON.stringify(window.shaarBoxSavedPositions)); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SHAAR_BOX_POS_STORAGE_KEY, JSON.stringify(window.shaarBoxUserPositions)); } catch (e) { /* ignore */ }
+    if (typeof refreshShaarCalibList === 'function') refreshShaarCalibList();
+}
+
+/* [בהשראת רשימת הכיולים של V20.4] רשימת כל מיקומי התיבות השמורים, עם איפוס לכל שער, "אפס הכול" וייצוא לקובצי JSON */
+function shaarCalibLabel(type, id) {
+    const typeLbl = { main: 'ראשי', sub: 'משנה', back: 'אחורי' }[type] || type;
+    if (id.startsWith('theme_default:')) return `${typeLbl} — שער ערכה "${id.slice('theme_default:'.length)}" (בדפדפן בלבד)`;
+    const it = window.loadedShaarItems && window.loadedShaarItems[type] && window.loadedShaarItems[type][id];
+    return `${typeLbl} — ${(it && it.name) || id}`;
+}
+function refreshShaarCalibList() {
+    const host = document.getElementById('shaar-calib-list');
+    if (!host) return;
+    host.innerHTML = '';
+    let n = 0;
+    ['main', 'sub', 'back'].forEach(type => {
+        Object.keys(window.shaarBoxUserPositions[type] || {}).forEach(id => {
+            n++;
+            const row = document.createElement('div');
+            row.className = 'calib-row';
+            row.setAttribute('data-calib-type', type);
+            row.setAttribute('data-calib-id', id);
+            const label = document.createElement('span');
+            label.textContent = shaarCalibLabel(type, id);
+            label.title = JSON.stringify(window.shaarBoxUserPositions[type][id]);
+            const del = document.createElement('button');
+            del.type = 'button'; del.className = 'btn-tool'; del.textContent = 'איפוס';
+            del.onclick = () => deleteShaarBoxPosition(type, id);
+            row.appendChild(label); row.appendChild(del);
+            host.appendChild(row);
+        });
+    });
+    if (!n) host.innerHTML = '<div class="calib-empty">אין מיקומים שמורים</div>';
+}
+function deleteShaarBoxPosition(type, id) {
+    clearUserShaarPosition(type, id);
+    persistShaarBoxPositions();
+    if (!(typeof refreshCoversInPlace === 'function' && refreshCoversInPlace())) typesetDocument();
+}
+function resetAllShaarBoxPositions() {
+    const total = ['main', 'sub', 'back'].reduce((s, t) => s + Object.keys(window.shaarBoxUserPositions[t] || {}).length, 0);
+    if (!total) { showToast('אין מיקומים שמורים לאיפוס.', 'info'); return; }
+    if (!confirm(`לאפס את כל ${total} המיקומים השמורים של תיבות השערים?`)) return;
+    ['main', 'sub', 'back'].forEach(t => Object.keys(window.shaarBoxUserPositions[t]).forEach(id => clearUserShaarPosition(t, id)));
+    persistShaarBoxPositions();
+    if (!(typeof refreshCoversInPlace === 'function' && refreshCoversInPlace())) typesetDocument();
+    showToast('כל המיקומים השמורים אופסו.', 'success');
+}
+function exportAllShaarPositions() {
+    let exported = 0;
+    ['main', 'sub', 'back'].forEach(type => {
+        const ids = Object.keys(window.shaarBoxUserPositions[type] || {}).filter(id => !id.startsWith('theme_default:'));
+        if (ids.length) { exportShaarJSONWithPositions(type); exported++; }
+    });
+    if (!exported) showToast('אין מיקומים של שערי JSON לייצוא (שערי ערכה מובנים נשמרים בדפדפן בלבד).', 'info');
 }
 window.loadedShaarItems = window.loadedShaarItems || { main: {}, back: {}, sub: {} };
 
@@ -111,13 +195,25 @@ function toggleCbgSubRows(role, mode) {
 
 /* סימון ויזואלי של שינויי הגדרות הממתינים לעימוד */
 function markPendingChanges() {
-    const btn = document.getElementById('btn-retypeset');
-    if (btn) btn.classList.add('has-pending-changes');
+    document.querySelectorAll('[data-retypeset-btn]').forEach(b => b.classList.add('has-pending-changes'));
 }
 
 function clearPendingChanges() {
-    const btn = document.getElementById('btn-retypeset');
-    if (btn) btn.classList.remove('has-pending-changes');
+    document.querySelectorAll('[data-retypeset-btn]').forEach(b => b.classList.remove('has-pending-changes'));
+}
+
+/* [בהשראת showToast של V20.4] הודעה לא חוסמת. kind: info | success | error */
+function showToast(message, kind = 'info', ms) {
+    let host = document.getElementById('app-toast-host');
+    if (!host) { host = document.createElement('div'); host.id = 'app-toast-host'; document.body.appendChild(host); }
+    const el = document.createElement('div');
+    el.className = 'app-toast app-toast-' + kind;
+    el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    el.textContent = message;
+    host.appendChild(el);
+    const life = ms || (kind === 'error' ? 6500 : 3500);
+    setTimeout(() => { el.classList.add('app-toast-out'); setTimeout(() => el.remove(), 320); }, life);
+    return el;
 }
 
 /* ==========================================================================
@@ -445,10 +541,9 @@ function initShaarBoxResizer() {
 
         /* שמירה פרטנית ומדויקת לפי מזהה השער הספציפי */
         if (shaarId && window.shaarBoxSavedPositions) {
-            if (!window.shaarBoxSavedPositions[shaarType]) window.shaarBoxSavedPositions[shaarType] = {};
-            window.shaarBoxSavedPositions[shaarType][shaarId] = {
+            setUserShaarPosition(shaarType, shaarId, {
                 top: nTop.toFixed(1), bottom: nBottom.toFixed(1), right: nRight.toFixed(1), left: nLeft.toFixed(1)
-            };
+            });
         }
     });
 
@@ -468,17 +563,15 @@ function resetCurrentShaarBoxPosition(shaarType) {
     // לא ערך הבורר ('theme_default') - אחרת האיפוס לא מצא את המפתח ולא עשה דבר בשערי ערכה.
     const renderedBox = document.querySelector(`.theme-bounded-content[data-shaar-type="${shaarType}"]`);
     const shaarId = (renderedBox && renderedBox.getAttribute('data-shaar-id')) || (sel ? sel.value : 'theme_default');
-    if (window.shaarBoxSavedPositions && window.shaarBoxSavedPositions[shaarType]) {
-        delete window.shaarBoxSavedPositions[shaarType][shaarId];
-    }
+    clearUserShaarPosition(shaarType, shaarId);   // משחזר את מיקום ה-JSON המקורי (אם יש), אחרת חוזר לברירת המחדל
     persistShaarBoxPositions();
-    typesetDocument();
+    if (!(typeof refreshCoversInPlace === 'function' && refreshCoversInPlace())) typesetDocument();
 }
 
 function exportShaarJSONWithPositions(typeKey) {
     const items = window.loadedShaarItems[typeKey];
     if (!items || Object.keys(items).length === 0) {
-        alert('לא נטענו שערים מקובצי JSON עבור סוג זה — אין נתונים לייצוא.');
+        showToast('לא נטענו שערים מקובצי JSON עבור סוג זה — אין נתונים לייצוא.', 'error');
         return;
     }
     const filenameMap = { main: 'shaar_main.json', sub: 'shaar_sub.json', back: 'shaar_back.json' };
@@ -556,7 +649,7 @@ function addNewCustomTheme() {
     const nameInput = document.getElementById('builder-theme-name');
     const name = nameInput?.value.trim();
     if (!name) {
-        alert('אנא הזן שם לערכת הנושא.');
+        showToast('אנא הזן שם לערכת הנושא.', 'error');
         return;
     }
 
@@ -596,7 +689,7 @@ function addNewCustomTheme() {
     const select = document.getElementById('active-theme-select');
     if (select) select.value = themeObj.id;
 
-    alert(`ערכת הנושא "${name}" הוטמעה בהצלחה!`);
+    showToast(`ערכת הנושא "${name}" הוטמעה בהצלחה!`, 'success');
     typesetDocument();
 }
 
@@ -665,9 +758,9 @@ function handlePageTypeImportFile(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         let def;
-        try { def = JSON.parse(e.target.result); } catch (err) { alert('קובץ JSON לא תקין.'); return; }
+        try { def = JSON.parse(e.target.result); } catch (err) { showToast('קובץ JSON לא תקין.', 'error'); return; }
         const errMsg = validateExtJSON(def, 'pageType');
-        if (errMsg) { alert(errMsg); return; }
+        if (errMsg) { showToast(errMsg, 'error'); return; }
         const instanceId = 'ext-pt-' + (extImportCounter++);
         importedPageTypes.push({
             instanceId,
@@ -688,9 +781,9 @@ function handleTextStyleImportFile(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         let def;
-        try { def = JSON.parse(e.target.result); } catch (err) { alert('קובץ JSON לא תקין.'); return; }
+        try { def = JSON.parse(e.target.result); } catch (err) { showToast('קובץ JSON לא תקין.', 'error'); return; }
         const errMsg = validateExtJSON(def, 'textStyle');
-        if (errMsg) { alert(errMsg); return; }
+        if (errMsg) { showToast(errMsg, 'error'); return; }
         const instanceId = 'ext-ts-' + (extImportCounter++);
         const syntheticLevel = (def.trigger && def.trigger.type === 'linePrefix') ? (nextSyntheticLevel++) : null;
         importedTextStyles.push({ instanceId, def, syntheticLevel });
@@ -1109,13 +1202,13 @@ async function loadSystemFonts() {
                     select.appendChild(sysGroup);
                     select.value = currentVal;
                 });
-                alert(`נטענו בהצלחה ${fontFamilies.length} גופנים מהמחשב!`);
+                showToast(`נטענו בהצלחה ${fontFamilies.length} גופנים מהמחשב!`, 'success');
             }
         } catch (err) {
-            alert('לא ניתנה הרשאה לגישה לגופני המחשב.');
+            showToast('לא ניתנה הרשאה לגישה לגופני המחשב.', 'error');
         }
     } else {
-        alert('הדפדפן אינו תומך בגישה ישירה לגופני המערכת. מומלץ להשתמש ב-Chrome או Edge.');
+        showToast('הדפדפן אינו תומך בגישה ישירה לגופני המערכת. מומלץ להשתמש ב-Chrome או Edge.', 'error');
     }
 }
 
@@ -1328,6 +1421,7 @@ async function loadExternalJSONAssets() {
                     if (window.loadedShaarItems) window.loadedShaarItems.main[item.id] = item;
                     if (item.box && window.shaarBoxSavedPositions) {
                         window.shaarBoxSavedPositions.main[item.id] = item.box;
+                        window.shaarBoxJsonPositions.main[item.id] = item.box;
                     }
                     if (setNum) {
                         if (!jsonShaarSets[setNum]) jsonShaarSets[setNum] = {};
@@ -1339,6 +1433,7 @@ async function loadExternalJSONAssets() {
                     if (window.loadedShaarItems) window.loadedShaarItems.sub[item.id] = item;
                     if (item.box && window.shaarBoxSavedPositions) {
                         window.shaarBoxSavedPositions.sub[item.id] = item.box;
+                        window.shaarBoxJsonPositions.sub[item.id] = item.box;
                     }
                     if (setNum) {
                         if (!jsonShaarSets[setNum]) jsonShaarSets[setNum] = {};
@@ -1350,6 +1445,7 @@ async function loadExternalJSONAssets() {
                     if (window.loadedShaarItems) window.loadedShaarItems.back[item.id] = item;
                     if (item.box && window.shaarBoxSavedPositions) {
                         window.shaarBoxSavedPositions.back[item.id] = item.box;
+                        window.shaarBoxJsonPositions.back[item.id] = item.box;
                     }
                     if (setNum) {
                         if (!jsonShaarSets[setNum]) jsonShaarSets[setNum] = {};
@@ -1727,6 +1823,7 @@ window.onload = async function() {
 
     await loadExternalJSONAssets();
     await loadFolderAssetsAndThemes();
+    applyUserShaarPositions();   // [Orange] דריסות המשתמש (localStorage) מעל מיקומי ה-JSON
     // [הועבר מ-v19, תיקון 2026-10-16] loadExternalFonts טוען 1,754 גופנים אחד-אחד; המתנה לו חסמה את העימוד
     // הראשון (מעל דקה). מריצים ברקע - בוררי הגופנים מתעדכנים תוך כדי.
     loadExternalFonts();
@@ -1785,6 +1882,7 @@ window.onload = async function() {
     typesetDocument();
     initVisualPickers();
     // [Orange] סימון סיום אתחול — הבדיקות האוטומטיות ממתינות לו (במקום להמתין זמן קבוע)
+    if (typeof refreshShaarCalibList === 'function') refreshShaarCalibList();
     window.__appReady = true;
 };
 
@@ -1833,7 +1931,7 @@ let _extendedFontsLoaded = false;
 
 async function loadExtendedFonts() {
     if (_extendedFontsLoaded) {
-        alert('רשימה 2 של הגופנים כבר נטענה.');
+        showToast('רשימה 2 של הגופנים כבר נטענה.', 'info');
         return;
     }
     const btn = document.getElementById('btn-load-extended-fonts');
@@ -1889,7 +1987,7 @@ async function loadExtendedFonts() {
             btn.disabled = false;
             btn.textContent = '📚 טען גופנים נוספים';
         }
-        alert('טעינת רשימה 2 נכשלה. בדוק את הקונסול לפרטים.');
+        showToast('טעינת רשימה 2 נכשלה. בדוק את הקונסול לפרטים.', 'error');
     }
 }
 window.loadExtendedFonts = loadExtendedFonts;
@@ -1898,7 +1996,7 @@ window.loadExtendedFonts = loadExtendedFonts;
 async function exportRenderedHTML() {
     const bookContainer = document.getElementById('book-container');
     if (!bookContainer) {
-        alert('אין מסמך מרונדר. הרץ עימוד קודם.');
+        showToast('אין מסמך מרונדר. הרץ עימוד קודם.', 'error');
         return;
     }
 
@@ -2137,7 +2235,7 @@ if (document.fonts && document.fonts.ready) {
             btn.textContent = '💾 ייצוא HTML';
             btn.disabled = false;
         }
-        alert('ייצוא HTML נכשל: ' + e.message);
+        showToast('ייצוא HTML נכשל: ' + e.message, 'error');
     }
 }
 window.exportRenderedHTML = exportRenderedHTML;
