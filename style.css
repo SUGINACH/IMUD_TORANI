@@ -934,7 +934,7 @@ body {
     height: 26px;
     flex-shrink: 0;
     width: 100%;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid var(--hdr-divider-color, rgba(0, 0, 0, 0.06));
     padding-bottom: 3px;
     margin-bottom: 4px;
     box-sizing: border-box;
@@ -1311,6 +1311,8 @@ p.p-cut { text-align-last: justify; }
 .note-rule-decorative { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; width: 100%; }
 .note-rule-decorative .rule-seg { flex: 1; height: 1px; background: #555; }
 .note-rule-decorative .rule-glyphs { font-size: 9px; letter-spacing: 3px; color: #555; white-space: nowrap; }
+.note-rule-decorative .rule-glyphs-markup { display: inline-flex; align-items: center; }
+.note-rule-decorative .rule-glyphs-markup svg { height: 14px; width: auto; max-width: 90px; }
 
 .note-block { font-size: 8.5pt; line-height: 1.45; }
 .note-block.cols-2 { column-count: 2; column-gap: 16px; column-rule: 1px solid #e2e8f0; }
@@ -1639,6 +1641,7 @@ body.is-typesetting, body.is-typesetting * { cursor: progress !important; }
   text-align: left;
 }
 
+.toc-lvl-0 { font-size: 12.5pt; font-weight: 700; margin-top: 8px; margin-bottom: 3px; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
 .toc-lvl-1 { font-size: 12pt; font-weight: 700; margin-top: 8px; margin-bottom: 3px; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
 .toc-lvl-2 { font-size: 11pt; font-weight: 700; margin-top: 5px; padding-right: 8px; }
 .toc-lvl-3 { font-size: 10.5pt; font-weight: 700; padding-right: 16px; }

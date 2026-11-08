@@ -2072,8 +2072,9 @@ function rebuildHeadingPageMapFromDOM(container, headingPageMap) {
             if (isHeading || isSideNoteP) {
                 seen.add(id);
                 headingPageMap[id] = label;
-                // פסקה עם הערת צד היא יעד קישור בתוכן העניינים אך לא קיבלה מזהה בבנייה - הקישור אליה היה "מת"
-                if (isSideNoteP && !el.id) el.id = 'heading-tok-' + id;
+                // כותרת או פסקה עם הערת צד הן יעד קישור בתוכן העניינים, אך חלקן לא קיבלו מזהה בבנייה
+                // (הערות צד, וכותרות בתוך עמודי הקדמה) - הקישור אליהן היה "מת"
+                if (!el.id) el.id = 'heading-tok-' + id;
             }
         });
     });

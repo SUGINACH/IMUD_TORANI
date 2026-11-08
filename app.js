@@ -940,14 +940,21 @@ async function loadExternalJSONAssets() {
         { file: 'ornaments_up_down.json', type: 'ornaments_ud' }
     ];
 
+    const assetLoadProblems = [];
     for (const asset of assetsToLoad) {
         try {
             const response = await fetch(asset.file);
-            if (!response.ok) continue;
+            if (!response.ok) {
+                // קובץ אופציונלי שאינו קיים (404) אינו תקלה; שגיאה אחרת נרשמת
+                if (response.status !== 404) assetLoadProblems.push(asset.file + ': HTTP ' + response.status);
+                continue;
+            }
             const items = await response.json();
             if (!Array.isArray(items)) continue;
 
             items.forEach(item => {
+              // פריט פגום אחד (למשל בלי מזהה) לא מפיל את שאר הפריטים בקובץ
+              try {
                 const setNum = detectThemeSetKey(item);
                 const rawSvg = item.svg || item.svgContent || item.content || item.svgData || item.data || '';
 
@@ -996,8 +1003,22 @@ async function loadExternalJSONAssets() {
                     appendOptionToSelect('h2-ornament-top-style', item.id, item.name, 'עיטורים עליונים מ-JSON', 'h2-top-json-optgroup');
                     appendOptionToSelect('h2-ornament-bottom-style', item.id, item.name, 'עיטורים תחתונים מ-JSON', 'h2-btm-json-optgroup');
                 }
+              } catch (itemErr) {
+                  assetLoadProblems.push(asset.file + ': פריט ' + (item && item.id ? '"' + item.id + '"' : '(בלי מזהה)') + ' דולג (' + (itemErr && itemErr.message) + ')');
+              }
             });
-        } catch (e) {}
+        } catch (e) {
+            assetLoadProblems.push(asset.file + ': ' + (e && e.message ? e.message : 'לא נטען'));
+        }
+    }
+
+    // קובצי הנכסים לא נטענו (למשל כשפותחים את index.html ישירות מהדיסק, ו-Chrome חוסם fetch של קבצים מקומיים): בלי הודעה
+    // המשתמש רואה בוררים ריקים ולא יודע למה
+    if (assetLoadProblems.length) {
+        console.warn('נכסי JSON שלא נטענו או דולגו:', assetLoadProblems);
+        if (location.protocol === 'file:') {
+            showToast('קובצי ה-JSON של השערים והעיטורים לא נטענו: הדף נפתח ישירות מהדיסק. יש לפתוח אותו דרך שרת (למשל GitHub Pages או שרת מקומי).');
+        }
     }
 
     Object.keys(jsonShaarSets).sort((a, b) => {
@@ -1058,7 +1079,14 @@ function syncThemeToIndividualShaars() {
 function appendOptionToSelect(selectId, value, text, groupLabel, optgroupId) {
     const select = document.getElementById(selectId);
     if (!select) return;
-    if (select.querySelector(`option[value="${value}"]`)) return;
+    // בדיקה בלי בורר CSS: מזהה עם מרכאה כפולה זרק כאן שגיאה ובלע את שאר הפריטים בקובץ.
+    const existing = Array.from(select.options).find(o => o.value === value);
+    if (existing) {
+        // מזהה שכבר קיים (למשל מזהה מובנה שקובץ JSON רשם עליו עיצוב חדש): התווית מתעדכנת לשם החדש,
+        // כדי שהמשתמש לא יראה תווית ישנה ויקבל עיצוב חדש
+        if (text && existing.textContent !== text) existing.textContent = text;
+        return;
+    }
 
     let optgroup = optgroupId ? document.getElementById(optgroupId) : select.querySelector(`optgroup[label="${groupLabel}"]`);
     if (!optgroup) {
@@ -1518,15 +1546,18 @@ function refreshVisualPicker(selectId) {
     const drop = document.getElementById('vp-drop-' + selectId);
     if (drop) {
         let cardsHTML = '';
+        // הערך והשם נכנסים ל-HTML אחרי מילוט: ערך עם גרש או מרכאה כפולה שבר את מאפיין ה-onclick (הלחיצה זרקה Invalid or unexpected token),
+        // והערך נקרא עכשיו מ-data-val ולא מוטבע בתוך מחרוזת הקוד
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         Array.from(select.options).forEach(opt => {
             const isSel = (opt.value === curVal);
             const prevHTML = getItemPreviewHTML(selectId, opt.value, opt.textContent);
             cardsHTML += `
         <div class="visual-card ${isSel ? 'selected' : ''} ${isShaar ? 'shaar-card' : 'ornament-card'}"
-             data-val="${opt.value}"
-             onclick="selectVisualPickerItem('${selectId}', '${opt.value}')">
+             data-val="${esc(opt.value)}"
+             onclick="selectVisualPickerItem('${selectId}', this.dataset.val)">
           <div class="visual-card-preview">${prevHTML}</div>
-          <div class="visual-card-name" title="${opt.textContent}">${opt.textContent}</div>
+          <div class="visual-card-name" title="${esc(opt.textContent)}">${esc(opt.textContent)}</div>
           ${isSel ? '<div class="visual-card-check">✓</div>' : ''}
         </div>
       `;

@@ -316,7 +316,14 @@ function buildNoteRuleElement() {
     segR.className = 'rule-seg';
     const mid = document.createElement('span');
     mid.className = 'rule-glyphs';
-    mid.textContent = NOTE_RULE_GLYPHS[style] || '';
+    const glyph = NOTE_RULE_GLYPHS[style] || '';
+    if (/<[a-z]/i.test(glyph)) {
+        // מפריד שנרשם מקובץ JSON כ-SVG (או סימון אחר) מוצג כציור, כמו בכרטיס הבורר, ולא כמחרוזת סימון גולמית
+        mid.innerHTML = normalizeSvgMarkup(glyph);
+        mid.classList.add('rule-glyphs-markup');
+    } else {
+        mid.textContent = glyph;
+    }
     const segL = document.createElement('span');
     segL.className = 'rule-seg';
     rule.appendChild(segR);

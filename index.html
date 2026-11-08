@@ -235,6 +235,75 @@
               <label>שקיפות תמונה:</label>
               <input type="range" id="cbg-h2Open-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument(300)">
             </div>
+
+            <div class="inline-cfg-row">
+              <label>עמוד ראשון בתוכן העניינים:</label>
+              <select id="cbg-tocFirst-mode" style="flex:1;" onchange="toggleCbgSubRows('tocFirst', this.value); typesetDocument();">
+                <option value="none" selected="selected">ללא (ברירת מחדל)</option>
+                <option value="color">צבע רקע אחיד</option>
+                <option value="texture">מרקם עדין</option>
+                <option value="image">תמונה מותאמת אישית</option>
+              </select>
+            </div>
+            <div class="inline-cfg-row" id="row-cbg-tocFirst-color" style="display:none;">
+              <label>צבע:</label>
+              <input type="color" id="cbg-tocFirst-color" value="#f4f1e8" onchange="typesetDocument()">
+            </div>
+            <div class="inline-cfg-row" id="row-cbg-tocFirst-img" style="display:none;">
+              <label>קובץ:</label>
+              <input type="file" id="file-cbg-tocFirst-img" accept="image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-cbg-tocFirst-img')">
+              <input type="hidden" id="data-cbg-tocFirst-img" value="">
+            </div>
+            <div class="inline-cfg-row" id="row-cbg-tocFirst-op" style="display:none;">
+              <label>שקיפות תמונה:</label>
+              <input type="range" id="cbg-tocFirst-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument(300)">
+            </div>
+
+            <div class="inline-cfg-row">
+              <label>עמוד רגיל בתוכן העניינים:</label>
+              <select id="cbg-tocRegular-mode" style="flex:1;" onchange="toggleCbgSubRows('tocRegular', this.value); typesetDocument();">
+                <option value="none" selected="selected">ללא (ברירת מחדל)</option>
+                <option value="color">צבע רקע אחיד</option>
+                <option value="texture">מרקם עדין</option>
+                <option value="image">תמונה מותאמת אישית</option>
+              </select>
+            </div>
+            <div class="inline-cfg-row" id="row-cbg-tocRegular-color" style="display:none;">
+              <label>צבע:</label>
+              <input type="color" id="cbg-tocRegular-color" value="#f4f1e8" onchange="typesetDocument()">
+            </div>
+            <div class="inline-cfg-row" id="row-cbg-tocRegular-img" style="display:none;">
+              <label>קובץ:</label>
+              <input type="file" id="file-cbg-tocRegular-img" accept="image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-cbg-tocRegular-img')">
+              <input type="hidden" id="data-cbg-tocRegular-img" value="">
+            </div>
+            <div class="inline-cfg-row" id="row-cbg-tocRegular-op" style="display:none;">
+              <label>שקיפות תמונה:</label>
+              <input type="range" id="cbg-tocRegular-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument(300)">
+            </div>
+
+            <div class="inline-cfg-row">
+              <label>עמוד אחרון בתוכן העניינים:</label>
+              <select id="cbg-tocLast-mode" style="flex:1;" onchange="toggleCbgSubRows('tocLast', this.value); typesetDocument();">
+                <option value="none" selected="selected">ללא (ברירת מחדל)</option>
+                <option value="color">צבע רקע אחיד</option>
+                <option value="texture">מרקם עדין</option>
+                <option value="image">תמונה מותאמת אישית</option>
+              </select>
+            </div>
+            <div class="inline-cfg-row" id="row-cbg-tocLast-color" style="display:none;">
+              <label>צבע:</label>
+              <input type="color" id="cbg-tocLast-color" value="#f4f1e8" onchange="typesetDocument()">
+            </div>
+            <div class="inline-cfg-row" id="row-cbg-tocLast-img" style="display:none;">
+              <label>קובץ:</label>
+              <input type="file" id="file-cbg-tocLast-img" accept="image/*" style="flex:1; font-size:8pt;" onchange="handleImageUpload(event, 'data-cbg-tocLast-img')">
+              <input type="hidden" id="data-cbg-tocLast-img" value="">
+            </div>
+            <div class="inline-cfg-row" id="row-cbg-tocLast-op" style="display:none;">
+              <label>שקיפות תמונה:</label>
+              <input type="range" id="cbg-tocLast-opacity" min="0" max="100" value="15" style="flex:1;" oninput="typesetDocument(300)">
+            </div>
           </div>
 
           <!-- פאנל 2: ערכת נושא חדשה -->
@@ -725,6 +794,14 @@
               <label>מרכז:</label><input type="text" id="hdr-w-c" value="33.34%" oninput="typesetDocument(400)">
               <label>שמאל:</label><input type="text" id="hdr-w-l" value="33.33%" oninput="typesetDocument(400)">
             </div>
+            <div class="inline-cfg-row">
+              <label>קו מתחת לכותרת העליונה:</label>
+              <select id="hdr-divider-style" style="flex:1;" onchange="typesetDocument()">
+                <option value="gray" selected="selected">אפור עדין (ברירת מחדל)</option>
+                <option value="black">שחור</option>
+                <option value="none">ללא קו</option>
+              </select>
+            </div>
 
             <!-- 1. ימין -->
             <div style="font-weight:700; font-size:8pt; margin-bottom:2px;">1. מעל הטור הימני:</div>
@@ -852,6 +929,7 @@
                 <tr><th>רמה</th><th>הצג</th><th>קיבוץ</th><th>גופן</th><th>גודל</th></tr>
               </thead>
               <tbody>
+                <tr><td>כותרת 0 (הקדמה)</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="0" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="0" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-0" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-0" class="size-input" value="12" oninput="typesetDocument(400)"></td></tr>
                 <tr><td>כותרת 1</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="1" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="1" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-1" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-1" class="size-input" value="12" oninput="typesetDocument(400)"></td></tr>
                 <tr><td>כותרת 2</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="2" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="2" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-2" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-2" class="size-input" value="11" oninput="typesetDocument(400)"></td></tr>
                 <tr><td>כותרת 3</td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-show" value="3" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="gtoc-grp" value="3" checked="checked" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-gtoc-3" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-gtoc-3" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
@@ -872,6 +950,7 @@
                 <tr><th>רמה</th><th>הצג</th><th>קיבוץ</th><th>גופן</th><th>גודל</th></tr>
               </thead>
               <tbody>
+                <tr><td>כותרת 0 (הקדמה)</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="0" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="0" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-0" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-0" class="size-input" value="12" oninput="typesetDocument(400)"></td></tr>
                 <tr><td>כותרת 1</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="1" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="1" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-1" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-1" class="size-input" value="12" oninput="typesetDocument(400)"></td></tr>
                 <tr><td>כותרת 2</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="2" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="2" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-2" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-2" class="size-input" value="11" oninput="typesetDocument(400)"></td></tr>
                 <tr><td>כותרת 3</td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-show" value="3" checked="checked" onchange="typesetDocument()"><span class="cell-box">הצג</span></label></td><td><label class="btn-toggle-cell"><input type="checkbox" class="dtoc-grp" value="3" onchange="typesetDocument()"><span class="cell-box">קבץ</span></label></td><td><select id="f-dtoc-3" class="font-picker" onchange="typesetDocument()"></select></td><td><input type="number" id="s-dtoc-3" class="size-input" value="10.5" oninput="typesetDocument(400)"></td></tr>
@@ -943,6 +1022,23 @@
             <div class="inline-cfg-row">
               <label>עמוד תחילת מספור:</label>
               <input type="number" id="page-num-start-idx" value="1" min="1" class="size-input" title="העמוד שממנו מתחיל המספור" oninput="typesetDocument(400)">
+            </div>
+            <div class="inline-cfg-row">
+              <label title="שער שמסומן כאן נחשב עמוד במספור: מונה העמודים (וזוגיות העמודים, צד המספר והכותרות המתחלפות) מתקדם אחריו">שערים שנספרים במספור:</label>
+            </div>
+            <div class="toggle-buttons-group">
+              <label class="btn-toggle" title="השער הראשי נחשב עמוד במספור">
+                <input type="checkbox" id="main-shaar-count-numbering" onchange="typesetDocument()">
+                <span class="btn-toggle-box"><span class="check-icon">✓</span>שער ראשי</span>
+              </label>
+              <label class="btn-toggle" title="השער האחורי (גב) נחשב עמוד במספור">
+                <input type="checkbox" id="back-shaar-count-numbering" onchange="typesetDocument()">
+                <span class="btn-toggle-box"><span class="check-icon">✓</span>שער אחורי</span>
+              </label>
+              <label class="btn-toggle" title="שער משנה נחשב עמוד במספור">
+                <input type="checkbox" id="sub-shaar-count-numbering" onchange="typesetDocument()">
+                <span class="btn-toggle-box"><span class="check-icon">✓</span>שער משנה</span>
+              </label>
             </div>
           </div>
         </div>
